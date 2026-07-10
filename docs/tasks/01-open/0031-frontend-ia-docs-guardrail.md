@@ -1,0 +1,141 @@
+# Task 0031: Frontend IA — Docs Guide + No-New-Leaf Guardrail (S10)
+
+> **Status**: `[ ]` Open
+> **Priority**: 🟡 P1
+> **Type**: `governance`
+> **Origin**: Epic 0005 — Frontend IA Reform (slice **S10**)
+> **Action type**: HARDEN
+> **Blocks**: none (epic closeout hygiene)
+> **Depends on**: Task 0025 preferred (document the **actual** 7-pillar tree); can draft earlier but **must finalize after** S6 lands
+> **Parallel group**: C (after group B)
+
+---
+
+## Objective
+
+Publish a short **UI / IA engineering guide** that permanently bans the feature→sidebar reflex:
+
+1. Create `docs/guides/UI.md` (or `docs/architecture/UI_IA.md` if guides layout differs — **verify path with live `docs/guides/` listing**; prefer guides).
+2. Rules (must appear verbatim or equivalent):
+   - **No new default-visible sidebar leaf** without pillar mapping + note on Epic 0005 / successor.
+   - Strategies / engines / presets are **not** menus.
+   - Event tables are **one stream + filters**.
+   - Presets are **role views**, not architecture.
+   - Capabilities are re-homed; **archive-not-delete** via `.archive/` + provenance.
+3. Point to shared primitives: EmptyState, SettingsToggleRow, StatCard, Toggle/Badge/Modal policy.
+4. Archive or clearly supersede stale `DESING.md` if present (typo design doc) — do not leave two competing SSoTs; `design.md` remains design-token authority.
+5. Cross-link from Epic 0005 and optionally `AGENTS.md` / `CLAUDE.md` “Common modification” one-liner if appropriate (minimal edit).
+
+## Background Context
+
+### What already exists:
+- Epic 0005 full diagnosis + Wave 1 progress
+- Guardrail comment in `sidebarVisibility.ts` (Task 0020)
+- `.archive/README.md` archive policy
+- `design.md` token/primitives plan
+- Possibly stale `DESING.md` (typo) — verify with filesystem at execution time
+
+### What is missing:
+- Operator/agent-facing guide in `docs/` that CI/doc accuracy discipline can reference
+- Explicit ban language for future Fusion / feature work
+- Post-S6 tree description matching live pillars
+
+---
+
+## Test Requirements
+
+- MUST create the guide with the five rules above
+- MUST link to real paths only (Doc Accuracy: `grep` / list dirs — no fabricated components)
+- MUST NOT invent APIs, routes, or env vars not in code
+- MUST run `npm run check:fabricated-docs` or the project’s docs accuracy script if the new guide would be scanned — fix any fabricated refs
+- MUST mark DESING.md archived/superseded if it exists
+- Guide line count: prefer short (**~80–200 lines**), 100% accurate over encyclopedic
+
+---
+
+## Exit Conditions (GDD/TDD)
+
+- [ ] `docs/guides/UI.md` (or agreed path) exists with IA + primitives rules
+- [ ] Five epic invariants documented
+- [ ] Seven pillars listed matching Task 0025 outcome (or interim tree if S6 partial — must match live `SIDEBAR_SECTIONS`)
+- [ ] Archive policy linked to `.archive/README.md`
+- [ ] `design.md` referenced as token SSoT; `DESING.md` archived/superseded if present
+- [ ] Doc accuracy check run (script name + result in evidence)
+- [ ] Epic 0005 child/docs section points to the guide
+- [ ] Optional: one-line pointer from AGENTS.md Common scenarios (only if low-churn)
+- [ ] CHANGELOG.md entry (docs)
+- [ ] No fabricated route/component names
+
+---
+
+## Details
+
+### What
+
+Subtasks:
+- [ ] **Ler código existente**: Epic 0005, Task 0020 comment, post-S6 `SIDEBAR_SECTIONS`, `design.md`, list `docs/guides/`, check for `DESING.md`, Wave 1 component paths
+- [ ] **Draft UI.md** with rules, pillar table, primitive adoption table, archive policy, anti-patterns
+- [ ] **Supersede DESING.md** if found (move to `.archive/docs/` with provenance or add banner)
+- [ ] **Run fabricated-docs / docs-sync checks** applicable
+- [ ] **Link from Epic 0005**
+- [ ] **Verificação**: links resolve; script green
+
+### Where
+
+| File | Purpose |
+|------|---------|
+| `docs/guides/UI.md` | Create — primary guide |
+| `design.md` | Read — token SSoT |
+| `DESING.md` | Archive/supersede if exists |
+| `docs/tasks/00-planning/0005-…-epic.md` | Modify — link guide |
+| `src/shared/constants/sidebarVisibility.ts` | Read — live pillars |
+| `.archive/README.md` | Link |
+| `AGENTS.md` / `CLAUDE.md` | Optional one-line |
+| `CHANGELOG.md` | Docs entry |
+
+### How
+
+1. After S6, dump pillar ids/titles from code into the guide table.
+2. Write short anti-pattern section quoting “hide 60% ⇒ menu wrong”.
+3. List approved mid-layer primitives with import paths.
+4. Run docs accuracy gates; fix any invented names.
+5. Epic link + CHANGELOG.
+
+### Why
+
+Without S10, the next feature campaign relearns the dump. Governance comments in code help agents in-file; a `docs/guides` entry helps humans and PR review.
+
+---
+
+## ⛔ Anti-Hallucination Guardrails
+
+> [!CAUTION]
+> DO NOT document components/routes that `grep` cannot find.
+> DO NOT write line counts or provider counts from memory.
+> DO NOT finalize pillar table before Task 0025 if the tree will still change — draft OK, finalize after.
+
+> [!IMPORTANT]
+> Prefer short accurate docs (project Doc Accuracy Discipline).
+> `design.md` remains design-token authority; this guide is **IA + adoption** authority.
+> Archive-not-delete applies to docs moves too.
+
+---
+
+## 🛡️ Compliance Checklist
+
+- [ ] **Doc Accuracy** gate run
+- [ ] **Live tree** matches pillar docs
+- [ ] **Archive** for DESING if needed
+- [ ] **CHANGELOG**
+
+---
+
+## 📋 Completion Evidence (preenchido pelo agente executor)
+
+- **Arquivos criados/modificados**: [lista]
+- **Guide path**: [path]
+- **Doc accuracy command + result**: [cmd]
+- **DESING.md disposition**: [n/a | archived path]
+- **CHANGELOG**: [ref]
+- **Agente executor**: [nome]
+- **Data de conclusão**: [YYYY-MM-DD]

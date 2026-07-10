@@ -383,22 +383,68 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 
 **Sidebar leaf count (default tree):** ~67 (was ~81). Delta ≈ −14 leaves (5 analytics dual-nav + 9 compression engines).
 
-## 11. Child tasks (to open later)
+## 11. Child tasks (Task NNNN tree)
 
-Suggested IDs after current open lane:
+> Promoted 2026-07-10 by GT-TASK-ARCHITECT. Wave 1 → `04-completed/`; remaining → `01-open/`.
+> Numbering: Fusion used 0010–0018; Frontend IA uses **0020–0031**.
 
-| Future task (slug) | Slice |
-|--------------------|-------|
-| `frontend-ia-no-new-leaf-guardrail` | S0 |
-| `ui-toggle-row-and-statcard-consolidation` | S1 |
-| `analytics-kill-dual-nav` | S2 |
-| `compression-sidebar-collapse` | S3 |
-| `observe-unified-event-stream` | S4 |
-| `sidebar-seven-pillars-rebuild` | S6 |
-| `sidebar-i18n-naming-cleanup` | S7 |
-| `cli-configurable-tool-card` | S8 |
-| `theme-status-vocab-and-metric-tiles` | S9 |
-| `docs-ui-ia-guide` | S10 |
+### Wave 1 — Completed (`docs/tasks/04-completed/`)
+
+| Task | Slice | Title | Status |
+|------|-------|-------|--------|
+| **Task 0020** | S0 | Archive policy + no-new-leaf guardrail | `[x]` Completed |
+| **Task 0021** | S1 (partial) | Shared UI primitives (EmptyState, SettingsToggleRow, StatCard) | `[x]` Completed |
+| **Task 0022** | S2 + S3 | Analytics dual-nav kill + compression hub collapse | `[x]` Completed |
+
+Paths:
+- `docs/tasks/04-completed/0020-frontend-ia-archive-guardrail.md`
+- `docs/tasks/04-completed/0021-frontend-ia-shared-ui-primitives.md`
+- `docs/tasks/04-completed/0022-frontend-ia-analytics-compression-hub.md`
+
+### Remaining — Open (`docs/tasks/01-open/`)
+
+| Task | Slice | Title | Depends on | Parallel group |
+|------|-------|-------|------------|----------------|
+| **Task 0023** | S4 | Observe unified event stream | 0020; soft 0022 | A |
+| **Task 0024** | S5 | Connect / Registry exposure cleanup | 0020 | A |
+| **Task 0025** | S6 | Seven-pillar sidebar rebuild + role presets | **0023, 0024** (Wave 1 done) | B |
+| **Task 0026** | S7 | i18n / naming cleanup | none hard (coord w/ 0025 on `sidebar.*`) | A |
+| **Task 0027** | S1 remainder | SettingsToggleRow / Toggle migration (ApiManager+) | **0021** | A |
+| **Task 0028** | S9 | Theme micro VR adoption | soft 0021 | A |
+| **Task 0029** | S8 | CLI ConfigurableToolCard (2 pilots) | none hard | A (late OK) |
+| **Task 0030** | quickwins | PageTabBar + field kit + DeployRelayModal shell (≥2 of 3) | soft 0021/0022/0023 | A/C optional |
+| **Task 0031** | S10 | UI IA docs + no-new-leaf guide | **0025** preferred (finalize post-S6) | C |
+
+Paths:
+- `docs/tasks/01-open/0023-frontend-ia-observe-unified-stream.md`
+- `docs/tasks/01-open/0024-frontend-ia-registry-connect-cleanup.md`
+- `docs/tasks/01-open/0025-frontend-ia-seven-pillar-sidebar.md`
+- `docs/tasks/01-open/0026-frontend-ia-i18n-naming-cleanup.md`
+- `docs/tasks/01-open/0027-frontend-ia-settings-toggle-migration.md`
+- `docs/tasks/01-open/0028-frontend-ia-theme-micro-adoption.md`
+- `docs/tasks/01-open/0029-frontend-ia-cli-configurable-tool-card.md`
+- `docs/tasks/01-open/0030-frontend-ia-page-tabbar-field-kit.md`
+- `docs/tasks/01-open/0031-frontend-ia-docs-guardrail.md`
+
+### Dependency graph (textual)
+
+```
+0020 (S0 done) ─┬─► 0021 (S1 prim done) ─► 0027 (toggle migrate)
+                │                      └─► 0028 (theme micro, soft)
+                ├─► 0022 (S2+S3 done)
+                ├─► 0023 (S4 observe) ──┐
+                └─► 0024 (S5 registry) ─┴─► 0025 (S6 seven pillars) ─► 0031 (S10 docs)
+
+Parallel anytime (group A): 0026 i18n · 0027 · 0028 · 0029 CLI · 0030 kits
+```
+
+### Attack order (updated)
+
+```
+Wave 1 DONE: 0020 → 0021 → 0022
+Next IA:     0023 ∥ 0024  →  0025  →  0031
+Parallel:    0026 ∥ 0027 ∥ 0028 ∥ 0029 ∥ 0030
+```
 
 ---
 
