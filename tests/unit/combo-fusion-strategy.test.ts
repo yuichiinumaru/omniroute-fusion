@@ -327,12 +327,110 @@ test("conditional-fusion: matching tool call dispatches fusion; miss uses fallba
   });
   assert.equal(missRes.status, 200);
   assert.ok(!fusionCalls.includes("f/judge"), "judge must not run on trigger miss");
-  // Priority tries first successful model — at least one leaf call, not a full fusion panel+judge.
-  assert.ok(fallbackCalls.length + fusionCalls.length >= 1);
+  // Priority: first successful model only — not a full fusion panel+judge shape.
+  // (Panel models share the f/ prefix in this fixture; judge absence is the fusion marker.)
+  assert.ok(
+    fusionCalls.includes("f/a") || fusionCalls.includes("f/b"),
+    "priority fallback should hit a panel model as a normal target"
+  );
   assert.ok(
     !fusionCalls.includes("f/judge"),
     "trigger miss must not invoke fusion judge"
   );
+  // Full fusion would call both panels + judge; miss should not call judge and typically stops early.
+  assert.ok(fusionCalls.filter((m) => m !== "f/judge").length >= 1);
+});
+
+test("conditional-fusion: trigger miss must not mutate combo.strategy (shared-object safety)", async () => {
+  const sharedCombo = {
+    name: "immutable-cond-fusion",
+    strategy: "conditional-fusion",
+    models: ["f/a", "f/b"],
+    config: {
+      judgeModel: "f/judge",
+      fallbackStrategy: "priority",
+      triggers: { mode: "tool-call", toolPatterns: ["write*"] },
+      fusionTuning: { minPanel: 2, stragglerGraceMs: 50, panelHardTimeoutMs: 5000 },
+    },
+  };
+
+  const handleSingleModel = async (_b: Body, m: string) => {
+    if (m === "f/judge") return okResponse("FUSED");
+    return okResponse(`ans-${m}`);
+  };
+
+  // 1) Trigger miss — local strategy falls back; object must stay conditional-fusion.
+  await handleComboChat({
+    body: { messages: [{ role: "user", content: "just chat" }] },
+    combo: sharedCombo,
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [sharedCombo],
+  });
+  assert.equal(
+    sharedCombo.strategy,
+    "conditional-fusion",
+    "combo.strategy must remain immutable after trigger miss"
+  );
+
+  // 2) Same object, trigger hit — still fuses (proves we did not permanently rewrite strategy).
+  const seen: string[] = [];
+  await handleComboChat({
+    body: {
+      messages: [
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+        },
+      ],
+    },
+    combo: sharedCombo,
+    handleSingleModel: async (_b, m) => {
+      seen.push(m);
+      if (m === "f/judge") return okResponse("FUSED");
+      return okResponse(`ans-${m}`);
+    },
+    log,
+    settings: {},
+    allCombos: [sharedCombo],
+  });
+  assert.equal(sharedCombo.strategy, "conditional-fusion");
+  assert.ok(seen.includes("f/judge"), "second call with matching tool must still fuse");
+});
+
+test("conditional-fusion: forbidden fallbackStrategy fusion collapses to priority (D8 wire)", async () => {
+  const seen: string[] = [];
+  const handleSingleModel = async (_b: Body, m: string) => {
+    seen.push(m);
+    if (m === "f/judge") return okResponse("SHOULD_NOT_RUN");
+    return okResponse(`ans-${m}`);
+  };
+
+  const res = await handleComboChat({
+    body: { messages: [{ role: "user", content: "no tools" }] },
+    combo: {
+      name: "d8-wire",
+      strategy: "conditional-fusion",
+      models: ["p/first", "p/second"],
+      config: {
+        judgeModel: "f/judge",
+        // Intentionally forbidden — runtime must not recurse into fusion.
+        fallbackStrategy: "fusion",
+        triggers: { mode: "tool-call", toolPatterns: ["write*"] },
+      },
+    },
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [],
+  });
+  assert.equal(res.status, 200);
+  assert.ok(!seen.includes("f/judge"), "D8: forbidden fusion fallback must not run judge");
+  // Priority takes first success — typically only p/first.
+  assert.ok(seen.includes("p/first") || seen.includes("p/second"));
+  assert.ok(seen.length <= 2, "must not fan out a full fusion panel");
 });
 
 // ─── Task 0014: always / text-match modes via handleComboChat ────────────────

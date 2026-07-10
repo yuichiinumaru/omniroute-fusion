@@ -57,10 +57,18 @@ No dedicated `fusions` table in Phase 1.
 | Strategy | When fusion runs |
 |----------|------------------|
 | `fusion` | Always, unless `config.triggers.mode` is set and not `"always"` (then gated like conditional-fusion) |
-| `conditional-fusion` | Only when `shouldTriggerFusion(body, triggers)` returns true; otherwise `fallbackStrategy` |
+| `conditional-fusion` | Only when `shouldTriggerFusion(body, triggers)` returns true; otherwise acting-only or `fallbackStrategy` |
 
-Registered in `ROUTING_STRATEGY_VALUES` / `ROUTING_STRATEGIES`
+Registered in `ROUTING_STRATEGY_VALUES` (**18** strategies live, including both fusion family values)
 (`src/shared/constants/routingStrategies.ts`).
+
+### Units: panels, judge, acting
+
+| Field | Location | Role |
+|-------|----------|------|
+| **Panels** | `models[]` | Parallel answers (N units) |
+| **Judge** | top-level `judge` (preferred) or `config.judgeModel` (legacy string) | Synthesizes one answer from panel prose |
+| **Acting** | top-level `acting` (Epic 0004) | Optional final executor / “voice” after judge; on trigger **miss**, when set, **acting-only** runs (no panel fan-out) |
 
 ### Panels (`models`)
 
@@ -79,6 +87,19 @@ type ResolvedFusionUnit =
   | { kind: "combo-ref"; comboName: string; label?: string };
 ```
 
+### Trigger miss path (A6)
+
+When the gate applies and `shouldTriggerFusion` is false:
+
+1. If `acting` is configured → dispatch **acting only** (no panels, no judge).
+2. Else apply `config.fallbackStrategy` via a **local** strategy override only
+   (`resolveFusionFallbackStrategy` — never `fusion` / `conditional-fusion`).
+3. **Do not** mutate `combo.strategy` on the shared combo object (cache-safe).
+
+### Panel tools policy (D9)
+
+Panel turns force `stream: false` and `tool_choice: "none"`. **Tools remain on the body**
+for the judge turn / client continuity — they are **not** stripped from the request.
 Built by `resolveFusionUnits(combo, allCombos)`.
 
 ### Judge (top-level `judge`)

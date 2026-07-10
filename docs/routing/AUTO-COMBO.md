@@ -176,39 +176,49 @@ OmniRoute's combo engine supports **17 routing strategies** (declared in `src/sh
 
 ## Fusion Strategy
 
-`fusion` is the one strategy that does **not** pick a single target. It fans the prompt
-out to **every panel model in parallel**, then a configurable **judge model** synthesizes
-a single final answer from all panel responses. Ported from upstream `decolua/9router`
-(OpenRouter's Fusion design); implementation in `open-sse/services/fusion.ts`.
+`fusion` / `conditional-fusion` are the strategies that do **not** pick a single target
+for the primary path. They fan the prompt to a **panel** of units in parallel, then a
+**judge** synthesizes one final answer. Full architecture: [`docs/architecture/FUSION.md`](../architecture/FUSION.md).
+Implementation: `open-sse/services/fusion.ts`, gate: `open-sse/services/combo.ts`,
+triggers: `open-sse/services/fusionTriggers.ts`.
 
 How it works:
 
-1. **Fan-out** — the prompt is sent to every panel model at once, forced non-streaming
-   with tools stripped (the judge needs complete prose to synthesize).
+1. **Fan-out** — each panel unit runs with `stream: false` and `tool_choice: "none"` so
+   the judge gets complete prose. **Tools stay on the request body** (Decision D9) — they
+   are not stripped; panels just cannot *call* them during the fusion panel turn.
 2. **Quorum-grace collection** — as soon as `minPanel` answers arrive, a short grace
-   timer starts for the stragglers, then fusion proceeds with whatever was collected.
-   This caps the slowest model's penalty on wall time, bounded by a hard timeout.
-3. **Judge synthesis** — panel answers are anonymized (`Source 1`, `Source 2`, … — so
-   the judge weighs substance, not model brand) and handed to the judge, which analyzes
-   consensus / contradictions / partial coverage / unique insights / blind spots, then
-   writes **one** authoritative answer. The judge call keeps the client's original
-   `stream` flag + tools, so streaming and downstream tool use still work.
-4. **Graceful degradation** — 0 panel answers → `503`; exactly 1 survivor → that answer
-   is returned directly (nothing to fuse); a single-model panel answers directly.
+   timer starts for stragglers, then fusion proceeds with whatever was collected
+   (bounded by `panelHardTimeoutMs`).
+3. **Judge synthesis** — panel answers are anonymized (`Source 1`, `Source 2`, …) and
+   handed to the judge. The judge call keeps the client's original `stream` flag + tools
+   so streaming and downstream tool use still work after synthesis.
+4. **Optional `acting` unit** (Epic 0004) — final voice after judge (or acting-only on
+   conditional trigger miss when configured).
+5. **Conditional / gated fusion** — `conditional-fusion`, or `fusion` with non-`always`
+   triggers, only pays panel cost when `shouldTriggerFusion` matches. On miss: prefer
+   acting-only, else `fallbackStrategy` (never `fusion` / `conditional-fusion` — D8).
+6. **Graceful degradation** — 0 panel answers → error path; single survivor may return
+   directly when there is nothing to fuse.
 
 ### Configuration
 
-Configured on the combo's `config` blob (no schema migration — it reuses the existing
-`combos` table):
+Combo field is **`models`** (not `targets`). Judge may be top-level `judge` and/or
+legacy `config.judgeModel`.
 
-| Field                                    | Type     | Default           | Purpose                                                                                 |
-| :--------------------------------------- | :------- | :---------------- | :-------------------------------------------------------------------------------------- |
-| `config.judgeModel`                      | `string` | first panel model | Model that synthesizes the final answer                                                 |
-| `config.fusionTuning.minPanel`           | `number` | `2`               | Successful answers required before the grace timer starts (clamped to `[2, panelSize]`) |
-| `config.fusionTuning.stragglerGraceMs`   | `number` | `8000`            | How long to wait for laggards once quorum is reached                                    |
-| `config.fusionTuning.panelHardTimeoutMs` | `number` | `90000`           | Absolute cap so one hung model can't stall the request                                  |
+| Field | Type | Default | Purpose |
+| :---- | :--- | :------ | :------ |
+| `models` | `comboModelEntry[]` | — | Panel units (string / model step / combo-ref) |
+| `judge` | `comboModelEntry` | first panel | Top-level judge unit (preferred) |
+| `acting` | `comboModelEntry` | unset | Optional final executor (Epic 0004) |
+| `config.judgeModel` | `string` | first panel | Legacy judge string |
+| `config.triggers` | object | — | `mode`: `always` \| `tool-call` \| `text-match` |
+| `config.fallbackStrategy` | strategy | `priority` | Non-fusion strategy on trigger miss (D8) |
+| `config.fusionTuning.minPanel` | `number` | `2` | Quorum before grace timer |
+| `config.fusionTuning.stragglerGraceMs` | `number` | `8000` | Grace after quorum |
+| `config.fusionTuning.panelHardTimeoutMs` | `number` | `90000` | Hard panel timeout |
 
-Defaults live in `FUSION_DEFAULTS` (`open-sse/services/fusion.ts`).
+Defaults: `FUSION_DEFAULTS` in `open-sse/services/fusion.ts`.
 
 ### Example
 
@@ -219,13 +229,13 @@ curl -X POST http://localhost:20128/api/combos \
   -d '{
     "name": "fusion-panel",
     "strategy": "fusion",
-    "targets": [
+    "models": [
       { "model": "cc/claude-opus-4-7" },
       { "model": "cx/gpt-5.5" },
       { "model": "glm/glm-5.1" }
     ],
+    "judge": "cc/claude-opus-4-7",
     "config": {
-      "judgeModel": "cc/claude-opus-4-7",
       "fusionTuning": { "minPanel": 2, "stragglerGraceMs": 8000, "panelHardTimeoutMs": 90000 }
     }
   }'
@@ -581,7 +591,7 @@ See `docs/marketing/TIERS.md` for tier definitions and provider classification.
 public strategies end-to-end through the real combo pipeline with a mocked upstream.
 Coverage includes:
 
-- All 17 `ROUTING_STRATEGY_VALUES` strategies (ordered, weighted, cost, context, fusion, …).
+- All 18 `ROUTING_STRATEGY_VALUES` strategies (ordered, weighted, cost, context, fusion, conditional-fusion, …).
 - `quota-share` (internal) end-to-end: DRR fairness + saturation deprioritization via the
   real `selectQuotaShareTarget` seam (`registerQuotaFetcher` / `setLKGP` /
   `__setHeadroomSaturationFetcherForTests`).
@@ -615,5 +625,5 @@ intentionally excluded from CI because they require live credentials and VPS acc
 | `open-sse/services/autoCombo/autoPrefix.ts`               | `auto/` prefix parser + 6 variants                                         |
 | `open-sse/services/autoCombo/virtualFactory.ts`           | Builds in-memory `AutoComboConfig` from live connections                   |
 | `open-sse/services/autoCombo/providerRegistryAccessor.ts` | Test hook for mocking provider registry                                    |
-| `src/shared/constants/routingStrategies.ts`               | `ROUTING_STRATEGY_VALUES` (17 strategies)                                  |
+| `src/shared/constants/routingStrategies.ts`               | `ROUTING_STRATEGY_VALUES` (18 strategies, includes `conditional-fusion`)   |
 | `src/sse/handlers/chat.ts`                                | Integration: auto-prefix short-circuit                                     |

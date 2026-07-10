@@ -60,6 +60,7 @@ export function hasMatchingToolCall(
   if (!patterns.length) return false;
   const messages = Array.isArray(body.messages) ? body.messages : [];
   for (let i = messages.length - 1; i >= 0; i--) {
+    // SAFETY: messages elements are untyped chat payloads; narrow before field access.
     const msg = messages[i] as Record<string, unknown> | null | undefined;
     if (!msg || typeof msg !== "object") continue;
     if (msg.role !== "assistant") continue;
@@ -67,6 +68,7 @@ export function hasMatchingToolCall(
     if (!Array.isArray(toolCalls) || toolCalls.length === 0) continue;
     return toolCalls.some((tc: unknown) => {
       if (!tc || typeof tc !== "object") return false;
+      // SAFETY: OpenAI tool_call shape after object check — function.name is optional.
       const call = tc as Record<string, unknown>;
       const func = call.function as Record<string, unknown> | undefined;
       const name: string | undefined =
@@ -109,6 +111,7 @@ function messageContentToText(content: unknown): string {
 export function extractLatestUserText(body: Record<string, unknown>): string {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   for (let i = messages.length - 1; i >= 0; i--) {
+    // SAFETY: chat message elements are untyped JSON; narrow with typeof checks.
     const msg = messages[i] as Record<string, unknown> | null | undefined;
     if (!msg || typeof msg !== "object") continue;
     if (msg.role !== "user") continue;
@@ -144,6 +147,7 @@ export function shouldTriggerFusion(
   body: Record<string, unknown>,
   triggers: FusionTriggersConfig | null | undefined
 ): boolean {
+  // SAFETY: mode is schema-validated at write; runtime defaults for partial configs.
   const mode = (triggers?.mode ?? "tool-call") as string;
   if (mode === "always") return true;
 

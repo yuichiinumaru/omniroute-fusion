@@ -692,32 +692,42 @@ export default function FusionEditorClient({ id }: { id: string }) {
           <label className="text-xs font-medium text-text-main">
             {tx(t, "fusionTriggerMode", "Mode")}
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div
+            className="flex flex-wrap gap-2"
+            role="radiogroup"
+            aria-label={tx(t, "fusionTriggerMode", "Mode")}
+          >
             {(
               [
                 { value: "always", label: tx(t, "fusionTriggerAlways", "Always") },
                 { value: "tool-call", label: tx(t, "fusionTriggerToolCall", "Tool call") },
                 { value: "text-match", label: tx(t, "fusionTriggerTextMatch", "Text match") },
               ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                data-testid={`fusion-trigger-${opt.value}`}
-                onClick={() =>
-                  updateForm({
-                    triggers: { ...form.triggers, mode: opt.value as TriggerMode },
-                  })
-                }
-                className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  form.triggers.mode === opt.value
-                    ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"
-                    : "border-black/10 dark:border-white/10 text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            ).map((opt) => {
+              const selected = form.triggers.mode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-pressed={selected}
+                  data-testid={`fusion-trigger-${opt.value}`}
+                  onClick={() =>
+                    updateForm({
+                      triggers: { ...form.triggers, mode: opt.value as TriggerMode },
+                    })
+                  }
+                  className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    selected
+                      ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"
+                      : "border-black/10 dark:border-white/10 text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

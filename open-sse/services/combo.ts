@@ -976,13 +976,15 @@ export async function handleComboChat({
     if (actingOnly) return actingOnly;
 
     // No acting — fall through to the fallback strategy (runtime D8 guard).
+    // IMPORTANT: only override the local `strategy` variable. Never mutate
+    // `combo.strategy` — the combo object may be shared via getCombosCached /
+    // allCombos and poisoning it would leak across concurrent requests (review F1).
     const fallback = resolveFusionFallbackStrategy(cfg.fallbackStrategy, "priority");
     log.info(
       isConditional ? "CONDITIONAL_FUSION" : "FUSION",
       `Trigger miss (mode=${triggers?.mode ?? "tool-call"}) — falling back to "${fallback}"`
     );
     strategy = fallback as typeof strategy;
-    (combo as Record<string, unknown>).strategy = fallback;
   }
 
   const nestedComboMode = normalizeNestedComboMode(config.nestedComboMode);
