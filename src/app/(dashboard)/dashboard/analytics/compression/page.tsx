@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import CompressionAnalyticsTab from "../CompressionAnalyticsTab";
-
+/** Dual-nav retired (Epic 0005 S2) — keep deep link via ?tab= */
 export default function AnalyticsCompressionPage() {
-  return <CompressionAnalyticsTab />;
+  redirect("/dashboard/analytics?tab=compression");
 }

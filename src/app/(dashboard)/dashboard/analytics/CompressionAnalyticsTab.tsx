@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useProviderNodeMap, resolveProviderName } from "@/lib/display/useProviderNodeMap";
+import { StatCard } from "@/shared/components/analytics/charts";
 
 interface CompressionAnalyticsSummary {
   totalRequests: number;
@@ -35,29 +36,6 @@ interface CompressionAnalyticsSummary {
     estimatedUsdSaved: number;
     bySource: Record<string, number>;
   };
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: string;
-  label: string;
-  value: string | number;
-  sub?: string;
-}) {
-  return (
-    <div className="card p-4 flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-text-muted text-sm">
-        <span className="material-symbols-outlined text-[18px]">{icon}</span>
-        {label}
-      </div>
-      <div className="text-2xl font-bold text-text">{value}</div>
-      {sub && <div className="text-xs text-text-muted">{sub}</div>}
-    </div>
-  );
 }
 
 function ModeBar({

@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import ProviderUtilizationTab from "../ProviderUtilizationTab";
-
+/** Dual-nav retired (Epic 0005 S2) — keep deep link via ?tab= */
 export default function AnalyticsUtilizationPage() {
-  return <ProviderUtilizationTab />;
+  redirect("/dashboard/analytics?tab=utilization");
 }

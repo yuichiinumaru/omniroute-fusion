@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+  type ReactNode,
+} from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Card from "../Card";
 import { getModelColor } from "@/shared/constants/colors";
@@ -16,6 +23,7 @@ import {
   translateCostText,
   type TranslationFn,
 } from "@/shared/utils/serviceTierLabels";
+import { cn } from "@/shared/utils/cn";
 
 function createDateFormatter(locale: string, options: Intl.DateTimeFormatOptions) {
   try {
@@ -42,31 +50,80 @@ export function SortIndicator({ active, sortOrder }: { active: boolean; sortOrde
   );
 }
 
-// ── StatCard (primary KPI) ─────────────────────────────────────────────────
+// ── StatCard (primary KPI — shared across analytics / endpoint / cache) ────
 
+export type StatCardProps = {
+  /** Material symbol name or React node. Optional for compact label/value tiles. */
+  icon?: ReactNode;
+  label: ReactNode;
+  value: ReactNode;
+  subValue?: ReactNode;
+  /** Alias used by Search/Compression analytics tabs. */
+  sub?: ReactNode;
+  color?: string;
+  /** Smaller padding / height for dense grids (MCP/A2A summary). */
+  compact?: boolean;
+  className?: string;
+};
+
+/**
+ * Canonical metric tile. Prefer this over local `function StatCard` copies.
+ * - With `icon`: analytics-style KPI (uppercase micro-label + large value).
+ * - Without `icon`: simple label/value surface (endpoint dashboards).
+ */
 export function StatCard({
   icon,
   label,
   value,
   subValue,
+  sub,
   color = "text-text-main",
-}: {
-  icon: any;
-  label: any;
-  value: any;
-  subValue?: any;
-  color?: string;
-}) {
+  compact = false,
+  className,
+}: StatCardProps) {
+  const secondary = subValue ?? sub;
+
+  if (icon == null || icon === false) {
+    return (
+      <div
+        className={cn(
+          "rounded-lg border border-border bg-bg p-4 min-w-0",
+          compact ? "" : "min-h-[84px]",
+          className
+        )}
+      >
+        <p className="text-xs text-text-muted uppercase tracking-wide truncate">{label}</p>
+        <p
+          className={cn("font-semibold mt-1 truncate", compact ? "text-lg" : "text-xl", color)}
+          title={typeof value === "string" || typeof value === "number" ? String(value) : undefined}
+        >
+          {value}
+        </p>
+        {secondary ? <p className="text-xs text-text-muted mt-1 truncate">{secondary}</p> : null}
+      </div>
+    );
+  }
+
+  const iconNode =
+    typeof icon === "string" ? (
+      <span className="material-symbols-outlined text-[14px] shrink-0">{icon}</span>
+    ) : (
+      icon
+    );
+
   return (
-    <Card className="px-4 py-3 flex flex-col gap-1 min-w-0">
+    <Card className={cn("px-4 py-3 flex flex-col gap-1 min-w-0", className)}>
       <div className="flex items-center gap-1.5 text-text-muted text-[11px] uppercase font-semibold tracking-wide min-w-0">
-        <span className="material-symbols-outlined text-[14px] shrink-0">{icon}</span>
+        {iconNode}
         <span className="truncate">{label}</span>
       </div>
-      <span className={`text-2xl font-bold ${color} truncate`} title={String(value)}>
+      <span
+        className={cn("text-2xl font-bold truncate", color)}
+        title={typeof value === "string" || typeof value === "number" ? String(value) : undefined}
+      >
         {value}
       </span>
-      {subValue && <span className="text-xs text-text-muted truncate">{subValue}</span>}
+      {secondary ? <span className="text-xs text-text-muted truncate">{secondary}</span> : null}
     </Card>
   );
 }

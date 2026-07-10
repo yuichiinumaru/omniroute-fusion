@@ -1,3 +1,18 @@
+/**
+ * Sidebar IA — Epic 0005 guardrail
+ * --------------------------------
+ * Do NOT add a new default-visible leaf without:
+ *  1. Mapping it to one of the 7 pillars (Core Pulse, Registry, Routing & Strategy,
+ *     Governance, Operations, Observability, System)
+ *  2. Confirming it is not a strategy/engine/preset/table that belongs as a tab/row
+ *  3. A note on Epic 0005 (or successor task)
+ *
+ * When removing a leaf: keep the route (or redirect), keep the hideable id if users
+ * may have stored prefs, and log provenance under `.archive/sidebar/` — never silent delete.
+ *
+ * Rule: if you need to hide ~60% of menus to make the product usable, the menu is wrong.
+ */
+
 export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   // Home
   "home",
@@ -353,19 +368,36 @@ const OMNI_PROXY_ITEMS: readonly SidebarItemDefinition[] = [
   },
 ];
 
+/**
+ * Engine strategies are routes + settings rows, NOT sidebar leaves (Epic 0005 S3).
+ * Deep links `/dashboard/context/{engine}` still work; hideable ids kept for prefs.
+ * Snapshot: `.archive/sidebar/2026-07-10-ia-collapse/SNAPSHOT.md`
+ */
+export const COMPRESSION_ENGINE_SIDEBAR_IDS = [
+  "context-caveman",
+  "context-rtk",
+  "context-headroom",
+  "context-session-dedup",
+  "context-ccr",
+  "context-llmlingua",
+  "context-lite",
+  "context-aggressive",
+  "context-ultra",
+] as const;
+
 export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
   type: "group",
   id: "compression-context",
   titleKey: "compressionContextGroup",
   titleFallback: "Compression Context",
-  // Order: Settings (the unified panel) → Combos → per-engine pages → Studio (analytics).
+  // Hub only: Settings → Combos → Studio. Engines live inside Settings / deep links.
   items: [
     {
       id: "context-settings",
       href: "/dashboard/context/settings",
       i18nKey: "contextSettings",
       labelFallback: "Compression Settings",
-      subtitleFallback: "Global defaults",
+      subtitleFallback: "Global defaults + engines",
       icon: "settings",
     },
     {
@@ -374,76 +406,6 @@ export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
       i18nKey: "contextCombos",
       subtitleKey: "contextCombosSubtitle",
       icon: "hub",
-    },
-    {
-      id: "context-caveman",
-      href: "/dashboard/context/caveman",
-      i18nKey: "contextCaveman",
-      subtitleKey: "contextCavemanSubtitle",
-      icon: "compress",
-    },
-    {
-      id: "context-rtk",
-      href: "/dashboard/context/rtk",
-      i18nKey: "contextRtk",
-      subtitleKey: "contextRtkSubtitle",
-      icon: "filter_alt",
-    },
-    {
-      id: "context-headroom",
-      href: "/dashboard/context/headroom",
-      i18nKey: "contextHeadroom",
-      labelFallback: "Headroom",
-      subtitleFallback: "Tabular compaction",
-      icon: "table_rows",
-    },
-    {
-      id: "context-session-dedup",
-      href: "/dashboard/context/session-dedup",
-      i18nKey: "contextSessionDedup",
-      labelFallback: "Session Dedup",
-      subtitleFallback: "Cross-turn dedup",
-      icon: "content_copy",
-    },
-    {
-      id: "context-ccr",
-      href: "/dashboard/context/ccr",
-      i18nKey: "contextCcr",
-      labelFallback: "CCR",
-      subtitleFallback: "Retrieve markers",
-      icon: "archive",
-    },
-    {
-      id: "context-llmlingua",
-      href: "/dashboard/context/llmlingua",
-      i18nKey: "contextLlmlingua",
-      labelFallback: "LLMLingua",
-      subtitleFallback: "Semantic pruning",
-      icon: "psychology",
-    },
-    {
-      id: "context-lite",
-      href: "/dashboard/context/lite",
-      i18nKey: "contextLite",
-      labelFallback: "Lite",
-      subtitleFallback: "Fast whitespace cleanup",
-      icon: "compress",
-    },
-    {
-      id: "context-aggressive",
-      href: "/dashboard/context/aggressive",
-      i18nKey: "contextAggressive",
-      labelFallback: "Aggressive",
-      subtitleFallback: "Summary + aging",
-      icon: "speed",
-    },
-    {
-      id: "context-ultra",
-      href: "/dashboard/context/ultra",
-      i18nKey: "contextUltra",
-      labelFallback: "Ultra",
-      subtitleFallback: "Heuristic pruning",
-      icon: "bolt",
     },
     {
       id: "compression-studio",
@@ -538,6 +500,19 @@ const PROXY_ITEM: SidebarItemDefinition = {
   icon: "dns",
 };
 
+/**
+ * Analytics dual-nav leaves retired (Epic 0005 S2). Nested routes redirect to
+ * `/dashboard/analytics?tab=…`. Hideable ids retained for stored prefs.
+ * Snapshot: `.archive/sidebar/2026-07-10-ia-collapse/SNAPSHOT.md`
+ */
+export const ANALYTICS_DUAL_NAV_SIDEBAR_IDS = [
+  "analytics-combo-health",
+  "analytics-utilization",
+  "analytics-compression",
+  "analytics-search",
+  "analytics-evals",
+] as const;
+
 const ANALYTICS_ITEMS: readonly SidebarItemDefinition[] = [
   {
     id: "analytics",
@@ -547,46 +522,11 @@ const ANALYTICS_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "analytics",
   },
   {
-    id: "analytics-combo-health",
-    href: "/dashboard/analytics/combo-health",
-    i18nKey: "analyticsComboHealth",
-    subtitleKey: "analyticsComboHealthSubtitle",
-    icon: "monitor_heart",
-  },
-  {
-    id: "analytics-utilization",
-    href: "/dashboard/analytics/utilization",
-    i18nKey: "analyticsUtilization",
-    subtitleKey: "analyticsUtilizationSubtitle",
-    icon: "bar_chart",
-  },
-  {
     id: "cache",
     href: "/dashboard/cache",
     i18nKey: "cache",
     subtitleKey: "cacheSubtitle",
     icon: "cached",
-  },
-  {
-    id: "analytics-compression",
-    href: "/dashboard/analytics/compression",
-    i18nKey: "analyticsCompression",
-    subtitleKey: "analyticsCompressionSubtitle",
-    icon: "compress",
-  },
-  {
-    id: "analytics-search",
-    href: "/dashboard/analytics/search",
-    i18nKey: "analyticsSearch",
-    subtitleKey: "analyticsSearchSubtitle",
-    icon: "manage_search",
-  },
-  {
-    id: "analytics-evals",
-    href: "/dashboard/analytics/evals",
-    i18nKey: "analyticsEvals",
-    subtitleKey: "analyticsEvalsSubtitle",
-    icon: "labs",
   },
   {
     id: "provider-stats",
@@ -1077,15 +1017,14 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "providers",
   "combos",
   "quota",
-  "context-caveman",
-  "context-rtk",
+  "context-settings",
   "context-combos",
+  "compression-studio",
   "cli-code",
   "cli-agents",
   "acp-agents",
   "api-endpoints",
   "analytics",
-  "analytics-combo-health",
   "costs",
   "cache",
   "logs",
@@ -1114,8 +1053,6 @@ const ADMIN_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "combos",
   "quota",
   "analytics",
-  "analytics-combo-health",
-  "analytics-utilization",
   "costs",
   "costs-pricing",
   "costs-budget",

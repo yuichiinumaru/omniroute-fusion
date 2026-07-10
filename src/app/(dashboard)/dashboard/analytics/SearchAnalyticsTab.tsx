@@ -9,6 +9,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { StatCard } from "@/shared/components/analytics/charts";
 
 interface SearchStats {
   total: number;
@@ -20,29 +21,6 @@ interface SearchStats {
   last24h: Array<{ hour: string; count: number }>;
   cacheHitRate: number;
   avgDurationMs: number;
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: string;
-  label: string;
-  value: string | number;
-  sub?: string;
-}) {
-  return (
-    <div className="card p-4 flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-text-muted text-sm">
-        <span className="material-symbols-outlined text-[18px]">{icon}</span>
-        {label}
-      </div>
-      <div className="text-2xl font-bold text-text">{value}</div>
-      {sub && <div className="text-xs text-text-muted">{sub}</div>}
-    </div>
-  );
 }
 
 function ProviderBar({

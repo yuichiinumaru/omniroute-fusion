@@ -1,6 +1,6 @@
 # Epic 0005 — Frontend IA Reform + Design System Cohesion + Smart Componentization
 
-> **Status**: Active (Epic) — planning / inventory complete; child tasks not yet sliced  
+> **Status**: Active (Epic) — **Wave 1 shipped 2026-07-10** (S0 guardrail + S1 primitives + S2 analytics dual-nav + S3 compression hub); remaining slices open  
 > **Priority**: High (P0 product UX)  
 > **Author**: Grok session (omniroute-fusion) · synthesizes live inventory (2026-07-10) + prior GPT-5.5 analysis in `.agents/user/why-khala-full.txt` L5571–5949  
 > **Date**: 2026-07-10  
@@ -369,9 +369,23 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 
 ---
 
+## 11a. Wave 1 progress (2026-07-10)
+
+| Slice | Status | Evidence |
+|-------|--------|----------|
+| S0 Archive policy + no-new-leaf guardrail | **done** | `.archive/README.md`, `.archive/PROVENANCE-INDEX.md`, header comment in `sidebarVisibility.ts` |
+| S1 EmptyState tokens | **done** | `EmptyState.tsx` Tailwind; test `empty-state-tokens.test.tsx` |
+| S1 SettingsToggleRow | **done** | `SettingsToggleRow.tsx` + vitest |
+| S1 StatCard shared | **done** | `charts.tsx` StatCard; MCP/A2A/Search/Compression use it |
+| S2 Analytics dual-nav kill | **done** | Nested pages → `redirect(?tab=)`; compression tab on hub; sidebar 3 leaves |
+| S3 Compression hub | **done** | Engines off sidebar; routes + settings deep links kept; archive snapshot |
+| Archive-not-delete policy | **done** | User rule: moves go to `.archive/` with provenance |
+
+**Sidebar leaf count (default tree):** ~67 (was ~81). Delta ≈ −14 leaves (5 analytics dual-nav + 9 compression engines).
+
 ## 11. Child tasks (to open later)
 
-Do not create until S0 accepted. Suggested IDs after current open lane:
+Suggested IDs after current open lane:
 
 | Future task (slug) | Slice |
 |--------------------|-------|

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Button } from "@/shared/components";
+import { StatCard } from "@/shared/components/analytics/charts";
 import { useTranslations } from "next-intl";
 
 type McpTransport = "stdio" | "sse" | "streamable-http";
@@ -649,19 +650,4 @@ export default function McpDashboardPage() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  compact = false,
-}: {
-  label: string;
-  value: string | number;
-  compact?: boolean;
-}) {
-  return (
-    <div className={`rounded-lg border border-border bg-bg p-4 ${compact ? "" : "min-h-[84px]"}`}>
-      <p className="text-xs text-text-muted uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-semibold mt-1">{value}</p>
-    </div>
-  );
-}
+

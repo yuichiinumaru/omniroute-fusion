@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import SearchAnalyticsTab from "../SearchAnalyticsTab";
-
+/** Dual-nav retired (Epic 0005 S2) — keep deep link via ?tab= */
 export default function AnalyticsSearchPage() {
-  return <SearchAnalyticsTab />;
+  redirect("/dashboard/analytics?tab=search");
 }

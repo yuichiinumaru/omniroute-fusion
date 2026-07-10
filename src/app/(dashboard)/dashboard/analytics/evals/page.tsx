@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import EvalsTab from "../../usage/components/EvalsTab";
-
+/** Dual-nav retired (Epic 0005 S2) — keep deep link via ?tab= */
 export default function AnalyticsEvalsPage() {
-  return <EvalsTab />;
+  redirect("/dashboard/analytics?tab=evals");
 }

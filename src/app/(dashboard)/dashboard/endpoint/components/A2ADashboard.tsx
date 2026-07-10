@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Button } from "@/shared/components";
+import { StatCard } from "@/shared/components/analytics/charts";
 import { useTranslations } from "next-intl";
 
 type A2ATaskState = "submitted" | "working" | "completed" | "failed" | "cancelled";
@@ -576,11 +577,4 @@ export default function A2ADashboardPage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border border-border bg-bg p-4">
-      <p className="text-xs text-text-muted uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-semibold mt-1">{value}</p>
-    </div>
-  );
-}
+

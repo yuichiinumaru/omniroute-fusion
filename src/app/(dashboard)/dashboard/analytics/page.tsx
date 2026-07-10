@@ -10,6 +10,7 @@ import ComboHealthTab from "./ComboHealthTab";
 import ProviderUtilizationTab from "./ProviderUtilizationTab";
 import RouteExplainabilityTab from "./RouteExplainabilityTab";
 import SearchAnalyticsTab from "./SearchAnalyticsTab";
+import CompressionAnalyticsTab from "./CompressionAnalyticsTab";
 import DiversityScoreCard from "./components/DiversityScoreCard";
 
 type AnalyticsTab =
@@ -18,6 +19,7 @@ type AnalyticsTab =
   | "search"
   | "utilization"
   | "combo-health"
+  | "compression"
   | "route-trace";
 
 const ANALYTICS_TABS: Array<{
@@ -36,6 +38,12 @@ const ANALYTICS_TABS: Array<{
     label: "Combo Health",
     icon: "health_and_safety",
   },
+  {
+    id: "compression",
+    labelKey: "compression",
+    label: "Compression",
+    icon: "compress",
+  },
   { id: "route-trace", labelKey: "routeTrace", label: "Route Trace", icon: "alt_route" },
 ];
 
@@ -49,7 +57,13 @@ function analyticsText(t: AnalyticsTranslator, key: string, fallback: string) {
 
 function normalizeTab(tab: string | null): AnalyticsTab {
   if (tab === "route-trace" || tab === "route-explain") return "route-trace";
-  if (tab === "evals" || tab === "search" || tab === "utilization" || tab === "combo-health") {
+  if (
+    tab === "evals" ||
+    tab === "search" ||
+    tab === "utilization" ||
+    tab === "combo-health" ||
+    tab === "compression"
+  ) {
     return tab;
   }
   return "overview";
@@ -123,6 +137,7 @@ function AnalyticsPageContent() {
         {activeTab === "search" ? <SearchAnalyticsTab /> : null}
         {activeTab === "utilization" ? <ProviderUtilizationTab /> : null}
         {activeTab === "combo-health" ? <ComboHealthTab /> : null}
+        {activeTab === "compression" ? <CompressionAnalyticsTab /> : null}
         {activeTab === "route-trace" ? (
           <RouteExplainabilityTab initialRequestId={initialRequestId} />
         ) : null}

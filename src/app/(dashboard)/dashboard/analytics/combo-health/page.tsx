@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import ComboHealthTab from "../ComboHealthTab";
-
+/** Dual-nav retired (Epic 0005 S2) — keep deep link via ?tab= */
 export default function AnalyticsComboHealthPage() {
-  return <ComboHealthTab />;
+  redirect("/dashboard/analytics?tab=combo-health");
 }
