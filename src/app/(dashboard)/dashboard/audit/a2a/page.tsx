@@ -1,7 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { buildObserveHubPath } from "@/shared/constants/observeHub";
 
-import A2aAuditTab from "../A2aAuditTab";
-
-export default function AuditA2aPage() {
-  return <A2aAuditTab />;
+/** Dual-nav retired (Epic 0005 S4) — keep deep link via ?source=a2a */
+export default function AuditA2aRedirectPage() {
+  redirect(buildObserveHubPath("a2a"));
 }

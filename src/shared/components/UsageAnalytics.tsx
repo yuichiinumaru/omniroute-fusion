@@ -258,31 +258,35 @@ export default function UsageAnalytics() {
         </div>
       </div>
 
-      {/* Primary KPI Cards */}
+      {/* Primary KPI Cards — accent bar micro-pattern (Task 0028; default none elsewhere) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           icon="generating_tokens"
           label={t("totalTokens")}
           value={fmt(s.totalTokens)}
           subValue={`${fmtFull(s.totalRequests)} ${t("chartRequests")}`}
+          accent="primary"
         />
         <StatCard
           icon="input"
           label={t("inputTokens")}
           value={fmt(s.promptTokens)}
           color="text-primary"
+          accent="primary"
         />
         <StatCard
           icon="output"
           label={t("outputTokens")}
           value={fmt(s.completionTokens)}
           color="text-emerald-500"
+          accent="success"
         />
         <StatCard
           icon="payments"
           label={t("estCost")}
           value={fmtCost(s.totalCost)}
           color="text-amber-500"
+          accent="warning"
         />
       </div>
 

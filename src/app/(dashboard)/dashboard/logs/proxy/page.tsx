@@ -1,7 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { buildObserveHubPath } from "@/shared/constants/observeHub";
 
-import ProxyLogger from "@/shared/components/ProxyLogger";
-
-export default function LogsProxyPage() {
-  return <ProxyLogger />;
+/** Dual-nav retired (Epic 0005 S4) — keep deep link via ?source=proxy */
+export default function LogsProxyRedirectPage() {
+  redirect(buildObserveHubPath("proxy"));
 }

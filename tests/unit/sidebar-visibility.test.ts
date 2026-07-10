@@ -14,26 +14,18 @@ function sectionItems(sectionId: string) {
   return sidebarVisibility.getSectionItems(section);
 }
 
-test("system sidebar items: monitoring has activity at top then logs/audit/system groups", () => {
+test("system sidebar items: monitoring is Observe hub + System only (Epic 0005 S4)", () => {
   const items = sectionItems("monitoring");
+  // Logs/Audit peer leaves collapsed into activity hub (Task 0023); health/runtime remain.
   assert.deepEqual(
     items.map((item) => item.id),
-    [
-      "activity",
-      "logs",
-      "logs-proxy",
-      "logs-console",
-      "audit",
-      "audit-mcp",
-      "audit-a2a",
-      "health",
-      "runtime",
-    ]
+    ["activity", "health", "runtime"]
   );
 });
 
 test("primary sidebar items place limits after cache", () => {
   const items = sectionItems("omni-proxy");
+  // Epic 0005 S3: compression engines not leaves; S5: api-endpoints re-homed to endpoint?tab=catalog
   assert.deepEqual(
     items.map((item) => item.id),
     [
@@ -43,19 +35,11 @@ test("primary sidebar items place limits after cache", () => {
       "embedded-services",
       "combos",
       "combos-live",
+      "fusions",
       "quota",
       "costs-quota-share",
       "context-settings",
       "context-combos",
-      "context-caveman",
-      "context-rtk",
-      "context-headroom",
-      "context-session-dedup",
-      "context-ccr",
-      "context-llmlingua",
-      "context-lite",
-      "context-aggressive",
-      "context-ultra",
       "compression-studio",
       "cli-code",
       "cli-agents",
@@ -63,7 +47,6 @@ test("primary sidebar items place limits after cache", () => {
       "cloud-agents",
       "agent-bridge",
       "traffic-inspector",
-      "api-endpoints",
       "webhooks",
       "proxy",
     ]
@@ -75,6 +58,7 @@ test("context sidebar section sits between primary and cli", () => {
   assert.deepEqual(sectionIds.slice(0, 4), ["home", "omni-proxy", "analytics", "costs"]);
 
   const items = sectionItems("omni-proxy");
+  // Hub only: settings + combos (+ studio has compression- prefix). Engines are deep links, not leaves.
   assert.deepEqual(
     items
       .filter((item) => item.id.startsWith("context-"))
@@ -82,15 +66,6 @@ test("context sidebar section sits between primary and cli", () => {
     [
       { id: "context-settings", href: "/dashboard/context/settings" },
       { id: "context-combos", href: "/dashboard/context/combos" },
-      { id: "context-caveman", href: "/dashboard/context/caveman" },
-      { id: "context-rtk", href: "/dashboard/context/rtk" },
-      { id: "context-headroom", href: "/dashboard/context/headroom" },
-      { id: "context-session-dedup", href: "/dashboard/context/session-dedup" },
-      { id: "context-ccr", href: "/dashboard/context/ccr" },
-      { id: "context-llmlingua", href: "/dashboard/context/llmlingua" },
-      { id: "context-lite", href: "/dashboard/context/lite" },
-      { id: "context-aggressive", href: "/dashboard/context/aggressive" },
-      { id: "context-ultra", href: "/dashboard/context/ultra" },
     ]
   );
 });
@@ -167,7 +142,8 @@ test("legacy dashboard routes redirect to their consolidated surfaces", async ()
   );
 
   assert.match(autoComboPage, /redirect\("\/dashboard\/combos\?filter=intelligent"\)/);
-  assert.match(usagePage, /redirect\("\/dashboard\/logs"\)/);
+  // Epic 0005 S4: usage → Observe hub (request stream), not standalone logs leaf
+  assert.match(usagePage, /buildObserveHubPath\("request"\)|redirect\(.*activity/);
   assert.match(settingsPage, /redirect\(resolveSettingsRoute\(tab\)\)/);
   assert.match(settingsPage, /\/dashboard\/settings\/general/);
 

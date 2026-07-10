@@ -1,7 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { buildObserveHubPath } from "@/shared/constants/observeHub";
 
-import ConsoleLogViewer from "@/shared/components/ConsoleLogViewer";
-
-export default function LogsConsolePage() {
-  return <ConsoleLogViewer />;
+/** Dual-nav retired (Epic 0005 S4) — keep deep link via ?source=console */
+export default function LogsConsoleRedirectPage() {
+  redirect(buildObserveHubPath("console"));
 }

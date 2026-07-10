@@ -1,7 +1,7 @@
 # Dependency tree — OmniRoute Fusion tasks
 
 > **Purpose**: prevent *carro na frente do boi* — know what is **serial**, what is **parallel**, and what **blocks** what.  
-> **Updated**: 2026-07-10  
+> **Updated**: 2026-07-10 (Wave 2 builders closed — see `docs/reports/builders/2026-07-10-wave2-closeout.md`)  
 > **Scope**: Epic 0005 (Frontend IA) + reference to completed Fusion wave (Epic 0003).  
 > **Identity**: tasks use lane-neutral `Task NNNN`. Resolve live path under `docs/tasks/<lane>/`.
 
@@ -94,8 +94,9 @@ WAVE 1 (DONE) ──────────────────────
   Leaves ~81 → ~67; analytics dual-nav dead; compression hub
 
 WAVE 2 (IA prep — PARALLEL) ───────────────────────────────
-  0023 Observe stream     ∥  0024 Registry/Connect cleanup
-  + optional parallel work from WAVE P (below)
+  0023 Observe stream     ∥  0024 Registry/Connect cleanup  ✅ builders done 2026-07-10
+  + Wave P: 0027 toggles · 0028 theme · 0029 CLI shell     ✅ same wave
+  (tasks still in 02-doing pending internal review promotion)
 
 WAVE 3 (IA core — SERIAL after Wave 2) ────────────────────
   0025 Seven-pillar sidebar + role presets

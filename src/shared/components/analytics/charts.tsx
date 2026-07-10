@@ -52,6 +52,25 @@ export function SortIndicator({ active, sortOrder }: { active: boolean; sortOrde
 
 // ── StatCard (primary KPI — shared across analytics / endpoint / cache) ────
 
+/** Optional top-left accent bar tone (VR metric-tile micro-pattern). */
+export type StatCardAccent =
+  | "none"
+  | "primary"
+  | "success"
+  | "warning"
+  | "danger"
+  | "info"
+  | "neutral";
+
+const STAT_CARD_ACCENT_BAR: Readonly<Record<Exclude<StatCardAccent, "none">, string>> = {
+  primary: "bg-primary",
+  success: "bg-green-500",
+  warning: "bg-amber-500",
+  danger: "bg-red-500",
+  info: "bg-blue-500",
+  neutral: "bg-gray-400 dark:bg-gray-600",
+};
+
 export type StatCardProps = {
   /** Material symbol name or React node. Optional for compact label/value tiles. */
   icon?: ReactNode;
@@ -63,13 +82,33 @@ export type StatCardProps = {
   color?: string;
   /** Smaller padding / height for dense grids (MCP/A2A summary). */
   compact?: boolean;
+  /**
+   * Optional top-left accent bar (density polish from visual-reference metric tiles).
+   * Default `none` keeps existing call sites visually unchanged.
+   */
+  accent?: StatCardAccent;
   className?: string;
 };
+
+function StatCardAccentBar({ accent }: { accent: StatCardAccent }) {
+  if (accent === "none") return null;
+  return (
+    <div
+      aria-hidden="true"
+      data-statcard-accent={accent}
+      className={cn(
+        "absolute top-0 left-0 h-[2px] w-8 rounded-br transition-[width] duration-300 group-hover:w-14",
+        STAT_CARD_ACCENT_BAR[accent]
+      )}
+    />
+  );
+}
 
 /**
  * Canonical metric tile. Prefer this over local `function StatCard` copies.
  * - With `icon`: analytics-style KPI (uppercase micro-label + large value).
  * - Without `icon`: simple label/value surface (endpoint dashboards).
+ * - Optional `accent`: top-left bar micro-pattern (backward-compatible; default none).
  */
 export function StatCard({
   icon,
@@ -79,19 +118,23 @@ export function StatCard({
   sub,
   color = "text-text-main",
   compact = false,
+  accent = "none",
   className,
 }: StatCardProps) {
   const secondary = subValue ?? sub;
+  const hasAccent = accent !== "none";
 
   if (icon == null || icon === false) {
     return (
       <div
         className={cn(
-          "rounded-lg border border-border bg-bg p-4 min-w-0",
-          compact ? "" : "min-h-[84px]",
+          "relative rounded-lg border border-border bg-bg p-4 min-w-0 overflow-hidden",
+          hasAccent && "group",
+          compact ? "p-3" : "min-h-[84px]",
           className
         )}
       >
+        <StatCardAccentBar accent={accent} />
         <p className="text-xs text-text-muted uppercase tracking-wide truncate">{label}</p>
         <p
           className={cn("font-semibold mt-1 truncate", compact ? "text-lg" : "text-xl", color)}
@@ -112,13 +155,21 @@ export function StatCard({
     );
 
   return (
-    <Card className={cn("px-4 py-3 flex flex-col gap-1 min-w-0", className)}>
+    <Card
+      className={cn(
+        "relative px-4 py-3 flex flex-col gap-1 min-w-0 overflow-hidden",
+        hasAccent && "group",
+        compact && "px-3 py-2",
+        className
+      )}
+    >
+      <StatCardAccentBar accent={accent} />
       <div className="flex items-center gap-1.5 text-text-muted text-[11px] uppercase font-semibold tracking-wide min-w-0">
         {iconNode}
         <span className="truncate">{label}</span>
       </div>
       <span
-        className={cn("text-2xl font-bold truncate", color)}
+        className={cn("text-2xl font-bold truncate", compact && "text-xl", color)}
         title={typeof value === "string" || typeof value === "number" ? String(value) : undefined}
       >
         {value}

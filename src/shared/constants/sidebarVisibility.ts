@@ -146,6 +146,7 @@ export const SIDEBAR_ICON_ACCENTS: Partial<Record<HideableSidebarItemId, string>
   "analytics-compression": "#F97316",
   "analytics-search": "#38BDF8",
   "analytics-evals": "#A78BFA",
+  activity: "#60A5FA",
   logs: "#CBD5E1",
   "logs-proxy": "#A3E635",
   "logs-console": "#FACC15",
@@ -469,19 +470,22 @@ const TOOLS_GROUP: SidebarItemGroup = {
   ],
 };
 
+/**
+ * Connect / exposure dual-nav retired (Epic 0005 S5).
+ * `api-endpoints` → `/dashboard/endpoint?tab=catalog` (SSoT Connect surface).
+ * MCP/A2A stay single homes under Agentic Features (`/dashboard/mcp`, `/dashboard/a2a`).
+ * Hideable id retained for stored prefs. Snapshot:
+ * `.archive/sidebar/2026-07-10-connect-exposure/SNAPSHOT.md`
+ */
+export const CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS = ["api-endpoints"] as const;
+
 const INTEGRATIONS_GROUP: SidebarItemGroup = {
   type: "group",
   id: "integrations",
   titleKey: "integrationsGroup",
   titleFallback: "Integrations",
+  // OpenAPI catalog re-homed under Connect (`endpoints` → ?tab=catalog). Webhooks only.
   items: [
-    {
-      id: "api-endpoints",
-      href: "/dashboard/api-endpoints",
-      i18nKey: "apiEndpoints",
-      subtitleKey: "apiEndpointsSubtitle",
-      icon: "api",
-    },
     {
       id: "webhooks",
       href: "/dashboard/webhooks",
@@ -537,45 +541,29 @@ const ANALYTICS_ITEMS: readonly SidebarItemDefinition[] = [
   },
 ];
 
+/**
+ * Observe / Execution Stream hub (Epic 0005 S4).
+ * Collapses former Activity + Logs* + Audit* peer leaves into one default leaf.
+ * Nested routes redirect to `/dashboard/activity?source=…`.
+ * Hideable ids for retired leaves retained in HIDEABLE_SIDEBAR_ITEM_IDS.
+ * Snapshot: `.archive/sidebar/2026-07-10-observe-stream/SNAPSHOT.md`
+ * @see OBSERVE_STREAM_SIDEBAR_IDS in `./observeHub.ts`
+ */
 const MONITORING_ITEMS: readonly SidebarItemDefinition[] = [
   {
     id: "activity",
     href: "/dashboard/activity",
     i18nKey: "activity",
     subtitleKey: "activitySubtitle",
+    subtitleFallback: "Unified event stream — activity, logs, and audit",
     icon: "timeline",
   },
 ];
 
-const LOGS_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "logs",
-  titleKey: "logsGroup",
-  titleFallback: "Logs",
-  items: [
-    {
-      id: "logs",
-      href: "/dashboard/logs",
-      i18nKey: "logs",
-      subtitleKey: "logsSubtitle",
-      icon: "description",
-    },
-    {
-      id: "logs-proxy",
-      href: "/dashboard/logs/proxy",
-      i18nKey: "logsProxy",
-      subtitleKey: "logsProxySubtitle",
-      icon: "lan",
-    },
-    {
-      id: "logs-console",
-      href: "/dashboard/logs/console",
-      i18nKey: "consoleLogs",
-      subtitleKey: "consoleLogsSubtitle",
-      icon: "terminal",
-    },
-  ],
-};
+// LOGS_GROUP retired (Epic 0005 S4): logs / logs-proxy / logs-console →
+//   /dashboard/activity?source=request|proxy|console  (see observeHub.ts)
+// AUDIT_GROUP retired (Epic 0005 S4): audit / audit-mcp / audit-a2a →
+//   /dashboard/activity?source=audit|mcp|a2a
 
 const SYSTEM_GROUP: SidebarItemGroup = {
   type: "group",
@@ -941,7 +929,8 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
     id: "monitoring",
     titleKey: "monitoringSection",
     titleFallback: "Monitoring",
-    children: [...MONITORING_ITEMS, LOGS_GROUP, AUDIT_GROUP, SYSTEM_GROUP],
+    // Observe hub only + System (health/runtime). Logs/Audit groups collapsed in S4.
+    children: [...MONITORING_ITEMS, SYSTEM_GROUP],
   },
   {
     id: "devtools",
@@ -1002,7 +991,8 @@ const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "combos",
   "analytics",
   "costs",
-  "logs",
+  // Observe hub (S4) — replaces peer logs/audit leaves
+  "activity",
   "health",
   "settings-general",
   "settings-sidebar",
@@ -1023,11 +1013,13 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "cli-code",
   "cli-agents",
   "acp-agents",
-  "api-endpoints",
+  // api-endpoints retired from default tree (S5) — catalog is endpoints?tab=catalog
+  "webhooks",
   "analytics",
   "costs",
   "cache",
-  "logs",
+  // Observe hub (S4)
+  "activity",
   "health",
   "runtime",
   "translator",
@@ -1058,13 +1050,10 @@ const ADMIN_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "costs-budget",
   "costs-quota-share",
   "cache",
-  "logs",
+  // Observe hub (S4) — audit/logs sources via hub filters, not peer leaves
   "activity",
   "health",
   "runtime",
-  "audit",
-  "audit-mcp",
-  "audit-a2a",
   "settings-general",
   "settings-routing",
   "settings-resilience",

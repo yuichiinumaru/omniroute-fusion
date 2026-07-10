@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, memo, useRef, useId } from "react";
-import { Card, Button, Input, Modal, CardSkeleton } from "@/shared/components";
+import {
+  Card,
+  Button,
+  Input,
+  Modal,
+  CardSkeleton,
+  SettingsToggleRow,
+} from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useLocale, useTranslations } from "next-intl";
 import { getProviderDisplayName } from "@/lib/display/names";
@@ -1317,97 +1324,39 @@ export default function ApiManagerPageClient() {
             />
             <p className="text-xs text-text-muted mt-1.5">{t("keyNameDesc")}</p>
           </div>
-          <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-text-main">{t("managementAccess")}</p>
-              <p className="text-xs text-text-muted">{t("managementAccessDesc")}</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={newKeyManageEnabled}
-              onClick={() => setNewKeyManageEnabled((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
-                newKeyManageEnabled
-                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
-                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
-              {newKeyManageEnabled ? tc("enabled") : tc("disabled")}
-            </button>
-          </div>
-          <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
-            <div className="flex flex-col gap-1">
+          <SettingsToggleRow
+            label={t("managementAccess")}
+            description={t("managementAccessDesc")}
+            checked={newKeyManageEnabled}
+            onChange={setNewKeyManageEnabled}
+          />
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1 px-1">
               <p className="text-sm font-medium text-text-main">{t("selfServiceVisibility")}</p>
               <p className="text-xs text-text-muted">{t("selfServiceVisibilityDesc")}</p>
             </div>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm text-text-main">{t("ownUsageVisibility")}</p>
-                <p className="text-xs text-text-muted">{t("ownUsageVisibilityDesc")}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={newKeySelfUsageEnabled}
-                onClick={() =>
-                  setNewKeySelfUsageEnabled((prev) => {
-                    if (prev) setNewKeyAccountQuotaEnabled(false);
-                    return !prev;
-                  })
-                }
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
-                  newKeySelfUsageEnabled
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[14px]">query_stats</span>
-                {newKeySelfUsageEnabled ? tc("enabled") : tc("disabled")}
-              </button>
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm text-text-main">{t("sharedAccountQuotaVisibility")}</p>
-                <p className="text-xs text-text-muted">{t("sharedAccountQuotaVisibilityDesc")}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={newKeyAccountQuotaEnabled}
-                disabled={!newKeySelfUsageEnabled}
-                onClick={() => setNewKeyAccountQuotaEnabled((prev) => !prev)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
-                  newKeyAccountQuotaEnabled
-                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-                } ${!newKeySelfUsageEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                <span className="material-symbols-outlined text-[14px]">account_balance</span>
-                {newKeyAccountQuotaEnabled ? tc("enabled") : tc("disabled")}
-              </button>
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm text-text-main">{t("localUsageCommand")}</p>
-                <p className="text-xs text-text-muted">{t("localUsageCommandDesc")}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={newKeyAllowUsageCommand}
-                onClick={() => setNewKeyAllowUsageCommand((prev) => !prev)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
-                  newKeyAllowUsageCommand
-                    ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30"
-                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[14px]">terminal</span>
-                {newKeyAllowUsageCommand ? tc("enabled") : tc("disabled")}
-              </button>
-            </div>
+            <SettingsToggleRow
+              label={t("ownUsageVisibility")}
+              description={t("ownUsageVisibilityDesc")}
+              checked={newKeySelfUsageEnabled}
+              onChange={(checked) => {
+                setNewKeySelfUsageEnabled(checked);
+                if (!checked) setNewKeyAccountQuotaEnabled(false);
+              }}
+            />
+            <SettingsToggleRow
+              label={t("sharedAccountQuotaVisibility")}
+              description={t("sharedAccountQuotaVisibilityDesc")}
+              checked={newKeyAccountQuotaEnabled}
+              disabled={!newKeySelfUsageEnabled}
+              onChange={setNewKeyAccountQuotaEnabled}
+            />
+            <SettingsToggleRow
+              label={t("localUsageCommand")}
+              description={t("localUsageCommandDesc")}
+              checked={newKeyAllowUsageCommand}
+              onChange={setNewKeyAllowUsageCommand}
+            />
           </div>
           {createError && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
@@ -1979,28 +1928,12 @@ const PermissionsModal = memo(function PermissionsModal({
         </div>
 
         {/* Key Active Toggle */}
-        <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-text-main">{t("keyActive")}</p>
-            <p className="text-xs text-text-muted">{t("keyActiveDesc")}</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={keyIsActive}
-            onClick={() => setKeyIsActive((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              keyIsActive
-                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                : "bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">
-              {keyIsActive ? "check_circle" : "block"}
-            </span>
-            {keyIsActive ? tc("enabled") : tc("disabled")}
-          </button>
-        </div>
+        <SettingsToggleRow
+          label={t("keyActive")}
+          description={t("keyActiveDesc")}
+          checked={keyIsActive}
+          onChange={setKeyIsActive}
+        />
 
         {/* Max Sessions Limit (T08) */}
         <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
@@ -2119,29 +2052,15 @@ const PermissionsModal = memo(function PermissionsModal({
         </div>
 
         {/* Access Schedule */}
-        <div className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-surface/40">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-text-main">{t("accessSchedule")}</p>
-              <p className="text-xs text-text-muted">{t("accessScheduleDesc")}</p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={scheduleEnabled}
-              onClick={() => setScheduleEnabled((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
-                scheduleEnabled
-                  ? "bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-500/30"
-                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[14px]">schedule</span>
-              {scheduleEnabled ? tc("enabled") : tc("disabled")}
-            </button>
-          </div>
+        <div className="flex flex-col gap-2">
+          <SettingsToggleRow
+            label={t("accessSchedule")}
+            description={t("accessScheduleDesc")}
+            checked={scheduleEnabled}
+            onChange={setScheduleEnabled}
+          />
           {scheduleEnabled && (
-            <div className="flex flex-col gap-3 pt-1">
+            <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-text-muted mb-1 block">{t("scheduleFrom")}</label>
@@ -2218,54 +2137,20 @@ const PermissionsModal = memo(function PermissionsModal({
         </div>
 
         {/* Privacy Toggle */}
-        <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-text-main">{t("noLogPayloadPrivacy")}</p>
-            <p className="text-xs text-text-muted">
-              Disable request/response payload persistence for this API key.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={noLogEnabled}
-            onClick={() => setNoLogEnabled((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              noLogEnabled
-                ? "bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30"
-                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">
-              {noLogEnabled ? "visibility_off" : "visibility"}
-            </span>
-            {noLogEnabled ? tc("enabled") : tc("disabled")}
-          </button>
-        </div>
+        <SettingsToggleRow
+          label={t("noLogPayloadPrivacy")}
+          description="Disable request/response payload persistence for this API key."
+          checked={noLogEnabled}
+          onChange={setNoLogEnabled}
+        />
 
         {/* Auto-Resolve Toggle */}
-        <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-text-main">{t("autoResolve")}</p>
-            <p className="text-xs text-text-muted">{t("autoResolveDesc")}</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoResolveEnabled}
-            onClick={() => setAutoResolveEnabled((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              autoResolveEnabled
-                ? "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30"
-                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">
-              {autoResolveEnabled ? "auto_fix_high" : "auto_fix_normal"}
-            </span>
-            {autoResolveEnabled ? tc("enabled") : tc("disabled")}
-          </button>
-        </div>
+        <SettingsToggleRow
+          label={t("autoResolve")}
+          description={t("autoResolveDesc")}
+          checked={autoResolveEnabled}
+          onChange={setAutoResolveEnabled}
+        />
 
         {/* Stream Default Compatibility */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
@@ -2302,29 +2187,13 @@ const PermissionsModal = memo(function PermissionsModal({
         </div>
 
         {/* Ban Toggle (SECURITY) */}
-        <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-red-500/20 bg-red-500/5">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-bold text-red-700 dark:text-red-400">{t("bannedStatus")}</p>
-            <p className="text-xs text-red-600 dark:text-red-300">
-              Immediately revoke all access. Used for suspected abuse or compromised keys.
-            </p>
-          </div>
-          <button
-            role="switch"
-            aria-checked={keyIsBanned}
-            onClick={() => setKeyIsBanned((prev) => !prev)}
-            className={`inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-colors ${
-              keyIsBanned
-                ? "bg-red-500 text-white shadow-sm"
-                : "bg-black/5 dark:bg-white/5 text-text-muted hover:bg-black/10 dark:hover:bg-white/10"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">
-              {keyIsBanned ? "block" : "check_circle"}
-            </span>
-            {keyIsBanned ? "Banned" : "Active"}
-          </button>
-        </div>
+        <SettingsToggleRow
+          label={t("bannedStatus")}
+          description="Immediately revoke all access. Used for suspected abuse or compromised keys."
+          checked={keyIsBanned}
+          onChange={setKeyIsBanned}
+          className="border-red-500/20 bg-red-500/5"
+        />
         {/* Expiration Date */}
         <div className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-surface/40">
           <div className="flex flex-col gap-1">
@@ -2361,84 +2230,40 @@ const PermissionsModal = memo(function PermissionsModal({
           </div>
         </div>
         {/* Management Access */}
-        <div className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-surface/40">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-text-main">{t("managementAccess")}</p>
-            <p className="text-xs text-text-muted">{t("managementAccessDesc")}</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={manageEnabled}
-            onClick={() => setManageEnabled((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              manageEnabled
-                ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
-                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
-            {manageEnabled ? tc("enabled") : tc("disabled")}
-          </button>
-        </div>
+        <SettingsToggleRow
+          label={t("managementAccess")}
+          description={t("managementAccessDesc")}
+          checked={manageEnabled}
+          onChange={setManageEnabled}
+        />
         {/* Self-service Visibility */}
-        <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
-          <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1 px-1">
             <p className="text-sm font-medium text-text-main">{t("selfServiceVisibility")}</p>
             <p className="text-xs text-text-muted">{t("selfServiceVisibilityDesc")}</p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={selfUsageEnabled}
-            onClick={() =>
-              setSelfUsageEnabled((prev) => {
-                if (prev) setSelfAccountQuotaEnabled(false);
-                return !prev;
-              })
-            }
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              selfUsageEnabled
-                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">query_stats</span>
-            {t("ownUsageVisibility")} - {selfUsageEnabled ? tc("enabled") : tc("disabled")}
-          </button>
-          <p className="text-xs text-text-muted">{t("ownUsageVisibilityDesc")}</p>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={selfAccountQuotaEnabled}
+          <SettingsToggleRow
+            label={t("ownUsageVisibility")}
+            description={t("ownUsageVisibilityDesc")}
+            checked={selfUsageEnabled}
+            onChange={(checked) => {
+              setSelfUsageEnabled(checked);
+              if (!checked) setSelfAccountQuotaEnabled(false);
+            }}
+          />
+          <SettingsToggleRow
+            label={t("sharedAccountQuotaVisibility")}
+            description={t("sharedAccountQuotaVisibilityDesc")}
+            checked={selfAccountQuotaEnabled}
             disabled={!selfUsageEnabled}
-            onClick={() => setSelfAccountQuotaEnabled((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              selfAccountQuotaEnabled
-                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-            } ${!selfUsageEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            <span className="material-symbols-outlined text-[14px]">account_balance</span>
-            {t("sharedAccountQuotaVisibility")} -{" "}
-            {selfAccountQuotaEnabled ? tc("enabled") : tc("disabled")}
-          </button>
-          <p className="text-xs text-text-muted">{t("sharedAccountQuotaVisibilityDesc")}</p>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={usageCommandEnabled}
-            onClick={() => setUsageCommandEnabled((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              usageCommandEnabled
-                ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30"
-                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">terminal</span>
-            {t("localUsageCommand")} - {usageCommandEnabled ? tc("enabled") : tc("disabled")}
-          </button>
-          <p className="text-xs text-text-muted">{t("localUsageCommandDesc")}</p>
+            onChange={setSelfAccountQuotaEnabled}
+          />
+          <SettingsToggleRow
+            label={t("localUsageCommand")}
+            description={t("localUsageCommandDesc")}
+            checked={usageCommandEnabled}
+            onChange={setUsageCommandEnabled}
+          />
           <UsageLimitSettings
             enabled={usageLimitEnabled}
             dailyLimitUsd={dailyUsageLimitUsd}
@@ -2452,28 +2277,12 @@ const PermissionsModal = memo(function PermissionsModal({
         </div>
 
         {/* Disable Non-Public Models Toggle */}
-        <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-text-main">{t("disableNonPublicModels")}</p>
-            <p className="text-xs text-text-muted">{t("disableNonPublicModelsDesc")}</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={disableNonPublicModels}
-            onClick={() => setDisableNonPublicModels((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              disableNonPublicModels
-                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[14px]">
-              {disableNonPublicModels ? "shield_lock" : "shield"}
-            </span>
-            {disableNonPublicModels ? tc("yes") : tc("no")}
-          </button>
-        </div>
+        <SettingsToggleRow
+          label={t("disableNonPublicModels")}
+          description={t("disableNonPublicModelsDesc")}
+          checked={disableNonPublicModels}
+          onChange={setDisableNonPublicModels}
+        />
 
         {/* Selected Models Summary (only in restrict mode) */}
         {!allowAll && selectedCount > 0 && (

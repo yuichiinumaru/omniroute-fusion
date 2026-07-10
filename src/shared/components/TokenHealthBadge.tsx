@@ -7,17 +7,45 @@ import { useTranslations } from "next-intl";
  *
  * Small badge in the Header showing token health status.
  * Polls /api/token-health every 60s.
+ *
+ * Status colors + soft glow (warning/error only) come from statusVocabulary
+ * (Task 0028 micro-adoption). Glow stays on this health surface — not global.
  */
 
 import { useState, useEffect } from "react";
 import { STATUS_HEX } from "@/shared/constants/statusColors";
+import {
+  resolveStatusVocabulary,
+  statusGlowClass,
+} from "@/shared/constants/statusVocabulary";
+import { cn } from "@/shared/utils/cn";
 
 const STATUS_MAP = {
-  healthy: { icon: "check_circle", color: STATUS_HEX.success, tooltip: "All tokens healthy" },
-  warning: { icon: "warning", color: STATUS_HEX.warning, tooltip: "Some tokens need attention" },
-  error: { icon: "error", color: STATUS_HEX.error, tooltip: "Token refresh failures detected" },
-  unknown: { icon: "help", color: STATUS_HEX.muted, tooltip: "Health status unknown" },
-};
+  healthy: {
+    icon: "check_circle",
+    color: STATUS_HEX.success,
+    tooltip: "All tokens healthy",
+    vocabKey: "healthy",
+  },
+  warning: {
+    icon: "warning",
+    color: STATUS_HEX.warning,
+    tooltip: "Some tokens need attention",
+    vocabKey: "warning",
+  },
+  error: {
+    icon: "error",
+    color: STATUS_HEX.error,
+    tooltip: "Token refresh failures detected",
+    vocabKey: "error",
+  },
+  unknown: {
+    icon: "help",
+    color: STATUS_HEX.muted,
+    tooltip: "Health status unknown",
+    vocabKey: "unknown",
+  },
+} as const;
 
 export default function TokenHealthBadge() {
   const t = useTranslations("stats");
@@ -45,6 +73,9 @@ export default function TokenHealthBadge() {
   if (!health || health.total === 0) return null;
 
   const status = STATUS_MAP[health.status] || STATUS_MAP.unknown;
+  const vocab = resolveStatusVocabulary(status.vocabKey);
+  // Soft glow only for warning/error health states (glow budget).
+  const glow = statusGlowClass(status.vocabKey, vocab.glow === "soft");
 
   return (
     <div
@@ -53,8 +84,12 @@ export default function TokenHealthBadge() {
       onMouseLeave={() => setShowTooltip(false)}
     >
       <button
-        className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-surface/30 transition-colors"
+        className={cn(
+          "flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-surface/30 transition-colors",
+          glow
+        )}
         title={status.tooltip}
+        data-status={vocab.id}
       >
         <span className="material-symbols-outlined text-[18px]" style={{ color: status.color }}>
           {status.icon}

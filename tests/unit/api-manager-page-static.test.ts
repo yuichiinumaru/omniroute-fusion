@@ -50,24 +50,48 @@ test("permissions modal converts API key expiration ISO timestamps to local date
   assert.doesNotMatch(expirationBlock, /expiresAt\.slice\(0, 16\)/);
 });
 
-test("permissions modal switch buttons declare button type", () => {
+test("permissions modal self-service cluster uses SettingsToggleRow (no hand-rolled switches)", () => {
   const source = readApiManagerPage();
   const modalStart = source.indexOf("const PermissionsModal");
   const visibilityStart = source.indexOf("{/* Self-service Visibility */}", modalStart);
   const visibilityEnd = source.indexOf("{/* Selected Models Summary", visibilityStart);
   const selfServiceBlock = source.slice(visibilityStart, visibilityEnd);
-  const switchButtonCount = (selfServiceBlock.match(/role="switch"/g) ?? []).length;
-  const typedSwitchButtonCount = (
-    selfServiceBlock.match(/<button\s+type="button"\s+role="switch"/g) ?? []
-  ).length;
 
-  // Self-service Visibility block has 4 switches: own-usage visibility,
-  // shared-account quota visibility, disable-non-public-models (#3041), and the
-  // per-key local usage command allowance (#4034).
-  // The invariant is that every switch declares type="button"
-  // (typedSwitchButtonCount === switchButtonCount) to avoid implicit submit.
-  assert.equal(switchButtonCount, 4);
-  assert.equal(typedSwitchButtonCount, 4);
+  // Self-service Visibility + disable-non-public-models: 4 SettingsToggleRow instances
+  // (own-usage, shared-account quota, local usage command, disable-non-public).
+  // USD quota lives in UsageLimitSettings (also SettingsToggleRow).
+  const settingsToggleRowCount = (selfServiceBlock.match(/<SettingsToggleRow/g) ?? []).length;
+  assert.equal(settingsToggleRowCount, 4);
+
+  // No residual hand-rolled role="switch" in the migrated cluster.
+  assert.equal((selfServiceBlock.match(/role="switch"/g) ?? []).length, 0);
+  assert.doesNotMatch(selfServiceBlock, /<button\s+[^>]*role="switch"/);
+});
+
+test("ApiManager permissions + create-key clusters have no hand-rolled role=switch", () => {
+  const source = readApiManagerPage();
+  assert.equal((source.match(/role="switch"/g) ?? []).length, 0);
+  assert.match(source, /SettingsToggleRow/);
+
+  // Create-key modal JSX: management + 3 self-service SettingsToggleRow rows
+  const createFormStart = source.indexOf("ref={createKeyFormRef}");
+  assert.ok(createFormStart >= 0, "create-key form ref should exist");
+  const createFormEnd = source.indexOf("{createError &&", createFormStart);
+  const createBlock = source.slice(createFormStart, createFormEnd);
+  assert.equal(
+    (createBlock.match(/<SettingsToggleRow/g) ?? []).length,
+    4,
+    "create-key form should use SettingsToggleRow for management + 3 self-service toggles"
+  );
+
+  // Permissions modal overall SettingsToggleRow adoption (key active, schedule, privacy,
+  // auto-resolve, ban, management, 3 self-service, disable-non-public = 10)
+  const permissionsStart = source.indexOf("const PermissionsModal");
+  const permissionsSource = source.slice(permissionsStart);
+  assert.ok(
+    (permissionsSource.match(/<SettingsToggleRow/g) ?? []).length >= 10,
+    "permissions modal should adopt SettingsToggleRow for settings-row toggles"
+  );
 });
 
 test("permissions modal exposes Claude Code default wildcard model", () => {

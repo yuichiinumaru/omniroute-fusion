@@ -14,4 +14,6 @@ export const STATUS_HEX = {
   warning: "#f59e0b",
   error: "#ef4444",
   muted: "#6b7280",
+  /** Info tone — mirrors `--color-info` light value in globals.css. */
+  info: "#3b82f6",
 } as const;

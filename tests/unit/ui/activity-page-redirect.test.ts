@@ -34,15 +34,15 @@ const PAGE_PATH = resolve(
   "../../../src/app/(dashboard)/dashboard/logs/activity/page.tsx"
 );
 
-test("logs/activity/page.tsx contains permanentRedirect('/dashboard/activity')", () => {
+test("logs/activity/page.tsx contains permanentRedirect to Observe hub", () => {
   const src = readFileSync(PAGE_PATH, "utf-8");
   assert.ok(
     src.includes("permanentRedirect"),
     "page.tsx must call permanentRedirect"
   );
   assert.ok(
-    src.includes("/dashboard/activity"),
-    "page.tsx must redirect to /dashboard/activity"
+    src.includes("buildObserveHubPath") || src.includes("/dashboard/activity"),
+    "page.tsx must redirect to /dashboard/activity (Observe hub)"
   );
   assert.ok(
     src.includes(`from "next/navigation"`),
@@ -100,6 +100,15 @@ test("activity/ActivityFeedClient.tsx exists", () => {
     src.includes('level: "high"') || src.includes("level=high"),
     "Client must request level=high"
   );
+});
+
+test("activity/page.tsx mounts Observe hub shell", () => {
+  const HUB_PATH = resolve(
+    import.meta.dirname ?? new URL(".", import.meta.url).pathname,
+    "../../../src/app/(dashboard)/dashboard/activity/page.tsx"
+  );
+  const src = readFileSync(HUB_PATH, "utf-8");
+  assert.ok(src.includes("ObserveHubClient"), "hub page must render ObserveHubClient");
 });
 
 // Dummy to satisfy the mockNavigation reference (avoid unused var lint)

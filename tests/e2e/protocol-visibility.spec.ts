@@ -2,24 +2,28 @@ import { test, expect } from "@playwright/test";
 import { gotoDashboardRoute } from "./helpers/dashboardAuth";
 
 test.describe("Protocol visibility", () => {
-  test("shows MCP and A2A tabs inside the endpoint page", async ({ page }) => {
+  test("Connect shell links to MCP and A2A protocol homes (Epic 0005 S5)", async ({ page }) => {
     await gotoDashboardRoute(page, "/dashboard/endpoint");
     await page.waitForLoadState("networkidle");
 
-    // MCP and A2A are now tabs directly in the SegmentedControl
-    const mcpTab = page.getByRole("tab", { name: "MCP" });
-    const a2aTab = page.getByRole("tab", { name: "A2A" });
+    const protocolHomes = page.getByTestId("connect-protocol-homes");
+    await expect(protocolHomes).toBeVisible();
 
-    await expect(mcpTab).toBeVisible();
-    await expect(a2aTab).toBeVisible();
+    const mcpLink = protocolHomes.getByRole("link", { name: /MCP/i });
+    const a2aLink = protocolHomes.getByRole("link", { name: /A2A/i });
+    await expect(mcpLink).toBeVisible();
+    await expect(a2aLink).toBeVisible();
+    await expect(mcpLink).toHaveAttribute("href", "/dashboard/mcp");
+    await expect(a2aLink).toHaveAttribute("href", "/dashboard/a2a");
+  });
 
-    // Verify MCP dashboard mounts
-    await mcpTab.click();
-    // In dev/test it might just show "loading..." or the processStatus card
+  test("MCP and A2A protocol home pages mount without error", async ({ page }) => {
+    await gotoDashboardRoute(page, "/dashboard/mcp");
+    await page.waitForLoadState("networkidle");
     await expect(page.locator("body")).not.toContainText(/application error|500/i);
 
-    // Verify A2A dashboard mounts
-    await a2aTab.click();
+    await gotoDashboardRoute(page, "/dashboard/a2a");
+    await page.waitForLoadState("networkidle");
     await expect(page.locator("body")).not.toContainText(/application error|500/i);
   });
 });

@@ -1,0 +1,55 @@
+# Local prod/test OmniRoute instances (host bind mounts under this repo).
+# Not for publishing — operator convenience after host reboots.
+#
+#   docker compose -f docker-compose.local-instances.yml up -d
+#
+# Requires image: omniroute:base
+# Data dirs: ./data-21000 (prod), ./data-test (staging) — gitignored.
+
+services:
+  omniroute-21000:
+    image: omniroute:base
+    container_name: omniroute-21000
+    restart: unless-stopped
+    ports:
+      - "21000:21000"
+    environment:
+      DATA_DIR: /data
+      PORT: "21000"
+      DASHBOARD_PORT: "21000"
+      REQUIRE_API_KEY: "false"
+      AUTH_COOKIE_SECURE: "false"
+      NODE_OPTIONS: "--max-old-space-size=2048"
+      OMNIROUTE_MEMORY_MB: "2048"
+      # Prefer host env if set; falls back to container/server.env bootstrap otherwise.
+      STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
+    volumes:
+      - ./data-21000:/data
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.mjs"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  omniroute-22000:
+    image: omniroute:base
+    container_name: omniroute
+    restart: unless-stopped
+    ports:
+      - "22000:20128"
+    environment:
+      DATA_DIR: /app/data
+      PORT: "20128"
+      REQUIRE_API_KEY: "false"
+      NODE_OPTIONS: "--max-old-space-size=1024"
+      OMNIROUTE_MEMORY_MB: "1024"
+      STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
+    volumes:
+      - ./data-test:/app/data
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.mjs"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

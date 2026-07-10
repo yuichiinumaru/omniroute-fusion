@@ -1,7 +1,9 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import ApiEndpointsTab from "../endpoint/ApiEndpointsTab";
-
+/**
+ * Connect SSoT (Epic 0005 S5) — OpenAPI catalog lives under the endpoint shell.
+ * Deep link preserved: /dashboard/api-endpoints → /dashboard/endpoint?tab=catalog
+ */
 export default function ApiEndpointsPage() {
-  return <ApiEndpointsTab />;
+  redirect("/dashboard/endpoint?tab=catalog");
 }

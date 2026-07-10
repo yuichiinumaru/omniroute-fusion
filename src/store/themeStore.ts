@@ -57,6 +57,11 @@ const useThemeStore = create<ThemeState>()(
   )
 );
 
+/**
+ * Optional primary accent presets. Default brand SSoT remains **coral**
+ * (`#e54d5e` / design.md). `coreCyan` is the VR-aligned optional swatch
+ * (`#00FFCC`) — never forced as the app default.
+ */
 export const COLOR_THEMES: Record<string, string> = {
   coral: "#e54d5e",
   blue: "#3b82f6",
@@ -64,8 +69,14 @@ export const COLOR_THEMES: Record<string, string> = {
   green: "#22c55e",
   violet: "#8b5cf6",
   orange: "#f97316",
+  /** Tailwind cyan (existing preset). */
   cyan: "#06b6d4",
+  /** Optional VR core-cyan primary — Appearance only; not brand SSoT. */
+  coreCyan: "#00ffcc",
 };
+
+/** Default primary theme id — brand coral (unchanged). */
+export const DEFAULT_COLOR_THEME = "coral" as const;
 
 // Apply light/dark theme to document
 function applyTheme(theme: string) {

@@ -7,6 +7,7 @@ import Badge from "@/shared/components/Badge";
 import { Card } from "@/shared/components";
 import { getProviderDisplayName } from "@/lib/display/names";
 import { cn } from "@/shared/utils/cn";
+import { statusToBadgeVariant } from "@/shared/constants/statusVocabulary";
 
 type HealthState = "healthy" | "degraded" | "down";
 type ModelStatus = "healthy" | "degraded" | "error" | "locked" | "idle";
@@ -126,17 +127,18 @@ function formatDate(
   }).format(date);
 }
 
+/** Health matrix states → shared Badge variants via status vocabulary (Task 0028). */
 function stateVariant(state: HealthState) {
-  if (state === "healthy") return "success" as const;
-  if (state === "degraded") return "warning" as const;
-  return "error" as const;
+  return statusToBadgeVariant(state === "down" ? "offline" : state);
 }
 
 function modelVariant(status: ModelStatus) {
-  if (status === "healthy") return "success" as const;
-  if (status === "degraded" || status === "locked") return "warning" as const;
-  if (status === "error") return "error" as const;
-  return "default" as const;
+  return statusToBadgeVariant(status);
+}
+
+/** Circuit breaker runtime states → vocabulary (OPEN gets soft glow on badge). */
+function circuitBreakerVariant(state: string) {
+  return statusToBadgeVariant(state);
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {
@@ -445,19 +447,18 @@ export default function ProviderHealthMatrixCard() {
                       {getProviderDisplayName(provider.provider)}
                     </span>
                     <span className="font-mono text-xs text-text-muted">{provider.provider}</span>
-                    <Badge variant={stateVariant(provider.state)} size="sm" dot>
+                    <Badge status={provider.state === "down" ? "offline" : provider.state} size="sm" dot>
                       {provider.state}
                     </Badge>
                     {provider.circuitBreaker ? (
                       <Badge
-                        variant={
-                          provider.circuitBreaker.state === "OPEN"
-                            ? "error"
-                            : provider.circuitBreaker.state === "HALF_OPEN"
-                              ? "warning"
-                              : "success"
-                        }
+                        status={provider.circuitBreaker.state}
+                        variant={circuitBreakerVariant(provider.circuitBreaker.state)}
                         size="sm"
+                        glow={
+                          provider.circuitBreaker.state === "OPEN" ||
+                          provider.circuitBreaker.state === "HALF_OPEN"
+                        }
                       >
                         CB {provider.circuitBreaker.state}
                       </Badge>

@@ -1,6 +1,10 @@
 "use client";
 
 import { cn } from "@/shared/utils/cn";
+import {
+  resolveStatusVocabulary,
+  type StatusBadgeVariant,
+} from "@/shared/constants/statusVocabulary";
 
 const variants = {
   default: "bg-black/5 dark:bg-white/10 text-text-muted",
@@ -20,40 +24,70 @@ const sizes = {
 interface BadgeProps {
   children?: React.ReactNode;
   variant?: keyof typeof variants;
+  /**
+   * Optional status vocabulary id (healthy / degraded / offline / OPEN / …).
+   * When set, resolves tone via `statusVocabulary` and overrides `variant`
+   * unless an explicit `variant` is also provided (variant wins for BC).
+   */
+  status?: string | null;
   size?: keyof typeof sizes;
   dot?: boolean;
   icon?: React.ReactNode;
+  /**
+   * Soft glow for health / circuit-breaker emphasis only.
+   * Uses vocabulary glow budget — no-op for neutral statuses.
+   */
+  glow?: boolean;
   className?: string;
+}
+
+function resolveVariant(
+  variant: keyof typeof variants | undefined,
+  status: string | null | undefined
+): StatusBadgeVariant {
+  if (variant) return variant;
+  if (status != null && status !== "") {
+    return resolveStatusVocabulary(status).badgeVariant;
+  }
+  return "default";
 }
 
 export default function Badge({
   children,
-  variant = "default",
+  variant,
+  status,
   size = "md",
   dot = false,
   icon,
+  glow = false,
   className,
 }: BadgeProps) {
+  const resolved = resolveVariant(variant, status);
+  const vocab = status != null && status !== "" ? resolveStatusVocabulary(status) : null;
+  const glowClass = glow && vocab ? vocab.glowClass : "";
+
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full font-semibold",
-        variants[variant],
+        variants[resolved],
         sizes[size],
+        glowClass,
         className
       )}
+      data-status={vocab?.id}
     >
       {dot && (
         <span
           aria-hidden="true"
           className={cn(
             "size-1.5 rounded-full",
-            variant === "success" && "bg-green-500",
-            variant === "warning" && "bg-yellow-500",
-            variant === "error" && "bg-red-500",
-            variant === "info" && "bg-blue-500",
-            variant === "primary" && "bg-primary",
-            variant === "default" && "bg-gray-500"
+            resolved === "success" && "bg-green-500",
+            resolved === "warning" && "bg-yellow-500",
+            resolved === "error" && "bg-red-500",
+            resolved === "info" && "bg-blue-500",
+            resolved === "primary" && "bg-primary",
+            resolved === "default" && "bg-gray-500"
           )}
         />
       )}

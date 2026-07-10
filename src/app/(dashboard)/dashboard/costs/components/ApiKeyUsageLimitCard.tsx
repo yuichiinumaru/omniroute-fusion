@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/shared/components";
+import { Card, Toggle } from "@/shared/components";
 
 export interface ApiKeyUsageLimitPayload {
   key: {
@@ -137,21 +137,14 @@ export function ApiKeyUsageLimitCard({
             spend in USD. Weekly follows the cached Claude reset when available.
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
+        <Toggle
+          checked={enabled}
+          onChange={setEnabled}
           disabled={loading || !payload}
-          onClick={() => setEnabled((prev) => !prev)}
-          className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
-            enabled
-              ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-              : "border-border bg-black/5 text-text-muted dark:bg-white/5"
-          } ${loading || !payload ? "opacity-50" : ""}`}
-        >
-          <span className="material-symbols-outlined text-[14px]">paid</span>
-          {enabled ? "Enabled" : "Disabled"}
-        </button>
+          size="sm"
+          ariaLabel="API key USD quota"
+          className="shrink-0"
+        />
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">

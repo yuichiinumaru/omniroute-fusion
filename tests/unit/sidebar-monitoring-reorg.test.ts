@@ -12,26 +12,24 @@ test("monitoring section exists", () => {
   assert.ok(section, "monitoring section must exist");
 });
 
-test("monitoring section has exactly 4 children: 1 item (activity) + 3 groups (logs, audit, system)", () => {
+test("monitoring section is Observe hub + System group only (Epic 0005 S4)", () => {
   const section = findSection("monitoring");
   assert.ok(section, "monitoring section must exist");
 
   const children = section.children;
-  assert.equal(children.length, 4, "monitoring must have 4 children");
+  assert.equal(children.length, 2, "monitoring must have 2 children: activity hub + system group");
 
-  // First child is the activity item (not a group)
   const first = children[0] as sidebarVisibility.SidebarItemDefinition;
   assert.ok(!("type" in first) || first.type !== "group", "first child must not be a group");
-  assert.equal((first as sidebarVisibility.SidebarItemDefinition).id, "activity", "first child must be activity item");
+  assert.equal(
+    (first as sidebarVisibility.SidebarItemDefinition).id,
+    "activity",
+    "first child must be activity Observe hub"
+  );
 
-  // Remaining 3 children are groups
-  const groups = children.slice(1);
-  for (const g of groups) {
-    assert.ok("type" in g && g.type === "group", "children[1..3] must all be groups");
-  }
-
-  const groupIds = groups.map((g) => (g as sidebarVisibility.SidebarItemGroup).id);
-  assert.deepEqual(groupIds, ["logs", "audit", "system"], "group ids must be logs, audit, system in order");
+  const second = children[1];
+  assert.ok("type" in second && second.type === "group", "second child must be system group");
+  assert.equal((second as sidebarVisibility.SidebarItemGroup).id, "system");
 });
 
 test("getSectionItems of monitoring does NOT contain logs-activity", () => {
@@ -77,17 +75,14 @@ test("monitoring section activity item has correct href and icon", () => {
   assert.equal(activityItem.i18nKey, "activity");
 });
 
-test("monitoring logs group contains logs, logs-proxy, logs-console", () => {
+test("monitoring no longer lists peer logs/audit leaves (S4 hub collapse)", () => {
   const section = findSection("monitoring");
   assert.ok(section, "monitoring section must exist");
 
-  const logsGroup = section.children.find(
-    (c): c is sidebarVisibility.SidebarItemGroup => "type" in c && c.type === "group" && c.id === "logs",
-  );
-  assert.ok(logsGroup, "logs group must exist in monitoring");
-
-  const itemIds = logsGroup.items.map((i) => i.id);
-  assert.deepEqual(itemIds, ["logs", "logs-proxy", "logs-console"]);
+  const itemIds = sidebarVisibility.getSectionItems(section).map((i) => i.id);
+  for (const id of ["logs", "logs-proxy", "logs-console", "audit", "audit-mcp", "audit-a2a"]) {
+    assert.equal(itemIds.includes(id as sidebarVisibility.HideableSidebarItemId), false, id);
+  }
 });
 
 test("monitoring system group contains health and runtime", () => {

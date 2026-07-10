@@ -25,11 +25,14 @@ test("shared Select: renders children and guards placeholder/options when childr
   assert.ok(src.includes("!children &&\n            options.map") || src.includes("!children &&"), "options guarded by !children");
 });
 
-test("logs: proxy/console tabs removed (dedicated menu pages exist)", () => {
+test("logs: page is Observe hub redirect (Epic 0005 S4); panel hosts RequestLoggerV2", () => {
   const src = read("src/app/(dashboard)/dashboard/logs/page.tsx");
-  assert.equal(/value:\s*"proxy-logs"/.test(src), false, "proxy-logs tab removed");
-  assert.equal(/value:\s*"console"/.test(src), false, "console tab removed");
-  assert.equal(src.includes("<ProxyLogger"), false, "ProxyLogger not rendered here");
-  assert.equal(src.includes("<ConsoleLogViewer"), false, "ConsoleLogViewer not rendered here");
-  assert.equal(src.includes("SegmentedControl"), false, "SegmentedControl removed (single tab left)");
+  assert.ok(src.includes("redirect"), "logs page redirects to Observe hub");
+  assert.ok(src.includes("buildObserveHubPath") || src.includes("source=request"), "targets request source");
+  assert.equal(src.includes("<ProxyLogger"), false, "ProxyLogger not rendered on redirect page");
+  assert.equal(src.includes("<ConsoleLogViewer"), false, "ConsoleLogViewer not rendered on redirect page");
+  assert.equal(src.includes("SegmentedControl"), false, "SegmentedControl not on redirect page");
+
+  const panel = read("src/app/(dashboard)/dashboard/logs/RequestLogsPanel.tsx");
+  assert.ok(panel.includes("RequestLoggerV2"), "RequestLogsPanel composes RequestLoggerV2");
 });

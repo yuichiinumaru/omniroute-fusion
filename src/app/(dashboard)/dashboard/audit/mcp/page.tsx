@@ -1,7 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { buildObserveHubPath } from "@/shared/constants/observeHub";
 
-import McpAuditTab from "../McpAuditTab";
-
-export default function AuditMcpPage() {
-  return <McpAuditTab />;
+/** Dual-nav retired (Epic 0005 S4) — keep deep link via ?source=mcp */
+export default function AuditMcpRedirectPage() {
+  redirect(buildObserveHubPath("mcp"));
 }

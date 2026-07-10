@@ -45,6 +45,15 @@
   --color-error: #ef4444;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
+  /* Info (health / active status chips) — dual light+dark pairs below */
+  --color-info: #3b82f6;
+
+  /* Soft status glows — opt-in on health/breaker surfaces only (Task 0028).
+     Values are color-mix friendly; consumers use statusGlowClass() utilities. */
+  --status-glow-success: rgba(34, 197, 94, 0.28);
+  --status-glow-warning: rgba(245, 158, 11, 0.32);
+  --status-glow-danger: rgba(239, 68, 68, 0.32);
+  --status-glow-info: rgba(59, 130, 246, 0.28);
 
   /* Traffic lights */
   --color-traffic-red: #ff5f56;
@@ -128,6 +137,13 @@
   --color-text-primary: #e6e6ef;
   --color-text-muted: #a1a1aa;
 
+  /* Info + status glows — slightly brighter for dark surfaces */
+  --color-info: #60a5fa;
+  --status-glow-success: rgba(34, 197, 94, 0.36);
+  --status-glow-warning: rgba(245, 158, 11, 0.4);
+  --status-glow-danger: rgba(239, 68, 68, 0.4);
+  --status-glow-info: rgba(96, 165, 250, 0.36);
+
   /* Fumadocs theme mapping */
   --color-fd-background: #0b0e14;
   --color-fd-foreground: #e6e6ef;
@@ -177,6 +193,7 @@
   --color-error: var(--color-error);
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
+  --color-info: var(--color-info);
 
   /* Auto-switch colors (use CSS variables from :root/.dark) */
   --color-bg: var(--color-bg);

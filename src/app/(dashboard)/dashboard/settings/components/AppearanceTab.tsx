@@ -105,6 +105,12 @@ export default function AppearanceTab() {
     { id: "violet", color: COLOR_THEMES.violet, label: t("themeViolet") },
     { id: "orange", color: COLOR_THEMES.orange, label: t("themeOrange") },
     { id: "cyan", color: COLOR_THEMES.cyan, label: t("themeCyan") },
+    // Optional VR-aligned core cyan (#00FFCC) — not brand SSoT; coral remains default.
+    {
+      id: "coreCyan",
+      color: COLOR_THEMES.coreCyan,
+      label: getSettingsLabel("themeCoreCyan", "Core Cyan"),
+    },
   ];
 
   const comboConfigModeOptions: Array<{

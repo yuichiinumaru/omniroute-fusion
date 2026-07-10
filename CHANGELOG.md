@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
+### Changed
+- **Connect / Registry exposure cleanup (Epic 0005 S5 / Task 0024)** — retire triple MCP/A2A/API Endpoints sidebar peers; single SSoT homes + redirects.
+  - Connect SSoT: `/dashboard/endpoint` (`endpoints` leaf) with tabs `apis` | `catalog` | `context-sources`
+  - OpenAPI catalog: `/dashboard/api-endpoints` → `/dashboard/endpoint?tab=catalog` (hideable `api-endpoints` retained)
+  - MCP SSoT: `/dashboard/mcp`; A2A SSoT: `/dashboard/a2a` (Agentic Features only); endpoint `?tab=mcp|a2a` redirects
+  - API keys (`api-manager`) stay separate — not merged into Providers
+  - Archive: `.archive/sidebar/2026-07-10-connect-exposure/SNAPSHOT.md`
+  - Tests: `tests/unit/ui/connect-exposure-sidebar.test.ts`
+  **Author**: builder (Task 0024)
+
+- **Frontend IA — SettingsToggleRow migration (Task 0027)** — migrate hand-rolled `role="switch"` pill toggles on API Manager + usage-limit surfaces to shared `SettingsToggleRow` / `Toggle` (a11y + presentation consistency; colored pill UX simplified to standard toggle).
+  - `ApiManagerPageClient.tsx`: 14 hand-rolled switches → `SettingsToggleRow` (create-key modal + permissions modal clusters)
+  - `UsageLimitSettings.tsx`: USD quota enable switch → `SettingsToggleRow`
+  - `ApiKeyUsageLimitCard.tsx`: enable switch → shared `Toggle`
+  - Tests: `api-manager-page-static.test.ts` (no residual raw switches), `usage-limit-settings.test.tsx`, `api-manager-settings-toggle-migration.test.tsx`
+  - Before/after `role="switch"` in primary files: ApiManagerPageClient 14→0, UsageLimitSettings 1→0, ApiKeyUsageLimitCard 1→0
+  **Author**: builder (Task 0027)
+
 ### Added
+- **Frontend IA theme micro-adoption (Task 0028 / Epic 0005 S9)** — selective visual-reference patterns without a full Prism/CyberCore port. Coral brand SSoT unchanged; cyan is optional Appearance only.
+  - `src/shared/constants/statusVocabulary.ts`: status → Badge/health tone map (`healthy`/`degraded`/`offline`/`OPEN`/…); soft glow helpers limited to health/breaker surfaces
+  - `Badge`: optional `status` + `glow` props (backward-compatible `variant`)
+  - Shared `StatCard`: optional `accent` top bar (`none` default); adopted on UsageAnalytics KPIs
+  - `themeStore` + Appearance: optional `coreCyan` (`#00FFCC`) preset; existing `cyan` (`#06b6d4`) kept; default remains `coral`
+  - `globals.css`: dual light+dark `--color-info` + `--status-glow-*` tokens
+  - Health adoption: TokenHealthBadge, DegradationBadge, ProviderHealthMatrix circuit-breaker badges
+  - Tests: `tests/unit/status-vocabulary.test.ts`, `tests/unit/theme-store-presets.test.ts`, `tests/unit/ui/stat-card-accent.test.tsx`
+  **Author**: builder (Task 0028)
+
 - **Fusion tests + regression hardening (Task 0018)** — comprehensive unit coverage for Fusion First-Class (resolution, multi-unit dispatch, triggers, panel body invariants, edge cases). No production changes.
   - `tests/unit/fusion-panel-tools-none.test.ts`: panel `stream:false` + `tool_choice:"none"` + tools kept (incl. legacy + combo-ref)
   - Extended `fusion-units-resolve`, `fusion-combo-ref-dispatch`, `fusion-triggers` with 0/1-panel, full cycle→503, labels, custom tool/text patterns
