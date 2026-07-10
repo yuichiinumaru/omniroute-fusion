@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Card, Button, Input, Modal, CardSkeleton, SegmentedControl } from "@/shared/components";
+import {
+  Card,
+  Button,
+  Input,
+  Modal,
+  CardSkeleton,
+  SegmentedControl,
+  writeTabSearchParam,
+} from "@/shared/components";
 import Toggle from "@/shared/components/Toggle";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useDisplayBaseUrl } from "@/shared/hooks";
@@ -1247,29 +1255,41 @@ export default function APIPageClient({
       <SegmentedControl
         options={ENDPOINT_TABS}
         value={activeEndpointTab}
-        onChange={(value) => setActiveEndpointTab(value as EndpointTab)}
+        onChange={(value) => {
+          const next = normalizeEndpointTab(value);
+          setActiveEndpointTab(next);
+          writeTabSearchParam("tab", next, { defaultValue: "apis" });
+        }}
         aria-label="Endpoint sections"
         className="w-fit"
       />
 
-      {/* Protocol homes — single MCP/A2A SSoT under Agentic Features (Epic 0005 S5) */}
+      {/* Protocol homes — MCP/A2A SSoT links (sidebar Registry exposures after S6; Epic 0005 S5) */}
       <div
         className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2"
         style={{ borderColor: "var(--color-border)", background: "var(--color-bg-secondary)" }}
         data-testid="connect-protocol-homes"
+        role="navigation"
+        aria-label="Protocol homes"
       >
         <span className="text-xs font-medium text-text-muted mr-1">Protocols</span>
         <Link
           href="/dashboard/mcp"
           className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text hover:bg-primary/10 transition-colors"
         >
-          <span className="material-symbols-outlined text-[14px]" style={{ color: "#8B5CF6" }}>
+          <span className="material-symbols-outlined text-[14px]" style={{ color: "#8B5CF6" }} aria-hidden="true">
             hub
           </span>
           MCP
           <span
             className="inline-block size-1.5 rounded-full"
             style={{ background: mcpOnline ? "rgb(34,197,94)" : "var(--color-text-muted)" }}
+            role="img"
+            aria-label={
+              mcpOnline
+                ? `MCP online${mcpToolCount ? `, ${mcpToolCount} tools` : ""}`
+                : "MCP offline"
+            }
             title={
               mcpOnline ? `Online${mcpToolCount ? ` · ${mcpToolCount} tools` : ""}` : "Offline"
             }
@@ -1279,13 +1299,19 @@ export default function APIPageClient({
           href="/dashboard/a2a"
           className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text hover:bg-primary/10 transition-colors"
         >
-          <span className="material-symbols-outlined text-[14px]" style={{ color: "#06B6D4" }}>
+          <span className="material-symbols-outlined text-[14px]" style={{ color: "#06B6D4" }} aria-hidden="true">
             device_hub
           </span>
           A2A
           <span
             className="inline-block size-1.5 rounded-full"
             style={{ background: a2aOnline ? "rgb(34,197,94)" : "var(--color-text-muted)" }}
+            role="img"
+            aria-label={
+              a2aOnline
+                ? `A2A online${a2aActiveStreams ? `, ${a2aActiveStreams} streams` : ""}`
+                : "A2A offline"
+            }
             title={
               a2aOnline
                 ? `Online${a2aActiveStreams ? ` · ${a2aActiveStreams} streams` : ""}`

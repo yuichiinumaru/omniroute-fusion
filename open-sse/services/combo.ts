@@ -951,7 +951,9 @@ export async function handleComboChat({
   // (same trigger gate as conditional-fusion) so editors can set strategy fusion
   // while still conditioning on tool/text patterns.
   if (strategy === "conditional-fusion" || strategy === "fusion") {
+    // SAFETY: combo.config is a loose bag; only triggers/fallbackStrategy fields are read here.
     const cfg = config as Record<string, unknown>;
+    // SAFETY: triggers shape is Zod-validated at write; runtime treats missing fields as optional.
     const triggers = cfg.triggers as FusionTriggersConfig | undefined;
     const isConditional = strategy === "conditional-fusion";
     const gateApplies =
@@ -984,6 +986,7 @@ export async function handleComboChat({
       isConditional ? "CONDITIONAL_FUSION" : "FUSION",
       `Trigger miss (mode=${triggers?.mode ?? "tool-call"}) — falling back to "${fallback}"`
     );
+    // SAFETY: resolveFusionFallbackStrategy returns a non-fusion strategy string; local override only.
     strategy = fallback as typeof strategy;
   }
 

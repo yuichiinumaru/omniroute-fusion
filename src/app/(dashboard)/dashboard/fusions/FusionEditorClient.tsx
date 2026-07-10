@@ -711,7 +711,6 @@ export default function FusionEditorClient({ id }: { id: string }) {
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  aria-pressed={selected}
                   data-testid={`fusion-trigger-${opt.value}`}
                   onClick={() =>
                     updateForm({

@@ -175,7 +175,7 @@ Optional: Task 0030 when hubs need tab shell
 |------|------|
 | `docs/tasks/00-planning/0005-…-epic.md` | Epic parent |
 | `docs/tasks/04-completed/0020…0022-*.md` | Wave 1 evidence |
-| `docs/tasks/01-open/0023…0031-*.md` | Remaining work |
+| `docs/tasks/03-review/` / `04-completed/` for `0023…0031-*.md` | Wave 2 IA children (resolve live lane by search; do not assume `01-open/`) |
 | `docs/dependency-tree.md` | This file — dispatch order |
 | `.archive/` (local, gitignored) | Tomb + provenance for dead IA surfaces |
 

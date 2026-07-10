@@ -159,10 +159,10 @@ Triggers are a core part of the Fusion First-Class epic (Decision D7). Without t
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
 - **Reviewer**: `reviewers` (gt-ts-code-reviewer)
-- **Data da review**: 2026-07-10
-- **Veredito**: REJECTED_TO_DOING
-- **Score (path to 100)**: 84/100
-- **Notas**: Shared-state mutation of `combo.strategy` on trigger miss (Axiom 4). Full report under Review Ledger.
+- **Data da review**: 2026-07-10 (re-review)
+- **Veredito**: HELD_IN_REVIEW_PATH_TO_100 (APPROVE S≥90)
+- **Score (path to 100)**: 97/100
+- **Notas**: F1–F4 resolved (immutability, D8 wire, SAFETY, miss asserts). Task remains in `03-review/`. Full report under Review Ledger.
 
 ---
 
@@ -171,40 +171,42 @@ Triggers are a core part of the Fusion First-Class epic (Decision D7). Without t
 > [!IMPORTANT]
 > Before path-to-100 work, read the latest full report and all reports listed
 > under Previous Reports. Persistent findings and regression guards are part of
-> the acceptance contract.
+> the acceptance contract; do not fix the latest finding by undoing a previously
+> accepted repair.
 
 ### Latest Review
 
 - **Date**: 2026-07-10
 - **Reviewer profile**: `reviewers`
-- **Score**: `84/100`
-- **Verdict**: `REJECTED_TO_DOING`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0014-omniroute-fusion-triggers-fallback-review.md`
-- **Lane outcome**: returned to doing
+- **Score**: `97/100`
+- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
+- **Full report**: `docs/reports/reviews/2026-07-10-task-0014-omniroute-fusion-triggers-fallback-rereview.md`
+- **Lane outcome**: remains in review (APPROVE S≥90; not moved to completed)
 - **Task reference**: Task 0014 (`omniroute-fusion-triggers-fallback`)
 
 #### Current Open Blockers
 
-- `NEW` **F1 High**: Do not mutate `combo.strategy` on fallback — only local `strategy` (`combo.ts:984-985`). Nested units from cached `allCombos` can be poisoned for ~10s TTL.
-- `NEW` **F2 Medium**: Add wire-level D8 test through `handleComboChat` with `fallbackStrategy: "fusion"`.
-- `NEW` **F3 Low**: SAFETY comments / narrower guards on `as` casts in `fusionTriggers.ts`.
-- `NEW` **F4 Low**: Strengthen miss-path assertions in `combo-fusion-strategy.test.ts`.
+- none functional
+- `NEW` **I1 Improvement** (optional): Completion Evidence claimed 48/48 tests; live named suite is **39/39** pass — hygiene only
 
 #### Path-to-100 Summary
 
-1. Remove `(combo as Record<string, unknown>).strategy = fallback`.
-2. Add miss→hit immutability regression on the same combo object.
-3. Wire D8 forbidden-fallback test.
-4. Tighten type assertions + weak wire asserts.
+1. Optional: fix test-count claim in Completion Evidence to 39/39.
+2. Optional purity polish: type predicates instead of remaining chat-payload `as` (not required for gate).
 
 #### Regression Guards
 
+- Never reintroduce `combo.strategy = …` mutation on trigger miss (local `strategy` only).
+- Keep immutability wire test (miss→hit same object) and D8 wire test (`fallbackStrategy: "fusion"`).
 - Keep all three trigger modes + pure D8 helper tests green.
 - Do not re-inline `matchGlob` / `hasMatchingToolCall` into `combo.ts`.
 
 ### Previous Reports
 
-- none (initial review)
+- `2026-07-10` — `84/100` — `docs/reports/reviews/2026-07-10-task-0014-omniroute-fusion-triggers-fallback-review.md`
+  - **Carried forward**: none (F1–F4 all RESOLVED on re-review)
+  - **Resolved since**: F1 mutation, F2 D8 wire, F3 SAFETY, F4 miss asserts
+  - **Regression guard**: no `combo.strategy` write; immutability + D8 wire tests must stay green
 
 ---
 

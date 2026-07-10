@@ -65,7 +65,7 @@ function ObserveHubContent() {
   );
 
   const handleSourceChange = (next: string) => {
-    const source = next as ObserveSource;
+    const source = normalizeObserveSource(next);
     setActiveSource(source);
     // PageTabBar syncs ?source= (deletes for activity). Extra cleanup for request deep-links + legacy tab.
     if (typeof window === "undefined") return;

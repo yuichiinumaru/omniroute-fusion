@@ -98,6 +98,7 @@ function messageContentToText(content: unknown): string {
       continue;
     }
     if (!part || typeof part !== "object") continue;
+    // SAFETY: object check above; multimodal part fields accessed as optional strings only.
     const rec = part as Record<string, unknown>;
     if (typeof rec.text === "string") parts.push(rec.text);
     else if (typeof rec.content === "string") parts.push(rec.content);

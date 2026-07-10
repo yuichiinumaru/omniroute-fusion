@@ -24,11 +24,19 @@
 - **Connect / Registry exposure cleanup (Epic 0005 S5 / Task 0024)** — retire triple MCP/A2A/API Endpoints sidebar peers; single SSoT homes + redirects.
   - Connect SSoT: `/dashboard/endpoint` (`endpoints` leaf) with tabs `apis` | `catalog` | `context-sources`
   - OpenAPI catalog: `/dashboard/api-endpoints` → `/dashboard/endpoint?tab=catalog` (hideable `api-endpoints` retained)
-  - MCP SSoT: `/dashboard/mcp`; A2A SSoT: `/dashboard/a2a` (Agentic Features only); endpoint `?tab=mcp|a2a` redirects
+  - MCP SSoT: `/dashboard/mcp`; A2A SSoT: `/dashboard/a2a` (Registry exposures after S6; single leaf each); endpoint `?tab=mcp|a2a` redirects
   - API keys (`api-manager`) stay separate — not merged into Providers
-  - Archive: `.archive/sidebar/2026-07-10-connect-exposure/SNAPSHOT.md`
+  - Archive: `.archive/sidebar/2026-07-10-connect-exposure/SNAPSHOT.md` + PROVENANCE-INDEX
   - Tests: `tests/unit/ui/connect-exposure-sidebar.test.ts`
   **Author**: builder (Task 0024)
+
+- **Observe hub (Epic 0005 S4 / Task 0023)** — collapse Activity + Logs + Proxy/Console logs + Audit/MCP/A2A into a single Observability stream at `/dashboard/activity` with `?source=` filters.
+  - SSoT hub: `/dashboard/activity` (`source=activity|request|proxy|console|audit|mcp|a2a`)
+  - Legacy redirects: `/dashboard/logs/*`, `/dashboard/audit/*`, `/dashboard/usage` → hub + source
+  - Hideable sidebar IDs retained for collapsed stream leaves; domain viewers composed (no god-logger)
+  - Archive: `.archive/sidebar/2026-07-10-observe-stream/SNAPSHOT.md` + PROVENANCE-INDEX
+  - Tests: `tests/unit/ui/observe-hub-sidebar.test.ts`
+  **Author**: builder (Task 0023)
 
 - **Frontend IA — SettingsToggleRow migration (Task 0027)** — migrate hand-rolled `role="switch"` pill toggles on API Manager + usage-limit surfaces to shared `SettingsToggleRow` / `Toggle` (a11y + presentation consistency; colored pill UX simplified to standard toggle).
   - `ApiManagerPageClient.tsx`: 14 hand-rolled switches → `SettingsToggleRow` (create-key modal + permissions modal clusters)

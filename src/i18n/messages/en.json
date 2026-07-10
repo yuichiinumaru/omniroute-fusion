@@ -3793,7 +3793,7 @@
   "logs": {
     "title": "Logs",
     "requestLogs": "Request Logs",
-    "proxyLogs": "Proxy Logs",
+    "proxyLogs": "Outbound Logs",
     "auditLog": "Audit Log",
     "console": "Console",
     "auditLogDesc": "Administrative actions and security events",

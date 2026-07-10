@@ -73,6 +73,11 @@ describe("sidebar naming debt (Task 0026)", () => {
     // Three surfaces must not share the same primary label
     assert.notEqual(en.sidebar.proxy, en.sidebar.logsProxy);
     assert.notEqual(en.sidebar.proxy, en.sidebar.embeddedServices);
+    // Residual logs-namespace synonym (page titles / legacy panels) stays aligned
+    const fullEn = JSON.parse(fs.readFileSync(enPath, "utf-8")) as {
+      logs?: { proxyLogs?: string };
+    };
+    assert.equal(fullEn.logs?.proxyLogs, "Outbound Logs");
   });
 
   it("pillar titles remain consistent (Task 0025 + 0026)", () => {

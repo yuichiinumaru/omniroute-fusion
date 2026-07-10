@@ -1,6 +1,6 @@
 # Task 0016: Fusion UI Editor — Panels, Judge, Triggers, and Tuning
 
-> > **Status**: `[x]` Ready for review (path-to-100 applied 2026-07-10)
+> > **Status**: `[x]` In review — path-to-100 hold @ 93/100 (2026-07-10 re-review)
 > **Priority**: 🟡 P1
 > **Type**: `feature`
 > **Origin**: Epic 0003 — Fusion First-Class (S6)
@@ -174,10 +174,10 @@ This is the operator's primary interface for creating and editing fusions (Decis
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
 - **Reviewer**: reviewers (gt-frontend-quality-reviewer + tsjs)
-- **Data da review**: 2026-07-10
-- **Veredito**: REJECTED_TO_DOING
-- **Score (path to 100)**: 87/100
-- **Notas**: Editor is functionally correct (Zod-validated save/load, D1–D8). Rejected for missing unit tests on pure helpers + size/a11y debt. See report for path-to-100.
+- **Data da review**: 2026-07-10 (initial) / 2026-07-10 (re-review)
+- **Veredito**: HELD_IN_REVIEW_PATH_TO_100 (was REJECTED_TO_DOING @ 87)
+- **Score (path to 100)**: 93/100
+- **Notas**: F1 unit tests + F3 radiogroup accepted. Residual F2 size / F4 i18n / F5 connectionId. Stay in `03-review`. See rereview report.
 
 ---
 
@@ -193,30 +193,31 @@ This is the operator's primary interface for creating and editing fusions (Decis
 
 - **Date**: 2026-07-10
 - **Reviewer profile**: `reviewers`
-- **Score**: `87/100`
-- **Verdict**: `REJECTED_TO_DOING`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0016-omniroute-fusion-ui-editor-review.md`
-- **Lane outcome**: returned to doing
+- **Score**: `93/100`
+- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
+- **Full report**: `docs/reports/reviews/2026-07-10-task-0016-omniroute-fusion-ui-editor-rereview.md`
+- **Lane outcome**: remains in review (`03-review` — S≥90, not completed)
 - **Task reference**: Task 0016 (`omniroute-fusion-ui-editor`)
 
 #### Current Open Blockers
 
-- `NEW` F1 (Debt): committed unit tests for `fusionEditorTypes` save/load matrix (Hard Rule #8)
-- `NEW` F2 (Debt): split `FusionEditorClient.tsx` toward ≤500 LOC
-- `NEW` F3 (Improvement): `aria-pressed` / radiogroup on trigger modes
-- `NEW` F4 (Improvement): remaining hardcoded chrome → i18n
-- `NEW` F5 (Improvement): connectionId not plumbed from model picker
+- `PERSISTENT` F2 (Debt): split `FusionEditorClient.tsx` (~910 LOC) toward ≤500 LOC
+- `PERSISTENT` F4 (Improvement): remaining hardcoded chrome/toasts → i18n
+- `PERSISTENT` F5 (Improvement): connectionId not plumbed from model picker (`ModelSelectModal` has no field)
 
 #### Path-to-100 Summary
 
-1. Add `tests/unit/fusion-editor-types.test.ts` (strategy, judge null clear, fallback exclusion, formFromCombo)
-2. Extract Triggers/Tuning/Basics sections from `FusionEditorClient`
-3. Trigger mode a11y + finish i18n chrome strings
-4. Re-run typecheck + eslint + new unit tests; re-request review
+1. Extract Triggers/Tuning/Basics (and optionally Acting) sections from `FusionEditorClient`
+2. Finish i18n for chrome + validation error strings
+3. Document or plumb connectionId; optional Zod-coupled / tuning round-trip unit tests
+4. Re-run typecheck + eslint + unit tests; re-request review for ≥100 closeout
 
 ### Previous Reports
 
-- none (initial review)
+- `2026-07-10` — `87/100` — `docs/reports/reviews/2026-07-10-task-0016-omniroute-fusion-ui-editor-review.md`
+  - **Carried forward**: F2 size debt; F4 i18n chrome; F5 connectionId
+  - **Resolved since**: F1 unit tests (Hard Rule #8); F3 radiogroup/`aria-checked` (re-reviewer removed invalid `aria-pressed` on `role=radio`)
+  - **Regression guard**: keep `tests/unit/fusion-editor-types.test.ts` green (strategy matrix, judge null clear, formFromCombo legacy); do not re-add `aria-pressed` on radio roles
 
 ---
 
@@ -226,6 +227,6 @@ This is the operator's primary interface for creating and editing fusions (Decis
 
 ### Task 0016 fixes
 - **F1**: Added `tests/unit/fusion-editor-types.test.ts` (save/load matrix, strategy modes, judge null clear).
-- **F3**: Trigger mode control is `role="radiogroup"` + `role="radio"` + `aria-checked` / `aria-pressed`.
-- **F2**: Size split deferred (901 LOC) — pure helpers already isolated in `fusionEditorTypes.ts` (367 LOC); full Triggers/Tuning extraction remains optional polish.
-- **Tests**: fusion-editor-types → PASS; typecheck not re-run full suite this wave (core helpers only).
+- **F3**: Trigger mode control is `role="radiogroup"` + `role="radio"` + `aria-checked` (re-review: dropped invalid `aria-pressed`).
+- **F2**: Size split deferred (~910 LOC) — pure helpers already isolated in `fusionEditorTypes.ts` (367 LOC); full Triggers/Tuning extraction remains path-to-100 polish.
+- **Tests**: fusion-editor-types → PASS; typecheck:core → PASS (re-review); eslint fusion tree → PASS after a11y patch.

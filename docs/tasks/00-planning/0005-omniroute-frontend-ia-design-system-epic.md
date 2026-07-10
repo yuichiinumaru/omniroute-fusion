@@ -414,7 +414,7 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 | **0028** | S9 | Theme micro VR adoption | `[x]` | `docs/tasks/04-completed/0028-frontend-ia-theme-micro-adoption.md` |
 | **0029** | S8 | CLI ConfigurableToolCard | `[x]` | `docs/tasks/04-completed/0029-frontend-ia-cli-configurable-tool-card.md` |
 | **0030** | quickwins | PageTabBar + field kit + DeployRelayModal | `[x]` | `docs/tasks/04-completed/0030-frontend-ia-page-tabbar-field-kit.md` |
-| **0031** | S10 | UI IA docs + no-new-leaf guide | `[x]` evidence | `docs/tasks/02-doing/0031-frontend-ia-docs-guardrail.md` → promote to `04-completed/` |
+| **0031** | S10 | UI IA docs + no-new-leaf guide | `[x]` evidence | `docs/tasks/03-review/0031-frontend-ia-docs-guardrail.md` → promote to `04-completed/` after reviewer accept |
 
 ### Dependency graph (shipped)
 

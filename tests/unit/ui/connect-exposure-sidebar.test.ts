@@ -115,5 +115,8 @@ describe("Connect exposure redirects", () => {
     assert.match(client, /href="\/dashboard\/mcp"/);
     assert.match(client, /href="\/dashboard\/a2a"/);
     assert.match(client, /ApiEndpointsTab/);
+    assert.match(client, /writeTabSearchParam\("tab"/);
+    assert.match(client, /aria-label=\{[\s\S]*MCP offline/);
+    assert.match(client, /role="navigation"/);
   });
 });

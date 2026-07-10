@@ -59,7 +59,7 @@ Pre-S6 snapshot: `.archive/sidebar/2026-07-10-seven-pillars/`.
 |--------------|------------|
 | New feature dumps a permanent peer leaf | Map to pillar; extend hub with tab / drawer / filter / row |
 | One compression engine per sidebar item | Hub under Routing (`compression-context`); engines on page |
-| Separate Activity / Logs / Proxy logs / Console / Audit leaves as defaults | One Observe hub: `/dashboard/activity` + filters (see `docs/architecture/MONITORING_SECTIONS.md`) |
+| Separate Activity / Logs / Proxy logs / Console / Audit leaves as defaults | One Observe hub: `/dashboard/activity` + `?source=` filters (SSoT: `src/shared/constants/observeHub.ts`) |
 | Analytics dual-nav (sidebar leaf **and** nested route for same shell) | Single hub + `?tab=`; nested routes redirect |
 | Triple exposure of MCP/A2A/API catalog as peer Connect leaves | Registry exposures + SSoT routes; retire duplicates (keep hideable ids) |
 | Treat sidebar preset as a new product architecture | Rebuild `SIDEBAR_PRESETS` only as role views after IA is fixed |
@@ -114,7 +114,8 @@ Import from `src/shared/components/` (verified paths). Prefer these over hand-ro
 | [`design.md`](../../design.md) | Design tokens, grid, phases 1–6 — **visual SSoT** |
 | [Epic 0005](../tasks/00-planning/0005-omniroute-frontend-ia-design-system-epic.md) | Diagnosis, slices S0–S10, success metrics |
 | [`docs/dependency-tree.md`](../dependency-tree.md) | Serial vs parallel Frontend IA tasks |
-| [`docs/architecture/MONITORING_SECTIONS.md`](../architecture/MONITORING_SECTIONS.md) | Observe hub sections / filters |
+| `src/shared/constants/observeHub.ts` | Observe hub path + `?source=` filters + redirect matrix |
+| [`docs/architecture/MONITORING_SECTIONS.md`](../architecture/MONITORING_SECTIONS.md) | **Historical** pre–Epic 0005 Monitoring/Costs nav (not the live 7-pillar tree) |
 | [`.archive/README.md`](../../.archive/README.md) | Archive-not-delete policy |
 | `src/shared/constants/sidebarVisibility.ts` | Live pillars, hideables, role presets |
 
