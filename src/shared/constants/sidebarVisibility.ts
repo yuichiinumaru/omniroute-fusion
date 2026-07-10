@@ -11,12 +11,15 @@
  * may have stored prefs, and log provenance under `.archive/sidebar/` — never silent delete.
  *
  * Rule: if you need to hide ~60% of menus to make the product usable, the menu is wrong.
+ *
+ * S6 (Task 0025): SIDEBAR_SECTIONS is the 7 operational pillars. Pre-S6 snapshot:
+ * `.archive/sidebar/2026-07-10-seven-pillars/`
  */
 
 export const HIDEABLE_SIDEBAR_ITEM_IDS = [
-  // Home
+  // Home / pulse
   "home",
-  // OmniProxy — flat
+  // Registry / connect
   "api-manager",
   "endpoints",
   "providers",
@@ -25,7 +28,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "combos-live",
   "fusions",
   "quota",
-  // OmniProxy > Compression Context (Settings → Combos → engines → Studio)
+  // Compression Context (Settings → Combos → engines → Studio)
   "context-settings",
   "context-combos",
   "context-caveman",
@@ -38,21 +41,21 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "context-aggressive",
   "context-ultra",
   "compression-studio",
-  // OmniProxy > Tools
+  // Operations > Tools
   "cli-code",
   "cli-agents",
   "acp-agents",
   "cloud-agents",
   "agent-bridge",
   "traffic-inspector",
-  // OmniProxy > Integrations
+  // Registry > Exposures / integrations
   "api-endpoints",
   "webhooks",
-  // OmniProxy — proxy
+  // System > proxy
   "proxy",
   "mitm-proxy",
   "1proxy",
-  // Analytics
+  // Observability / analytics
   "analytics",
   "analytics-combo-health",
   "analytics-utilization",
@@ -62,7 +65,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "analytics-search",
   "analytics-evals",
   "provider-stats",
-  // Monitoring — flat
+  // Observability — observe hub + collapsed stream leaves
   "activity",
   "logs",
   "logs-proxy",
@@ -70,13 +73,13 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "logs-activity",
   "health",
   "runtime",
-  // Costs section
+  // Governance > costs / economics
   "costs-pricing",
   "costs-budget",
   "costs-free-tiers",
   "costs-quota-share",
   "free-provider-rankings",
-  // Monitoring > Audit
+  // Observability — collapsed audit leaves
   "audit",
   "audit-mcp",
   "audit-a2a",
@@ -84,23 +87,22 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "translator",
   "playground",
   "search-tools",
-  // Agentic Features
+  // Operations > agentic
   "memory",
   "skills",
   "agent-skills",
   "mcp",
   "a2a",
   "plugins",
-  // Gamification
+  // Gamification (demoted under Operations)
   "leaderboard",
   "profile",
   "tokens",
-  // Other Features — flat
+  // Registry modality / Operations batch
   "media",
-  // Other Features > Batch
   "batch",
   "batch-files",
-  // Configuration
+  // System / settings
   "settings-general",
   "settings-appearance",
   "settings-ai",
@@ -233,16 +235,22 @@ export function getSidebarIconAccent(id: string): string {
   );
 }
 
+/** Seven operational pillars (product IA). Help / Dev Tools are non-pillars. */
+export const OPERATIONAL_PILLAR_SECTION_IDS = [
+  "core-pulse",
+  "registry",
+  "routing",
+  "governance",
+  "operations",
+  "observability",
+  "system",
+] as const;
+
+export type OperationalPillarSectionId = (typeof OPERATIONAL_PILLAR_SECTION_IDS)[number];
+
 export type SidebarSectionId =
-  | "home"
-  | "omni-proxy"
-  | "analytics"
-  | "costs"
-  | "monitoring"
+  | OperationalPillarSectionId
   | "devtools"
-  | "agentic-features"
-  | "other-features"
-  | "configuration"
   | "help";
 
 export interface SidebarItemDefinition {
@@ -289,7 +297,7 @@ export function getSectionItems(
 
 // ─── Item arrays ────────────────────────────────────────────────────────────
 
-const HOME_ITEMS: readonly SidebarItemDefinition[] = [
+const CORE_PULSE_ITEMS: readonly SidebarItemDefinition[] = [
   {
     id: "home",
     href: "/home",
@@ -298,23 +306,62 @@ const HOME_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "home",
     exact: true,
   },
+  {
+    id: "health",
+    href: "/dashboard/health",
+    i18nKey: "health",
+    subtitleKey: "healthSubtitle",
+    icon: "health_and_safety",
+  },
 ];
 
-const OMNI_PROXY_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "endpoints",
-    href: "/dashboard/endpoint",
-    i18nKey: "endpoints",
-    subtitleKey: "endpointsSubtitle",
-    icon: "api",
-  },
-  {
-    id: "api-manager",
-    href: "/dashboard/api-manager",
-    i18nKey: "apiManager",
-    subtitleKey: "apiManagerSubtitle",
-    icon: "vpn_key",
-  },
+/**
+ * Connect / exposure dual-nav retired (Epic 0005 S5).
+ * `api-endpoints` → `/dashboard/endpoint?tab=catalog` (SSoT Connect surface).
+ * MCP/A2A single homes under Registry exposures.
+ * Hideable id retained for stored prefs. Snapshot:
+ * `.archive/sidebar/2026-07-10-connect-exposure/SNAPSHOT.md`
+ */
+export const CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS = ["api-endpoints"] as const;
+
+const EXPOSURES_GROUP: SidebarItemGroup = {
+  type: "group",
+  id: "exposures",
+  titleKey: "exposuresGroup",
+  titleFallback: "Exposures",
+  items: [
+    {
+      id: "endpoints",
+      href: "/dashboard/endpoint",
+      i18nKey: "endpoints",
+      subtitleKey: "endpointsSubtitle",
+      icon: "api",
+    },
+    {
+      id: "mcp",
+      href: "/dashboard/mcp",
+      i18nKey: "mcp",
+      subtitleKey: "mcpSubtitle",
+      icon: "hub",
+    },
+    {
+      id: "a2a",
+      href: "/dashboard/a2a",
+      i18nKey: "a2a",
+      subtitleKey: "a2aSubtitle",
+      icon: "device_hub",
+    },
+    {
+      id: "webhooks",
+      href: "/dashboard/webhooks",
+      i18nKey: "webhooks",
+      subtitleKey: "webhooksSubtitle",
+      icon: "webhook",
+    },
+  ],
+};
+
+const REGISTRY_ITEMS: readonly SidebarSectionChild[] = [
   {
     id: "providers",
     href: "/dashboard/providers",
@@ -326,47 +373,19 @@ const OMNI_PROXY_ITEMS: readonly SidebarItemDefinition[] = [
     id: "embedded-services",
     href: "/dashboard/providers/services",
     i18nKey: "embeddedServices",
+    labelFallback: "Embedded Services",
     subtitleKey: "embeddedServicesSubtitle",
+    subtitleFallback: "Local process services (not outbound proxy)",
     icon: "deployed_code",
   },
   {
-    id: "combos",
-    href: "/dashboard/combos",
-    i18nKey: "combos",
-    subtitleKey: "combosSubtitle",
-    icon: "layers",
+    id: "media",
+    href: "/dashboard/cache/media",
+    i18nKey: "media",
+    subtitleKey: "mediaSubtitle",
+    icon: "perm_media",
   },
-  {
-    id: "combos-live",
-    href: "/dashboard/combos/live",
-    i18nKey: "combosLive",
-    labelFallback: "Combo Studio",
-    subtitleFallback: "Live routing cascade",
-    icon: "account_tree",
-  },
-  {
-    id: "fusions",
-    href: "/dashboard/fusions",
-    i18nKey: "fusions",
-    subtitleKey: "fusionsSubtitle",
-    labelFallback: "Fusions",
-    subtitleFallback: "Panel + judge model combos",
-    icon: "hub",
-  },
-  {
-    id: "quota",
-    href: "/dashboard/quota",
-    i18nKey: "providerQuota",
-    subtitleKey: "providerQuotaSubtitle",
-    icon: "tune",
-  },
-  {
-    id: "costs-quota-share",
-    href: "/dashboard/costs/quota-share",
-    i18nKey: "costsQuotaShare",
-    subtitleKey: "costsQuotaShareSubtitle",
-    icon: "pie_chart",
-  },
+  EXPOSURES_GROUP,
 ];
 
 /**
@@ -419,6 +438,115 @@ export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
   ],
 };
 
+const ROUTING_ITEMS: readonly SidebarSectionChild[] = [
+  {
+    id: "combos",
+    href: "/dashboard/combos",
+    i18nKey: "combos",
+    subtitleKey: "combosSubtitle",
+    icon: "layers",
+  },
+  {
+    id: "combos-live",
+    href: "/dashboard/combos/live",
+    i18nKey: "combosLive",
+    labelFallback: "Combo Studio",
+    subtitleFallback: "Live routing cascade",
+    icon: "account_tree",
+  },
+  {
+    id: "fusions",
+    href: "/dashboard/fusions",
+    i18nKey: "fusions",
+    subtitleKey: "fusionsSubtitle",
+    labelFallback: "Fusions",
+    subtitleFallback: "Panel + judge model combos",
+    icon: "hub",
+  },
+  COMPRESSION_CONTEXT_GROUP,
+  {
+    id: "settings-routing",
+    href: "/dashboard/settings/routing",
+    i18nKey: "globalRouting",
+    subtitleKey: "globalRoutingSubtitle",
+    icon: "route",
+  },
+];
+
+const GOVERNANCE_ITEMS: readonly SidebarItemDefinition[] = [
+  {
+    id: "api-manager",
+    href: "/dashboard/api-manager",
+    i18nKey: "apiManager",
+    subtitleKey: "apiManagerSubtitle",
+    icon: "vpn_key",
+  },
+  {
+    id: "settings-access-tokens",
+    href: "/dashboard/settings/access-tokens",
+    i18nKey: "settingsAccessTokens",
+    labelFallback: "Access Tokens",
+    subtitleKey: "settingsAccessTokensSubtitle",
+    icon: "key",
+  },
+  {
+    id: "settings-security",
+    href: "/dashboard/settings/security",
+    i18nKey: "settingsSecurity",
+    subtitleKey: "settingsSecuritySubtitle",
+    icon: "shield",
+  },
+  {
+    id: "quota",
+    href: "/dashboard/quota",
+    i18nKey: "providerQuota",
+    subtitleKey: "providerQuotaSubtitle",
+    icon: "tune",
+  },
+  {
+    id: "costs-quota-share",
+    href: "/dashboard/costs/quota-share",
+    i18nKey: "costsQuotaShare",
+    subtitleKey: "costsQuotaShareSubtitle",
+    icon: "pie_chart",
+  },
+  {
+    id: "costs",
+    href: "/dashboard/costs",
+    i18nKey: "costsOverview",
+    subtitleKey: "costsOverviewSubtitle",
+    icon: "account_balance_wallet",
+  },
+  {
+    id: "costs-pricing",
+    href: "/dashboard/costs/pricing",
+    i18nKey: "costsPricing",
+    subtitleKey: "costsPricingSubtitle",
+    icon: "price_change",
+  },
+  {
+    id: "costs-budget",
+    href: "/dashboard/costs/budget",
+    i18nKey: "costsBudget",
+    subtitleKey: "costsBudgetSubtitle",
+    icon: "savings",
+  },
+  {
+    id: "costs-free-tiers",
+    href: "/dashboard/free-tiers",
+    i18nKey: "costsFreeTiers",
+    subtitleKey: "costsFreeTiersSubtitle",
+    icon: "request_quote",
+  },
+  {
+    id: "free-provider-rankings",
+    href: "/dashboard/free-provider-rankings",
+    i18nKey: "freeProviderRankings",
+    subtitleKey: "freeProviderRankingsSubtitle",
+    icon: "leaderboard",
+  },
+];
+
 const TOOLS_GROUP: SidebarItemGroup = {
   type: "group",
   id: "tools",
@@ -470,262 +598,71 @@ const TOOLS_GROUP: SidebarItemGroup = {
   ],
 };
 
-/**
- * Connect / exposure dual-nav retired (Epic 0005 S5).
- * `api-endpoints` → `/dashboard/endpoint?tab=catalog` (SSoT Connect surface).
- * MCP/A2A stay single homes under Agentic Features (`/dashboard/mcp`, `/dashboard/a2a`).
- * Hideable id retained for stored prefs. Snapshot:
- * `.archive/sidebar/2026-07-10-connect-exposure/SNAPSHOT.md`
- */
-export const CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS = ["api-endpoints"] as const;
-
-const INTEGRATIONS_GROUP: SidebarItemGroup = {
+const BATCH_GROUP: SidebarItemGroup = {
   type: "group",
-  id: "integrations",
-  titleKey: "integrationsGroup",
-  titleFallback: "Integrations",
-  // OpenAPI catalog re-homed under Connect (`endpoints` → ?tab=catalog). Webhooks only.
+  id: "batch",
+  titleKey: "batchGroup",
+  titleFallback: "Batch",
   items: [
     {
-      id: "webhooks",
-      href: "/dashboard/webhooks",
-      i18nKey: "webhooks",
-      subtitleKey: "webhooksSubtitle",
-      icon: "webhook",
+      id: "batch",
+      href: "/dashboard/batch",
+      i18nKey: "batch",
+      subtitleKey: "batchSubtitle",
+      icon: "view_list",
+    },
+    {
+      id: "batch-files",
+      href: "/dashboard/batch/files",
+      i18nKey: "batchFiles",
+      subtitleKey: "batchFilesSubtitle",
+      icon: "folder",
     },
   ],
 };
 
-const PROXY_ITEM: SidebarItemDefinition = {
-  id: "proxy",
-  href: "/dashboard/system/proxy",
-  i18nKey: "proxy",
-  subtitleKey: "proxySubtitle",
-  icon: "dns",
-};
-
-/**
- * Analytics dual-nav leaves retired (Epic 0005 S2). Nested routes redirect to
- * `/dashboard/analytics?tab=…`. Hideable ids retained for stored prefs.
- * Snapshot: `.archive/sidebar/2026-07-10-ia-collapse/SNAPSHOT.md`
- */
-export const ANALYTICS_DUAL_NAV_SIDEBAR_IDS = [
-  "analytics-combo-health",
-  "analytics-utilization",
-  "analytics-compression",
-  "analytics-search",
-  "analytics-evals",
-] as const;
-
-const ANALYTICS_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "analytics",
-    href: "/dashboard/analytics",
-    i18nKey: "usage",
-    subtitleKey: "usageSubtitle",
-    icon: "analytics",
-  },
-  {
-    id: "cache",
-    href: "/dashboard/cache",
-    i18nKey: "cache",
-    subtitleKey: "cacheSubtitle",
-    icon: "cached",
-  },
-  {
-    id: "provider-stats",
-    href: "/dashboard/provider-stats",
-    i18nKey: "providerStats",
-    subtitleKey: "providerStatsSubtitle",
-    icon: "speed",
-  },
-];
-
-/**
- * Observe / Execution Stream hub (Epic 0005 S4).
- * Collapses former Activity + Logs* + Audit* peer leaves into one default leaf.
- * Nested routes redirect to `/dashboard/activity?source=…`.
- * Hideable ids for retired leaves retained in HIDEABLE_SIDEBAR_ITEM_IDS.
- * Snapshot: `.archive/sidebar/2026-07-10-observe-stream/SNAPSHOT.md`
- * @see OBSERVE_STREAM_SIDEBAR_IDS in `./observeHub.ts`
- */
-const MONITORING_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "activity",
-    href: "/dashboard/activity",
-    i18nKey: "activity",
-    subtitleKey: "activitySubtitle",
-    subtitleFallback: "Unified event stream — activity, logs, and audit",
-    icon: "timeline",
-  },
-];
-
-// LOGS_GROUP retired (Epic 0005 S4): logs / logs-proxy / logs-console →
-//   /dashboard/activity?source=request|proxy|console  (see observeHub.ts)
-// AUDIT_GROUP retired (Epic 0005 S4): audit / audit-mcp / audit-a2a →
-//   /dashboard/activity?source=audit|mcp|a2a
-
-const SYSTEM_GROUP: SidebarItemGroup = {
+const AGENTIC_GROUP: SidebarItemGroup = {
   type: "group",
-  id: "system",
-  titleKey: "systemGroup",
-  titleFallback: "System",
+  id: "agentic",
+  titleKey: "agenticGroup",
+  titleFallback: "Agentic",
   items: [
     {
-      id: "health",
-      href: "/dashboard/health",
-      i18nKey: "health",
-      subtitleKey: "healthSubtitle",
-      icon: "health_and_safety",
+      id: "memory",
+      href: "/dashboard/memory",
+      i18nKey: "memory",
+      subtitleKey: "memorySubtitle",
+      icon: "psychology",
     },
     {
-      id: "runtime",
-      href: "/dashboard/runtime",
-      i18nKey: "runtime",
-      subtitleKey: "runtimeSubtitle",
-      icon: "bolt",
+      id: "agent-skills",
+      href: "/dashboard/agent-skills",
+      i18nKey: "agentSkills",
+      labelFallback: "Agent Skills",
+      subtitleKey: "agentSkillsSubtitle",
+      subtitleFallback: "Outbound SKILL.md for external agents",
+      icon: "share",
+    },
+    {
+      id: "skills",
+      href: "/dashboard/omni-skills",
+      i18nKey: "omniSkills",
+      labelFallback: "Omni Skills",
+      subtitleKey: "omniSkillsSubtitle",
+      subtitleFallback: "Inbound sandbox tools for model requests",
+      icon: "auto_fix_high",
+    },
+    {
+      id: "plugins",
+      href: "/dashboard/plugins",
+      i18nKey: "plugins",
+      labelFallback: "Plugins",
+      subtitleKey: "pluginsSubtitle",
+      subtitleFallback: "Installable dashboard plugins (not MCP tools)",
+      icon: "extension",
     },
   ],
 };
-
-const COSTS_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "costs",
-    href: "/dashboard/costs",
-    i18nKey: "costsOverview",
-    subtitleKey: "costsOverviewSubtitle",
-    icon: "account_balance_wallet",
-  },
-  {
-    id: "costs-pricing",
-    href: "/dashboard/costs/pricing",
-    i18nKey: "costsPricing",
-    subtitleKey: "costsPricingSubtitle",
-    icon: "price_change",
-  },
-  {
-    id: "costs-budget",
-    href: "/dashboard/costs/budget",
-    i18nKey: "costsBudget",
-    subtitleKey: "costsBudgetSubtitle",
-    icon: "savings",
-  },
-  {
-    id: "costs-free-tiers",
-    href: "/dashboard/free-tiers",
-    i18nKey: "costsFreeTiers",
-    subtitleKey: "costsFreeTiersSubtitle",
-    icon: "request_quote",
-  },
-  {
-    id: "free-provider-rankings",
-    href: "/dashboard/free-provider-rankings",
-    i18nKey: "freeProviderRankings",
-    subtitleKey: "freeProviderRankingsSubtitle",
-    icon: "leaderboard",
-  },
-];
-
-const AUDIT_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "audit",
-  titleKey: "auditGroup",
-  titleFallback: "Audit",
-  items: [
-    {
-      id: "audit",
-      href: "/dashboard/audit",
-      i18nKey: "auditLog",
-      subtitleKey: "auditLogSubtitle",
-      icon: "policy",
-    },
-    {
-      id: "audit-mcp",
-      href: "/dashboard/audit/mcp",
-      i18nKey: "auditMcp",
-      subtitleKey: "auditMcpSubtitle",
-      icon: "security",
-    },
-    {
-      id: "audit-a2a",
-      href: "/dashboard/audit/a2a",
-      i18nKey: "auditA2a",
-      subtitleKey: "auditA2aSubtitle",
-      icon: "device_hub",
-    },
-  ],
-};
-
-const DEVTOOLS_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "translator",
-    href: "/dashboard/translator",
-    i18nKey: "translator",
-    subtitleKey: "translatorSubtitle",
-    icon: "translate",
-  },
-  {
-    id: "playground",
-    href: "/dashboard/playground",
-    i18nKey: "playground",
-    subtitleKey: "playgroundSubtitle",
-    icon: "science",
-  },
-  {
-    id: "search-tools",
-    href: "/dashboard/search-tools",
-    i18nKey: "searchTools",
-    subtitleKey: "searchToolsSubtitle",
-    icon: "manage_search",
-  },
-];
-
-const MCP_ITEM: SidebarItemDefinition = {
-  id: "mcp",
-  href: "/dashboard/mcp",
-  i18nKey: "mcp",
-  subtitleKey: "mcpSubtitle",
-  icon: "hub",
-};
-
-const AGENTIC_FEATURES_ITEMS: readonly SidebarSectionChild[] = [
-  {
-    id: "memory",
-    href: "/dashboard/memory",
-    i18nKey: "memory",
-    subtitleKey: "memorySubtitle",
-    icon: "psychology",
-  },
-  {
-    id: "agent-skills",
-    href: "/dashboard/agent-skills",
-    i18nKey: "agentSkills",
-    subtitleKey: "agentSkillsSubtitle",
-    icon: "share",
-  },
-  {
-    id: "skills",
-    href: "/dashboard/omni-skills",
-    i18nKey: "omniSkills",
-    subtitleKey: "omniSkillsSubtitle",
-    icon: "auto_fix_high",
-  },
-  MCP_ITEM,
-  {
-    id: "a2a",
-    href: "/dashboard/a2a",
-    i18nKey: "a2a",
-    subtitleKey: "a2aSubtitle",
-    icon: "device_hub",
-  },
-  {
-    id: "plugins",
-    href: "/dashboard/plugins",
-    i18nKey: "plugins",
-    subtitleKey: "pluginsSubtitle",
-    icon: "extension",
-  },
-];
 
 const GAMIFICATION_GROUP: SidebarItemGroup = {
   type: "group",
@@ -757,45 +694,83 @@ const GAMIFICATION_GROUP: SidebarItemGroup = {
   ],
 };
 
-const OTHER_FEATURES_ITEMS: readonly SidebarItemDefinition[] = [
+const OPERATIONS_ITEMS: readonly SidebarSectionChild[] = [
+  TOOLS_GROUP,
+  BATCH_GROUP,
+  AGENTIC_GROUP,
+  GAMIFICATION_GROUP,
+];
+
+/**
+ * Analytics dual-nav leaves retired (Epic 0005 S2). Nested routes redirect to
+ * `/dashboard/analytics?tab=…`. Hideable ids retained for stored prefs.
+ * Snapshot: `.archive/sidebar/2026-07-10-ia-collapse/SNAPSHOT.md`
+ */
+export const ANALYTICS_DUAL_NAV_SIDEBAR_IDS = [
+  "analytics-combo-health",
+  "analytics-utilization",
+  "analytics-compression",
+  "analytics-search",
+  "analytics-evals",
+] as const;
+
+/**
+ * Observe / Execution Stream hub (Epic 0005 S4).
+ * Collapses former Activity + Logs* + Audit* peer leaves into one default leaf.
+ * Nested routes redirect to `/dashboard/activity?source=…`.
+ * Hideable ids for retired leaves retained in HIDEABLE_SIDEBAR_ITEM_IDS.
+ * Snapshot: `.archive/sidebar/2026-07-10-observe-stream/SNAPSHOT.md`
+ * @see OBSERVE_STREAM_SIDEBAR_IDS in `./observeHub.ts`
+ */
+const OBSERVABILITY_ITEMS: readonly SidebarItemDefinition[] = [
   {
-    id: "media",
-    href: "/dashboard/cache/media",
-    i18nKey: "media",
-    subtitleKey: "mediaSubtitle",
-    icon: "perm_media",
+    id: "activity",
+    href: "/dashboard/activity",
+    i18nKey: "activity",
+    subtitleKey: "activitySubtitle",
+    subtitleFallback: "Unified event stream — activity, logs, and audit",
+    icon: "timeline",
+  },
+  {
+    id: "analytics",
+    href: "/dashboard/analytics",
+    i18nKey: "analytics",
+    subtitleKey: "analyticsSubtitle",
+    labelFallback: "Analytics",
+    subtitleFallback: "Charts, trends, evals, and utilization",
+    icon: "analytics",
+  },
+  {
+    id: "cache",
+    href: "/dashboard/cache",
+    i18nKey: "cache",
+    subtitleKey: "cacheSubtitle",
+    icon: "cached",
+  },
+  {
+    id: "provider-stats",
+    href: "/dashboard/provider-stats",
+    i18nKey: "providerStats",
+    subtitleKey: "providerStatsSubtitle",
+    icon: "speed",
+  },
+  {
+    id: "runtime",
+    href: "/dashboard/runtime",
+    i18nKey: "runtime",
+    subtitleKey: "runtimeSubtitle",
+    icon: "bolt",
   },
 ];
 
-const BATCH_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "batch",
-  titleKey: "batchGroup",
-  titleFallback: "Batch",
-  items: [
-    {
-      id: "batch",
-      href: "/dashboard/batch",
-      i18nKey: "batch",
-      subtitleKey: "batchSubtitle",
-      icon: "view_list",
-    },
-    {
-      id: "batch-files",
-      href: "/dashboard/batch/files",
-      i18nKey: "batchFiles",
-      subtitleKey: "batchFilesSubtitle",
-      icon: "folder",
-    },
-  ],
-};
-
-const CONFIGURATION_ITEMS: readonly SidebarItemDefinition[] = [
+const SYSTEM_ITEMS: readonly SidebarItemDefinition[] = [
   {
     id: "settings-general",
     href: "/dashboard/settings/general",
     i18nKey: "settingsGeneral",
+    labelFallback: "Data & Storage",
     subtitleKey: "settingsGeneralSubtitle",
+    subtitleFallback: "Database, backups, and retention",
     icon: "tune",
   },
   {
@@ -813,13 +788,6 @@ const CONFIGURATION_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "auto_awesome",
   },
   {
-    id: "settings-routing",
-    href: "/dashboard/settings/routing",
-    i18nKey: "globalRouting",
-    subtitleKey: "globalRoutingSubtitle",
-    icon: "route",
-  },
-  {
     id: "settings-resilience",
     href: "/dashboard/settings/resilience",
     i18nKey: "settingsResilience",
@@ -834,21 +802,6 @@ const CONFIGURATION_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "engineering",
   },
   {
-    id: "settings-security",
-    href: "/dashboard/settings/security",
-    i18nKey: "settingsSecurity",
-    subtitleKey: "settingsSecuritySubtitle",
-    icon: "shield",
-  },
-  {
-    id: "settings-access-tokens",
-    href: "/dashboard/settings/access-tokens",
-    i18nKey: "settingsAccessTokens",
-    labelFallback: "Access Tokens",
-    subtitleKey: "settingsAccessTokensSubtitle",
-    icon: "key",
-  },
-  {
     id: "settings-feature-flags",
     href: "/dashboard/settings/feature-flags",
     i18nKey: "settingsFeatureFlags",
@@ -861,6 +814,39 @@ const CONFIGURATION_ITEMS: readonly SidebarItemDefinition[] = [
     i18nKey: "settingsSidebar",
     subtitleKey: "settingsSidebarSubtitle",
     icon: "view_sidebar",
+  },
+  {
+    id: "proxy",
+    href: "/dashboard/system/proxy",
+    i18nKey: "proxy",
+    labelFallback: "Network",
+    subtitleKey: "proxySubtitle",
+    subtitleFallback: "Outbound proxy for provider traffic",
+    icon: "dns",
+  },
+];
+
+const DEVTOOLS_ITEMS: readonly SidebarItemDefinition[] = [
+  {
+    id: "translator",
+    href: "/dashboard/translator",
+    i18nKey: "translator",
+    subtitleKey: "translatorSubtitle",
+    icon: "translate",
+  },
+  {
+    id: "playground",
+    href: "/dashboard/playground",
+    i18nKey: "playground",
+    subtitleKey: "playgroundSubtitle",
+    icon: "science",
+  },
+  {
+    id: "search-tools",
+    href: "/dashboard/search-tools",
+    i18nKey: "searchTools",
+    subtitleKey: "searchToolsSubtitle",
+    icon: "manage_search",
   },
 ];
 
@@ -890,47 +876,53 @@ const HELP_ITEMS: readonly SidebarItemDefinition[] = [
   },
 ];
 
-// ─── Sections ────────────────────────────────────────────────────────────────
+// ─── Sections (7 pillars + optional help/devtools) ───────────────────────────
 
 export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
   {
-    id: "home",
-    titleKey: "home",
-    titleFallback: "Home",
-    children: HOME_ITEMS,
+    id: "core-pulse",
+    titleKey: "corePulseSection",
+    titleFallback: "Core Pulse",
+    children: CORE_PULSE_ITEMS,
     showTitle: false,
   },
   {
-    id: "omni-proxy",
-    titleKey: "omniProxySection",
-    titleFallback: "OmniProxy",
-    children: [
-      ...OMNI_PROXY_ITEMS,
-      COMPRESSION_CONTEXT_GROUP,
-      TOOLS_GROUP,
-      INTEGRATIONS_GROUP,
-      PROXY_ITEM,
-    ],
+    id: "registry",
+    titleKey: "registrySection",
+    titleFallback: "Registry",
+    children: REGISTRY_ITEMS,
     defaultPinned: true,
   },
   {
-    id: "analytics",
-    titleKey: "analyticsSection",
-    titleFallback: "Analytics",
-    children: ANALYTICS_ITEMS,
+    id: "routing",
+    titleKey: "routingStrategySection",
+    titleFallback: "Routing & Strategy",
+    children: ROUTING_ITEMS,
   },
   {
-    id: "costs",
-    titleKey: "costsSection",
-    titleFallback: "Costs",
-    children: COSTS_ITEMS,
+    id: "governance",
+    titleKey: "governanceSection",
+    titleFallback: "Governance",
+    children: GOVERNANCE_ITEMS,
   },
   {
-    id: "monitoring",
-    titleKey: "monitoringSection",
-    titleFallback: "Monitoring",
-    // Observe hub only + System (health/runtime). Logs/Audit groups collapsed in S4.
-    children: [...MONITORING_ITEMS, SYSTEM_GROUP],
+    id: "operations",
+    titleKey: "operationsSection",
+    titleFallback: "Operations",
+    children: OPERATIONS_ITEMS,
+  },
+  {
+    id: "observability",
+    titleKey: "observabilitySection",
+    titleFallback: "Observability",
+    // Observe hub only for stream; analytics/cache/stats as hubs — no log/audit multi-leaves.
+    children: OBSERVABILITY_ITEMS,
+  },
+  {
+    id: "system",
+    titleKey: "systemSection",
+    titleFallback: "System",
+    children: SYSTEM_ITEMS,
   },
   {
     id: "devtools",
@@ -938,24 +930,6 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
     titleFallback: "Dev Tools",
     children: DEVTOOLS_ITEMS,
     visibility: "debug",
-  },
-  {
-    id: "agentic-features",
-    titleKey: "agenticFeaturesSection",
-    titleFallback: "Agentic Features",
-    children: AGENTIC_FEATURES_ITEMS,
-  },
-  {
-    id: "other-features",
-    titleKey: "otherFeaturesSection",
-    titleFallback: "Other Features",
-    children: [GAMIFICATION_GROUP, ...OTHER_FEATURES_ITEMS, BATCH_GROUP],
-  },
-  {
-    id: "configuration",
-    titleKey: "configurationSection",
-    titleFallback: "Configuration",
-    children: CONFIGURATION_ITEMS,
   },
   {
     id: "help",
@@ -983,16 +957,15 @@ export interface SidebarPresetDefinition {
   hiddenItems: HideableSidebarItemId[];
 }
 
+/** Role view: daily operator pulse + routing + keys + observe (≤ 12 leaves). */
 const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
+  "providers",
   "endpoints",
   "api-manager",
-  "providers",
   "combos",
-  "analytics",
-  "costs",
-  // Observe hub (S4) — replaces peer logs/audit leaves
   "activity",
+  "costs",
   "health",
   "settings-general",
   "settings-sidebar",
@@ -1000,36 +973,38 @@ const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "changelog",
 ]);
 
+/** Role view: builder — routing stack, tools, protocols, observe + debug surfaces. */
 const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
-  "endpoints",
-  "api-manager",
   "providers",
+  "embedded-services",
+  "endpoints",
+  "mcp",
+  "a2a",
+  "webhooks",
   "combos",
-  "quota",
+  "combos-live",
+  "fusions",
   "context-settings",
   "context-combos",
   "compression-studio",
+  "settings-routing",
+  "api-manager",
+  "quota",
   "cli-code",
   "cli-agents",
   "acp-agents",
-  // api-endpoints retired from default tree (S5) — catalog is endpoints?tab=catalog
-  "webhooks",
+  "memory",
+  "skills",
+  "plugins",
   "analytics",
-  "costs",
   "cache",
-  // Observe hub (S4)
   "activity",
   "health",
   "runtime",
   "translator",
   "playground",
-  "memory",
-  "skills",
-  "mcp",
-  "a2a",
   "settings-general",
-  "settings-routing",
   "settings-resilience",
   "settings-sidebar",
   "docs",
@@ -1037,30 +1012,31 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "changelog",
 ]);
 
+/** Role view: admin — keys, economics, security, observe, system knobs. */
 const ADMIN_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
+  "providers",
   "endpoints",
   "api-manager",
-  "providers",
+  "settings-access-tokens",
+  "settings-security",
   "combos",
   "quota",
-  "analytics",
+  "costs-quota-share",
   "costs",
   "costs-pricing",
   "costs-budget",
-  "costs-quota-share",
+  "analytics",
   "cache",
-  // Observe hub (S4) — audit/logs sources via hub filters, not peer leaves
   "activity",
   "health",
   "runtime",
   "settings-general",
   "settings-routing",
   "settings-resilience",
-  "settings-security",
-  "settings-access-tokens",
   "settings-feature-flags",
   "settings-sidebar",
+  "proxy",
   "docs",
   "changelog",
 ]);
@@ -1131,4 +1107,15 @@ export function normalizeHiddenSidebarItems(value: unknown): HideableSidebarItem
   }
 
   return HIDEABLE_SIDEBAR_ITEM_IDS.filter((item) => hiddenItems.has(item));
+}
+
+/** Visible default-tree leaf count for a preset (items present in SIDEBAR_SECTIONS minus hidden). */
+export function countPresetVisibleLeaves(presetId: SidebarPresetId): number {
+  const preset = SIDEBAR_PRESETS.find((p) => p.id === presetId);
+  if (!preset) return 0;
+  const hidden = new Set(preset.hiddenItems);
+  const defaultLeafIds = SIDEBAR_SECTIONS.flatMap((section) =>
+    getSectionItems(section).map((item) => item.id)
+  );
+  return defaultLeafIds.filter((id) => !hidden.has(id)).length;
 }

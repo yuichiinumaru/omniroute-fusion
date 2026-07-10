@@ -1,7 +1,7 @@
 # Dependency tree — OmniRoute Fusion tasks
 
 > **Purpose**: prevent *carro na frente do boi* — know what is **serial**, what is **parallel**, and what **blocks** what.  
-> **Updated**: 2026-07-10 (Wave 2 builders closed — see `docs/reports/builders/2026-07-10-wave2-closeout.md`)  
+> **Updated**: 2026-07-10 (S0–S10 closeout — IA guide at `docs/guides/UI.md`; Wave 2 report: `docs/reports/builders/2026-07-10-wave2-closeout.md`)  
 > **Scope**: Epic 0005 (Frontend IA) + reference to completed Fusion wave (Epic 0003).  
 > **Identity**: tasks use lane-neutral `Task NNNN`. Resolve live path under `docs/tasks/<lane>/`.
 
@@ -60,7 +60,7 @@ Already shipped as Tasks **0010–0018** (all ✅). Numbering gap **0019** inten
            │                 │         ┌────────┴────────┐
            │                 │         ▼                 ▼
            │                 │  ┌────────────┐   ┌────────────┐
-           │                 │  │ 0023 S4    │🔓 │ 0024 S5    │🔓
+           │                 │  │ 0023 S4    │✅ │ 0024 S5    │✅
            │                 │  │ Observe    │   │ Registry/  │
            │                 │  │ stream     │   │ Connect    │
            │                 │  └──────┬─────┘   └──────┬─────┘
@@ -68,22 +68,22 @@ Already shipped as Tasks **0010–0018** (all ✅). Numbering gap **0019** inten
            │                 │         └───────┬────────┘
            │                 │                 ▼
            │                 │         ┌────────────┐
-           │                 └────────►│ 0025 S6    │🔓
+           │                 └────────►│ 0025 S6    │✅
            │                           │ 7 pillars  │
            │                           └──────┬─────┘
            │                                  ▼
            │                           ┌────────────┐
-           │                           │ 0031 S10   │🔓
+           │                           │ 0031 S10   │✅
            │                           │ UI docs    │
            │                           └────────────┘
            │
-           ├──────────────► 0027 S1 migrate toggles 🔓
-           └─ ⚠ soft ─────► 0028 S9 theme micro    🔓
+           ├──────────────► 0027 S1 migrate toggles ✅
+           └─ ⚠ soft ─────► 0028 S9 theme micro    ✅
 
-Parallel (no hard dep on 0023/0024/0025):
-  0026 S7 i18n 🔓          ⚠ coord keys with 0025
-  0029 S8 CLI tool card 🔓 (large; can run late)
-  0030 mid-layer kit 🔓    ⚠ useful after 0022/0023
+Parallel (shipped with Wave 2/closeout):
+  0026 S7 i18n ✅          ⚠ residual naming OK
+  0029 S8 CLI tool card ✅
+  0030 mid-layer kit ✅
 ```
 
 ### ASCII attack waves
@@ -93,26 +93,18 @@ WAVE 1 (DONE) ──────────────────────
   0020 → 0021 → 0022
   Leaves ~81 → ~67; analytics dual-nav dead; compression hub
 
-WAVE 2 (IA prep — PARALLEL) ───────────────────────────────
-  0023 Observe stream     ∥  0024 Registry/Connect cleanup  ✅ builders done 2026-07-10
-  + Wave P: 0027 toggles · 0028 theme · 0029 CLI shell     ✅ same wave
-  (tasks still in 02-doing pending internal review promotion)
+WAVE 2 (DONE) ─────────────────────────────────────────────
+  0023 Observe stream     ∥  0024 Registry/Connect cleanup
+  + Wave P: 0027 toggles · 0028 theme · 0029 CLI shell · 0030 kits
 
-WAVE 3 (IA core — SERIAL after Wave 2) ────────────────────
-  0025 Seven-pillar sidebar + role presets
-  ⚠ do NOT start 0025 until 0023 AND 0024 are done
-     (Observability home + Registry home must exist)
+WAVE 3 (DONE) ─────────────────────────────────────────────
+  0025 Seven-pillar sidebar + role presets (Fusions under Routing)
 
-WAVE 4 (closeout — after 0025) ────────────────────────────
-  0031 UI IA docs + no-new-leaf guide (finalize post-tree)
+WAVE 4 (DONE) ─────────────────────────────────────────────
+  0031 UI IA docs + no-new-leaf guide → docs/guides/UI.md
 
-WAVE P (PARALLEL anytime after Wave 1) ────────────────────
-  0026 i18n naming          ⚠ if concurrent with 0025: split PRs or
-                            own only non-pillar keys first
-  0027 Toggle migration     needs 0021 ✅
-  0028 Theme micro VR       soft 0021
-  0029 CLI ConfigurableToolCard   independent, long-running
-  0030 PageTabBar / field kit / relay modal shell   optional P2
+WAVE P (DONE with residual) ───────────────────────────────
+  0026 i18n naming · 0027 · 0028 · 0029 · 0030
 ```
 
 ---
@@ -124,15 +116,15 @@ WAVE P (PARALLEL anytime after Wave 1) ─────────────�
 | **0020** | ✅ | Archive + no-new-leaf (S0) | — | 0021–0025 baseline | W1 | Policy: move to `.archive/` + provenance |
 | **0021** | ✅ | Shared primitives (S1) | 0020 | 0027, soft 0028 | W1 | EmptyState, SettingsToggleRow, StatCard |
 | **0022** | ✅ | Analytics + compression hub (S2+S3) | 0020, soft 0021 | 0025 | W1 | Pattern for dual-nav kill |
-| **0023** | 🔓 | Observe unified stream (S4) | 0020 (soft 0022) | **0025** | **A** | Logs/audit → hub + filters |
-| **0024** | 🔓 | Registry/Connect cleanup (S5) | 0020 | **0025** | **A** | MCP/A2A/API endpoints triple exposure |
-| **0025** | 🔓 | Seven-pillar sidebar (S6) | **0023 + 0024** | **0031** | **B** | **SERIAL** after A; Fusions under Routing |
-| **0026** | 🔓 | i18n naming (S7) | — | — | **A** | ⚠ merge-coord with 0025 on `sidebar.*` |
-| **0027** | 🔓 | Toggle migration (S1+) | **0021** | — | **A** | ApiManager + settings switches |
-| **0028** | 🔓 | Theme micro VR (S9) | soft 0021 | — | **A** | No Prism/Orbitron full port |
-| **0029** | 🔓 | CLI ConfigurableToolCard (S8) | — | — | **A** (late OK) | 2 pilots first; largest LOC win |
-| **0030** | 🔓 | PageTabBar + field kit + relay | soft 0021/22/23 | — | **A/C** | Optional mid-layer; ≥2 of 3 surfaces |
-| **0031** | 🔓 | UI docs guardrail (S10) | **0025** finalize | — | **C** | Can draft early; **merge after** tree |
+| **0023** | ✅ | Observe unified stream (S4) | 0020 (soft 0022) | **0025** | **A** | Logs/audit → hub + filters |
+| **0024** | ✅ | Registry/Connect cleanup (S5) | 0020 | **0025** | **A** | MCP/A2A/API endpoints triple exposure |
+| **0025** | ✅ | Seven-pillar sidebar (S6) | **0023 + 0024** | **0031** | **B** | Fusions under Routing; role presets |
+| **0026** | ✅ | i18n naming (S7) | — | — | **A** | Residual naming OK; live `sidebar.*` |
+| **0027** | ✅ | Toggle migration (S1+) | **0021** | — | **A** | ApiManager + settings switches |
+| **0028** | ✅ | Theme micro VR (S9) | soft 0021 | — | **A** | No Prism/Orbitron full port |
+| **0029** | ✅ | CLI ConfigurableToolCard (S8) | — | — | **A** (late OK) | 2 pilots; `ConfigurableToolCard` |
+| **0030** | ✅ | PageTabBar + field kit + relay | soft 0021/22/23 | — | **A/C** | Mid-layer shells |
+| **0031** | ✅ | UI docs guardrail (S10) | **0025** | — | **C** | `docs/guides/UI.md`; `DESING.md` stub |
 
 ### Parallel groups (summary)
 

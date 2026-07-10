@@ -9,8 +9,9 @@ function readSource(relativePath: string) {
 test("analytics page exposes the restored analytics tab shell", () => {
   const source = readSource("src/app/(dashboard)/dashboard/analytics/page.tsx");
 
-  assert.ok(source.includes('role="tablist"'));
+  assert.ok(source.includes("PageTabBar"));
   assert.ok(source.includes('aria-label="Analytics sections"'));
+  assert.ok(source.includes('syncSearchParam="tab"'));
   for (const label of [
     "Overview",
     "Evals",

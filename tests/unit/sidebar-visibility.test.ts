@@ -14,51 +14,41 @@ function sectionItems(sectionId: string) {
   return sidebarVisibility.getSectionItems(section);
 }
 
-test("system sidebar items: monitoring is Observe hub + System only (Epic 0005 S4)", () => {
-  const items = sectionItems("monitoring");
-  // Logs/Audit peer leaves collapsed into activity hub (Task 0023); health/runtime remain.
+test("observability sidebar: Observe hub + analytics hubs (Epic 0005 S4/S6)", () => {
+  const items = sectionItems("observability");
   assert.deepEqual(
     items.map((item) => item.id),
-    ["activity", "health", "runtime"]
+    ["activity", "analytics", "cache", "provider-stats", "runtime"]
   );
 });
 
-test("primary sidebar items place limits after cache", () => {
-  const items = sectionItems("omni-proxy");
-  // Epic 0005 S3: compression engines not leaves; S5: api-endpoints re-homed to endpoint?tab=catalog
+test("seven pillars primary order (Epic 0005 S6)", () => {
+  const sectionIds = sidebarVisibility.SIDEBAR_SECTIONS.map((section) => section.id);
+  assert.deepEqual(sectionIds.slice(0, 7), [
+    "core-pulse",
+    "registry",
+    "routing",
+    "governance",
+    "operations",
+    "observability",
+    "system",
+  ]);
+});
+
+test("routing hosts combos, fusions, compression hub (no engines)", () => {
+  const items = sectionItems("routing");
   assert.deepEqual(
     items.map((item) => item.id),
     [
-      "endpoints",
-      "api-manager",
-      "providers",
-      "embedded-services",
       "combos",
       "combos-live",
       "fusions",
-      "quota",
-      "costs-quota-share",
       "context-settings",
       "context-combos",
       "compression-studio",
-      "cli-code",
-      "cli-agents",
-      "acp-agents",
-      "cloud-agents",
-      "agent-bridge",
-      "traffic-inspector",
-      "webhooks",
-      "proxy",
+      "settings-routing",
     ]
   );
-});
-
-test("context sidebar section sits between primary and cli", () => {
-  const sectionIds = sidebarVisibility.SIDEBAR_SECTIONS.map((section) => section.id);
-  assert.deepEqual(sectionIds.slice(0, 4), ["home", "omni-proxy", "analytics", "costs"]);
-
-  const items = sectionItems("omni-proxy");
-  // Hub only: settings + combos (+ studio has compression- prefix). Engines are deep links, not leaves.
   assert.deepEqual(
     items
       .filter((item) => item.id.startsWith("context-"))
@@ -111,14 +101,13 @@ test("help sidebar exposes changelog after docs and issues", () => {
   assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("changelog"), true);
 });
 
-test("plugins (marketplace) has a discoverable sidebar entry (#3656 follow-up)", async () => {
-  const items = sectionItems("agentic-features");
+test("plugins (marketplace) has a discoverable sidebar entry under operations (#3656)", async () => {
+  const items = sectionItems("operations");
   const plugins = items.find((item) => item.id === "plugins");
-  assert.ok(plugins, "expected a plugins item in the agentic-features section");
+  assert.ok(plugins, "expected a plugins item in the operations section");
   assert.equal(plugins.href, "/dashboard/plugins");
   assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("plugins"), true);
 
-  // It must be a real page (plugin manager + marketplace tab), not a legacy redirect stub.
   const pluginsPage = await readFile(
     join(repoRoot, "src/app/(dashboard)/dashboard/plugins/page.tsx"),
     "utf8"
@@ -142,7 +131,6 @@ test("legacy dashboard routes redirect to their consolidated surfaces", async ()
   );
 
   assert.match(autoComboPage, /redirect\("\/dashboard\/combos\?filter=intelligent"\)/);
-  // Epic 0005 S4: usage → Observe hub (request stream), not standalone logs leaf
   assert.match(usagePage, /buildObserveHubPath\("request"\)|redirect\(.*activity/);
   assert.match(settingsPage, /redirect\(resolveSettingsRoute\(tab\)\)/);
   assert.match(settingsPage, /\/dashboard\/settings\/general/);

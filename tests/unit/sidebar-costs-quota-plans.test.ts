@@ -1,7 +1,6 @@
 /**
  * Phase C2 — Plans screen retired (unified into PoolWizard Step 2).
- * These tests verify the sidebar entry is gone and the costs section
- * still has the correct remaining items.
+ * Epic 0005 S6 — cost/quota economics live under Governance.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -21,14 +20,16 @@ test("HIDEABLE_SIDEBAR_ITEM_IDS does NOT contain costs-quota-plans (retired)", (
   );
 });
 
-test("costs section does not include costs-quota-plans item (retired)", () => {
-  const items = sectionItems("costs");
+test("governance does not include costs-quota-plans item (retired)", () => {
+  const items = sectionItems("governance");
   const ids = items.map((i) => i.id);
-  assert.ok(!ids.includes("costs-quota-plans"), "costs section must NOT include costs-quota-plans");
+  assert.ok(!ids.includes("costs-quota-plans"), "governance must NOT include costs-quota-plans");
 });
 
-test("costs section does NOT contain costs-quota-share (removed from section, kept in HIDEABLE list)", () => {
-  const items = sectionItems("costs");
+test("governance DOES contain costs-quota-share next to quota (S6 re-home)", () => {
+  const items = sectionItems("governance");
   const ids = items.map((i) => i.id);
-  assert.ok(!ids.includes("costs-quota-share"), "costs-quota-share was removed from section children");
+  assert.ok(ids.includes("costs-quota-share"), "costs-quota-share under governance");
+  assert.ok(ids.includes("quota"), "quota under governance");
+  assert.ok(ids.indexOf("costs-quota-share") > ids.indexOf("quota"));
 });

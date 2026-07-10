@@ -841,7 +841,9 @@
     "batchDetailCancelConfirm": "Cancel this batch? In-progress requests will stop.",
     "batchActionCancelError": "Failed to cancel batch. Try again.",
     "batchActionRetryError": "Failed to retry failed requests. Try again.",
-    "batchConceptRetentionNote": "Results and error files are retained for 30 days (Anthropic: 29 days)"
+    "batchConceptRetentionNote": "Results and error files are retained for 30 days (Anthropic: 29 days)",
+    "manualConfig": "Manual config",
+    "unknownProvider": "Unknown provider"
   },
   "featureFlagOmnirouteEmergencyFallbackDescription": "__MISSING__:Route budget-exhausted requests to the emergency free fallback provider/model.",
   "featureFlagArenaEloSyncEnabledDescription": "__MISSING__:Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.",
@@ -1114,7 +1116,19 @@
     "dragReorderItem": "__MISSING__:Drag to reorder",
     "cannotHide": "__MISSING__:This item cannot be hidden",
     "alwaysVisible": "__MISSING__:Always visible",
-    "groupSeparatorLabel": "__MISSING__:Separator"
+    "groupSeparatorLabel": "__MISSING__:Separator",
+    "fusions": "Fusions",
+    "fusionsSubtitle": "Panel + judge model combos",
+    "themeCoreCyan": "Core Cyan",
+    "analyticsSubtitle": "Charts, trends, evals, and utilization",
+    "corePulseSection": "Core Pulse",
+    "registrySection": "Registry",
+    "routingStrategySection": "Routing & Strategy",
+    "governanceSection": "Governance",
+    "operationsSection": "Operations",
+    "observabilitySection": "Observability",
+    "exposuresGroup": "Exposures",
+    "agenticGroup": "Agentic"
   },
   "webhooks": {
     "title": "Вебхуки",
@@ -2804,7 +2818,52 @@
     "agentFeaturesContextLengthErrorInteger": "Длина контекста должна быть допустимым целым числом.",
     "agentFeaturesContextLengthErrorRange": "Длина контекста должна быть от 1000 до 2000000.",
     "compressionOverride": "Переопределение сжатия",
-    "modePack": "Пакет режимов"
+    "modePack": "Пакет режимов",
+    "fusionActingSection": "Acting",
+    "fusionActingHelp": "Primary executor (e.g. builder). On trigger miss it answers alone; on fusion it receives the judge review and produces the final answer. Leave empty for legacy panels→judge final voice.",
+    "fusionActingUnit": "Acting unit",
+    "fusionActingEmptyHint": "No acting — judge is final voice (legacy)",
+    "fusionJudgeModel": "Judge model",
+    "fusionJudgeModelHelp": "Model or combo that synthesizes panel answers. Leave empty to use the first panel.",
+    "fusionMinPanel": "Min panel",
+    "fusionMinPanelHelp": "Successful panel answers required before stragglers get a grace window (default 2).",
+    "fusionStragglerGraceMs": "Straggler grace (ms)",
+    "fusionStragglerGraceMsHelp": "How long to wait for slow panel models once quorum is reached (default 8000).",
+    "fusionPanelHardTimeoutMs": "Panel hard timeout (ms)",
+    "fusionPanelHardTimeoutMsHelp": "Absolute cap so one hung model can't stall the whole panel (default 90000).",
+    "conditionalFusion": "Conditional Fusion",
+    "conditionalFusionDesc": "Runs fusion only when triggers match (tool-call or text-match); otherwise uses the configured non-fusion fallback strategy",
+    "fusionPanels": "Panels",
+    "fusionPanelsHelp": "Models or combo refs that answer in parallel before the judge synthesizes.",
+    "fusionAddPanel": "Add panel",
+    "fusionAddPanelModel": "Add model panel",
+    "fusionAddPanelComboRef": "Add combo-ref panel",
+    "fusionNoPanelsYet": "No panels yet. Add a model or combo reference.",
+    "fusionJudgeSection": "Judge",
+    "fusionJudgeResolution": "Resolution preview",
+    "fusionJudgeEmptyHint": "Falls back to first panel",
+    "fusionTriggers": "Triggers",
+    "fusionTriggersHelp": "When to run fusion. Non-always modes save as conditional-fusion with a non-fusion fallback.",
+    "fusionTriggerMode": "Mode",
+    "fusionTriggerAlways": "Always",
+    "fusionTriggerToolCall": "Tool call",
+    "fusionTriggerTextMatch": "Text match",
+    "fusionToolPatterns": "Tool patterns",
+    "fusionToolPatternsHelp": "Glob-style tool name patterns that trigger fusion (e.g. write*).",
+    "fusionTextPatterns": "Text patterns",
+    "fusionTextPatternsHelp": "Case-insensitive substrings matched against the latest user message (not glob).",
+    "fusionFallbackStrategy": "Fallback strategy",
+    "fusionFallbackStrategyHelp": "Used when triggers do not match. Fusion strategies are excluded (no recursion).",
+    "fusionTuning": "Tuning",
+    "fusionTuningHelp": "Quorum and timeout controls for panel collection (defaults shown as placeholders).",
+    "fusionUnitModel": "Model",
+    "fusionUnitComboRef": "Combo ref",
+    "fusionPickModel": "Pick model",
+    "fusionSelectComboRef": "Select a combo to reference",
+    "fusionComboRefHint": "Non-fusion combos are recommended. Fusion refs are allowed; runtime depth guards apply.",
+    "fusionUnitNotSet": "Not set",
+    "fusionSelectJudgeModel": "Select judge model",
+    "fusionSelectPanelModel": "Select panel model"
   },
   "costs": {
     "title": "Затраты",
@@ -3538,7 +3597,8 @@
     "installSkillModalDesc": "Вставьте JSON манифест навыка или загрузите файл .json.",
     "uploadJson": "Загрузить JSON",
     "cancel": "Отменить",
-    "installSkill": "Установить навык"
+    "installSkill": "Установить навык",
+    "delete": "Delete"
   },
   "health": {
     "title": "Здоровье системы",
@@ -4813,7 +4873,9 @@
     "kimiWebLabel": "Kimi Web",
     "kimiWebDesc": "Китайский рынок AI чата через kimi.moonshot.cn",
     "doubaoWebLabel": "Doubao Web",
-    "doubaoWebDesc": "Чат AI ByteDance через doubao.com"
+    "doubaoWebDesc": "Чат AI ByteDance через doubao.com",
+    "compatibleDefaultModelLabel": "Default Model",
+    "compatibleDefaultModelHint": "Enter the model ID exactly as your compatible endpoint expects it. This model will be saved as the connection default."
   },
   "settings": {
     "title": "Настройки",
@@ -6059,7 +6121,37 @@
     "modelLockoutExponentialBackoff": "__MISSING__:Exponential Backoff",
     "modelLockoutExponentialBackoffDescription": "__MISSING__:When enabled, each consecutive failure increases the cooldown duration exponentially.",
     "modelLockoutMaxBackoffSteps": "__MISSING__:Max Backoff Steps",
-    "modelLockoutMaxBackoffStepsDescription": "__MISSING__:Maximum number of backoff steps before the cooldown stops growing. The Max Cooldown cap is reached first in most configurations, making this a safety ceiling for when Max Cooldown is raised."
+    "modelLockoutMaxBackoffStepsDescription": "__MISSING__:Maximum number of backoff steps before the cooldown stops growing. The Max Cooldown cap is reached first in most configurations, making this a safety ceiling for when Max Cooldown is raised.",
+    "description": "Description",
+    "enable": "Enable",
+    "disable": "Disable",
+    "update": "Update",
+    "themeCoreCyan": "Core Cyan",
+    "selectProviderPlaceholder": "Select provider...",
+    "searchProviderPlaceholder": "Search providers...",
+    "searchProviderAria": "Search providers",
+    "queueDepth": "Queue Depth",
+    "logsDeleted": "{count, plural, =0 {No expired logs purged} one {Purged # expired log} other {Purged # expired logs}}",
+    "compressionCavemanPanelHint": "Its on/off and level are set in the panel:",
+    "redisLauncherTitle": "Local Redis",
+    "redisLauncherDesc": "One-click launch a Redis 7 container (Podman or Docker) for response cache, quota tracking, and rate limiting.",
+    "redisLauncherRefresh": "Refresh",
+    "redisLauncherStop": "Stop",
+    "redisLauncherLaunching": "Launching...",
+    "redisLauncherLaunch": "Launch Redis",
+    "redisLauncherContainer": "Container",
+    "redisLauncherRunning": "Running",
+    "redisLauncherReachable": "Reachable",
+    "redisLauncherError": "Error: {message}",
+    "redisLauncherHint": "Equivalent to running `omniroute redis up`. The container is named `omniroute-redis` and listens on 127.0.0.1:6379.",
+    "resilienceComboCooldownWaitTitle": "Quota-share combo cooldown wait",
+    "resilienceComboCooldownWaitDesc": "For quota-share combos only: wait out a short transient cooldown and re-dispatch instead of returning a 429 immediately. Never waits on quota_exhausted.",
+    "resilienceComboCooldownWaitToggleDesc": "Quota-share combos only; never waits on quota_exhausted.",
+    "resilienceComboCooldownMaxWaitMs": "Maximum wait per attempt",
+    "resilienceComboCooldownBudgetMs": "Total wait budget",
+    "resilienceQuotaShareConcurrencyTitle": "Quota-share per-connection concurrency",
+    "resilienceQuotaShareConcurrencyDesc": "For quota-share combos only: when a connection sets a Max Concurrent cap, serialize concurrent requests to that subscription account so it is never flooded past its ceiling. Excess requests wait in the queue instead of getting a 429. The cap comes from each connection's Max Concurrent field; this switch only enables or disables honoring it.",
+    "resilienceQuotaShareConcurrencyToggleDesc": "Quota-share combos only; honors each connection's Max Concurrent cap."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8376,7 +8468,8 @@
     "verified": "__MISSING__:Verified",
     "install": "__MISSING__:Install",
     "installedFromMarketplace": "__MISSING__:Plugin {name} installed!",
-    "hooks": "Hooks"
+    "hooks": "Hooks",
+    "marketplaceInstallComingSoon": "Marketplace installs are coming soon."
   },
   "quotaPlans": {
     "title": "Планы и Квоты",
@@ -8606,7 +8699,8 @@
       "goNow": "Иди сейчас",
       "message": "MITM Proxy теперь находится под AgentBridge.",
       "title": "Эта страница была перемещена"
-    }
+    },
+    "certManualTitle": "Certificate couldn't be installed automatically (e.g. inside a container). The bridge can still run — trust the CA manually:"
   },
   "trafficInspector": {
     "title": "Инспектор Трафика",
@@ -8932,5 +9026,6 @@
     "colAvgScore": "__MISSING__:Avg Score",
     "colModels": "__MISSING__:Models",
     "colType": "__MISSING__:Type"
-  }
+  },
+  "disabled": "Disabled"
 }

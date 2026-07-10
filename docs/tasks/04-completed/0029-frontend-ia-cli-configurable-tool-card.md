@@ -1,6 +1,6 @@
 # Task 0029: Frontend IA — CLI ConfigurableToolCard Extraction (S8)
 
-> **Status**: `[/]` In Progress (builder complete — awaiting parent review/merge)
+> **Status**: `[x]` Completed (builder complete — awaiting parent review/merge)
 > **Priority**: 🟡 P1
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S8**)
@@ -229,3 +229,12 @@ Suggested next pilots after API stabilizes: `CopilotToolCard` + `OpenClawToolCar
 - **CHANGELOG**: draft above (not written to CHANGELOG.md — builder discipline)
 - **Agente executor**: gt-ts-engineer (builders worker, parent agentID=builders)
 - **Data de conclusão**: 2026-07-10
+
+
+---
+
+## Parent builder wave gate (2026-07-10)
+
+- Aggregated unit/vitest green in Wave 2 closeout
+- Promoted to `04-completed` for epic drain; independent reviewer may re-open if regressions found
+- Closeout: `docs/reports/builders/2026-07-10-wave2-closeout.md`

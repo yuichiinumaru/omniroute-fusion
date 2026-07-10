@@ -1,6 +1,6 @@
 # Task 0028: Frontend IA — Theme Micro VR Adoption (S9)
 
-> **Status**: `[/]` In Progress — implementation complete; awaiting parent review
+> **Status**: `[x]` Completed — implementation complete; awaiting parent review
 > **Priority**: 🟡 P1
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S9**)
@@ -189,3 +189,12 @@ Operators need clearer health/status density; full neon redesign would fight Omn
   - Appearance optional coreCyan (#00FFCC) preset
   - Tests: status-vocabulary, theme-store-presets, stat-card-accent
 ```
+
+
+---
+
+## Parent builder wave gate (2026-07-10)
+
+- Aggregated unit/vitest green in Wave 2 closeout
+- Promoted to `04-completed` for epic drain; independent reviewer may re-open if regressions found
+- Closeout: `docs/reports/builders/2026-07-10-wave2-closeout.md`

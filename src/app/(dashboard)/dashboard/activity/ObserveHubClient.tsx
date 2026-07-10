@@ -1,12 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CardSkeleton } from "@/shared/components";
+import { CardSkeleton, PageTabBar } from "@/shared/components";
 import ProxyLogger from "@/shared/components/ProxyLogger";
 import ConsoleLogViewer from "@/shared/components/ConsoleLogViewer";
-import { cn } from "@/shared/utils/cn";
 import {
   type ObserveSource,
   OBSERVE_SOURCES,
@@ -26,7 +25,7 @@ const OBSERVE_TABS: Array<{
 }> = [
   { id: "activity", labelKey: "activity", label: "Activity", icon: "timeline" },
   { id: "request", labelKey: "logs", label: "Request Logs", icon: "description" },
-  { id: "proxy", labelKey: "logsProxy", label: "Proxy Logs", icon: "lan" },
+  { id: "proxy", labelKey: "logsProxy", label: "Outbound Logs", icon: "lan" },
   { id: "console", labelKey: "consoleLogs", label: "Console", icon: "terminal" },
   { id: "audit", labelKey: "auditLog", label: "Audit", icon: "policy" },
   { id: "mcp", labelKey: "auditMcp", label: "MCP Audit", icon: "security" },
@@ -55,12 +54,22 @@ function ObserveHubContent() {
     setActiveSource(normalizeObserveSource(searchParams.get("source") ?? searchParams.get("tab")));
   }, [searchParams]);
 
-  const handleSourceChange = (source: ObserveSource) => {
+  const tabOptions = useMemo(
+    () =>
+      OBSERVE_TABS.map((tab) => ({
+        value: tab.id,
+        label: sidebarText(t, tab.labelKey, tab.label),
+        icon: tab.icon,
+      })),
+    [t]
+  );
+
+  const handleSourceChange = (next: string) => {
+    const source = next as ObserveSource;
     setActiveSource(source);
+    // PageTabBar syncs ?source= (deletes for activity). Extra cleanup for request deep-links + legacy tab.
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    if (source === "activity") url.searchParams.delete("source");
-    else url.searchParams.set("source", source);
     if (source !== "request") {
       url.searchParams.delete("id");
       url.searchParams.delete("request");
@@ -72,36 +81,14 @@ function ObserveHubContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div
-        role="tablist"
+      <PageTabBar
+        options={tabOptions}
+        value={activeSource}
+        onChange={handleSourceChange}
+        syncSearchParam="source"
+        defaultValue="activity"
         aria-label="Observe stream sources"
-        className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1"
-      >
-        {OBSERVE_TABS.map((tab) => {
-          const selected = activeSource === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => handleSourceChange(tab.id)}
-              className={cn(
-                "focus-ring inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors",
-                selected
-                  ? "bg-surface text-text-main shadow-sm"
-                  : "text-text-muted hover:bg-surface/70 hover:text-text-main"
-              )}
-            >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                {tab.icon}
-              </span>
-              {sidebarText(t, tab.labelKey, tab.label)}
-            </button>
-          );
-        })}
-      </div>
+      />
 
       <Suspense fallback={<CardSkeleton />}>
         {activeSource === "activity" ? <ActivityFeedClient /> : null}

@@ -2,6 +2,8 @@ export const HIDEABLE_SIDEBAR_GROUP_IDS = [
   "compression-context",
   "tools",
   "integrations",
+  "exposures",
+  "agentic",
   "logs",
   "audit",
   "system",

@@ -14,6 +14,7 @@ const repoRoot = join(import.meta.dirname, "../../..");
 
 /**
  * Epic 0005 S5 — Connect / Registry exposure cleanup.
+ * Epic 0005 S6 — exposures live under Registry pillar.
  * Single homes for MCP, A2A, API Connect; no triple sidebar peers.
  */
 
@@ -35,18 +36,24 @@ describe("CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS hideable retention", () => {
 });
 
 describe("default sidebar has single Connect + single MCP/A2A homes", () => {
-  it("OmniProxy keeps endpoints (Connect SSoT) and drops api-endpoints leaf", () => {
-    const ids = sectionItems("omni-proxy").map((item) => item.id);
+  it("Registry keeps endpoints (Connect SSoT) and drops api-endpoints leaf", () => {
+    const ids = sectionItems("registry").map((item) => item.id);
     assert.ok(ids.includes("endpoints"), "endpoints (Connect) must remain default-visible");
-    assert.ok(ids.includes("api-manager"), "api-manager (keys) stays separate");
     assert.ok(!ids.includes("api-endpoints"), "api-endpoints must not be a default leaf");
-    assert.ok(ids.includes("webhooks"), "webhooks remains under Integrations");
+    assert.ok(ids.includes("webhooks"), "webhooks remains under Exposures");
   });
 
-  it("Agentic Features is the only default home for mcp + a2a", () => {
-    const agenticIds = sectionItems("agentic-features").map((item) => item.id);
-    assert.ok(agenticIds.includes("mcp"), "mcp SSoT under agentic-features");
-    assert.ok(agenticIds.includes("a2a"), "a2a SSoT under agentic-features");
+  it("Governance keeps api-manager (keys) separate from Registry", () => {
+    const govIds = sectionItems("governance").map((item) => item.id);
+    assert.ok(govIds.includes("api-manager"), "api-manager (keys) under governance");
+    const regIds = sectionItems("registry").map((item) => item.id);
+    assert.ok(!regIds.includes("api-manager"), "api-manager not duplicated under registry");
+  });
+
+  it("Registry is the only default home for mcp + a2a", () => {
+    const registryIds = sectionItems("registry").map((item) => item.id);
+    assert.ok(registryIds.includes("mcp"), "mcp SSoT under registry");
+    assert.ok(registryIds.includes("a2a"), "a2a SSoT under registry");
 
     const allDefaultIds = SIDEBAR_SECTIONS.flatMap((section) =>
       getSectionItems(section).map((item) => item.id)
@@ -64,10 +71,10 @@ describe("default sidebar has single Connect + single MCP/A2A homes", () => {
   });
 
   it("canonical hrefs for Connect / MCP / A2A / keys", () => {
-    const endpoints = sectionItems("omni-proxy").find((item) => item.id === "endpoints");
-    const apiManager = sectionItems("omni-proxy").find((item) => item.id === "api-manager");
-    const mcp = sectionItems("agentic-features").find((item) => item.id === "mcp");
-    const a2a = sectionItems("agentic-features").find((item) => item.id === "a2a");
+    const endpoints = sectionItems("registry").find((item) => item.id === "endpoints");
+    const apiManager = sectionItems("governance").find((item) => item.id === "api-manager");
+    const mcp = sectionItems("registry").find((item) => item.id === "mcp");
+    const a2a = sectionItems("registry").find((item) => item.id === "a2a");
 
     assert.equal(endpoints?.href, "/dashboard/endpoint");
     assert.equal(apiManager?.href, "/dashboard/api-manager");

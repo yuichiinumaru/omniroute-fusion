@@ -4,12 +4,10 @@ import assert from "node:assert/strict";
 const sidebarVisibility = await import("../../src/shared/constants/sidebarVisibility.ts");
 
 function getToolsGroup() {
-  const omniProxySection = sidebarVisibility.SIDEBAR_SECTIONS.find(
-    (section) => section.id === "omni-proxy"
-  );
-  assert.ok(omniProxySection, "expected omni-proxy section to exist");
+  const operations = sidebarVisibility.SIDEBAR_SECTIONS.find((section) => section.id === "operations");
+  assert.ok(operations, "expected operations section to exist");
 
-  const toolsGroup = omniProxySection.children.find(
+  const toolsGroup = operations.children.find(
     (child): child is (typeof sidebarVisibility.SIDEBAR_SECTIONS)[number]["children"][number] & {
       type: "group";
     } =>
@@ -17,7 +15,7 @@ function getToolsGroup() {
       (child as { type: string }).type === "group" &&
       (child as { id: string }).id === "tools"
   );
-  assert.ok(toolsGroup, "expected tools group to exist in omni-proxy section");
+  assert.ok(toolsGroup, "expected tools group to exist in operations section");
   return toolsGroup as {
     type: "group";
     id: string;
@@ -28,7 +26,6 @@ function getToolsGroup() {
 test("TOOLS_GROUP items follow plan 14 order: cli-code → cli-agents → acp-agents → cloud-agents → agent-bridge → traffic-inspector", () => {
   const toolsGroup = getToolsGroup();
   const itemIds = toolsGroup.items.map((item) => item.id);
-  // cli-code/cli-agents/acp-agents/cloud-agents from plan 14 (#2839); agent-bridge/traffic-inspector from plans 11/12 (#2858).
   assert.deepEqual(
     itemIds,
     ["cli-code", "cli-agents", "acp-agents", "cloud-agents", "agent-bridge", "traffic-inspector"],

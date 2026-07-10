@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/shared/components";
+import { Button, DeployRelayModal, SettingsTextField } from "@/shared/components";
 
 interface DenoRelayModalProps {
   isOpen: boolean;
@@ -55,100 +55,64 @@ export default function DenoRelayModal({ isOpen, onClose, onDeployed }: DenoRela
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="deno-relay-title"
-    >
-      <div className="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 id="deno-relay-title" className="text-lg font-bold flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary" aria-hidden="true">
-              terminal
-            </span>
-            {t("denoRelayModalTitle")}
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label={t("close")}
-            className="text-text-muted hover:text-text"
-          >
-            <span className="material-symbols-outlined" aria-hidden="true">
-              close
-            </span>
-          </button>
-        </div>
-
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-3 text-xs text-yellow-300">
-          {t("denoRelayWarning")}
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="text-sm font-medium mb-1 block" htmlFor="deno-token">
-              {t("denoRelayTokenLabel")}
-            </label>
-            <input
-              id="deno-token"
-              type="password"
-              value={denoToken}
-              onChange={(e) => setDenoToken(e.target.value)}
-              className="w-full text-sm bg-surface-alt border border-border rounded px-3 py-2 focus:outline-none focus:border-primary"
-              placeholder="ddo_..."
-              autoComplete="off"
-            />
-            <p className="text-xs text-text-muted mt-1">{t("denoRelayTokenHint")}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block" htmlFor="deno-org-domain">
-              {t("denoRelayOrgDomainLabel")}
-            </label>
-            <input
-              id="deno-org-domain"
-              type="text"
-              value={orgDomain}
-              onChange={(e) => setOrgDomain(e.target.value)}
-              className="w-full text-sm bg-surface-alt border border-border rounded px-3 py-2 focus:outline-none focus:border-primary"
-              placeholder="your-org.deno.net"
-            />
-            <p className="text-xs text-text-muted mt-1">{t("denoRelayOrgDomainHint")}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block" htmlFor="deno-project-name">
-              {t("denoRelayProjectNameLabel")}
-            </label>
-            <input
-              id="deno-project-name"
-              type="text"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              className="w-full text-sm bg-surface-alt border border-border rounded px-3 py-2 focus:outline-none focus:border-primary"
-              placeholder="omniroute-deno-relay"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
-            {error}
-          </div>
-        )}
-
-        <p className="text-xs text-text-muted">{t("denoRelayFreeTierNote")}</p>
-
-        <div className="flex justify-end gap-2 pt-2">
+    <DeployRelayModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <span className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary" aria-hidden="true">
+            terminal
+          </span>
+          {t("denoRelayModalTitle")}
+        </span>
+      }
+      warning={t("denoRelayWarning")}
+      error={error}
+      note={t("denoRelayFreeTierNote")}
+      footer={
+        <>
           <Button variant="secondary" size="sm" onClick={onClose} disabled={deploying}>
             {t("cancel")}
           </Button>
           <Button variant="primary" size="sm" onClick={handleDeploy} disabled={deploying}>
             {deploying ? t("denoRelayDeploying") : t("denoRelayDeploy")}
           </Button>
-        </div>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <SettingsTextField
+          id="deno-token"
+          label={t("denoRelayTokenLabel")}
+          description={t("denoRelayTokenHint")}
+          type="password"
+          value={denoToken}
+          onChange={setDenoToken}
+          placeholder="ddo_..."
+          autoComplete="off"
+          disabled={deploying}
+        />
+        <SettingsTextField
+          id="deno-org-domain"
+          label={t("denoRelayOrgDomainLabel")}
+          description={t("denoRelayOrgDomainHint")}
+          type="text"
+          value={orgDomain}
+          onChange={setOrgDomain}
+          placeholder="your-org.deno.net"
+          disabled={deploying}
+        />
+        <SettingsTextField
+          id="deno-project-name"
+          label={t("denoRelayProjectNameLabel")}
+          type="text"
+          value={projectName}
+          onChange={setProjectName}
+          placeholder="omniroute-deno-relay"
+          disabled={deploying}
+        />
       </div>
-    </div>
+    </DeployRelayModal>
   );
 }

@@ -68,11 +68,11 @@ test("Proxy Logs table uses the same blue row hover emphasis as Logs", () => {
   assert.doesNotMatch(proxyLogger, /hover:bg-primary\/5/);
 });
 
-test("General settings navigation is labeled Storage in English", () => {
+test("General settings navigation is labeled Data & Storage in English", () => {
   const en = readSrc("src/i18n/messages/en.json");
 
-  assert.match(en, /"settingsGeneral": "Storage"/);
-  assert.match(en, /"systemStorage": "Storage"/);
+  assert.match(en, /"settingsGeneral": "Data & Storage"/);
+  assert.match(en, /"systemStorage": "Data & Storage"/);
 });
 
 test("Global Routing page renders top-level modules in the requested order", () => {

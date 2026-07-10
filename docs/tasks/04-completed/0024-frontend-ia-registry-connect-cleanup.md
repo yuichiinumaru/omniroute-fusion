@@ -1,6 +1,6 @@
 # Task 0024: Frontend IA — Connect / Registry Exposure Cleanup (S5)
 
-> **Status**: `[/]` In Progress
+> **Status**: `[x]` Completed
 > **Priority**: 🔴 P0
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S5**)
@@ -201,3 +201,12 @@ S5 unblocks Registry pillar integrity. Leaving triple exposure means Task 0025 m
 | Keys separate | `api-manager` still default OmniProxy leaf |
 | typecheck | `npm run typecheck:core` PASS |
 | unit tests | 51 pass (connect + related sidebar) |
+
+
+---
+
+## Parent builder wave gate (2026-07-10)
+
+- Aggregated unit/vitest green in Wave 2 closeout
+- Promoted to `04-completed` for epic drain; independent reviewer may re-open if regressions found
+- Closeout: `docs/reports/builders/2026-07-10-wave2-closeout.md`

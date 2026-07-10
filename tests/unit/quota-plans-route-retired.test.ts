@@ -39,13 +39,13 @@ test("retired ProviderPlanConfigClient file no longer exists", () => {
   );
 });
 
-test("costs section no longer includes costs-quota-plans nav item", () => {
-  const section = sidebarVisibility.SIDEBAR_SECTIONS.find((s) => s.id === "costs");
-  assert.ok(section, 'expected "costs" section to exist');
+test("governance no longer includes costs-quota-plans nav item", () => {
+  const section = sidebarVisibility.SIDEBAR_SECTIONS.find((s) => s.id === "governance");
+  assert.ok(section, 'expected "governance" section to exist');
   const items = sidebarVisibility.getSectionItems(section);
   const ids = items.map((i) => i.id);
   assert.ok(
     !ids.includes("costs-quota-plans"),
-    '"costs-quota-plans" nav item must be absent from the costs section (Plans screen retired)'
+    '"costs-quota-plans" nav item must be absent from governance (Plans screen retired)'
   );
 });

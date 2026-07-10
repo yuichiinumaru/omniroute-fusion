@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { UsageAnalytics, CardSkeleton } from "@/shared/components";
-import { cn } from "@/shared/utils/cn";
+import { UsageAnalytics, CardSkeleton, PageTabBar } from "@/shared/components";
 import EvalsTab from "../usage/components/EvalsTab";
 import ComboHealthTab from "./ComboHealthTab";
 import ProviderUtilizationTab from "./ProviderUtilizationTab";
@@ -82,49 +81,40 @@ function AnalyticsPageContent() {
     window.history.replaceState(null, "", url.toString());
   }, [searchParams]);
 
-  const handleTabChange = (tab: AnalyticsTab) => {
-    setActiveTab(tab);
+  const tabOptions = useMemo(
+    () =>
+      ANALYTICS_TABS.map((tab) => ({
+        value: tab.id,
+        label: analyticsText(t, tab.labelKey, tab.label),
+        icon: tab.icon,
+      })),
+    [t]
+  );
+
+  const handleTabChange = (tab: string) => {
+    const next = tab as AnalyticsTab;
+    setActiveTab(next);
+    // PageTabBar already syncs ?tab= (deletes for overview). Drop route-trace id when leaving.
     if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    if (tab === "overview") url.searchParams.delete("tab");
-    else url.searchParams.set("tab", tab);
-    if (tab !== "route-trace") url.searchParams.delete("id");
-    window.history.replaceState(null, "", url.toString());
+    if (next !== "route-trace") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("id")) {
+        url.searchParams.delete("id");
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <div
-        role="tablist"
+      <PageTabBar
+        options={tabOptions}
+        value={activeTab}
+        onChange={handleTabChange}
+        syncSearchParam="tab"
+        defaultValue="overview"
         aria-label="Analytics sections"
-        className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1"
-      >
-        {ANALYTICS_TABS.map((tab) => {
-          const selected = activeTab === tab.id;
-
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                "focus-ring inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors",
-                selected
-                  ? "bg-surface text-text-main shadow-sm"
-                  : "text-text-muted hover:bg-surface/70 hover:text-text-main"
-              )}
-            >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                {tab.icon}
-              </span>
-              {analyticsText(t, tab.labelKey, tab.label)}
-            </button>
-          );
-        })}
-      </div>
+      />
 
       <Suspense fallback={<CardSkeleton />}>
         {activeTab === "overview" ? (

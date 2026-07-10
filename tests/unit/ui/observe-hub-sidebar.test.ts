@@ -1,5 +1,6 @@
 /**
  * Epic 0005 S4 — Observe unified stream: one hub leaf, hideable retention, redirects.
+ * Epic 0005 S6 — hub lives under Observability pillar (not legacy monitoring).
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -25,17 +26,21 @@ function readSrc(rel: string): string {
   return readFileSync(resolve(root, rel), "utf-8");
 }
 
-describe("Observe hub — default monitoring tree", () => {
-  const monitoring = SIDEBAR_SECTIONS.find((s) => s.id === "monitoring");
-  assert.ok(monitoring, "monitoring section missing");
+describe("Observe hub — default observability tree", () => {
+  const observability = SIDEBAR_SECTIONS.find((s) => s.id === "observability");
+  assert.ok(observability, "observability section missing");
 
-  const leafIds = getSectionItems(monitoring).map((i) => i.id);
-  const groupIds = monitoring.children
+  const leafIds = getSectionItems(observability).map((i) => i.id);
+  const groupIds = observability.children
     .filter((c): c is { type: "group"; id: string } => "type" in c && c.type === "group")
     .map((g) => g.id);
 
-  it("exposes activity hub + health/runtime only (no log/audit peer leaves)", () => {
-    assert.deepEqual(leafIds, ["activity", "health", "runtime"]);
+  it("exposes activity hub among observability leaves (no log/audit peers)", () => {
+    assert.ok(leafIds.includes("activity"));
+    assert.ok(leafIds.includes("analytics"));
+    assert.ok(leafIds.includes("cache"));
+    assert.ok(leafIds.includes("provider-stats"));
+    assert.ok(leafIds.includes("runtime"));
   });
 
   it("does not list LOGS_GROUP or AUDIT_GROUP in default tree", () => {
@@ -44,7 +49,7 @@ describe("Observe hub — default monitoring tree", () => {
   });
 
   it("hub leaf points at Observe SSoT path", () => {
-    const hub = getSectionItems(monitoring).find((i) => i.id === "activity");
+    const hub = getSectionItems(observability).find((i) => i.id === "activity");
     assert.ok(hub);
     assert.equal(hub.href, OBSERVE_HUB_PATH);
     assert.equal(hub.icon, "timeline");
@@ -118,7 +123,6 @@ describe("Observe redirect matrix — page sources", () => {
         `${rel} must target observe hub`
       );
       assert.ok(!src.includes('"use client"'), `${rel} must be a server redirect page`);
-      // Source-specific target appears either as string arg or buildObserveHubPath("source")
       if (source === "activity") {
         assert.ok(
           src.includes('"activity"') || src.includes("('/dashboard/activity')"),

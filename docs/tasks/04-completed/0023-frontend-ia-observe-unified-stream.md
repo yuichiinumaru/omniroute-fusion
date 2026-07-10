@@ -1,6 +1,6 @@
 # Task 0023: Frontend IA — Observe Unified Event Stream (S4)
 
-> **Status**: `[/]` In Progress
+> **Status**: `[x]` Completed
 > **Priority**: 🔴 P0
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S4**)
@@ -193,3 +193,12 @@ Epic success metric: log/audit surfaces as separate top-level leaves → **1 Obs
 6. `/dashboard/logs/console` → console source
 7. `/dashboard/audit` / `mcp` / `a2a` → matching audit sources
 8. Sidebar Monitoring: only Activity hub + System (Health/Runtime)
+
+
+---
+
+## Parent builder wave gate (2026-07-10)
+
+- Aggregated unit/vitest green in Wave 2 closeout
+- Promoted to `04-completed` for epic drain; independent reviewer may re-open if regressions found
+- Closeout: `docs/reports/builders/2026-07-10-wave2-closeout.md`

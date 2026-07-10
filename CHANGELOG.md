@@ -3,6 +3,24 @@
 ## [Unreleased]
 
 ### Changed
+- **Frontend IA naming / i18n cleanup (Epic 0005 S7 / Task 0026)** — operator vocabulary fixes after the seven-pillar rebuild (labels only; structure frozen).
+  - **Analytics hub** sidebar leaf uses `analytics` (not `usage`); Usage remains token-volume language
+  - **Data & Storage** replaces bare “Storage” for settings-general / system storage H1
+  - **Skills triad**: Agent Skills · Omni Skills · Plugins (+ MCP tools subtitle language)
+  - **Network** (outbound proxy) vs **Outbound Logs** (observe stream) vs **Embedded Services** (local processes)
+  - Pillar titles kept consistent with Task 0025 fallbacks
+  - Tests: `tests/unit/ui/sidebar-naming-i18n.test.ts`; settings layout static assert updated
+  **Author**: builder (Task 0026)
+
+- **Seven-pillar sidebar rebuild + role presets (Epic 0005 S6 / Task 0025)** — rewrite `SIDEBAR_SECTIONS` from the intermediate ~10-section tree into **7 operational pillars** (Core Pulse · Registry · Routing & Strategy · Governance · Operations · Observability · System) plus optional Help / debug-only Dev Tools.
+  - Fusions under **Routing**; compression hub remains settings/combos/studio only (engines still 0 leaves)
+  - Observe multi-log/audit leaves stay collapsed into activity hub under Observability (S4 preserved)
+  - Registry exposures: endpoints + MCP + A2A + webhooks; API keys under Governance
+  - Role presets rebuilt: `minimal` ≤ **12** visible leaves (test-enforced); `developer` / `admin` as persona views
+  - Archive: `.archive/sidebar/2026-07-10-seven-pillars/` + PROVENANCE-INDEX
+  - Tests: `tests/unit/ui/sidebar-seven-pillars.test.ts` (+ updated S4/S5/legacy sidebar suites)
+  **Author**: builder (Task 0025)
+
 - **Connect / Registry exposure cleanup (Epic 0005 S5 / Task 0024)** — retire triple MCP/A2A/API Endpoints sidebar peers; single SSoT homes + redirects.
   - Connect SSoT: `/dashboard/endpoint` (`endpoints` leaf) with tabs `apis` | `catalog` | `context-sources`
   - OpenAPI catalog: `/dashboard/api-endpoints` → `/dashboard/endpoint?tab=catalog` (hideable `api-endpoints` retained)
@@ -21,6 +39,12 @@
   **Author**: builder (Task 0027)
 
 ### Added
+- **Frontend IA docs guardrail (Epic 0005 S10 / Task 0031)** — durable dashboard IA guide so features do not dump peer sidebar leaves.
+  - New guide: `docs/guides/UI.md` (7 pillars from live `SIDEBAR_SECTIONS`, five invariants, shared primitives, anti-patterns)
+  - `design.md` remains design-token SSoT; typo `DESING.md` → supersede stub + `.archive/docs/2026-07-10-desing-typo/`
+  - Epic 0005 success metrics + child table closed out to S0–S10; index via `docs/guides/meta.json` + `docs/README.md`
+  **Author**: builder (Task 0031)
+
 - **Frontend IA theme micro-adoption (Task 0028 / Epic 0005 S9)** — selective visual-reference patterns without a full Prism/CyberCore port. Coral brand SSoT unchanged; cyan is optional Appearance only.
   - `src/shared/constants/statusVocabulary.ts`: status → Badge/health tone map (`healthy`/`degraded`/`offline`/`OPEN`/…); soft glow helpers limited to health/breaker surfaces
   - `Badge`: optional `status` + `glow` props (backward-compatible `variant`)

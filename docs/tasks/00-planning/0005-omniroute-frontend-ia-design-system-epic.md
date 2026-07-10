@@ -1,6 +1,6 @@
 # Epic 0005 — Frontend IA Reform + Design System Cohesion + Smart Componentization
 
-> **Status**: Active (Epic) — **Wave 1 shipped 2026-07-10** (S0 guardrail + S1 primitives + S2 analytics dual-nav + S3 compression hub); remaining slices open  
+> **Status**: **S0–S10 closeout complete (2026-07-10)** — Wave 1 + Wave 2 IA slices shipped; durable guide at [`docs/guides/UI.md`](../../guides/UI.md). Ongoing work is maintenance (no new default leaves without pillar mapping).  
 > **Priority**: High (P0 product UX)  
 > **Author**: Grok session (omniroute-fusion) · synthesizes live inventory (2026-07-10) + prior GPT-5.5 analysis in `.agents/user/why-khala-full.txt` L5571–5949  
 > **Date**: 2026-07-10  
@@ -10,7 +10,9 @@
 > **Depends on**: none  
 > **Related**:  
 > - Epic 0003 / 0004 Fusion (new leaves must land under Routing pillar — **do not** keep growing peer sidebar items)  
-> - `design.md` (token/primitives plan already partially shipped)  
+> - `design.md` (token/primitives SSoT; `DESING.md` superseded stub)  
+> - [`docs/guides/UI.md`](../../guides/UI.md) — **IA + no-new-leaf authority** (Task 0031 / S10)  
+> - [`docs/dependency-tree.md`](../../dependency-tree.md) — serial vs parallel child tasks  
 > - `visual-reference/` (local mock, gitignored — design input only)  
 > - `.agents/user/why-khala-full.txt` L5054, L5571–5953 (CyberCore anti-pattern analysis)  
 > - `.agents/user/why-khala-full2.txt` (CC identity; risk of repeating OmniRoute menu dump)
@@ -54,18 +56,19 @@ Secondary problems that multiply cost:
 
 ### Success metrics
 
-| Metric | Target |
-|--------|--------|
-| Default visible sidebar leaves (minimal/operator view) | **≤ 12** (stretch **≤ 8**) |
-| Top-level sections | **≤ 8** (prefer **7** operational pillars) |
-| Compression engines as top-level leaves | **0** (rows/cards/tabs inside one Compression surface) |
-| Log/audit surfaces as separate top-level leaves | **1** Observe/Execution Stream + filters (not 5+) |
-| Analytics dual-nav | Nested routes **redirect** into single shell + tabs |
-| Shared Toggle adoption on settings/API manager | No new raw `role="switch"`; migrate worst offenders |
-| Recoverable LOC from top componentization wins | Documented before/after; aim **≥ 5k** net over epic lifetime |
-| VR adoption | No default Orbitron/scanlines/full Prism fork; tokens/status/metrics only |
-| Deep links | Preserve or 301/redirect: services `?tab=`, proxy `?tab=`, analytics `?tab=`, memory/playground/translator, settings nested + legacy `?tab=` |
-| Regression | i18n keys updated; presets rebuilt; no capability deleted without mapped home |
+| Metric | Target | Closeout evidence (child task) |
+|--------|--------|--------------------------------|
+| Default visible sidebar leaves (minimal/operator view) | **≤ 12** (stretch **≤ 8**) | **met (12)** — Task **0025** `countPresetVisibleLeaves("minimal")` |
+| Top-level sections | **≤ 8** (prefer **7** operational pillars) | **met (7 pillars)** — Task **0025** `OPERATIONAL_PILLAR_SECTION_IDS` |
+| Compression engines as top-level leaves | **0** (rows/cards/tabs inside one Compression surface) | **met** — Task **0022** (S3) |
+| Log/audit surfaces as separate top-level leaves | **1** Observe/Execution Stream + filters (not 5+) | **met** — Task **0023** (S4) `/dashboard/activity?source=` |
+| Analytics dual-nav | Nested routes **redirect** into single shell + tabs | **met** — Task **0022** (S2) |
+| Shared Toggle adoption on settings/API manager | No new raw `role="switch"`; migrate worst offenders | **met (worst offenders)** — Tasks **0021** + **0027** |
+| Recoverable LOC from top componentization wins | Documented before/after; aim **≥ 5k** net over epic lifetime | **partial / ongoing** — **0021**, **0029**, **0030** (primitives/CLI card/tab kit); full 5k net is lifetime stretch |
+| VR adoption | No default Orbitron/scanlines/full Prism fork; tokens/status/metrics only | **met** — Task **0028** (S9) selective status/glow/cyan optional |
+| Deep links | Preserve or 301/redirect: services `?tab=`, proxy `?tab=`, analytics `?tab=`, memory/playground/translator, settings nested + legacy `?tab=` | **met (IA hubs)** — **0022–0024** redirects + hideable retention |
+| Regression | i18n keys updated; presets rebuilt; no capability deleted without mapped home | **presets** **0025**; **archive** **0020**; **naming** **0026** (coord); **docs** **0031** |
+| No-new-leaf governance | Durable agent/human guide | **met** — Task **0031** → [`docs/guides/UI.md`](../../guides/UI.md) |
 
 ### Stop criteria (out of scope)
 
@@ -93,7 +96,8 @@ Secondary problems that multiply cost:
 | Theme runtime | `src/store/themeStore.ts`, `ThemeProvider.tsx`, `AppearanceTab.tsx` | light/dark/system + primary swatch |
 | Primitives | `src/shared/components/*` | Button, Card, Toggle, Badge, EmptyState, DataTable… |
 | Feature pages | `src/app/(dashboard)/dashboard/**` | ~420–500 production TSX |
-| Design plan | `design.md` | Phases 1–6; authoritative over stale `DESING.md` |
+| Design plan | `design.md` | Phases 1–6; token SSoT (`DESING.md` → stub + archive) |
+| UI / IA guide | `docs/guides/UI.md` | No-new-leaf + 7 pillars + primitives (S10) |
 | Visual mock (local) | `visual-reference/` (gitignored) | Prism / Cybernetics Core mock |
 
 ### Current state (evidence — 2026-07-10 inventory)
@@ -369,82 +373,64 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 
 ---
 
-## 11a. Wave 1 progress (2026-07-10)
+## 11a. Slice progress (S0–S10 closeout, 2026-07-10)
 
 | Slice | Status | Evidence |
 |-------|--------|----------|
-| S0 Archive policy + no-new-leaf guardrail | **done** | `.archive/README.md`, `.archive/PROVENANCE-INDEX.md`, header comment in `sidebarVisibility.ts` |
-| S1 EmptyState tokens | **done** | `EmptyState.tsx` Tailwind; test `empty-state-tokens.test.tsx` |
-| S1 SettingsToggleRow | **done** | `SettingsToggleRow.tsx` + vitest |
-| S1 StatCard shared | **done** | `charts.tsx` StatCard; MCP/A2A/Search/Compression use it |
-| S2 Analytics dual-nav kill | **done** | Nested pages → `redirect(?tab=)`; compression tab on hub; sidebar 3 leaves |
-| S3 Compression hub | **done** | Engines off sidebar; routes + settings deep links kept; archive snapshot |
-| Archive-not-delete policy | **done** | User rule: moves go to `.archive/` with provenance |
+| S0 Archive policy + no-new-leaf guardrail | **done** | Task **0020** — `.archive/README.md`, `PROVENANCE-INDEX.md`, header on `sidebarVisibility.ts` |
+| S1 EmptyState / SettingsToggleRow / StatCard | **done** | Task **0021** — shared primitives under `src/shared/components/` |
+| S1 remainder Toggle migration | **done** | Task **0027** — ApiManager + usage-limit surfaces |
+| S2 Analytics dual-nav kill | **done** | Task **0022** — nested → `redirect(?tab=)` |
+| S3 Compression hub | **done** | Task **0022** — engines **0** default leaves |
+| S4 Observe unified stream | **done** | Task **0023** — `/dashboard/activity` + filters |
+| S5 Connect / Registry cleanup | **done** | Task **0024** — exposures SSoT + redirects |
+| S6 Seven-pillar sidebar + role presets | **done** | Task **0025** — 7 pillars; `minimal` ≤ 12 leaves |
+| S7 i18n / naming cleanup | **done / residual** | Task **0026** — naming debt; coord with live `sidebar.*` keys (see task file lane) |
+| S8 CLI ConfigurableToolCard | **done** | Task **0029** — `src/shared/components/cli/ConfigurableToolCard.tsx` |
+| S9 Theme micro VR adoption | **done** | Task **0028** — status vocabulary, StatCard accent, optional cyan |
+| S10 Docs & guardrail | **done** | Task **0031** — [`docs/guides/UI.md`](../../guides/UI.md); `DESING.md` superseded |
+| quickwins PageTabBar / field kit / DeployRelayModal | **done** | Task **0030** |
+| Archive-not-delete policy | **done** | Moves → `.archive/` with provenance (S0 + ongoing) |
 
-**Sidebar leaf count (default tree):** ~67 (was ~81). Delta ≈ −14 leaves (5 analytics dual-nav + 9 compression engines).
+**Sidebar (post-S6):** 7 operational pillars in `SIDEBAR_SECTIONS` (+ `help`, debug `devtools`). Wave 1 alone cut ~14 dual-nav/engine leaves from ~81; S4–S6 further collapsed observe/connect defaults into hubs.
 
 ## 11. Child tasks (Task NNNN tree)
 
-> Promoted 2026-07-10 by GT-TASK-ARCHITECT. Wave 1 → `04-completed/`; remaining → `01-open/`.
-> Numbering: Fusion used 0010–0018; Frontend IA uses **0020–0031**.
+> Promoted 2026-07-10 by GT-TASK-ARCHITECT. Numbering: Fusion **0010–0018**; Frontend IA **0020–0031**.  
+> **Closeout:** child table below reflects completed work under `docs/tasks/04-completed/` (S10 evidence may still sit in `02-doing` until parent promote).
 
-### Wave 1 — Completed (`docs/tasks/04-completed/`)
+### All child tasks (S0–S10)
 
-| Task | Slice | Title | Status |
-|------|-------|-------|--------|
-| **Task 0020** | S0 | Archive policy + no-new-leaf guardrail | `[x]` Completed |
-| **Task 0021** | S1 (partial) | Shared UI primitives (EmptyState, SettingsToggleRow, StatCard) | `[x]` Completed |
-| **Task 0022** | S2 + S3 | Analytics dual-nav kill + compression hub collapse | `[x]` Completed |
+| Task | Slice | Title | Status | Path |
+|------|-------|-------|--------|------|
+| **0020** | S0 | Archive policy + no-new-leaf guardrail | `[x]` | `docs/tasks/04-completed/0020-frontend-ia-archive-guardrail.md` |
+| **0021** | S1 | Shared UI primitives (EmptyState, SettingsToggleRow, StatCard) | `[x]` | `docs/tasks/04-completed/0021-frontend-ia-shared-ui-primitives.md` |
+| **0022** | S2+S3 | Analytics dual-nav kill + compression hub | `[x]` | `docs/tasks/04-completed/0022-frontend-ia-analytics-compression-hub.md` |
+| **0023** | S4 | Observe unified event stream | `[x]` | `docs/tasks/04-completed/0023-frontend-ia-observe-unified-stream.md` |
+| **0024** | S5 | Connect / Registry exposure cleanup | `[x]` | `docs/tasks/04-completed/0024-frontend-ia-registry-connect-cleanup.md` |
+| **0025** | S6 | Seven-pillar sidebar + role presets | `[x]` | `docs/tasks/04-completed/0025-frontend-ia-seven-pillar-sidebar.md` |
+| **0026** | S7 | i18n / naming cleanup | `[x]` / residual | `docs/tasks/` lane for `0026-frontend-ia-i18n-naming-cleanup.md` |
+| **0027** | S1 rem. | SettingsToggleRow / Toggle migration | `[x]` | `docs/tasks/04-completed/0027-frontend-ia-settings-toggle-migration.md` |
+| **0028** | S9 | Theme micro VR adoption | `[x]` | `docs/tasks/04-completed/0028-frontend-ia-theme-micro-adoption.md` |
+| **0029** | S8 | CLI ConfigurableToolCard | `[x]` | `docs/tasks/04-completed/0029-frontend-ia-cli-configurable-tool-card.md` |
+| **0030** | quickwins | PageTabBar + field kit + DeployRelayModal | `[x]` | `docs/tasks/04-completed/0030-frontend-ia-page-tabbar-field-kit.md` |
+| **0031** | S10 | UI IA docs + no-new-leaf guide | `[x]` evidence | `docs/tasks/02-doing/0031-frontend-ia-docs-guardrail.md` → promote to `04-completed/` |
 
-Paths:
-- `docs/tasks/04-completed/0020-frontend-ia-archive-guardrail.md`
-- `docs/tasks/04-completed/0021-frontend-ia-shared-ui-primitives.md`
-- `docs/tasks/04-completed/0022-frontend-ia-analytics-compression-hub.md`
-
-### Remaining — Open (`docs/tasks/01-open/`)
-
-| Task | Slice | Title | Depends on | Parallel group |
-|------|-------|-------|------------|----------------|
-| **Task 0023** | S4 | Observe unified event stream | 0020; soft 0022 | A |
-| **Task 0024** | S5 | Connect / Registry exposure cleanup | 0020 | A |
-| **Task 0025** | S6 | Seven-pillar sidebar rebuild + role presets | **0023, 0024** (Wave 1 done) | B |
-| **Task 0026** | S7 | i18n / naming cleanup | none hard (coord w/ 0025 on `sidebar.*`) | A |
-| **Task 0027** | S1 remainder | SettingsToggleRow / Toggle migration (ApiManager+) | **0021** | A |
-| **Task 0028** | S9 | Theme micro VR adoption | soft 0021 | A |
-| **Task 0029** | S8 | CLI ConfigurableToolCard (2 pilots) | none hard | A (late OK) |
-| **Task 0030** | quickwins | PageTabBar + field kit + DeployRelayModal shell (≥2 of 3) | soft 0021/0022/0023 | A/C optional |
-| **Task 0031** | S10 | UI IA docs + no-new-leaf guide | **0025** preferred (finalize post-S6) | C |
-
-Paths:
-- `docs/tasks/01-open/0023-frontend-ia-observe-unified-stream.md`
-- `docs/tasks/01-open/0024-frontend-ia-registry-connect-cleanup.md`
-- `docs/tasks/01-open/0025-frontend-ia-seven-pillar-sidebar.md`
-- `docs/tasks/01-open/0026-frontend-ia-i18n-naming-cleanup.md`
-- `docs/tasks/01-open/0027-frontend-ia-settings-toggle-migration.md`
-- `docs/tasks/01-open/0028-frontend-ia-theme-micro-adoption.md`
-- `docs/tasks/01-open/0029-frontend-ia-cli-configurable-tool-card.md`
-- `docs/tasks/01-open/0030-frontend-ia-page-tabbar-field-kit.md`
-- `docs/tasks/01-open/0031-frontend-ia-docs-guardrail.md`
-
-### Dependency graph (textual)
+### Dependency graph (shipped)
 
 ```
-0020 (S0 done) ─┬─► 0021 (S1 prim done) ─► 0027 (toggle migrate)
-                │                      └─► 0028 (theme micro, soft)
-                ├─► 0022 (S2+S3 done)
-                ├─► 0023 (S4 observe) ──┐
-                └─► 0024 (S5 registry) ─┴─► 0025 (S6 seven pillars) ─► 0031 (S10 docs)
+0020 (S0) ─┬─► 0021 (S1) ─► 0027 (toggle migrate) ✅
+           │            └─► 0028 (theme micro) ✅
+           ├─► 0022 (S2+S3) ✅
+           ├─► 0023 (S4) ✅ ──┐
+           └─► 0024 (S5) ✅ ──┴─► 0025 (S6) ✅ ─► 0031 (S10) ✅
 
-Parallel anytime (group A): 0026 i18n · 0027 · 0028 · 0029 CLI · 0030 kits
+Parallel (group A): 0026 i18n · 0029 CLI · 0030 kits  (all landed)
 ```
 
-### Attack order (updated)
+### Durable guardrail (post-epic)
 
-```
-Wave 1 DONE: 0020 → 0021 → 0022
-Next IA:     0023 ∥ 0024  →  0025  →  0031
-Parallel:    0026 ∥ 0027 ∥ 0028 ∥ 0029 ∥ 0030
-```
+New features **must** follow [`docs/guides/UI.md`](../../guides/UI.md): map to one of the 7 pillars, prefer tabs/filters over leaves, archive-not-delete, reuse shared primitives, keep `design.md` as token SSoT.
 
 ---
 

@@ -39,7 +39,6 @@ test("applySectionOrder ignores unknown section IDs in order", () => {
   const ids = sections.map((s) => s.id) as any[];
   const orderWithUnknown = ["totally-unknown-section" as any, ids[1], ids[0], ids[2]];
   const result = applySectionOrder(sections, orderWithUnknown);
-  // unknown ID is filtered; remaining IDs applied, then the rest appended
   assert.equal(result[0].id, ids[1]);
   assert.equal(result[1].id, ids[0]);
   assert.equal(result[2].id, ids[2]);
@@ -48,17 +47,16 @@ test("applySectionOrder ignores unknown section IDs in order", () => {
 test("applySectionOrder appends sections not in order list at end", () => {
   const sections = [...SIDEBAR_SECTIONS].slice(0, 3);
   const ids = sections.map((s) => s.id) as any[];
-  // Only order the first two
   const result = applySectionOrder(sections, [ids[2], ids[0]]);
   assert.equal(result[0].id, ids[2]);
   assert.equal(result[1].id, ids[0]);
-  assert.equal(result[2].id, ids[1]); // appended at end
+  assert.equal(result[2].id, ids[1]);
 });
 
 // ─── applyItemOrder ───────────────────────────────────────────────────────────
 
 test("applyItemOrder returns original children when order is empty", () => {
-  const section = SIDEBAR_SECTIONS.find((s) => s.id === "omni-proxy")!;
+  const section = SIDEBAR_SECTIONS.find((s) => s.id === "registry")!;
   const children = [...section.children];
   const result = applyItemOrder(children, []);
   assert.deepEqual(result.length, children.length);
@@ -127,15 +125,15 @@ test("settings-sidebar is in HIDEABLE_SIDEBAR_ITEM_IDS", () => {
   );
 });
 
-test("settings-sidebar item is present in configuration section", () => {
-  const configSection = SIDEBAR_SECTIONS.find((s) => s.id === "configuration");
-  assert.ok(configSection, "configuration section should exist");
-  const items = configSection.children.flatMap((c) =>
+test("settings-sidebar item is present in system section", () => {
+  const systemSection = SIDEBAR_SECTIONS.find((s) => s.id === "system");
+  assert.ok(systemSection, "system section should exist");
+  const items = systemSection.children.flatMap((c) =>
     "type" in c && c.type === "group" ? c.items : [c as any]
   );
   assert.ok(
     items.some((item) => item.id === "settings-sidebar"),
-    "settings-sidebar should be in configuration section children"
+    "settings-sidebar should be in system section children"
   );
 });
 

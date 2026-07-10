@@ -7,20 +7,24 @@ function findSection(id: string) {
   return sidebarVisibility.SIDEBAR_SECTIONS.find((s) => s.id === id);
 }
 
-test("costs section exists in SIDEBAR_SECTIONS", () => {
-  const section = findSection("costs");
-  assert.ok(section, "costs section must exist");
+test("governance section exists and hosts cost economics (S6)", () => {
+  const section = findSection("governance");
+  assert.ok(section, "governance section must exist");
 });
 
-test("costs section has exactly 5 items in the correct order", () => {
-  const section = findSection("costs");
-  assert.ok(section, "costs section must exist");
+test("governance cost items keep order costs → pricing → budget → free-tiers → rankings", () => {
+  const section = findSection("governance");
+  assert.ok(section, "governance section must exist");
 
   const items = sidebarVisibility.getSectionItems(section);
-  assert.equal(items.length, 5, "costs section must have 5 items");
-
-  const itemIds = items.map((i) => i.id);
-  assert.deepEqual(itemIds, [
+  const costish = items
+    .map((i) => i.id)
+    .filter((id) =>
+      ["costs", "costs-pricing", "costs-budget", "costs-free-tiers", "free-provider-rankings"].includes(
+        id
+      )
+    );
+  assert.deepEqual(costish, [
     "costs",
     "costs-pricing",
     "costs-budget",
@@ -29,69 +33,56 @@ test("costs section has exactly 5 items in the correct order", () => {
   ]);
 });
 
-test("costs section items have correct hrefs", () => {
-  const section = findSection("costs");
-  assert.ok(section, "costs section must exist");
+test("governance cost items have correct hrefs", () => {
+  const section = findSection("governance");
+  assert.ok(section, "governance section must exist");
 
-  const items = sidebarVisibility.getSectionItems(section);
-  const hrefs = items.map((i) => ({ id: i.id, href: i.href }));
-
-  assert.deepEqual(hrefs, [
-    { id: "costs", href: "/dashboard/costs" },
-    { id: "costs-pricing", href: "/dashboard/costs/pricing" },
-    { id: "costs-budget", href: "/dashboard/costs/budget" },
-    { id: "costs-free-tiers", href: "/dashboard/free-tiers" },
-    { id: "free-provider-rankings", href: "/dashboard/free-provider-rankings" },
-  ]);
+  const byId = new Map(sidebarVisibility.getSectionItems(section).map((i) => [i.id, i.href]));
+  assert.equal(byId.get("costs"), "/dashboard/costs");
+  assert.equal(byId.get("costs-pricing"), "/dashboard/costs/pricing");
+  assert.equal(byId.get("costs-budget"), "/dashboard/costs/budget");
+  assert.equal(byId.get("costs-free-tiers"), "/dashboard/free-tiers");
+  assert.equal(byId.get("free-provider-rankings"), "/dashboard/free-provider-rankings");
 });
 
 test("costs item uses costsOverview i18nKey (not costs)", () => {
-  const section = findSection("costs");
-  assert.ok(section, "costs section must exist");
+  const section = findSection("governance");
+  assert.ok(section, "governance section must exist");
 
   const costsItem = sidebarVisibility.getSectionItems(section).find((i) => i.id === "costs");
-  assert.ok(costsItem, "costs item must exist in costs section");
+  assert.ok(costsItem, "costs item must exist in governance section");
   assert.equal(costsItem.i18nKey, "costsOverview");
   assert.equal(costsItem.subtitleKey, "costsOverviewSubtitle");
 });
 
-test("costs item was removed from analytics section", () => {
-  const analyticsSection = findSection("analytics");
-  assert.ok(analyticsSection, "analytics section must exist");
+test("costs item was removed from observability analytics cluster", () => {
+  const observability = findSection("observability");
+  assert.ok(observability, "observability section must exist");
 
-  const analyticsItems = sidebarVisibility.getSectionItems(analyticsSection);
-  const analyticsItemIds = analyticsItems.map((i) => i.id);
-
+  const itemIds = sidebarVisibility.getSectionItems(observability).map((i) => i.id);
   assert.equal(
-    analyticsItemIds.includes("costs" as sidebarVisibility.HideableSidebarItemId),
+    itemIds.includes("costs" as sidebarVisibility.HideableSidebarItemId),
     false,
-    "costs item must not be in analytics section"
+    "costs item must not be in observability section"
   );
 });
 
-test("costs section is positioned between analytics and monitoring", () => {
+test("governance sits between routing and operations in pillar order", () => {
   const sectionIds = sidebarVisibility.SIDEBAR_SECTIONS.map((s) => s.id);
-  const analyticsIdx = sectionIds.indexOf("analytics");
-  const costsIdx = sectionIds.indexOf("costs");
-  const monitoringIdx = sectionIds.indexOf("monitoring");
+  const routingIdx = sectionIds.indexOf("routing");
+  const governanceIdx = sectionIds.indexOf("governance");
+  const operationsIdx = sectionIds.indexOf("operations");
 
-  assert.ok(analyticsIdx !== -1, "analytics section must exist");
-  assert.ok(costsIdx !== -1, "costs section must exist");
-  assert.ok(monitoringIdx !== -1, "monitoring section must exist");
-
-  assert.ok(
-    analyticsIdx < costsIdx,
-    `analytics (${analyticsIdx}) must come before costs (${costsIdx})`
-  );
-  assert.ok(
-    costsIdx < monitoringIdx,
-    `costs (${costsIdx}) must come before monitoring (${monitoringIdx})`
-  );
+  assert.ok(routingIdx !== -1);
+  assert.ok(governanceIdx !== -1);
+  assert.ok(operationsIdx !== -1);
+  assert.ok(routingIdx < governanceIdx);
+  assert.ok(governanceIdx < operationsIdx);
 });
 
-test("costs section titleKey is costsSection", () => {
-  const section = findSection("costs");
-  assert.ok(section, "costs section must exist");
-  assert.equal(section.titleKey, "costsSection");
-  assert.equal(section.titleFallback, "Costs");
+test("governance section titleKey is governanceSection", () => {
+  const section = findSection("governance");
+  assert.ok(section, "governance section must exist");
+  assert.equal(section.titleKey, "governanceSection");
+  assert.equal(section.titleFallback, "Governance");
 });
