@@ -136,10 +136,22 @@ const cases: Case[] = [
     expectedClass: "PUBLIC",
   },
   {
-    name: "/api/cloud/* is PUBLIC",
-    path: "/api/cloud/something",
-    method: "GET",
+    name: "/api/cloud/auth is PUBLIC (worker helper)",
+    path: "/api/cloud/auth",
+    method: "POST",
     expectedClass: "PUBLIC",
+  },
+  {
+    name: "/api/cloud/model/resolve is PUBLIC",
+    path: "/api/cloud/model/resolve",
+    method: "POST",
+    expectedClass: "PUBLIC",
+  },
+  {
+    name: "/api/cloud/credentials/update is MANAGEMENT (F-07-006)",
+    path: "/api/cloud/credentials/update",
+    method: "PUT",
+    expectedClass: "MANAGEMENT",
   },
   {
     name: "/api/oauth/* is PUBLIC",

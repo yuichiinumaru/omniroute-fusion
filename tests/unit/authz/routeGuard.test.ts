@@ -88,6 +88,18 @@ test("isAlwaysProtectedPath: db-backups export/import and restart (F-07-004/005)
   assert.equal(isAlwaysProtectedPath("/api/db-backups/exportAll"), false);
 });
 
+test("isAlwaysProtectedPath: privileged handlers Task 0049 (F-07-006/007/W2-004/005)", () => {
+  assert.equal(isAlwaysProtectedPath("/api/relay/tokens"), true);
+  assert.equal(isAlwaysProtectedPath("/api/relay/tokens/id"), true);
+  assert.equal(isAlwaysProtectedPath("/api/translator/send"), true);
+  assert.equal(isAlwaysProtectedPath("/api/cloud/credentials/update"), true);
+  assert.equal(isAlwaysProtectedPath("/api/cli-tools/keys"), true);
+});
+
+test("isLocalOnlyPath: cli-tools/keys is local-only (F-07-W2-005)", () => {
+  assert.equal(isLocalOnlyPath("/api/cli-tools/keys"), true);
+});
+
 test("isSpawnCapablePath: new Task 0040 surfaces are spawn-capable (F-04-004)", () => {
   assert.equal(isSpawnCapablePath("/api/version-manager/install"), true);
   assert.equal(isSpawnCapablePath("/api/cli-tools/antigravity-mitm"), true);

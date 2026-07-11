@@ -4,7 +4,7 @@
  * Manages relay tokens, rate limits, and usage tracking for serverless relay proxies.
  */
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { getDbInstance } from "./core";
 import { rowToCamel } from "./core";
 
@@ -94,8 +94,8 @@ function generateToken(): string {
 }
 
 function hashToken(token: string): string {
-  // Simple hash for token comparison (not bcrypt-heavy for performance)
-  const { createHash } = require("node:crypto");
+  // Simple hash for token comparison (not bcrypt-heavy for performance).
+  // ESM import only — `require` is not defined in this package type:module.
   return createHash("sha256").update(token).digest("hex");
 }
 

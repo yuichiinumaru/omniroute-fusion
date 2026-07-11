@@ -50,6 +50,8 @@ export const LOCAL_ONLY_API_PREFIXES: ReadonlyArray<string> = [
   "/api/tunnels/cloudflared", // managed binary download + spawn (GET status exempted below)
   "/api/tunnels/ngrok", // same tunnel class as cloudflared (GET status exempted below)
   "/api/middleware/hooks", // compiles caller JS via new Function — process RCE (Hard Rule #3)
+  // Task 0049 — bulk API-key material surface (hash-only list still sensitive recon).
+  "/api/cli-tools/keys", // full-key dump / key inventory — loopback only (F-07-W2-005)
 ];
 
 /**
@@ -96,6 +98,11 @@ export const ALWAYS_PROTECTED_API_PATHS: ReadonlyArray<string> = [
   "/api/db-backups/import", // destructive DB replace
   "/api/restart", // process.kill(SIGTERM) — sibling of /api/shutdown
   "/api/middleware/hooks", // new Function install must always require auth (F-07-W2-001)
+  // Task 0049 — privileged mutators / secret mint must never honor requireLogin=false.
+  "/api/relay/tokens", // mint + list relay secrets (F-07-007)
+  "/api/translator/send", // spends operator provider credentials (F-07-W2-004)
+  "/api/cloud/credentials", // overwrite provider OAuth tokens (F-07-006)
+  "/api/cli-tools/keys", // key inventory / residual reveal surface (F-07-W2-005)
 ];
 
 export function isLoopbackHost(hostHeader: string | null): boolean {

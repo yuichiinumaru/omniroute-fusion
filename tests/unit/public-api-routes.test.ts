@@ -25,3 +25,13 @@ test("isPublicApiRoute rejects non-public management routes", () => {
   assert.equal(isPublicApiRoute("/api/settings"), false);
   assert.equal(isPublicApiRoute("/api/providers"), false);
 });
+
+test("isPublicApiRoute narrows cloud prefixes (Task 0049 / F-07-006)", () => {
+  assert.equal(isPublicApiRoute("/api/cloud/auth"), true);
+  assert.equal(isPublicApiRoute("/api/cloud/model/resolve"), true);
+  assert.equal(isPublicApiRoute("/api/cloud/models/alias"), true);
+  assert.equal(isPublicApiRoute("/api/cloud/credentials/update"), false);
+  assert.equal(isPublicApiRoute("/api/cloud/"), false);
+  // Segment-safe: /api/cloud/auth must not match /api/cloud/authorize
+  assert.equal(isPublicApiRoute("/api/cloud/authorize"), false);
+});

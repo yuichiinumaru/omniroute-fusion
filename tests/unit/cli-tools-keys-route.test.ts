@@ -28,7 +28,7 @@ test.afterEach(() => {
   else process.env.API_KEY_SECRET = originalApiKeySecret;
 });
 
-test("CLI tools key list can return unmasked keys for authenticated internal consumers", async () => {
+test("CLI tools key list is hash-only — no bulk rawKey for authenticated consumers (0041/0049)", async () => {
   process.env.API_KEY_SECRET = "test-api-key-secret";
   const created = await createApiKey("CLI Tools Test Key", "test-machine-cli-tools");
 
@@ -46,9 +46,13 @@ test("CLI tools key list can return unmasked keys for authenticated internal con
     const key = payload.keys.find((entry) => entry.id === created.id);
 
     assert.ok(key, "created key should be present");
+    // Never re-export full secret after hash-only migration (Task 0041 / F-07-W2-005).
+    assert.equal(key.rawKey, undefined);
+    assert.ok(!("rawKey" in key));
     assert.notEqual(key.key, created.key);
-    assert.match(key.key, /^.{8}\*\*\*\*.*$/);
-    assert.equal(key.rawKey, created.key);
+    if (typeof key.key === "string") {
+      assert.match(key.key, /\*{2,}/);
+    }
   } finally {
     await deleteApiKey(created.id);
   }
@@ -70,8 +74,13 @@ test("general keys route stays masked for non-CLI consumers", async () => {
     const key = payload.keys.find((entry) => entry.id === created.id);
 
     assert.ok(key, "created key should be present");
+    // Hash-only list: never equals the one-time create secret; mask or null only.
     assert.notEqual(key.key, created.key);
-    assert.match(key.key, /^.{8}\*\*\*\*.*$/);
+    if (typeof key.key === "string") {
+      assert.match(key.key, /\*{2,}/);
+    } else {
+      assert.equal(key.key, null);
+    }
   } finally {
     await deleteApiKey(created.id);
   }

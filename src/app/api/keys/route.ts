@@ -31,10 +31,23 @@ export async function GET(request: Request) {
 
   try {
     const keys = await getApiKeys();
-    const maskedKeys = keys.map((k) => ({
-      ...k,
-      key: maskStoredApiKey(k.key),
-    }));
+    // Hash-only (Task 0041): getApiKeys strips plaintext; mask keyPrefix for display.
+    const maskedKeys = keys.map((k) => {
+      const prefix =
+        typeof (k as { keyPrefix?: unknown }).keyPrefix === "string"
+          ? ((k as { keyPrefix: string }).keyPrefix as string)
+          : null;
+      const displaySource =
+        prefix && prefix.length > 0
+          ? prefix
+          : typeof k.key === "string" && k.key.length > 0
+            ? k.key
+            : null;
+      return {
+        ...k,
+        key: displaySource ? maskStoredApiKey(displaySource.padEnd(12, "*")) : null,
+      };
+    });
     const { limit, offset } = parsePagination(request);
     const pagedKeys =
       limit === null ? maskedKeys.slice(offset) : maskedKeys.slice(offset, offset + limit);

@@ -3,6 +3,18 @@
 ## [Unreleased]
 
 ### Security
+- **Privileged API handler auth (Task 0049 / Epic 0008 S10)** — close handler-level auth/redaction gaps on high-value mutators (F-07-006 / F-07-007 / F-07-W2-004 / F-07-W2-005; stretch F-07-W2-006).
+  - **F-07-006**: `/api/cloud/credentials/update` removed from PUBLIC prefix; `requireManagementAuth({ always: true })` + optional `connectionId` binding; refuses multi-connection first-match overwrite; ALWAYS_PROTECTED
+  - **F-07-007**: `/api/relay/tokens` (+ `[id]`) always require management auth; responses never include `tokenHash`; `rawToken` only once on create; ALWAYS_PROTECTED
+  - **F-07-W2-004**: `/api/translator/send` always requires management auth (operator credential spend); ALWAYS_PROTECTED
+  - **F-07-W2-005**: `/api/cli-tools/keys` LOCAL_ONLY + ALWAYS_PROTECTED; never returns bulk `rawKey` (align Task 0041 hash-only — secrets only on create/regenerate)
+  - Stretch: `/api/sessions` requires `requireManagementAuth`
+  - `requireManagementAuth` gains `{ always?: boolean }` for open-install (`requireLogin=false`) dual-gate
+  - Public cloud prefixes narrowed to `/api/cloud/auth|model|models` (segment-safe matching)
+  - `.gitignore` `/cloud/` root-only so `src/app/api/cloud/**` is trackable
+  - Tests: `privileged-handler-auth-0049`, `cli-tools-keys-route`, `routeGuard`, `classify`, `public-api-routes`
+  **Author**: builder (Task 0049)
+
 - **Secrets at rest — JWT/API secrets encrypt + rotate, API key hash, PSD cookies (Task 0041 / Epic 0008 S2)** — close F-05-001 / F-05-W2-003 / F-05-002 / F-05-003 class plaintext storage.
   - `secrets.ts`: encrypt at rest when `STORAGE_ENCRYPTION_KEY` present; **INSERT OR REPLACE** (rotatable, not forever INSERT OR IGNORE); lazy re-encrypt plaintext rows
   - `apiKeys.ts`: hash-only validation path hardened; no bulk plaintext reveal regression

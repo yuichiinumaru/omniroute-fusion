@@ -17,6 +17,8 @@ import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
 
 export const cloudCredentialUpdateSchema = z.object({
   provider: z.string().trim().min(1, "Provider is required"),
+  /** When set, only this connection id may be updated (prevents first-match overwrite). */
+  connectionId: z.string().trim().min(1).optional(),
   credentials: z
     .object({
       accessToken: z.string().optional(),
