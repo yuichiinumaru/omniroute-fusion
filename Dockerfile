@@ -55,9 +55,13 @@ ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
 # are reproducible.
 RUN test -f package-lock.json \
   || (echo "package-lock.json is required for reproducible Docker builds" >&2 && exit 1)
+# npm@12+ blocks lifecycle scripts unless allowScripts is declared. Keep
+# `npm ci --ignore-scripts` for supply-chain hygiene, then compile only the
+# known native runtime dep with node-gyp (avoids project-scoped --allow-scripts).
 RUN --mount=type=cache,target=/root/.npm \
   npm ci --no-audit --no-fund --legacy-peer-deps --ignore-scripts \
-  && npm rebuild better-sqlite3 \
+  && npm_config_build_from_source=true npm_config_ignore_scripts=false \
+    npm rebuild better-sqlite3 --dangerously-allow-all-scripts --foreground-scripts \
   && node -e "require('better-sqlite3')(':memory:').close()"
 
 # Build with webpack (stable). Turbopack hit a non-recoverable internal panic on this
