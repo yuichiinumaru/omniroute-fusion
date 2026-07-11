@@ -1,6 +1,6 @@
 # Task 0032: Shared Connection Auth-Mode Helper Extraction
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Complete — pending review
 > **Priority**: 🔴 P0
 > **Type**: `remediation`
 > **Origin**: Epic 0006 — Dual-Mode Auth / API-Key Refresh Correctness (S1)
@@ -70,15 +70,15 @@ Root cause class: provider-id refresh set (`supportsTokenRefresh("gemini")` etc.
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Shared module created at **`src/shared/utils/connectionAuthMode.ts`** (parent pin 2026-07-11: primary consumers are `src/lib/*` health + API routes + dashboard; open-sse keeps provider-level `supportsTokenRefresh` and only imports shared helpers if a later call site needs them without reverse cycle)
-- [ ] `normalizeAuthType` + `connectionUsesOAuthRefresh` exported from that module
-- [ ] `tokenHealthCheck.ts` uses shared helper (no duplicated authType branch)
-- [ ] Existing public symbol still reachable for regression tests (`connectionUsesOAuthRefresh` from health module and/or shared module)
-- [ ] New tests: `node --import tsx/esm --test tests/unit/connection-auth-mode*.test.ts` pass
-- [ ] Regression: `node --import tsx/esm --test tests/unit/token-health-no-refresh-token-expired-5326.test.ts` pass
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` passes without new errors on touched files
-- [ ] CHANGELOG.md entry at TOP under Unreleased (backend/auth-mode helper condensation)
+- [x] Shared module created at **`src/shared/utils/connectionAuthMode.ts`** (parent pin 2026-07-11: primary consumers are `src/lib/*` health + API routes + dashboard; open-sse keeps provider-level `supportsTokenRefresh` and only imports shared helpers if a later call site needs them without reverse cycle)
+- [x] `normalizeAuthType` + `connectionUsesOAuthRefresh` exported from that module
+- [x] `tokenHealthCheck.ts` uses shared helper (no duplicated authType branch)
+- [x] Existing public symbol still reachable for regression tests (`connectionUsesOAuthRefresh` from health module and/or shared module)
+- [x] New tests: `node --import tsx/esm --test tests/unit/connection-auth-mode*.test.ts` pass
+- [x] Regression: `node --import tsx/esm --test tests/unit/token-health-no-refresh-token-expired-5326.test.ts` pass
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` passes without new errors on touched files
+- [x] CHANGELOG.md entry at TOP under Unreleased (backend/auth-mode helper condensation)
 
 ---
 
@@ -148,14 +148,20 @@ Without a shared helper, dual-mode providers (`gemini`, `qoder`, `codebuddy-cn`)
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
-- **Arquivos criados/modificados**: [lista com paths]
-- **Testes que verificam o trabalho**: [comandos + arquivos]
-- **Resultado dos testes**: [PASS/FAIL + contagem real]
-- **Resultado do lint**: [PASS/FAIL]
-- **Resultado do typecheck/build**: [PASS/FAIL]
-- **Entrada no changelog**: [referência]
-- **Agente executor**: [nome/role]
-- **Data de conclusão**: [YYYY-MM-DD]
+- **Arquivos criados/modificados**:
+  - `src/shared/utils/connectionAuthMode.ts` (created — SSoT)
+  - `src/lib/tokenHealthCheck.ts` (import + re-export; #5326 uses `shouldMarkNoRefreshExpired`)
+  - `tests/unit/connection-auth-mode.test.ts` (created)
+  - `CHANGELOG.md` (Unreleased Fixed — Epic 0006 combined)
+- **Testes que verificam o trabalho**:
+  - `node --import tsx/esm --test tests/unit/connection-auth-mode.test.ts`
+  - `node --import tsx/esm --test tests/unit/token-health-no-refresh-token-expired-5326.test.ts`
+- **Resultado dos testes**: PASS — 10 pure helper + 6 #5326 regression (16 total in combined run)
+- **Resultado do lint**: PASS (`eslint` on touched files, exit 0)
+- **Resultado do typecheck/build**: PASS (`npm run typecheck:core`)
+- **Entrada no changelog**: Unreleased → Fixed → Dual-mode auth (0032–0034)
+- **Agente executor**: Grok Build subagent (main session, operator-authorized)
+- **Data de conclusão**: 2026-07-11
 
 ---
 

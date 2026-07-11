@@ -25,6 +25,14 @@ import {
   refreshCopilotToken,
 } from "@omniroute/open-sse/services/tokenRefresh.ts";
 import { pickMaskedDisplayValue } from "@/shared/utils/maskEmail";
+import {
+  connectionUsesOAuthRefresh,
+  shouldMarkNoRefreshExpired,
+} from "@/shared/utils/connectionAuthMode";
+
+// Re-export for back-compat: existing tests/import sites use
+// `tokenHealthCheck.connectionUsesOAuthRefresh`.
+export { connectionUsesOAuthRefresh, shouldMarkNoRefreshExpired };
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const TICK_MS = 60 * 1000; // sweep interval: every 60 seconds
@@ -74,40 +82,6 @@ function getEffectiveTokenExpiryMs(conn: any): number {
   if (!effectiveExpiry) return 0;
   const expiryMs = new Date(effectiveExpiry).getTime();
   return Number.isFinite(expiryMs) ? expiryMs : 0;
-}
-
-/**
- * Whether this connection is an OAuth-style credential that can/should use
- * refresh tokens. Static API keys (AI Studio gemini, openai, …), cookies, and
- * no-auth connections must NEVER enter the #5326 "no refresh token → expired"
- * path — they have no refresh token by design.
- */
-export function connectionUsesOAuthRefresh(conn: {
-  authType?: string | null;
-  apiKey?: string | null;
-  refreshToken?: string | null;
-} | null): boolean {
-  if (!conn || typeof conn !== "object") return false;
-  const authType = String(conn.authType || "")
-    .toLowerCase()
-    .trim();
-  if (
-    authType === "apikey" ||
-    authType === "api_key" ||
-    authType === "api-key" ||
-    authType === "cookie" ||
-    authType === "none"
-  ) {
-    return false;
-  }
-  // Missing/legacy authType: only treat as OAuth when there is no static apiKey.
-  // A static apiKey without refresh is never an OAuth refresh target.
-  if (!authType) {
-    const hasApiKey = typeof conn.apiKey === "string" && conn.apiKey.trim().length > 0;
-    if (hasApiKey) return false;
-    return true;
-  }
-  return authType === "oauth";
 }
 
 // ── Refresh circuit breaker ───────────────────────────────────────────────
@@ -386,10 +360,12 @@ export async function checkConnection(conn) {
     //   - static API-key / cookie connections (no refresh token by design — e.g. AI Studio gemini)
     //   - connections already in a terminal/specific state (expired/banned/credits_exhausted)
     //   - transient cooldown state (unavailable) owned by the request path
-    const refreshCapableNeedsReauth =
-      connectionUsesOAuthRefresh(conn) &&
-      supportsTokenRefresh(conn.provider) &&
-      (!conn.testStatus || conn.testStatus === "active");
+    // Gate lives in connectionAuthMode (SSoT) — dual-mode providers (gemini/qoder/codebuddy-cn)
+    // must never false-expire apikey/cookie rows.
+    const refreshCapableNeedsReauth = shouldMarkNoRefreshExpired(
+      conn,
+      supportsTokenRefresh(conn.provider)
+    );
     if (refreshCapableNeedsReauth) {
       const now = new Date().toISOString();
       await updateProviderConnection(conn.id, {
