@@ -6,7 +6,7 @@
 
 import { getDbInstance } from "./core";
 import { getUserDatabaseSettings } from "./databaseSettings";
-import { rollupUsageHistoryBeforeDate } from "@/lib/usage/aggregateHistory";
+import { rollupAndDeleteUsageHistoryBeforeDate } from "@/lib/usage/aggregateHistory";
 import { purgeCallLogArtifactDirectory } from "@/lib/usage/callLogArtifacts";
 
 interface CleanupResult {
@@ -81,7 +81,6 @@ export async function cleanupCallLogs(): Promise<CleanupResult> {
  * Clean up old usage_history based on retention settings.
  */
 export async function cleanupUsageHistory(): Promise<CleanupResult> {
-  const db = getDbInstance();
   const retention = getRetentionSettings();
 
   const retentionDays = retention.usageHistory;
@@ -92,29 +91,21 @@ export async function cleanupUsageHistory(): Promise<CleanupResult> {
 
   const result: CleanupResult = { deleted: 0, errors: 0 };
 
-  // Roll up rows that are about to be deleted into daily_usage_summary so that the
-  // analytics route can still surface historical data via the UNION query. The rollup
-  // uses the exact same day boundary as the DELETE below, so every deleted row
-  // is guaranteed to have been aggregated first.
-  //
-  // rollupUsageHistoryBeforeDate catches its own errors and reports them via the
-  // returned result, so we inspect that rather than relying on a thrown exception.
-  // If the rollup failed, abort the DELETE to avoid permanently losing raw usage data
-  // that was never aggregated.
-  const rollupResult = await rollupUsageHistoryBeforeDate(cutoffDateStr);
-  if (rollupResult.errors > 0) {
-    console.error(
-      "[Cleanup] Aborting usage_history deletion because the pre-delete rollup failed."
-    );
-    result.errors += rollupResult.errors;
-    return result;
-  }
-
+  // Roll up + DELETE in one transaction (F-05-005) so a crash cannot leave
+  // rolled summary rows while source rows still exist for a second additive pass.
+  // usage_history is the authoritative source for daily_usage_summary request/token
+  // totals; see aggregateHistory.ts module docs. The same day boundary is used for
+  // both steps so every deleted row was aggregated first.
   try {
-    const stmt = db.prepare("DELETE FROM usage_history WHERE timestamp < ?");
-    const runResult = stmt.run(cutoffDateStr);
-    result.deleted = runResult.changes;
-
+    const { rollup, deleted } = rollupAndDeleteUsageHistoryBeforeDate(cutoffDateStr);
+    if (rollup.errors > 0) {
+      console.error(
+        "[Cleanup] Aborting usage_history deletion because the pre-delete rollup failed."
+      );
+      result.errors += rollup.errors;
+      return result;
+    }
+    result.deleted = deleted;
     console.log(
       `[Cleanup] Deleted ${result.deleted} usage_history older than ${retentionDays} days`
     );

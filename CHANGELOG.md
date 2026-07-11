@@ -59,6 +59,14 @@
   **Author**: builder (Task 0037)
 
 ### Fixed
+- **Registered-key budget window reset + usage_history rollup idempotency (Task 0050 / Epic 0008 S11)** — close false budget denies and double-counted analytics (F-05-004 / F-05-005).
+  - `validateRegisteredKey` applies day/hour window reset then compares **post-reset** counters (not the stale SELECT snapshot); returned metadata reflects zeros after boundary flip
+  - `incrementRegisteredKeyUsage` resets day/hour windows atomically before the bump (shared boundary semantics with validate)
+  - `rollupUsageHistoryBeforeDate` uses **replace** ON CONFLICT (not additive SUM); `rollupAndDeleteUsageHistoryBeforeDate` runs rollup+DELETE in one transaction
+  - Authority documented: `usage_history` is authoritative for `daily_usage_summary` request/token totals; `rollupDailyUsage` (`quota_snapshots`) is secondary/backfill
+  - Tests: `registered-key-budget-window-0050.test.ts`, `usage-history-rollup-0050.test.ts`
+  **Author**: builder (Task 0050)
+
 - **Dual-mode refresh policy audit (Epic 0006 S4 / Task 0035)** — connection-scoped refresh gates + Windsurf long-lived import.
   - Policy: `supportsTokenRefresh(provider)` is necessary but **not sufficient** for connection expiry
   - `isLongLivedImportCredential` for Windsurf/Devin import-token (no RT by design); `#5326` sweep no longer false-expires them

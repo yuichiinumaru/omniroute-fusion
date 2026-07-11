@@ -1,6 +1,6 @@
 # Task 0050: Registered-Key Budget Window Reset + Usage History Rollup Idempotency
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Ready for review
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S11)
@@ -29,7 +29,7 @@ Fix **correctness bugs** in billing/quota data paths that produce false denies a
 1. **F-05-004**: `validateRegisteredKey` must apply day/hour window resets **before** budget comparison (or re-read counters after reset UPDATE). Align `incrementRegisteredKeyUsage` window reset (today increment never resets).
 2. **F-05-005**: Usage history rollup into `daily_usage_summary` must be **crash-safe and idempotent** (transaction rollup+delete; replace-not-add semantics or rolled_up markers). Resolve dual-writer conflict with `rollupDailyUsage` from quota_snapshots.
 
-Stretch: F-05-W2-004 relay token budget enforcement. (**F-05-W2-003 persistSecret rotation is owned by Task 0041**, not here.)
+Stretch: F-05-W2-004 relay token budget enforcement. (**F-05-W2-003 persistSecret rotation is owned by Task 0041**, not here.) — **not in this PR**.
 
 ## Background Context
 
@@ -72,13 +72,13 @@ See **Source reports** above for full relative paths.
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] F-05-004 fixed with unit tests on temp SQLite
-- [ ] F-05-005 fixed with unit/integration tests on rollup
-- [ ] `node --import tsx/esm --test tests/unit/<registered-key|usage-*>.test.ts` pass
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` — no new errors
-- [ ] CHANGELOG.md entry
-- [ ] DB ops remain in `src/lib/db/` / usage modules only
+- [x] F-05-004 fixed with unit tests on temp SQLite
+- [x] F-05-005 fixed with unit/integration tests on rollup
+- [x] `node --import tsx/esm --test tests/unit/<registered-key|usage-*>.test.ts` pass
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` — no new errors (eslint on touched files clean)
+- [x] CHANGELOG.md entry
+- [x] DB ops remain in `src/lib/db/` / usage modules only
 
 ---
 
@@ -88,12 +88,12 @@ See **Source reports** above for full relative paths.
 
 Subtasks:
 
-- [ ] **Ler código existente** e o report em `docs/reports/05-lib-data-auth.md` listado em Source reports: `src/lib/db/registeredKeys.ts` validate/increment, `src/lib/usage/aggregateHistory.ts`, `src/lib/db/cleanup.ts`, related tests, schema for `daily_usage_summary` / `usage_history`
-- [ ] Fix validate to use post-reset counters (in-memory zero or re-SELECT inside transaction)
-- [ ] Mirror reset into increment (or shared transactional helper)
-- [ ] Make rollup idempotent + transactional with delete
-- [ ] Align dual-writer semantics (document + code)
-- [ ] Tests + CHANGELOG
+- [x] **Ler código existente** e o report em `docs/reports/05-lib-data-auth.md` listado em Source reports: `src/lib/db/registeredKeys.ts` validate/increment, `src/lib/usage/aggregateHistory.ts`, `src/lib/db/cleanup.ts`, related tests, schema for `daily_usage_summary` / `usage_history`
+- [x] Fix validate to use post-reset counters (in-memory zero or re-SELECT inside transaction)
+- [x] Mirror reset into increment (or shared transactional helper)
+- [x] Make rollup idempotent + transactional with delete
+- [x] Align dual-writer semantics (document + code)
+- [x] Tests + CHANGELOG
 
 ### Where
 
@@ -132,23 +132,39 @@ False budget denies break paying/registered clients after midnight. Non-idempote
 
 ## 🛡️ Compliance Checklist (Leis Primárias do AGENTS.md)
 
-- [ ] **Doc Accuracy**
-- [ ] **No Raw SQL** outside db modules
-- [ ] **Tests** with cleanup hooks
-- [ ] **Migrations** only if schema markers needed
-- [ ] **Security**: N/A primary
+- [x] **Doc Accuracy**
+- [x] **No Raw SQL** outside db modules
+- [x] **Tests** with cleanup hooks
+- [x] **Migrations** only if schema markers needed (none required — replace semantics + transaction)
+- [x] **Security**: N/A primary
 
 ---
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
 - **Arquivos criados/modificados**:
-- **Finding IDs closed**:
+  - `src/lib/db/registeredKeys.ts` — `applyRegisteredKeyBudgetWindowReset`; validate uses post-reset counters; increment resets windows atomically
+  - `src/lib/usage/aggregateHistory.ts` — replace ON CONFLICT; `rollupUsageHistoryBeforeDateSync`; `rollupAndDeleteUsageHistoryBeforeDate`; dual-writer authority docs
+  - `src/lib/db/cleanup.ts` — cleanup uses transactional rollup+delete helper
+  - `tests/unit/registered-key-budget-window-0050.test.ts` (new)
+  - `tests/unit/usage-history-rollup-0050.test.ts` (new)
+  - `CHANGELOG.md`
+  - `docs/reports/05-lib-data-auth.md` — F-05-004 / F-05-005 marked FIXED
+- **Finding IDs closed**: F-05-004, F-05-005 (stretch F-05-W2-004 not in scope)
 - **Testes**:
-- **typecheck / lint**:
-- **CHANGELOG**:
-- **Agente executor**:
-- **Data de conclusão**:
+  ```bash
+  node --import tsx/esm --test \
+    tests/unit/registered-key-budget-window-0050.test.ts \
+    tests/unit/usage-history-rollup-0050.test.ts \
+    tests/unit/db-registered-keys.test.ts \
+    tests/unit/db-registeredKeys-crud.test.ts \
+    tests/unit/database-settings-maintenance.test.ts
+  # → 50 pass, 0 fail
+  ```
+- **typecheck / lint**: `npm run typecheck:core` clean; eslint on touched files clean
+- **CHANGELOG**: Unreleased → Fixed → Task 0050 entry
+- **Agente executor**: builder (Grok Build subagent)
+- **Data de conclusão**: 2026-07-11
 
 ---
 
