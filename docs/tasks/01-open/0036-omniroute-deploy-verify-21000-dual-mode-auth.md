@@ -180,13 +180,31 @@ Epic 0006 success metrics are **live-data** metrics. Unit tests alone cannot cle
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
-- **Arquivos criados/modificados**: [lista]
-- **Build/SHA verified**: [string]
-- **Before counts**: [paste]
-- **After counts**: [paste]
-- **Testes de regressão**: [comandos + PASS/FAIL]
-- **Resultado do lint**: [PASS/FAIL / N/A]
-- **Resultado do typecheck/build**: [PASS/FAIL]
+### DRY-RUN (2026-07-11) — heal on DB **copy** only; live container not rebuilt yet
+
+- **Code on main**: tip includes 0032–0035, 0037–0039 (`9d6096e` at verify time)
+- **Live before** (`data-21000/storage.sqlite` read-only):
+  - apikey/gemini: **13**
+  - apikey/qoder: **9**
+  - oauth/windsurf: 2
+  - oauth/github: 1
+- **Dry-run heal**: `sqlite3.backup` → `/tmp/omniroute-heal-dry/storage.sqlite` then
+  `DATA_DIR=/tmp/omniroute-heal-dry node --import tsx/esm -e '…healFalsePositiveNoRefreshConnections()…'`
+- **After on copy**: apikey `no_refresh_token` = **0**; remaining only oauth windsurf(2)+github(1)
+- **Regression suite (workspace)**: 62 unit tests PASS (auth-mode + matrix + heal + status copy/presentation)
+- **Still open for full closeout**:
+  - [ ] Rebuild/redeploy `omniroute-21000` image with main SHA containing `connectionUsesOAuthRefresh`
+  - [ ] Run heal against live `/data` (boot hook on restart OR one-shot with DATA_DIR)
+  - [ ] `docker exec omniroute-21000 … grep connectionUsesOAuthRefresh …` count **>0**
+  - [ ] Live SQL: 0 apikey `no_refresh_token`
+
+- **Arquivos criados/modificados**: none (verify-only dry-run)
+- **Build/SHA verified**: source main `9d6096e+` — **container image not yet rebuilt**
+- **Before counts**: see above
+- **After counts**: dry-run copy only — live still dirty until rebuild
+- **Testes de regressão**: 62/62 PASS on unit pack
+- **Resultado do lint**: N/A this step
+- **Resultado do typecheck/build**: unit pack only this step
 - **Entrada no changelog**: [referência ou N/A]
 - **Agente executor**: [nome/role]
 - **Data de conclusão**: [YYYY-MM-DD]
