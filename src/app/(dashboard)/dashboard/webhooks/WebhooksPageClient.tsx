@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card, ConfirmModal } from "@/shared/components";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { AddWebhookWizard } from "./components/AddWebhookWizard";
 import { HowItWorksSidebar } from "./components/HowItWorksSidebar";
 import { WebhooksList } from "./components/WebhooksList";
@@ -32,7 +33,7 @@ export function WebhooksPageClient() {
     try {
       const res = await fetch("/api/webhooks");
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || t("loadFailed"));
+      if (!res.ok) throw new Error(extractApiErrorMessage(data, t("loadFailed")));
       setWebhooks(Array.isArray(data.webhooks) ? data.webhooks : []);
     } catch (err) {
       setFeedback({
@@ -67,7 +68,9 @@ export function WebhooksPageClient() {
     try {
       const res = await fetch(`/api/webhooks/${wh.id}/test`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.delivered === false) throw new Error(data.error || t("testFailed"));
+      if (!res.ok || data.delivered === false) {
+        throw new Error(extractApiErrorMessage(data, t("testFailed")));
+      }
       setFeedback({ type: "success", message: t("testSuccess") });
       await load();
     } catch (err) {
@@ -89,7 +92,7 @@ export function WebhooksPageClient() {
         body: JSON.stringify({ enabled: !wh.enabled }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || t("saveFailed"));
+      if (!res.ok) throw new Error(extractApiErrorMessage(data, t("saveFailed")));
       setWebhooks((prev) =>
         prev.map((item) => (item.id === wh.id ? { ...item, enabled: !wh.enabled } : item))
       );
@@ -108,7 +111,7 @@ export function WebhooksPageClient() {
     try {
       const res = await fetch(`/api/webhooks/${deleteTarget.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || t("deleteFailed"));
+      if (!res.ok) throw new Error(extractApiErrorMessage(data, t("deleteFailed")));
       setWebhooks((prev) => prev.filter((w) => w.id !== deleteTarget.id));
       setDeleteTarget(null);
       setFeedback({ type: "success", message: t("deleteSuccess") });

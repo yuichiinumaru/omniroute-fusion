@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Dashboard error UX + MCP hub/scope SSoT (Task 0047 / Epic 0008 S8)** — stop rendering structured API errors as `[object Object]`; align MCP hub counts and shared scopes with live tools (F-08-001 / F-08-002 / F-08-003).
+  - **F-08-001**: `handleResponse` uses `parseResponseBody` + `getErrorMessage`; high-traffic dashboard paths (webhooks, audit, quota widget, API endpoints tab, compression preview) funnel through `extractApiErrorMessage`
+  - **F-08-002**: MCP hub intro reads `MCP_TOOL_COUNT` / `MCP_SCOPE_COUNT` / `MCP_TRANSPORT_COUNT` (no hardcode 37/13)
+  - **F-08-003**: `MCP_SCOPE_LIST` + `MCP_TOOL_SCOPES` expanded to full live inventory (memory/skills/plugins/notion/obsidian/gamification/catalog/tools); `TOTAL_MCP_TOOL_COUNT` exported from server
+  - Tests: `api-handle-response-0047`, `mcp-scope-parity-0047`
+  **Author**: builder (Task 0047)
+
 ### Security
 - **Privileged API handler auth (Task 0049 / Epic 0008 S10)** — close handler-level auth/redaction gaps on high-value mutators (F-07-006 / F-07-007 / F-07-W2-004 / F-07-W2-005; stretch F-07-W2-006).
   - **F-07-006**: `/api/cloud/credentials/update` removed from PUBLIC prefix; `requireManagementAuth({ always: true })` + optional `connectionId` binding; refuses multi-connection first-match overwrite; ALWAYS_PROTECTED

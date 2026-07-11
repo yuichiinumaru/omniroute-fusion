@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/shared/components";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { Step1ChooseIntegration } from "./steps/Step1ChooseIntegration";
 import {
   Step2ConfigureIntegration,
@@ -97,7 +98,7 @@ export function AddWebhookWizard({ isOpen, onClose, onCreated, t }: AddWebhookWi
           body: JSON.stringify(buildConfigPayload()),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || t("saveFailed"));
+        if (!res.ok) throw new Error(extractApiErrorMessage(data, t("saveFailed")));
       } else {
         const res = await fetch("/api/webhooks", {
           method: "POST",
@@ -105,7 +106,7 @@ export function AddWebhookWizard({ isOpen, onClose, onCreated, t }: AddWebhookWi
           body: JSON.stringify(buildConfigPayload()),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || t("saveFailed"));
+        if (!res.ok) throw new Error(extractApiErrorMessage(data, t("saveFailed")));
         setCreatedId(data.webhook?.id ?? null);
       }
       setStep(3);
@@ -132,7 +133,7 @@ export function AddWebhookWizard({ isOpen, onClose, onCreated, t }: AddWebhookWi
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || t("saveFailed"));
+      if (!res.ok) throw new Error(extractApiErrorMessage(data, t("saveFailed")));
       onCreated();
       handleClose();
     } catch (err) {

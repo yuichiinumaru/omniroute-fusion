@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 
 type McpAuditEntry = {
   id: number;
@@ -71,7 +72,7 @@ export default function McpAuditTab() {
       const response = await fetch(`/api/mcp/audit?${params.toString()}`);
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(json.error || t("failedFetchMcpAudit"));
+        throw new Error(extractApiErrorMessage(json, t("failedFetchMcpAudit")));
       }
 
       setData({

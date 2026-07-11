@@ -3,6 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import {
+  MCP_SCOPE_COUNT,
+  MCP_TOOL_COUNT,
+  MCP_TRANSPORT_COUNT,
+} from "@/shared/constants/mcpScopes";
 import { copyToClipboard } from "@/shared/utils/clipboard";
 import McpDashboardPage from "../endpoint/components/MCPDashboard";
 
@@ -316,7 +321,11 @@ export default function McpPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-              {t("mcpIntro", { tools: 37, scopes: 13, transports: 3 })}
+              {t("mcpIntro", {
+                tools: MCP_TOOL_COUNT,
+                scopes: MCP_SCOPE_COUNT,
+                transports: MCP_TRANSPORT_COUNT,
+              })}
             </p>
             <ol
               className="mt-2 text-sm space-y-0.5 list-decimal list-inside"

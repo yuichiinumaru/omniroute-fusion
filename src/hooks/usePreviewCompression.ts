@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import { previewToRunModel, type CompressionRunModel, type PreviewResponse } from "@/app/(dashboard)/dashboard/compression/studio/compressionFlowModel";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 export interface PreviewMessage { role: string; content: unknown; }
 export interface Lane { engine: string; run: CompressionRunModel | null; error: string | null; }
 export interface PreviewBatch { lanes: Lane[]; combined: CompressionRunModel | null; diff: PreviewResponse["diff"] | null; riskGate: PreviewResponse["riskGate"] | null; heatmap: PreviewResponse["heatmap"] | null; }
@@ -8,7 +9,7 @@ export interface RunPreviewArgs { messages: PreviewMessage[]; laneEngines: strin
 async function postPreview(payload: Record<string, unknown>): Promise<PreviewResponse> {
   const res = await fetch("/api/compression/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Preview failed");
+  if (!res.ok) throw new Error(extractApiErrorMessage(data, "Preview failed"));
   return data as PreviewResponse;
 }
 export async function runPreviewBatch(args: RunPreviewArgs): Promise<PreviewBatch> {

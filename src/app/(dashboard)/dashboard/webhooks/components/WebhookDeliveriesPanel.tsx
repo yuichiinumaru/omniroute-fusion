@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { DeliveryStatusBadge } from "./shared/DeliveryStatusBadge";
 
 interface Delivery {
@@ -29,7 +30,7 @@ export function WebhookDeliveriesPanel({ webhookId, t }: WebhookDeliveriesPanelP
     try {
       const res = await fetch(`/api/webhooks/${webhookId}/deliveries?limit=5`);
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || t("deliveries.loadFailed"));
+      if (!res.ok) throw new Error(extractApiErrorMessage(data, t("deliveries.loadFailed")));
       setDeliveries(Array.isArray(data.deliveries) ? data.deliveries : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("deliveries.loadFailed"));

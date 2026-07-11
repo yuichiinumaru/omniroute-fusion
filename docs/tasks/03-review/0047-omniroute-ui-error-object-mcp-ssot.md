@@ -1,6 +1,6 @@
 # Task 0047: Dashboard Error Object UX + MCP Tool/Scope SSoT
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Ready for review
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S8)
@@ -76,13 +76,13 @@ See **Source reports** above for full relative paths.
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] F-08-001 fixed via existing helpers + high-traffic call sites from report rewired
-- [ ] F-08-002 hub uses live counts (no hardcode 37/13)
-- [ ] F-08-003 shared maps aligned with server (or single export)
-- [ ] Unit tests pass
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` — no new errors
-- [ ] CHANGELOG.md entry (dashboard/mcp)
+- [x] F-08-001 fixed via existing helpers + high-traffic call sites from report rewired
+- [x] F-08-002 hub uses live counts (no hardcode 37/13)
+- [x] F-08-003 shared maps aligned with server (or single export)
+- [x] Unit tests pass
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` — no new errors
+- [x] CHANGELOG.md entry (dashboard/mcp)
 
 ---
 
@@ -92,13 +92,13 @@ See **Source reports** above for full relative paths.
 
 Subtasks:
 
-- [ ] **Ler código existente** e o report em `docs/reports/08-app-ui-shared.md` listado em Source reports: `src/shared/http/apiErrorMessage.ts`, `src/shared/utils/api.ts`, report-listed call sites, `src/app/(dashboard)/dashboard/mcp/page.tsx`, `src/shared/constants/mcpScopes.ts`, `open-sse/mcp-server/server.ts` (`TOTAL_MCP_TOOL_COUNT`, scopes)
-- [ ] Prefer extending/wiring `extractApiErrorMessage` / `getErrorMessage` — do not invent parallel `formatApiError` unless helpers are inadequate
-- [ ] Replace worst `[object Object]` call sites (at least those listed in report)
-- [ ] SSoT counts + scopes for hub
-- [ ] Parity test server scopes vs shared list (all tool modules)
-- [ ] Stretch href allowlist helper if quick
-- [ ] CHANGELOG
+- [x] **Ler código existente** e o report em `docs/reports/08-app-ui-shared.md` listado em Source reports: `src/shared/http/apiErrorMessage.ts`, `src/shared/utils/api.ts`, report-listed call sites, `src/app/(dashboard)/dashboard/mcp/page.tsx`, `src/shared/constants/mcpScopes.ts`, `open-sse/mcp-server/server.ts` (`TOTAL_MCP_TOOL_COUNT`, scopes)
+- [x] Prefer extending/wiring `extractApiErrorMessage` / `getErrorMessage` — do not invent parallel `formatApiError` unless helpers are inadequate
+- [x] Replace worst `[object Object]` call sites (at least those listed in report)
+- [x] SSoT counts + scopes for hub
+- [x] Parity test server scopes vs shared list (all tool modules)
+- [ ] Stretch href allowlist helper if quick (deferred)
+- [x] CHANGELOG
 
 ### Where
 
@@ -140,23 +140,32 @@ Operators cannot debug failed management actions when errors stringify to `[obje
 
 ## 🛡️ Compliance Checklist (Leis Primárias do AGENTS.md)
 
-- [ ] **Doc Accuracy**: counts from source
-- [ ] **i18n**: new user-visible strings via next-intl if added
+- [x] **Doc Accuracy**: counts from source
+- [x] **i18n**: new user-visible strings via next-intl if added
 - [ ] **Security**: href stretch uses scheme allowlist
-- [ ] **Tests**
-- [ ] **No fabricated APIs**
+- [x] **Tests**
+- [x] **No fabricated APIs**
 
 ---
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
 - **Arquivos criados/modificados**:
-- **Finding IDs closed**:
-- **Testes**:
-- **typecheck / lint**:
-- **CHANGELOG**:
-- **Agente executor**:
-- **Data de conclusão**:
+  - `src/shared/utils/api.ts` — handleResponse via parseResponseBody + getErrorMessage
+  - `src/shared/constants/mcpScopes.ts` — full live MCP_SCOPE_LIST (31) + MCP_TOOL_SCOPES (93) + counts
+  - `src/app/(dashboard)/dashboard/mcp/page.tsx` — live MCP_TOOL/SCOPE/TRANSPORT counts
+  - `open-sse/mcp-server/server.ts` — export TOTAL_MCP_TOOL_COUNT
+  - Dashboard call sites: webhooks/*, audit/*, ProviderQuotaWidget, ApiEndpointsTab, usePreviewCompression
+  - Tests: `tests/unit/api-handle-response-0047.test.ts`, `tests/unit/mcp-scope-parity-0047.test.ts`
+  - `CHANGELOG.md`
+- **Finding IDs closed**: F-08-001, F-08-002, F-08-003 (stretch F-08-004–008 deferred)
+- **Residual raw `data.error` toasts** (not report primary list): settings tabs (Pricing/Mitm/AccessTokens/Resilience), providers page/import hooks, OAuth modals/services, runtime ModelCooldownsCard, translator, agent-bridge — same extractor pattern when touched later
+- **Testes**: `node --import tsx/esm --test tests/unit/api-handle-response-0047.test.ts tests/unit/mcp-scope-parity-0047.test.ts tests/unit/api-error-message-5340.test.ts tests/unit/mcp-pool-tools-3368.test.ts` — pass
+- **typecheck / lint**: `npm run typecheck:core` clean; eslint on touched files — 0 new errors (3 pre-existing any warnings in server.ts)
+- **CHANGELOG**: Unreleased Fixed entry Task 0047
+- **Agente executor**: builder (Grok Build)
+- **Data de conclusão**: 2026-07-11
+
 
 ---
 

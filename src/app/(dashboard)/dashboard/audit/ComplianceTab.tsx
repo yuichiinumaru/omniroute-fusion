@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 
 type AuditEntry = {
   id: number;
@@ -96,7 +97,7 @@ export default function ComplianceTab() {
       const response = await fetch(`/api/compliance/audit-log?${params.toString()}`);
       const data = await response.json().catch(() => []);
       if (!response.ok) {
-        throw new Error(data.error || t("failedFetch"));
+        throw new Error(extractApiErrorMessage(data, t("failedFetch")));
       }
 
       setEntries(Array.isArray(data) ? data : []);

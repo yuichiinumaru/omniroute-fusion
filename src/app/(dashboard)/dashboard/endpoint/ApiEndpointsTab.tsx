@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
 import { useDisplayBaseUrl } from "@/shared/hooks";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import VscodeTokenAliasCard from "./VscodeTokenAliasCard";
 import { matchesSearch } from "@/shared/utils/turkishText";
 
@@ -291,7 +292,7 @@ export default function ApiEndpointsTab() {
       if (res.ok) setTryResult(await res.json());
       else {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Request failed (${res.status})`);
+        throw new Error(extractApiErrorMessage(err, `Request failed (${res.status})`));
       }
     } catch (err: any) {
       setTryResult({

@@ -105,7 +105,13 @@ const MCP_ALLOWED_SCOPES = new Set(
     .map((s) => s.trim())
     .filter(Boolean)
 );
-const TOTAL_MCP_TOOL_COUNT =
+/**
+ * Live MCP tool inventory count used by heartbeat / diagnostics.
+ * Prefer the shared SSoT `MCP_TOOL_COUNT` (`src/shared/constants/mcpScopes.ts`) for
+ * dashboard copy — this arithmetic mirrors historical registration modules
+ * (agentSkill tools also appear in MCP_TOOLS; unique catalog is MCP_TOOL_COUNT).
+ */
+export const TOTAL_MCP_TOOL_COUNT =
   MCP_TOOLS.length +
   Object.keys(memoryTools).length +
   Object.keys(skillTools).length +

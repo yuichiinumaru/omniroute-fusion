@@ -96,10 +96,13 @@ export function getErrorMessage(
 }
 
 async function handleResponse(response: Response) {
-  const data = await response.json();
+  // Parse once via the safe body reader (#1318) and surface structured
+  // `{ error: { message } }` envelopes as human text (F-08-001 / F-08-010).
+  const data = await parseResponseBody(response);
 
   if (!response.ok) {
-    const error: any = new Error(data.error || "An error occurred");
+    const message = getErrorMessage(data, response.status, "An error occurred");
+    const error = new Error(message) as Error & { status?: number; data?: unknown };
     error.status = response.status;
     error.data = data;
     throw error;

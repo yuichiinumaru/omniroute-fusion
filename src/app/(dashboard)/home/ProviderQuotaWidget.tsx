@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Card from "@/shared/components/Card";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { translateUsageOrFallback } from "../dashboard/usage/components/ProviderLimits/i18nFallback";
 
 type Connection = {
@@ -146,7 +147,7 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
       const res = await fetch("/api/usage/provider-limits", { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Refresh failed");
+        throw new Error(extractApiErrorMessage(err, "Refresh failed"));
       }
       const data = await res.json();
       setQuotaData(data.caches || {});

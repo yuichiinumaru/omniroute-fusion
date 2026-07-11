@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { EventChecklist } from "../shared/EventChecklist";
 import { PayloadPreview } from "../shared/PayloadPreview";
 
@@ -43,9 +44,9 @@ export function Step3EventsAndTest({
     setTestResult(null);
     try {
       const res = await fetch(`/api/webhooks/${webhookId}/test`, { method: "POST" });
-      const data: TestResult & { error?: string } = await res.json().catch(() => ({}));
+      const data: TestResult & { error?: unknown } = await res.json().catch(() => ({}));
       if (!res.ok || data.delivered === false) {
-        throw new Error(data.error || t("testFailed"));
+        throw new Error(extractApiErrorMessage(data, t("testFailed")));
       }
       setTestResult(data);
       setTestState("ok");
