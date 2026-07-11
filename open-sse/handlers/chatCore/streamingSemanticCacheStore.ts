@@ -10,6 +10,8 @@
  * statement of the callback, so returning from this helper is equivalent.
  */
 import {
+  canServeSemanticCacheStreamHit as defaultCanServeStreamHit,
+  extractSemanticCacheSignatureExtras as defaultExtractExtras,
   generateSignature as defaultGenerateSignature,
   setCachedResponse as defaultSetCachedResponse,
   isCacheableForWrite as defaultIsCacheableForWrite,
@@ -23,6 +25,13 @@ type CacheBody = {
   input?: unknown;
   temperature?: unknown;
   top_p?: unknown;
+  tools?: unknown;
+  tool_choice?: unknown;
+  response_format?: unknown;
+  seed?: unknown;
+  stop?: unknown;
+  max_tokens?: unknown;
+  max_completion_tokens?: unknown;
 };
 
 export interface StreamingSemanticCacheStoreDeps {
@@ -30,6 +39,8 @@ export interface StreamingSemanticCacheStoreDeps {
   isSmallEnoughForSemanticCache: typeof defaultIsSmallEnough;
   generateSignature: typeof defaultGenerateSignature;
   setCachedResponse: typeof defaultSetCachedResponse;
+  extractSemanticCacheSignatureExtras?: typeof defaultExtractExtras;
+  canServeSemanticCacheStreamHit?: typeof defaultCanServeStreamHit;
 }
 
 const DEFAULT_DEPS: StreamingSemanticCacheStoreDeps = {
@@ -37,6 +48,8 @@ const DEFAULT_DEPS: StreamingSemanticCacheStoreDeps = {
   isSmallEnoughForSemanticCache: defaultIsSmallEnough,
   generateSignature: defaultGenerateSignature,
   setCachedResponse: defaultSetCachedResponse,
+  extractSemanticCacheSignatureExtras: defaultExtractExtras,
+  canServeSemanticCacheStreamHit: defaultCanServeStreamHit,
 };
 
 interface StreamingCacheArgs {
@@ -49,6 +62,7 @@ interface StreamingCacheArgs {
   apiKeyId?: string | number;
   streamUsage?: Record<string, unknown> | null;
   log?: LoggerLike;
+  clientResponseFormat?: string | null;
 }
 
 function streamTokensSaved(streamUsage: Record<string, unknown> | null | undefined): number {
@@ -64,12 +78,19 @@ function writeStreamingCacheEntry(
     const cleanBody = { ...(args.streamResponseBody as Record<string, unknown>) };
     delete cleanBody._streamed;
     if (!deps.isSmallEnoughForSemanticCache(cleanBody)) return;
+    const extractExtras =
+      deps.extractSemanticCacheSignatureExtras ?? defaultExtractExtras;
+    const extras = extractExtras(args.body as Record<string, unknown>, {
+      clientResponseFormat: args.clientResponseFormat,
+      stream: true,
+    });
     const sig = deps.generateSignature(
       args.model,
       args.body.messages ?? args.body.input,
       args.body.temperature,
       args.body.top_p,
-      args.apiKeyId ?? undefined
+      args.apiKeyId ?? undefined,
+      extras
     );
     const tokensSaved = streamTokensSaved(args.streamUsage);
     deps.setCachedResponse(sig, args.model, cleanBody, tokensSaved);
@@ -83,10 +104,14 @@ export function storeStreamingSemanticCacheResponse(
   args: StreamingCacheArgs,
   deps: StreamingSemanticCacheStoreDeps = DEFAULT_DEPS
 ): void {
+  // Stream bodies are OpenAI-shaped; do not store for Claude/Gemini clients (F-01-W2-002).
+  const canServeStream =
+    deps.canServeSemanticCacheStreamHit ?? defaultCanServeStreamHit;
   if (
     !args.enabled ||
     args.streamStatus !== 200 ||
     !args.streamResponseBody ||
+    !canServeStream(args.clientResponseFormat) ||
     !deps.isCacheableForWrite(args.body, args.headers)
   ) {
     return;

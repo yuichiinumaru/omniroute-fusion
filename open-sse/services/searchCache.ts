@@ -32,6 +32,9 @@ function normalizeQuery(query: string): string {
 
 /**
  * Compute a deterministic cache key from search parameters.
+ *
+ * Includes `providerOptions` (e.g. baseUrl, depth) and `content` so distinct
+ * destinations / crawl options never share a hit (F-01-W2-004).
  */
 export function computeCacheKey(
   query: string,
@@ -40,7 +43,9 @@ export function computeCacheKey(
   maxResults: number,
   country?: string,
   language?: string,
-  filters?: unknown
+  filters?: unknown,
+  providerOptions?: unknown,
+  content?: unknown
 ): string {
   const normalized = normalizeQuery(query);
   const payload = JSON.stringify({
@@ -51,6 +56,8 @@ export function computeCacheKey(
     c: country || null,
     l: language || null,
     f: filters || null,
+    o: providerOptions ?? null,
+    content: content ?? null,
   });
   return createHash("sha256").update(payload).digest("hex");
 }

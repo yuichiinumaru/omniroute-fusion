@@ -9,6 +9,7 @@
  * inline block, including the `prompt + completion || 0` token-saved precedence.
  */
 import {
+  extractSemanticCacheSignatureExtras as defaultExtractExtras,
   generateSignature as defaultGenerateSignature,
   setCachedResponse as defaultSetCachedResponse,
   isCacheableForWrite as defaultIsCacheableForWrite,
@@ -22,6 +23,13 @@ type CacheBody = {
   input?: unknown;
   temperature?: unknown;
   top_p?: unknown;
+  tools?: unknown;
+  tool_choice?: unknown;
+  response_format?: unknown;
+  seed?: unknown;
+  stop?: unknown;
+  max_tokens?: unknown;
+  max_completion_tokens?: unknown;
 };
 
 type UsageLike = { prompt_tokens?: number; completion_tokens?: number } | null | undefined;
@@ -31,6 +39,7 @@ export interface SemanticCacheStoreDeps {
   isSmallEnoughForSemanticCache: typeof defaultIsSmallEnough;
   generateSignature: typeof defaultGenerateSignature;
   setCachedResponse: typeof defaultSetCachedResponse;
+  extractSemanticCacheSignatureExtras?: typeof defaultExtractExtras;
 }
 
 const DEFAULT_DEPS: SemanticCacheStoreDeps = {
@@ -38,6 +47,7 @@ const DEFAULT_DEPS: SemanticCacheStoreDeps = {
   isSmallEnoughForSemanticCache: defaultIsSmallEnough,
   generateSignature: defaultGenerateSignature,
   setCachedResponse: defaultSetCachedResponse,
+  extractSemanticCacheSignatureExtras: defaultExtractExtras,
 };
 
 export function storeSemanticCacheResponse(
@@ -50,6 +60,8 @@ export function storeSemanticCacheResponse(
     apiKeyId?: string | number;
     usage?: UsageLike;
     log?: LoggerLike;
+    clientResponseFormat?: string | null;
+    stream?: boolean;
   },
   deps: SemanticCacheStoreDeps = DEFAULT_DEPS
 ): void {
@@ -60,12 +72,19 @@ export function storeSemanticCacheResponse(
   ) {
     return;
   }
+  const extractExtras =
+    deps.extractSemanticCacheSignatureExtras ?? defaultExtractExtras;
+  const extras = extractExtras(args.body as Record<string, unknown>, {
+    clientResponseFormat: args.clientResponseFormat,
+    stream: args.stream === true,
+  });
   const signature = deps.generateSignature(
     args.model,
     args.body.messages ?? args.body.input,
     args.body.temperature,
     args.body.top_p,
-    args.apiKeyId ?? undefined
+    args.apiKeyId ?? undefined,
+    extras
   );
   const tokensSaved = args.usage?.prompt_tokens + args.usage?.completion_tokens || 0;
   deps.setCachedResponse(signature, args.model, args.translatedResponse, tokensSaved);

@@ -885,6 +885,7 @@ export async function handleChatCore({
     log,
     persistAttemptLogs,
     apiKeyId: apiKeyInfo?.id ?? undefined,
+    clientResponseFormat,
   });
   if (cacheHit) {
     return cacheHit;
@@ -3825,6 +3826,8 @@ export async function handleChatCore({
       apiKeyId: apiKeyInfo?.id ?? undefined,
       usage,
       log,
+      clientResponseFormat,
+      stream: false,
     });
 
     // ── Phase 9.2: Save for idempotency ──
@@ -4126,6 +4129,7 @@ export async function handleChatCore({
       apiKeyId: apiKeyInfo?.id ?? undefined,
       streamUsage,
       log,
+      clientResponseFormat,
     });
   };
 

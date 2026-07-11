@@ -252,7 +252,7 @@ async function postHandler(request: Request, context: unknown) {
   // Clamp max_results to provider limit
   const clampedMaxResults = Math.min(body.max_results, providerConfig.maxMaxResults);
 
-  // Cache key — includes all fields that affect results
+  // Cache key — includes all fields that affect results (incl. provider_options / content)
   const cacheKey = computeCacheKey(
     body.query,
     providerConfig.id,
@@ -260,7 +260,9 @@ async function postHandler(request: Request, context: unknown) {
     clampedMaxResults,
     body.country,
     body.language,
-    { filters: body.filters, offset: body.offset, time_range: body.time_range }
+    { filters: body.filters, offset: body.offset, time_range: body.time_range },
+    body.provider_options ?? null,
+    body.content ?? null
   );
 
   const ttl = providerConfig.cacheTTLMs ?? SEARCH_CACHE_DEFAULT_TTL_MS;

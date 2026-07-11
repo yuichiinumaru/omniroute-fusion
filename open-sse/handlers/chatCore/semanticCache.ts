@@ -1,4 +1,6 @@
 import {
+  canServeSemanticCacheStreamHit,
+  extractSemanticCacheSignatureExtras,
   generateSignature,
   getCachedResponse,
   isCacheableForRead,
@@ -24,6 +26,7 @@ export async function checkSemanticCache({
   log,
   persistAttemptLogs,
   apiKeyId,
+  clientResponseFormat,
 }: {
   semanticCacheEnabled: boolean;
   body: Record<string, unknown>;
@@ -38,14 +41,26 @@ export async function checkSemanticCache({
   log: unknown;
   persistAttemptLogs: (args: unknown) => void;
   apiKeyId?: string | null;
+  clientResponseFormat?: string | null;
 }) {
   if (semanticCacheEnabled && isCacheableForRead(body, clientRawRequest?.headers)) {
+    // Stream hits synthesize OpenAI Chat Completions SSE only. Skip the read path
+    // for non-OpenAI client formats so we never emit the wrong wire shape (F-01-W2-002).
+    if (stream && !canServeSemanticCacheStreamHit(clientResponseFormat)) {
+      return null;
+    }
+
+    const extras = extractSemanticCacheSignatureExtras(body, {
+      clientResponseFormat,
+      stream,
+    });
     const signature = generateSignature(
       model,
       body.messages ?? body.input,
       body.temperature,
       body.top_p,
-      apiKeyId ?? undefined
+      apiKeyId ?? undefined,
+      extras
     );
     const cached = getCachedResponse(signature);
     if (cached) {
