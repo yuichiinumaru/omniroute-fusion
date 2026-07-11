@@ -1,6 +1,6 @@
 # Task 0033: Token Health Sweep Harden + Dual-Mode Matrix Tests
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Complete — pending review
 > **Priority**: 🔴 P0
 > **Type**: `testing` + `remediation`
 > **Origin**: Epic 0006 — Dual-Mode Auth / API-Key Refresh Correctness (S2)
@@ -69,16 +69,16 @@ Also confirm `getProviderConnections({ authType: "oauth" })` filter remains enfo
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Dual-mode matrix tests land (extend `token-health-no-refresh-token-expired-5326.test.ts` **or** add `tests/unit/token-health-dual-mode-matrix.test.ts` — one suite must cover matrix above)
-- [ ] Every dual-mode id listed in Epic 0006 table that can appear as apikey has ≥1 negative test for `no_refresh_token`
-- [ ] #5326 oauth positive case still passes
-- [ ] Health branch still gates with `connectionUsesOAuthRefresh` (or shared `shouldMarkNoRefreshExpired`) **and** `supportsTokenRefresh`
-- [ ] `node --import tsx/esm --test tests/unit/token-health-no-refresh-token-expired-5326.test.ts` passes
-- [ ] `node --import tsx/esm --test tests/unit/token-health-dual-mode-matrix.test.ts` passes if file created (else N/A documented)
-- [ ] `node --import tsx/esm --test tests/unit/connection-auth-mode*.test.ts` still passes
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` passes without new errors on touched files
-- [ ] CHANGELOG.md entry at TOP (token health dual-mode matrix / harden)
+- [x] Dual-mode matrix tests land (extend `token-health-no-refresh-token-expired-5326.test.ts` **or** add `tests/unit/token-health-dual-mode-matrix.test.ts` — one suite must cover matrix above)
+- [x] Every dual-mode id listed in Epic 0006 table that can appear as apikey has ≥1 negative test for `no_refresh_token`
+- [x] #5326 oauth positive case still passes
+- [x] Health branch still gates with `connectionUsesOAuthRefresh` (or shared `shouldMarkNoRefreshExpired`) **and** `supportsTokenRefresh`
+- [x] `node --import tsx/esm --test tests/unit/token-health-no-refresh-token-expired-5326.test.ts` passes
+- [x] `node --import tsx/esm --test tests/unit/token-health-dual-mode-matrix.test.ts` passes if file created (else N/A documented)
+- [x] `node --import tsx/esm --test tests/unit/connection-auth-mode*.test.ts` still passes
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` passes without new errors on touched files
+- [x] CHANGELOG.md entry at TOP (token health dual-mode matrix / harden)
 
 ---
 
@@ -149,14 +149,20 @@ Live operators on :21000 see AI Studio and Qoder PATs as “re-authenticate / no
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
-- **Arquivos criados/modificados**: [lista]
-- **Testes que verificam o trabalho**: [comandos]
-- **Resultado dos testes**: [PASS/FAIL + contagem]
-- **Resultado do lint**: [PASS/FAIL]
-- **Resultado do typecheck/build**: [PASS/FAIL]
-- **Entrada no changelog**: [referência]
-- **Agente executor**: [nome/role]
-- **Data de conclusão**: [YYYY-MM-DD]
+- **Arquivos criados/modificados**:
+  - `tests/unit/token-health-dual-mode-matrix.test.ts` (created — full matrix)
+  - `src/lib/tokenHealthCheck.ts` (already gated via 0032 `shouldMarkNoRefreshExpired`; no residual gap)
+  - `CHANGELOG.md` (combined 0032–0034 entry)
+- **Testes que verificam o trabalho**:
+  - `node --import tsx/esm --test tests/unit/token-health-dual-mode-matrix.test.ts`
+  - `node --import tsx/esm --test tests/unit/token-health-no-refresh-token-expired-5326.test.ts`
+  - `node --import tsx/esm --test tests/unit/connection-auth-mode.test.ts`
+- **Resultado dos testes**: PASS — matrix 7 + #5326 6 + helper 10 (combined suite 29 including heal)
+- **Resultado do lint**: PASS
+- **Resultado do typecheck/build**: PASS (`npm run typecheck:core`)
+- **Entrada no changelog**: Unreleased → Fixed → Dual-mode auth (0032–0034)
+- **Agente executor**: Grok Build subagent (main session, operator-authorized)
+- **Data de conclusão**: 2026-07-11
 
 ---
 
