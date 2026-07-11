@@ -25,6 +25,7 @@
     "noData": "No data available",
     "nothingHere": "Nothing here yet",
     "configure": "Configure",
+    "manualConfig": "Manual config",
     "manage": "Manage",
     "name": "Name",
     "actions": "Actions",
@@ -33,6 +34,7 @@
     "model": "Model",
     "models": "models",
     "provider": "Provider",
+    "unknownProvider": "Unknown provider",
     "account": "Account",
     "time": "Time",
     "details": "Details",
@@ -841,10 +843,9 @@
     "batchDetailCancelConfirm": "Cancel this batch? In-progress requests will stop.",
     "batchActionCancelError": "Failed to cancel batch. Try again.",
     "batchActionRetryError": "Failed to retry failed requests. Try again.",
-    "batchConceptRetentionNote": "Results and error files are retained for 30 days (Anthropic: 29 days)",
-    "manualConfig": "Manual config",
-    "unknownProvider": "Unknown provider"
+    "batchConceptRetentionNote": "Results and error files are retained for 30 days (Anthropic: 29 days)"
   },
+  "disabled": "Disabled",
   "featureFlagOmnirouteEmergencyFallbackDescription": "__MISSING__:Route budget-exhausted requests to the emergency free fallback provider/model.",
   "featureFlagArenaEloSyncEnabledDescription": "__MISSING__:Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.",
   "sidebar": {
@@ -882,6 +883,8 @@
     "webhooks": "वेबहुक",
     "webhooksSubtitle": "इव्हेंटची सूचना मिळवा",
     "combosSubtitle": "फेलओव्हरसाठी गट प्रदाते",
+    "fusions": "Fusions",
+    "fusionsSubtitle": "Panel + judge model combos",
     "batchSubtitle": "एकाधिक विनंत्यांवर प्रक्रिया करा",
     "contextCavemanSubtitle": "प्रॉम्प्ट कॉम्प्रेशन",
     "contextRtkSubtitle": "आउटपुट फिल्टरिंग",
@@ -914,6 +917,7 @@
     "themeViolet": "Violet",
     "themeOrange": "Orange",
     "themeCyan": "Cyan",
+    "themeCoreCyan": "Core Cyan",
     "cliToolsShort": "Tools",
     "cache": "Cache",
     "cacheShort": "Cache",
@@ -1043,6 +1047,7 @@
     "profileSubtitle": "Account and preferences",
     "tokensSubtitle": "Token usage and budgets",
     "usageSubtitle": "Traffic and usage stats",
+    "analyticsSubtitle": "Charts, trends, evals, and utilization",
     "analyticsComboHealthSubtitle": "Combo target reliability",
     "analyticsUtilizationSubtitle": "Provider utilization",
     "costsSubtitle": "Spend breakdown",
@@ -1117,10 +1122,6 @@
     "cannotHide": "__MISSING__:This item cannot be hidden",
     "alwaysVisible": "__MISSING__:Always visible",
     "groupSeparatorLabel": "__MISSING__:Separator",
-    "fusions": "Fusions",
-    "fusionsSubtitle": "Panel + judge model combos",
-    "themeCoreCyan": "Core Cyan",
-    "analyticsSubtitle": "Charts, trends, evals, and utilization",
     "corePulseSection": "Core Pulse",
     "registrySection": "Registry",
     "routingStrategySection": "Routing & Strategy",
@@ -1128,7 +1129,14 @@
     "operationsSection": "Operations",
     "observabilitySection": "Observability",
     "exposuresGroup": "Exposures",
-    "agenticGroup": "Agentic"
+    "agenticGroup": "Agentic",
+    "mainNav": "__MISSING__:Main",
+    "routingNav": "__MISSING__:Routing",
+    "apiKeysNav": "__MISSING__:API Keys",
+    "observeNav": "__MISSING__:Observe",
+    "costsNav": "__MISSING__:Costs",
+    "operationsNav": "__MISSING__:Operations",
+    "settingsNav": "__MISSING__:Settings"
   },
   "webhooks": {
     "title": "वेबहुक",
@@ -2402,6 +2410,51 @@
     "strictRandomDesc": "Shuffle deck — uses each model once before reshuffling",
     "fusion": "__MISSING__:Fusion",
     "fusionDesc": "__MISSING__:Fans the prompt to every panel model in parallel, then a judge model synthesizes one final answer",
+    "fusionActingSection": "Acting",
+    "fusionActingHelp": "Primary executor (e.g. builder). On trigger miss it answers alone; on fusion it receives the judge review and produces the final answer. Leave empty for legacy panels→judge final voice.",
+    "fusionActingUnit": "Acting unit",
+    "fusionActingEmptyHint": "No acting — judge is final voice (legacy)",
+    "fusionJudgeModel": "Judge model",
+    "fusionJudgeModelHelp": "Model or combo that synthesizes panel answers. Leave empty to use the first panel.",
+    "fusionMinPanel": "Min panel",
+    "fusionMinPanelHelp": "Successful panel answers required before stragglers get a grace window (default 2).",
+    "fusionStragglerGraceMs": "Straggler grace (ms)",
+    "fusionStragglerGraceMsHelp": "How long to wait for slow panel models once quorum is reached (default 8000).",
+    "fusionPanelHardTimeoutMs": "Panel hard timeout (ms)",
+    "fusionPanelHardTimeoutMsHelp": "Absolute cap so one hung model can't stall the whole panel (default 90000).",
+    "conditionalFusion": "Conditional Fusion",
+    "conditionalFusionDesc": "Runs fusion only when triggers match (tool-call or text-match); otherwise uses the configured non-fusion fallback strategy",
+    "fusionPanels": "Panels",
+    "fusionPanelsHelp": "Models or combo refs that answer in parallel before the judge synthesizes.",
+    "fusionAddPanel": "Add panel",
+    "fusionAddPanelModel": "Add model panel",
+    "fusionAddPanelComboRef": "Add combo-ref panel",
+    "fusionNoPanelsYet": "No panels yet. Add a model or combo reference.",
+    "fusionJudgeSection": "Judge",
+    "fusionJudgeResolution": "Resolution preview",
+    "fusionJudgeEmptyHint": "Falls back to first panel",
+    "fusionTriggers": "Triggers",
+    "fusionTriggersHelp": "When to run fusion. Non-always modes save as conditional-fusion with a non-fusion fallback.",
+    "fusionTriggerMode": "Mode",
+    "fusionTriggerAlways": "Always",
+    "fusionTriggerToolCall": "Tool call",
+    "fusionTriggerTextMatch": "Text match",
+    "fusionToolPatterns": "Tool patterns",
+    "fusionToolPatternsHelp": "Glob-style tool name patterns that trigger fusion (e.g. write*).",
+    "fusionTextPatterns": "Text patterns",
+    "fusionTextPatternsHelp": "Case-insensitive substrings matched against the latest user message (not glob).",
+    "fusionFallbackStrategy": "Fallback strategy",
+    "fusionFallbackStrategyHelp": "Used when triggers do not match. Fusion strategies are excluded (no recursion).",
+    "fusionTuning": "Tuning",
+    "fusionTuningHelp": "Quorum and timeout controls for panel collection (defaults shown as placeholders).",
+    "fusionUnitModel": "Model",
+    "fusionUnitComboRef": "Combo ref",
+    "fusionPickModel": "Pick model",
+    "fusionSelectComboRef": "Select a combo to reference",
+    "fusionComboRefHint": "Non-fusion combos are recommended. Fusion refs are allowed; runtime depth guards apply.",
+    "fusionUnitNotSet": "Not set",
+    "fusionSelectJudgeModel": "Select judge model",
+    "fusionSelectPanelModel": "Select panel model",
     "models": "Models",
     "autoBalance": "Auto-balance",
     "advancedSettings": "Advanced Settings",
@@ -2818,52 +2871,7 @@
     "agentFeaturesContextLengthErrorInteger": "संदर्भ लांबी एक वैध पूर्णांक असणे आवश्यक आहे",
     "agentFeaturesContextLengthErrorRange": "संदर्भ लांबी 1000 आणि 2000000 च्या दरम्यान असणे आवश्यक आहे",
     "compressionOverride": "कॉम्प्रेशन ओव्हरराइड",
-    "modePack": "मोड पॅक",
-    "fusionActingSection": "Acting",
-    "fusionActingHelp": "Primary executor (e.g. builder). On trigger miss it answers alone; on fusion it receives the judge review and produces the final answer. Leave empty for legacy panels→judge final voice.",
-    "fusionActingUnit": "Acting unit",
-    "fusionActingEmptyHint": "No acting — judge is final voice (legacy)",
-    "fusionJudgeModel": "Judge model",
-    "fusionJudgeModelHelp": "Model or combo that synthesizes panel answers. Leave empty to use the first panel.",
-    "fusionMinPanel": "Min panel",
-    "fusionMinPanelHelp": "Successful panel answers required before stragglers get a grace window (default 2).",
-    "fusionStragglerGraceMs": "Straggler grace (ms)",
-    "fusionStragglerGraceMsHelp": "How long to wait for slow panel models once quorum is reached (default 8000).",
-    "fusionPanelHardTimeoutMs": "Panel hard timeout (ms)",
-    "fusionPanelHardTimeoutMsHelp": "Absolute cap so one hung model can't stall the whole panel (default 90000).",
-    "conditionalFusion": "Conditional Fusion",
-    "conditionalFusionDesc": "Runs fusion only when triggers match (tool-call or text-match); otherwise uses the configured non-fusion fallback strategy",
-    "fusionPanels": "Panels",
-    "fusionPanelsHelp": "Models or combo refs that answer in parallel before the judge synthesizes.",
-    "fusionAddPanel": "Add panel",
-    "fusionAddPanelModel": "Add model panel",
-    "fusionAddPanelComboRef": "Add combo-ref panel",
-    "fusionNoPanelsYet": "No panels yet. Add a model or combo reference.",
-    "fusionJudgeSection": "Judge",
-    "fusionJudgeResolution": "Resolution preview",
-    "fusionJudgeEmptyHint": "Falls back to first panel",
-    "fusionTriggers": "Triggers",
-    "fusionTriggersHelp": "When to run fusion. Non-always modes save as conditional-fusion with a non-fusion fallback.",
-    "fusionTriggerMode": "Mode",
-    "fusionTriggerAlways": "Always",
-    "fusionTriggerToolCall": "Tool call",
-    "fusionTriggerTextMatch": "Text match",
-    "fusionToolPatterns": "Tool patterns",
-    "fusionToolPatternsHelp": "Glob-style tool name patterns that trigger fusion (e.g. write*).",
-    "fusionTextPatterns": "Text patterns",
-    "fusionTextPatternsHelp": "Case-insensitive substrings matched against the latest user message (not glob).",
-    "fusionFallbackStrategy": "Fallback strategy",
-    "fusionFallbackStrategyHelp": "Used when triggers do not match. Fusion strategies are excluded (no recursion).",
-    "fusionTuning": "Tuning",
-    "fusionTuningHelp": "Quorum and timeout controls for panel collection (defaults shown as placeholders).",
-    "fusionUnitModel": "Model",
-    "fusionUnitComboRef": "Combo ref",
-    "fusionPickModel": "Pick model",
-    "fusionSelectComboRef": "Select a combo to reference",
-    "fusionComboRefHint": "Non-fusion combos are recommended. Fusion refs are allowed; runtime depth guards apply.",
-    "fusionUnitNotSet": "Not set",
-    "fusionSelectJudgeModel": "Select judge model",
-    "fusionSelectPanelModel": "Select panel model"
+    "modePack": "मोड पॅक"
   },
   "costs": {
     "title": "Costs",
@@ -3542,6 +3550,7 @@
     "noExecutions": "No executions found",
     "enabled": "Enabled",
     "disabled": "Disabled",
+    "delete": "Delete",
     "version": "Version",
     "tableDescription": "Description",
     "skill": "Skill",
@@ -3597,8 +3606,7 @@
     "installSkillModalDesc": "__MISSING__:Paste a skill manifest JSON or upload a .json file.",
     "uploadJson": "__MISSING__:Upload JSON",
     "cancel": "__MISSING__:Cancel",
-    "installSkill": "कौशल्य स्थापित करा",
-    "delete": "Delete"
+    "installSkill": "कौशल्य स्थापित करा"
   },
   "health": {
     "title": "System Health",
@@ -4233,6 +4241,8 @@
     "optional": "Optional",
     "anthropicCompatibleName": "Anthropic Compatible",
     "openaiCompatibleName": "OpenAI Compatible",
+    "compatibleDefaultModelLabel": "Default Model",
+    "compatibleDefaultModelHint": "Enter the model ID exactly as your compatible endpoint expects it. This model will be saved as the connection default.",
     "failedImportModels": "Failed to import models",
     "noModelsReturnedFromEndpoint": "No models returned from /models endpoint.",
     "importingModelsProgress": "Importing {current} of {total} models...",
@@ -4874,8 +4884,68 @@
     "kimiWebDesc": "__MISSING__:Chinese market AI chat via kimi.moonshot.cn",
     "doubaoWebLabel": "__MISSING__:Doubao Web",
     "doubaoWebDesc": "__MISSING__:ByteDance AI chat via doubao.com",
-    "compatibleDefaultModelLabel": "Default Model",
-    "compatibleDefaultModelHint": "Enter the model ID exactly as your compatible endpoint expects it. This model will be saved as the connection default."
+    "connectionStatus": {
+      "healthy": {
+        "badge": "__MISSING__:Healthy",
+        "title": "__MISSING__:Connection healthy",
+        "detail": "__MISSING__:Credential is active and ready for traffic.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "apikey_no_refresh_token": {
+        "badge": "__MISSING__:Retest",
+        "title": "__MISSING__:Needs re-test",
+        "detail": "__MISSING__:API-key credential flagged by a health glitch. Retest or rotate the key — no OAuth refresh token is required.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "apikey_invalid_key": {
+        "badge": "__MISSING__:Invalid key",
+        "title": "__MISSING__:API key rejected",
+        "detail": "__MISSING__:Upstream rejected this API key. Rotate or re-enter a valid key.",
+        "cta": "__MISSING__:Rotate API key"
+      },
+      "apikey_generic_error": {
+        "badge": "__MISSING__:Error",
+        "title": "__MISSING__:Connection error",
+        "detail": "__MISSING__:Retest this API-key connection or rotate the key if the error persists.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "oauth_no_refresh_token": {
+        "badge": "__MISSING__:Re-auth",
+        "title": "__MISSING__:Refresh token missing",
+        "detail": "__MISSING__:No refresh token available — re-authenticate this account.",
+        "cta": "__MISSING__:Re-authenticate"
+      },
+      "oauth_refresh_failed": {
+        "badge": "__MISSING__:Refresh failed",
+        "title": "__MISSING__:Token refresh failed",
+        "detail": "__MISSING__:Refresh token was rejected or consumed. Re-authenticate this account.",
+        "cta": "__MISSING__:Re-authenticate"
+      },
+      "oauth_generic_error": {
+        "badge": "__MISSING__:Auth failed",
+        "title": "__MISSING__:Authentication failed",
+        "detail": "__MISSING__:OAuth credential is invalid or expired. Re-authenticate this account.",
+        "cta": "__MISSING__:Re-authenticate"
+      },
+      "cookie_update": {
+        "badge": "__MISSING__:Session",
+        "title": "__MISSING__:Session cookie needs update",
+        "detail": "__MISSING__:This connection uses a session cookie, not an OAuth refresh token.",
+        "cta": "__MISSING__:Update cookie"
+      },
+      "generic_error": {
+        "badge": "__MISSING__:Error",
+        "title": "__MISSING__:Connection error",
+        "detail": "__MISSING__:Retest this connection.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "expired": {
+        "badge": "__MISSING__:Expired",
+        "title": "__MISSING__:Credential expired",
+        "detail": "__MISSING__:This credential is expired. Re-authenticate or rotate the credential.",
+        "cta": "__MISSING__:Retest connection"
+      }
+    }
   },
   "settings": {
     "title": "Settings",
@@ -4885,6 +4955,10 @@
     "routing": "Routing",
     "cache": "Cache",
     "resilience": "Resilience",
+    "description": "Description",
+    "enable": "Enable",
+    "disable": "Disable",
+    "update": "Update",
     "routingSettingsIntro": "तुमच्या विनंत्या कशा राउट केल्या जातात, बदलल्या जातात आणि AI प्रदात्यांकडे कशा पाठवल्या जातात हे नियंत्रित करते.",
     "routingOpDropParagraphContainsLabel": "__MISSING__:Drop paragraph (contains)",
     "routingOpDropParagraphStartsWithLabel": "__MISSING__:Drop paragraph (starts with)",
@@ -5129,6 +5203,7 @@
     "themeViolet": "Violet",
     "themeOrange": "Orange",
     "themeCyan": "Cyan",
+    "themeCoreCyan": "Core Cyan",
     "whitelabeling": "Branding",
     "whitelabelingDesc": "Customize the application name and logo",
     "appName": "Application Name",
@@ -5413,6 +5488,9 @@
     "providerMaxRetriesAria": "{provider} max retries",
     "providerTimeoutAria": "{provider} timeout ms",
     "removeProviderOverrideAria": "Remove {provider} override",
+    "selectProviderPlaceholder": "Select provider...",
+    "searchProviderPlaceholder": "Search providers...",
+    "searchProviderAria": "Search providers",
     "newProviderNamePlaceholder": "e.g. google, openai...",
     "newProviderNameAria": "New provider name",
     "retries": "retries",
@@ -5421,6 +5499,7 @@
     "maxNestingDepth": "Max Nesting Depth",
     "concurrencyPerModel": "Concurrency / Model",
     "queueTimeout": "Queue Timeout (ms)",
+    "queueDepth": "Queue Depth",
     "contextRelayHandoffThreshold": "Handoff Threshold",
     "contextRelayMaxMessages": "Max Messages For Summary",
     "contextRelaySummaryModel": "Summary Model",
@@ -5574,6 +5653,7 @@
     "maintenance": "Maintenance",
     "purgeExpiredLogs": "Purge Expired Logs",
     "purgeLogsFailed": "Failed to purge logs",
+    "logsDeleted": "{count, plural, =0 {No expired logs purged} one {Purged # expired log} other {Purged # expired logs}}",
     "contextOpt": "Context Optimized",
     "contextOptDesc": "Routes based on context window requirements and conversation length",
     "priorityDesc": "Sequential fallback - tries provider 1 first, then provider 2, and so on",
@@ -5676,6 +5756,7 @@
     "compressionPreserveSystem": "Preserve System Prompt",
     "compressionCavemanConfig": "Caveman Engine Configuration",
     "compressionCavemanConfigDesc": "Fine-tune the rule-based compression engine",
+    "compressionCavemanPanelHint": "Its on/off and level are set in the panel:",
     "compressionRoles": "Compress Message Roles",
     "compressionRoleUser": "User",
     "compressionRoleAssistant": "Assistant",
@@ -5882,6 +5963,17 @@
     "storageUsageTokenBufferDesc": "__MISSING__:Extra tokens added to reported usage to account for system prompt overhead.",
     "storageUsageTokenBufferHint": "__MISSING__:Set to 0 to report raw provider token counts. Default: 2000.",
     "storageUsageTokenBufferCurrent": "__MISSING__:Current: {value}",
+    "redisLauncherTitle": "Local Redis",
+    "redisLauncherDesc": "One-click launch a Redis 7 container (Podman or Docker) for response cache, quota tracking, and rate limiting.",
+    "redisLauncherRefresh": "Refresh",
+    "redisLauncherStop": "Stop",
+    "redisLauncherLaunching": "Launching...",
+    "redisLauncherLaunch": "Launch Redis",
+    "redisLauncherContainer": "Container",
+    "redisLauncherRunning": "Running",
+    "redisLauncherReachable": "Reachable",
+    "redisLauncherError": "Error: {message}",
+    "redisLauncherHint": "Equivalent to running `omniroute redis up`. The container is named `omniroute-redis` and listens on 127.0.0.1:6379.",
     "compressionSettingsAutoTriggerMode": "ऑटो ट्रिगर मोड",
     "compressionSettingsMcpDescriptionCompression": "MCP वर्णन कॉम्प्रेशन",
     "mcpAccessibilityTitle": "__MISSING__:MCP accessibility output",
@@ -6053,6 +6145,14 @@
     "resilienceEnableServerWaitDesc": "सक्षम केल्यावर, OmniRoute प्रथम कूलडाउन कालबाह्य होण्याची प्रतीक्षा करते आणि स्वयंचलितपणे पुन्हा प्रयत्न करते.",
     "resilienceMaxAttempts": "जास्तीत जास्त प्रयत्न",
     "resilienceMaxWaitPerAttempt": "प्रति प्रयत्न कमाल प्रतीक्षा",
+    "resilienceComboCooldownWaitTitle": "Quota-share combo cooldown wait",
+    "resilienceComboCooldownWaitDesc": "For quota-share combos only: wait out a short transient cooldown and re-dispatch instead of returning a 429 immediately. Never waits on quota_exhausted.",
+    "resilienceComboCooldownWaitToggleDesc": "Quota-share combos only; never waits on quota_exhausted.",
+    "resilienceComboCooldownMaxWaitMs": "Maximum wait per attempt",
+    "resilienceComboCooldownBudgetMs": "Total wait budget",
+    "resilienceQuotaShareConcurrencyTitle": "Quota-share per-connection concurrency",
+    "resilienceQuotaShareConcurrencyDesc": "For quota-share combos only: when a connection sets a Max Concurrent cap, serialize concurrent requests to that subscription account so it is never flooded past its ceiling. Excess requests wait in the queue instead of getting a 429. The cap comes from each connection's Max Concurrent field; this switch only enables or disables honoring it.",
+    "resilienceQuotaShareConcurrencyToggleDesc": "Quota-share combos only; honors each connection's Max Concurrent cap.",
     "resilienceProviderCooldownTitle": "__MISSING__:Provider Cooldown",
     "resilienceProviderCooldownScope": "__MISSING__:All combo requests",
     "resilienceProviderCooldownTrigger": "__MISSING__:When a provider/connection fails",
@@ -6121,37 +6221,7 @@
     "modelLockoutExponentialBackoff": "__MISSING__:Exponential Backoff",
     "modelLockoutExponentialBackoffDescription": "__MISSING__:When enabled, each consecutive failure increases the cooldown duration exponentially.",
     "modelLockoutMaxBackoffSteps": "__MISSING__:Max Backoff Steps",
-    "modelLockoutMaxBackoffStepsDescription": "__MISSING__:Maximum number of backoff steps before the cooldown stops growing. The Max Cooldown cap is reached first in most configurations, making this a safety ceiling for when Max Cooldown is raised.",
-    "description": "Description",
-    "enable": "Enable",
-    "disable": "Disable",
-    "update": "Update",
-    "themeCoreCyan": "Core Cyan",
-    "selectProviderPlaceholder": "Select provider...",
-    "searchProviderPlaceholder": "Search providers...",
-    "searchProviderAria": "Search providers",
-    "queueDepth": "Queue Depth",
-    "logsDeleted": "{count, plural, =0 {No expired logs purged} one {Purged # expired log} other {Purged # expired logs}}",
-    "compressionCavemanPanelHint": "Its on/off and level are set in the panel:",
-    "redisLauncherTitle": "Local Redis",
-    "redisLauncherDesc": "One-click launch a Redis 7 container (Podman or Docker) for response cache, quota tracking, and rate limiting.",
-    "redisLauncherRefresh": "Refresh",
-    "redisLauncherStop": "Stop",
-    "redisLauncherLaunching": "Launching...",
-    "redisLauncherLaunch": "Launch Redis",
-    "redisLauncherContainer": "Container",
-    "redisLauncherRunning": "Running",
-    "redisLauncherReachable": "Reachable",
-    "redisLauncherError": "Error: {message}",
-    "redisLauncherHint": "Equivalent to running `omniroute redis up`. The container is named `omniroute-redis` and listens on 127.0.0.1:6379.",
-    "resilienceComboCooldownWaitTitle": "Quota-share combo cooldown wait",
-    "resilienceComboCooldownWaitDesc": "For quota-share combos only: wait out a short transient cooldown and re-dispatch instead of returning a 429 immediately. Never waits on quota_exhausted.",
-    "resilienceComboCooldownWaitToggleDesc": "Quota-share combos only; never waits on quota_exhausted.",
-    "resilienceComboCooldownMaxWaitMs": "Maximum wait per attempt",
-    "resilienceComboCooldownBudgetMs": "Total wait budget",
-    "resilienceQuotaShareConcurrencyTitle": "Quota-share per-connection concurrency",
-    "resilienceQuotaShareConcurrencyDesc": "For quota-share combos only: when a connection sets a Max Concurrent cap, serialize concurrent requests to that subscription account so it is never flooded past its ceiling. Excess requests wait in the queue instead of getting a 429. The cap comes from each connection's Max Concurrent field; this switch only enables or disables honoring it.",
-    "resilienceQuotaShareConcurrencyToggleDesc": "Quota-share combos only; honors each connection's Max Concurrent cap."
+    "modelLockoutMaxBackoffStepsDescription": "__MISSING__:Maximum number of backoff steps before the cooldown stops growing. The Max Cooldown cap is reached first in most configurations, making this a safety ceiling for when Max Cooldown is raised."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -6929,7 +6999,69 @@
     "updatedShort": "__MISSING__:Updated",
     "lastRefreshed": "__MISSING__:Last refreshed",
     "providerQuota": "__MISSING__:Provider Quota",
-    "providerQuotaHomeHint": "__MISSING__:Live status across connected accounts"
+    "providerQuotaHomeHint": "__MISSING__:Live status across connected accounts",
+    "connectionStatus": {
+      "healthy": {
+        "badge": "__MISSING__:Healthy",
+        "title": "__MISSING__:Connection healthy",
+        "detail": "__MISSING__:Credential is active and ready for traffic.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "apikey_no_refresh_token": {
+        "badge": "__MISSING__:Retest",
+        "title": "__MISSING__:Needs re-test",
+        "detail": "__MISSING__:API-key credential flagged by a health glitch. Retest or rotate the key — no OAuth refresh token is required.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "apikey_invalid_key": {
+        "badge": "__MISSING__:Invalid key",
+        "title": "__MISSING__:API key rejected",
+        "detail": "__MISSING__:Upstream rejected this API key. Rotate or re-enter a valid key.",
+        "cta": "__MISSING__:Rotate API key"
+      },
+      "apikey_generic_error": {
+        "badge": "__MISSING__:Error",
+        "title": "__MISSING__:Connection error",
+        "detail": "__MISSING__:Retest this API-key connection or rotate the key if the error persists.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "oauth_no_refresh_token": {
+        "badge": "__MISSING__:Re-auth",
+        "title": "__MISSING__:Refresh token missing",
+        "detail": "__MISSING__:No refresh token available — re-authenticate this account.",
+        "cta": "__MISSING__:Re-authenticate"
+      },
+      "oauth_refresh_failed": {
+        "badge": "__MISSING__:Refresh failed",
+        "title": "__MISSING__:Token refresh failed",
+        "detail": "__MISSING__:Refresh token was rejected or consumed. Re-authenticate this account.",
+        "cta": "__MISSING__:Re-authenticate"
+      },
+      "oauth_generic_error": {
+        "badge": "__MISSING__:Auth failed",
+        "title": "__MISSING__:Authentication failed",
+        "detail": "__MISSING__:OAuth credential is invalid or expired. Re-authenticate this account.",
+        "cta": "__MISSING__:Re-authenticate"
+      },
+      "cookie_update": {
+        "badge": "__MISSING__:Session",
+        "title": "__MISSING__:Session cookie needs update",
+        "detail": "__MISSING__:This connection uses a session cookie, not an OAuth refresh token.",
+        "cta": "__MISSING__:Update cookie"
+      },
+      "generic_error": {
+        "badge": "__MISSING__:Error",
+        "title": "__MISSING__:Connection error",
+        "detail": "__MISSING__:Retest this connection.",
+        "cta": "__MISSING__:Retest connection"
+      },
+      "expired": {
+        "badge": "__MISSING__:Expired",
+        "title": "__MISSING__:Credential expired",
+        "detail": "__MISSING__:This credential is expired. Re-authenticate or rotate the credential.",
+        "cta": "__MISSING__:Retest connection"
+      }
+    }
   },
   "modals": {
     "waitingAuth": "Waiting for Authorization",
@@ -8465,11 +8597,11 @@
     "saveMarketplaceUrl": "__MISSING__:Save & Reload",
     "marketplaceUrlSaved": "__MISSING__:Marketplace URL updated",
     "marketplaceEmpty": "__MISSING__:No plugins found in marketplace.",
+    "marketplaceInstallComingSoon": "Marketplace installs are coming soon.",
     "verified": "__MISSING__:Verified",
     "install": "__MISSING__:Install",
     "installedFromMarketplace": "__MISSING__:Plugin {name} installed!",
-    "hooks": "Hooks",
-    "marketplaceInstallComingSoon": "Marketplace installs are coming soon."
+    "hooks": "Hooks"
   },
   "quotaPlans": {
     "title": "__MISSING__:Plans & Quotas",
@@ -8598,6 +8730,7 @@
     "restartServer": "__MISSING__:Restart",
     "trustCert": "__MISSING__:Trust Cert",
     "downloadCert": "__MISSING__:Download Cert",
+    "certManualTitle": "Certificate couldn't be installed automatically (e.g. inside a container). The bridge can still run — trust the CA manually:",
     "regenerateCert": "__MISSING__:Regenerate Cert",
     "starting": "__MISSING__:Starting…",
     "stopping": "__MISSING__:Stopping…",
@@ -8699,8 +8832,7 @@
       "goNow": "__MISSING__:Go now",
       "message": "__MISSING__:The MITM Proxy now lives under AgentBridge.",
       "title": "__MISSING__:This page has moved"
-    },
-    "certManualTitle": "Certificate couldn't be installed automatically (e.g. inside a container). The bridge can still run — trust the CA manually:"
+    }
   },
   "trafficInspector": {
     "title": "__MISSING__:Traffic Inspector",
@@ -9026,6 +9158,5 @@
     "colAvgScore": "__MISSING__:Avg Score",
     "colModels": "__MISSING__:Models",
     "colType": "__MISSING__:Type"
-  },
-  "disabled": "Disabled"
+  }
 }

@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **ProviderLimits auth-status copy + i18n (Epic 0007 S3–S4 / Task 0039)** — replace hard-coded OAuth re-auth suffix on quota 401 with auth-mode-aware helper; land EN keys.
+  - `ProviderLimits` 401 path uses `formatQuotaAuthErrorMessage` (apikey → rotate/retest; oauth → re-auth; cookie → update session)
+  - EN i18n: `usage.connectionStatus.*` + `providers.connectionStatus.*` (helper `keys.*` handoff); other locales via `i18n:sync-ui`
+  - `translateUsageOrFallback` strips `__MISSING__:` sentinels so untranslated locales show EN, not markers
+  - Tests: `tests/unit/connection-status-copy-limits.test.ts` (+ 0037 matrix green)
+  - No sidebar leaves; ProviderCard wire stays on 0038
+  **Author**: builder (Task 0039)
+
 - **ProviderCard auth-status copy wire (Epic 0007 S2 / Task 0038)** — consume `formatConnectionStatusMessage` on Providers list/detail so apikey false `no_refresh_token` never primary-CTAs OAuth re-auth.
   - Presentation adapters: `src/shared/utils/connectionStatusPresentation.ts` (card badge + connection lastError rewrite)
   - `ProviderCard` expired/auth chip uses helper badge/title/detail/cta + tone→Badge variant

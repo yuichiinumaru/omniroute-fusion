@@ -25,6 +25,7 @@ import { useVisibleQuotaData } from "./useVisibleQuotaData";
 import { formatAutoRefreshCountdown } from "./formatters";
 import { translateUsageOrFallback, type UsageTranslationValues } from "./i18nFallback";
 import { compareTr } from "@/shared/utils/turkishText";
+import { formatQuotaAuthErrorMessage } from "@/shared/utils/connectionStatusCopy";
 
 const LS_PURCHASE_FILTER = "omniroute:limits:purchaseFilter";
 const LS_STATUS_FILTER = "omniroute:limits:statusFilter";
@@ -264,6 +265,8 @@ export default function ProviderLimits({
   const lastFetchTimeRef = useRef<Record<string, number>>({});
   const staleProbeRef = useRef<Record<string, number>>({});
   const lastRefreshAllAtRef = useRef<number>(Date.now());
+  const connectionsRef = useRef(connections);
+  connectionsRef.current = connections;
   const autoRefreshIntervalMs = autoRefreshInterval > 0 ? autoRefreshInterval * 1000 : 0;
   const [autoRefreshClock, setAutoRefreshClock] = useState(() => Date.now());
   const [cutoffModalConn, setCutoffModalConn] = useState<any | null>(null);
@@ -410,17 +413,24 @@ export default function ProviderLimits({
           const errorMsg = errorData.error || response.statusText;
           if (response.status === 404) return;
           if (response.status === 401) {
-            // The on-demand path already attempts a forced, serialized re-mint
-            // before surfacing a 401, so a 401 here means the token is genuinely
-            // dead — make that actionable instead of a silent empty card.
-            const reauthMsg = /re-?authenticat|sign in|log in/i.test(errorMsg)
-              ? errorMsg
-              : `${errorMsg} — re-authenticate this account.`;
+            // On-demand path already forced a re-mint before 401 — credential is
+            // dead. Copy is auth-mode aware (apikey → rotate/retest; oauth → re-auth;
+            // never hard-code OAuth suffix on API-key / cookie rows).
+            const conn = connectionsRef.current.find((c) => c.id === connectionId);
+            const { copy, message: fallbackMsg } = formatQuotaAuthErrorMessage({
+              authType: conn?.authType,
+              errorCode: "401",
+              lastError: typeof errorMsg === "string" ? errorMsg : null,
+              lastErrorType: conn?.lastErrorType ?? null,
+              testStatus: conn?.testStatus ?? null,
+              expiryStatus: conn?.expiryStatus ?? null,
+            });
+            const authMsg = tr(copy.keys.detail, fallbackMsg);
             setQuotaData((prev) => ({
               ...prev,
-              [connectionId]: { quotas: [], message: reauthMsg },
+              [connectionId]: { quotas: [], message: authMsg },
             }));
-            setErrors((prev) => ({ ...prev, [connectionId]: reauthMsg }));
+            setErrors((prev) => ({ ...prev, [connectionId]: authMsg }));
             return;
           }
           throw new Error(`HTTP ${response.status}: ${errorMsg}`);
@@ -462,7 +472,7 @@ export default function ProviderLimits({
         setLoading((prev) => ({ ...prev, [connectionId]: false }));
       }
     },
-    []
+    [tr]
   );
 
   const refreshProvider = useCallback(

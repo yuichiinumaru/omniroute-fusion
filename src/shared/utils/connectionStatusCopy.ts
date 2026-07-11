@@ -150,6 +150,26 @@ function isHealthyStatus(input: ConnectionStatusCopyInput, signal: ErrorSignal):
 }
 
 /**
+ * Auth-mode-aware message for ProviderLimits / quota-widget 401 paths.
+ * Replaces the hard-coded `` `${errorMsg} — re-authenticate this account.` `` suffix:
+ * apikey/cookie never get an OAuth re-auth primary CTA; oauth keeps re-auth language.
+ *
+ * Pure: no i18n runtime. Callers resolve `copy.keys.*` via next-intl when available.
+ */
+export function formatQuotaAuthErrorMessage(
+  input: ConnectionStatusCopyInput | null | undefined
+): Readonly<{ copy: ConnectionStatusCopy; message: string }> {
+  const safe: ConnectionStatusCopyInput =
+    input && typeof input === "object" ? input : {};
+  const copy = formatConnectionStatusMessage({
+    ...safe,
+    // Quota 401 path implies auth rejection when no structured code is present.
+    errorCode: safe.errorCode ?? "401",
+  });
+  return { copy, message: copy.detail };
+}
+
+/**
  * Format operator-facing status copy for a provider connection.
  * Pure: no i18n runtime, no DOM, no side effects.
  */

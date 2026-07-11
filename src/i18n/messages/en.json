@@ -4883,7 +4883,69 @@
     "kimiWebLabel": "Kimi Web",
     "kimiWebDesc": "Chinese market AI chat via kimi.moonshot.cn",
     "doubaoWebLabel": "Doubao Web",
-    "doubaoWebDesc": "ByteDance AI chat via doubao.com"
+    "doubaoWebDesc": "ByteDance AI chat via doubao.com",
+    "connectionStatus": {
+      "healthy": {
+        "badge": "Healthy",
+        "title": "Connection healthy",
+        "detail": "Credential is active and ready for traffic.",
+        "cta": "Retest connection"
+      },
+      "apikey_no_refresh_token": {
+        "badge": "Retest",
+        "title": "Needs re-test",
+        "detail": "API-key credential flagged by a health glitch. Retest or rotate the key — no OAuth refresh token is required.",
+        "cta": "Retest connection"
+      },
+      "apikey_invalid_key": {
+        "badge": "Invalid key",
+        "title": "API key rejected",
+        "detail": "Upstream rejected this API key. Rotate or re-enter a valid key.",
+        "cta": "Rotate API key"
+      },
+      "apikey_generic_error": {
+        "badge": "Error",
+        "title": "Connection error",
+        "detail": "Retest this API-key connection or rotate the key if the error persists.",
+        "cta": "Retest connection"
+      },
+      "oauth_no_refresh_token": {
+        "badge": "Re-auth",
+        "title": "Refresh token missing",
+        "detail": "No refresh token available — re-authenticate this account.",
+        "cta": "Re-authenticate"
+      },
+      "oauth_refresh_failed": {
+        "badge": "Refresh failed",
+        "title": "Token refresh failed",
+        "detail": "Refresh token was rejected or consumed. Re-authenticate this account.",
+        "cta": "Re-authenticate"
+      },
+      "oauth_generic_error": {
+        "badge": "Auth failed",
+        "title": "Authentication failed",
+        "detail": "OAuth credential is invalid or expired. Re-authenticate this account.",
+        "cta": "Re-authenticate"
+      },
+      "cookie_update": {
+        "badge": "Session",
+        "title": "Session cookie needs update",
+        "detail": "This connection uses a session cookie, not an OAuth refresh token.",
+        "cta": "Update cookie"
+      },
+      "generic_error": {
+        "badge": "Error",
+        "title": "Connection error",
+        "detail": "Retest this connection.",
+        "cta": "Retest connection"
+      },
+      "expired": {
+        "badge": "Expired",
+        "title": "Credential expired",
+        "detail": "This credential is expired. Re-authenticate or rotate the credential.",
+        "cta": "Retest connection"
+      }
+    }
   },
   "settings": {
     "title": "Settings",
@@ -6937,7 +6999,69 @@
     "updatedShort": "Updated",
     "lastRefreshed": "Last refreshed",
     "providerQuota": "Provider Quota",
-    "providerQuotaHomeHint": "Live status across connected accounts"
+    "providerQuotaHomeHint": "Live status across connected accounts",
+    "connectionStatus": {
+      "healthy": {
+        "badge": "Healthy",
+        "title": "Connection healthy",
+        "detail": "Credential is active and ready for traffic.",
+        "cta": "Retest connection"
+      },
+      "apikey_no_refresh_token": {
+        "badge": "Retest",
+        "title": "Needs re-test",
+        "detail": "API-key credential flagged by a health glitch. Retest or rotate the key — no OAuth refresh token is required.",
+        "cta": "Retest connection"
+      },
+      "apikey_invalid_key": {
+        "badge": "Invalid key",
+        "title": "API key rejected",
+        "detail": "Upstream rejected this API key. Rotate or re-enter a valid key.",
+        "cta": "Rotate API key"
+      },
+      "apikey_generic_error": {
+        "badge": "Error",
+        "title": "Connection error",
+        "detail": "Retest this API-key connection or rotate the key if the error persists.",
+        "cta": "Retest connection"
+      },
+      "oauth_no_refresh_token": {
+        "badge": "Re-auth",
+        "title": "Refresh token missing",
+        "detail": "No refresh token available — re-authenticate this account.",
+        "cta": "Re-authenticate"
+      },
+      "oauth_refresh_failed": {
+        "badge": "Refresh failed",
+        "title": "Token refresh failed",
+        "detail": "Refresh token was rejected or consumed. Re-authenticate this account.",
+        "cta": "Re-authenticate"
+      },
+      "oauth_generic_error": {
+        "badge": "Auth failed",
+        "title": "Authentication failed",
+        "detail": "OAuth credential is invalid or expired. Re-authenticate this account.",
+        "cta": "Re-authenticate"
+      },
+      "cookie_update": {
+        "badge": "Session",
+        "title": "Session cookie needs update",
+        "detail": "This connection uses a session cookie, not an OAuth refresh token.",
+        "cta": "Update cookie"
+      },
+      "generic_error": {
+        "badge": "Error",
+        "title": "Connection error",
+        "detail": "Retest this connection.",
+        "cta": "Retest connection"
+      },
+      "expired": {
+        "badge": "Expired",
+        "title": "Credential expired",
+        "detail": "This credential is expired. Re-authenticate or rotate the credential.",
+        "cta": "Retest connection"
+      }
+    }
   },
   "modals": {
     "waitingAuth": "Waiting for Authorization",
