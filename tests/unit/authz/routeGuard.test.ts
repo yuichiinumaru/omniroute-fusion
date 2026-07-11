@@ -5,6 +5,7 @@ import {
   isLocalOnlyBypassableByManageScope,
   isAlwaysProtectedPath,
   isLoopbackHost,
+  isSpawnCapablePath,
 } from "../../../src/server/authz/routeGuard.ts";
 import { managementPolicy } from "../../../src/server/authz/policies/management.ts";
 import { getMachineTokenSync } from "../../../src/lib/machineToken.ts";
@@ -31,10 +32,85 @@ test("isLocalOnlyPath: spawn-capable system/db-backups routes are local-only (6A
   // surface if reachable past loopback. Classified after the route-guard gate found them.
   assert.equal(isLocalOnlyPath("/api/system/version"), true);
   assert.equal(isLocalOnlyPath("/api/db-backups/exportAll"), true);
-  // Sibling routes that do NOT spawn remain reachable (scope kept minimal).
+  // Sibling routes that do NOT spawn remain not LOCAL_ONLY (export/import are ALWAYS_PROTECTED).
   assert.equal(isLocalOnlyPath("/api/system/env/repair"), false);
   assert.equal(isLocalOnlyPath("/api/db-backups/export"), false);
   assert.equal(isLocalOnlyPath("/api/db-backups/import"), false);
+});
+
+// ─── Task 0040: LOCAL_ONLY expansion for spawn / process-RCE surfaces ─────
+
+test("isLocalOnlyPath: version-manager install/start are local-only (F-07-002)", () => {
+  assert.equal(isLocalOnlyPath("/api/version-manager/"), true);
+  assert.equal(isLocalOnlyPath("/api/version-manager/install"), true);
+  assert.equal(isLocalOnlyPath("/api/version-manager/start"), true);
+  assert.equal(isLocalOnlyPath("/api/version-manager/stop"), true);
+  assert.equal(isLocalOnlyPath("/api/version-manager/restart"), true);
+  assert.equal(isLocalOnlyPath("/api/version-manager/status"), true);
+});
+
+test("isLocalOnlyPath: tailscale install/start-daemon are local-only (F-07-003)", () => {
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/install"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/start-daemon"), true);
+  // Non-spawn tailscale status/enable remain remote-reachable classification-wise.
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale"), false);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/enable"), false);
+});
+
+test("isLocalOnlyPath: antigravity-mitm is local-only (F-07-W2-002)", () => {
+  assert.equal(isLocalOnlyPath("/api/cli-tools/antigravity-mitm"), true);
+  assert.equal(isLocalOnlyPath("/api/cli-tools/antigravity-mitm/alias"), true);
+});
+
+test("isLocalOnlyPath: cloudflared/ngrok mutators are local-only; GET status exempt (F-07-W2-003)", () => {
+  assert.equal(isLocalOnlyPath("/api/tunnels/cloudflared", "POST"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/ngrok", "POST"), true);
+  // GET status is exempted so remote dashboards can still poll tunnel state.
+  assert.equal(isLocalOnlyPath("/api/tunnels/cloudflared", "GET"), false);
+  assert.equal(isLocalOnlyPath("/api/tunnels/ngrok", "GET"), false);
+  // No method → conservative default (local-only).
+  assert.equal(isLocalOnlyPath("/api/tunnels/cloudflared"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/ngrok"), true);
+});
+
+test("isLocalOnlyPath: middleware hooks is local-only (F-07-W2-001)", () => {
+  assert.equal(isLocalOnlyPath("/api/middleware/hooks"), true);
+  assert.equal(isLocalOnlyPath("/api/middleware/hooks/my-hook"), true);
+});
+
+test("isAlwaysProtectedPath: db-backups export/import and restart (F-07-004/005)", () => {
+  assert.equal(isAlwaysProtectedPath("/api/db-backups/export"), true);
+  assert.equal(isAlwaysProtectedPath("/api/db-backups/import"), true);
+  assert.equal(isAlwaysProtectedPath("/api/restart"), true);
+  assert.equal(isAlwaysProtectedPath("/api/middleware/hooks"), true);
+  assert.equal(isAlwaysProtectedPath("/api/middleware/hooks/x"), true);
+  // exportAll is LOCAL_ONLY (spawn) not ALWAYS_PROTECTED by path list.
+  assert.equal(isAlwaysProtectedPath("/api/db-backups/exportAll"), false);
+});
+
+test("isSpawnCapablePath: new Task 0040 surfaces are spawn-capable (F-04-004)", () => {
+  assert.equal(isSpawnCapablePath("/api/version-manager/install"), true);
+  assert.equal(isSpawnCapablePath("/api/cli-tools/antigravity-mitm"), true);
+  assert.equal(isSpawnCapablePath("/api/tunnels/tailscale/install"), true);
+  assert.equal(isSpawnCapablePath("/api/tunnels/tailscale/start-daemon"), true);
+  assert.equal(isSpawnCapablePath("/api/tunnels/cloudflared"), true);
+  assert.equal(isSpawnCapablePath("/api/tunnels/ngrok"), true);
+  assert.equal(isSpawnCapablePath("/api/middleware/hooks"), true);
+  assert.equal(isSpawnCapablePath("/api/system/version"), true);
+  assert.equal(isSpawnCapablePath("/api/db-backups/exportAll"), true);
+  assert.equal(isSpawnCapablePath("/api/oauth/cursor/auto-import"), true);
+  // Non-spawn management routes stay free of SPAWN_CAPABLE.
+  assert.equal(isSpawnCapablePath("/api/settings"), false);
+  assert.equal(isSpawnCapablePath("/api/mcp/sse"), false);
+});
+
+test("isLocalOnlyBypassableByManageScope: new spawn surfaces are NOT bypassable", () => {
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/version-manager/install"), false);
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/cli-tools/antigravity-mitm"), false);
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/tunnels/cloudflared"), false);
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/middleware/hooks"), false);
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/system/version"), false);
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/db-backups/exportAll"), false);
 });
 
 test("isLocalOnlyBypassableByManageScope: /api/mcp/ prefix is bypassable", () => {

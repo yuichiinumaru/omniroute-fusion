@@ -70,6 +70,7 @@ test("validation schemas must not VALUE-import from server-side roots (client/CL
 test("SPAWN_CAPABLE_PREFIXES is defined in the server-free constants leaf with the expected entries", () => {
   assert.ok(Array.isArray(SPAWN_CAPABLE_PREFIXES));
   // The full deny-list survived the extraction out of routeGuard.ts (Hard Rules #15/#17).
+  // Task 0040 expanded parity with LOCAL_ONLY spawn surfaces (F-04-004 / F-07-*).
   for (const prefix of [
     "/api/cli-tools/runtime/",
     "/api/services/",
@@ -79,11 +80,21 @@ test("SPAWN_CAPABLE_PREFIXES is defined in the server-free constants leaf with t
     "/api/local/",
     "/api/headroom/start",
     "/api/headroom/stop",
+    "/api/system/version",
+    "/api/db-backups/exportAll",
+    "/api/oauth/cursor/auto-import",
+    "/api/version-manager/",
+    "/api/cli-tools/antigravity-mitm",
+    "/api/tunnels/tailscale/install",
+    "/api/tunnels/tailscale/start-daemon",
+    "/api/tunnels/cloudflared",
+    "/api/tunnels/ngrok",
+    "/api/middleware/hooks",
   ]) {
     assert.ok(
       SPAWN_CAPABLE_PREFIXES.includes(prefix),
       `SPAWN_CAPABLE_PREFIXES lost the spawn-capable prefix "${prefix}" during extraction`
     );
   }
-  assert.equal(SPAWN_CAPABLE_PREFIXES.length, 8);
+  assert.equal(SPAWN_CAPABLE_PREFIXES.length, 18);
 });

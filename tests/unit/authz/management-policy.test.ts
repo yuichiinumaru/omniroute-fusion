@@ -430,3 +430,54 @@ test("managementPolicy: rejects remote inspector ingest as LOCAL_ONLY (D4)", asy
     assert.equal(out.code, "LOCAL_ONLY");
   }
 });
+
+// ─── Task 0040 / F-04-005: spawn-capable always requires auth ─────────────
+
+test("F-04-005: spawn-capable path rejects anonymous when requireLogin=false (loopback)", async () => {
+  // Open install (no password) still must not grant anonymous spawn.
+  await settingsDb.updateSettings({ requireLogin: true, password: null });
+  const policy = await loadPolicy();
+
+  for (const path of [
+    "/api/services/cliproxy/install",
+    "/api/cli-tools/runtime/claude",
+    "/api/version-manager/install",
+    "/api/middleware/hooks",
+  ]) {
+    const out = await policy.evaluate(
+      ctx(new Headers(), "POST", path, { socket: { remoteAddress: "127.0.0.1" } })
+    );
+    assert.equal(out.allow, false, `spawn path ${path} must not be anonymous`);
+    if (!out.allow) {
+      assert.equal(out.status, 401);
+      assert.equal(out.code, "AUTH_001");
+    }
+  }
+});
+
+test("F-04-005: ALWAYS_PROTECTED paths reject anonymous when requireLogin=false", async () => {
+  await settingsDb.updateSettings({ requireLogin: true, password: null });
+  const policy = await loadPolicy();
+
+  for (const path of ["/api/restart", "/api/db-backups/export", "/api/db-backups/import", "/api/shutdown"]) {
+    const out = await policy.evaluate(
+      ctx(new Headers(), "POST", path, { socket: { remoteAddress: "127.0.0.1" } })
+    );
+    assert.equal(out.allow, false, `always-protected ${path} must not be anonymous`);
+    if (!out.allow) {
+      assert.equal(out.status, 401);
+    }
+  }
+});
+
+test("F-04-005: ordinary management path still allows anonymous when auth disabled", async () => {
+  await settingsDb.updateSettings({ requireLogin: true, password: null });
+  const policy = await loadPolicy();
+  const out = await policy.evaluate(
+    ctx(new Headers(), "GET", "/api/settings", { socket: { remoteAddress: "127.0.0.1" } })
+  );
+  assert.equal(out.allow, true);
+  if (out.allow) {
+    assert.equal(out.subject.kind, "anonymous");
+  }
+});

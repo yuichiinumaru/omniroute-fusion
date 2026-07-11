@@ -42,6 +42,14 @@ export const LOCAL_ONLY_API_PREFIXES: ReadonlyArray<string> = [
   "/api/headroom/start", // Headroom token-saver proxy lifecycle: spawns headroom-ai python CLI (Hard Rules #15 + #17)
   "/api/headroom/stop", // Headroom token-saver proxy lifecycle: sends SIGTERM/SIGKILL to managed PID (Hard Rules #15 + #17)
   "/api/oauth/cursor/auto-import", // spawns `execFile("which", ["cursor"])` to verify a local Cursor install before importing creds — RCE-via-tunnel surface (Hard Rules #15 + #17, found by 6A.8 route-guard gate). Specific path only: the rest of /api/oauth/ (browser redirect/callback flows) must stay remote-reachable.
+  // Task 0040 — spawn / process-RCE surfaces that were missing LOCAL_ONLY (F-07-002/003/W2-001/002/003).
+  "/api/version-manager/", // install/start/stop/restart CLIProxyAPI (ServiceSupervisor spawn)
+  "/api/cli-tools/antigravity-mitm", // MITM server spawn + sudo (sibling of agent-bridge)
+  "/api/tunnels/tailscale/install", // brew/curl/sudo package install
+  "/api/tunnels/tailscale/start-daemon", // daemon start spawn
+  "/api/tunnels/cloudflared", // managed binary download + spawn (GET status exempted below)
+  "/api/tunnels/ngrok", // same tunnel class as cloudflared (GET status exempted below)
+  "/api/middleware/hooks", // compiles caller JS via new Function — process RCE (Hard Rule #3)
 ];
 
 /**
@@ -83,6 +91,11 @@ export const ALWAYS_PROTECTED_API_PATHS: ReadonlyArray<string> = [
   "/api/shutdown",
   "/api/providers/health-autopilot/actions",
   "/api/settings/database",
+  // Task 0040 — irreversible / destructive ops must never honor requireLogin=false (F-07-004/005).
+  "/api/db-backups/export", // live SQLite dump (credentials exfil when auth-disabled)
+  "/api/db-backups/import", // destructive DB replace
+  "/api/restart", // process.kill(SIGTERM) — sibling of /api/shutdown
+  "/api/middleware/hooks", // new Function install must always require auth (F-07-W2-001)
 ];
 
 export function isLoopbackHost(hostHeader: string | null): boolean {
@@ -160,9 +173,14 @@ export function isPrivateLanHost(hostHeader: string | null): boolean {
  *   /api/system/version — GET reads package.json + npm registry; only POST
  *   triggers the auto-update flow (spawns git checkout + npm install + pm2).
  *   Hard Rules #15/#17 still apply to POST.
+ *   /api/tunnels/cloudflared — GET returns tunnel status; only POST enable/disable
+ *   downloads/spawns the managed binary.
+ *   /api/tunnels/ngrok — same pattern as cloudflared.
  */
 export const LOCAL_ONLY_API_GET_EXEMPTIONS: ReadonlySet<string> = new Set([
   "/api/system/version",
+  "/api/tunnels/cloudflared",
+  "/api/tunnels/ngrok",
 ]);
 
 /** Safe HTTP methods that can be exempted for read-only paths. */
@@ -227,6 +245,29 @@ export function isLocalOnlyBypassableByManageScope(path: string): boolean {
   });
 }
 
+/**
+ * Segment-safe prefix match: `/api/db-backups/export` must NOT match
+ * `/api/db-backups/exportAll` (startsWith without a path boundary would).
+ * Prefixes that already end with `/` keep the existing startsWith semantics.
+ */
+function pathMatchesGuardPrefix(path: string, prefix: string): boolean {
+  if (prefix.endsWith("/")) {
+    return path === prefix || path.startsWith(prefix) || path === prefix.slice(0, -1);
+  }
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
 export function isAlwaysProtectedPath(path: string): boolean {
-  return ALWAYS_PROTECTED_API_PATHS.some((p) => path === p || path.startsWith(p));
+  return ALWAYS_PROTECTED_API_PATHS.some((p) => pathMatchesGuardPrefix(path, p));
+}
+
+/**
+ * True when `path` matches a spawn-capable / process-RCE prefix.
+ * Used by:
+ *   - manage-scope bypass deny-list (via isLocalOnlyBypassableByManageScope)
+ *   - F-04-005: always require auth even when requireLogin=false
+ *   - openapi/try proxy denylist (loopback re-entry prevention)
+ */
+export function isSpawnCapablePath(path: string): boolean {
+  return SPAWN_CAPABLE_PREFIXES.some((p) => pathMatchesGuardPrefix(path, p));
 }

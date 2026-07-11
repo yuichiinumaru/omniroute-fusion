@@ -32,4 +32,16 @@ export const SPAWN_CAPABLE_PREFIXES: ReadonlyArray<string> = [
   "/api/local/", // T-12: 1-click local service launchers (Redis today) — must never be whitelistable via manage-scope bypass (Hard Rules #15 + #17)
   "/api/headroom/start", // spawns headroom-ai python CLI — must never be bypassable (Hard Rules #15 + #17)
   "/api/headroom/stop", // kills tracked PID — must never be bypassable (Hard Rules #15 + #17)
+  // Task 0040 — F-04-004 / F-07 parity: every LOCAL_ONLY spawn surface must also be
+  // non-bypassable via manage-scope (Hard Rules #15 + #17).
+  "/api/system/version", // auto-update: git checkout + npm install
+  "/api/db-backups/exportAll", // spawns tar for export archive
+  "/api/oauth/cursor/auto-import", // execFile("which", ["cursor"])
+  "/api/version-manager/", // install/start/stop/restart CLIProxyAPI binary (F-07-002)
+  "/api/cli-tools/antigravity-mitm", // MITM spawn + sudo (F-07-W2-002)
+  "/api/tunnels/tailscale/install", // package install spawn (F-07-003)
+  "/api/tunnels/tailscale/start-daemon", // daemon spawn (F-07-003)
+  "/api/tunnels/cloudflared", // binary download + spawn (F-07-W2-003)
+  "/api/tunnels/ngrok", // same tunnel class as cloudflared (F-07-W2-008 stretch)
+  "/api/middleware/hooks", // in-process new Function compile — process RCE (F-07-W2-001)
 ];

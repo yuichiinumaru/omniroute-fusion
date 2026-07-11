@@ -10,6 +10,7 @@ import { registerHook, getAllHooks } from "@/lib/middleware/registry";
 import type { HookConfig, CreateHookRequest } from "@/lib/middleware/types";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 const hookScopeSchema = z.union([
   z.object({ type: z.literal("global") }),
@@ -74,6 +75,12 @@ export async function GET(request: Request) {
  * POST /api/middleware/hooks — Register a new hook
  *
  * Body: { name, description?, priority?, scope?, code }
+ *
+ * Security (Task 0040 / F-07-W2-001): path is LOCAL_ONLY + ALWAYS_PROTECTED +
+ * SPAWN_CAPABLE in routeGuard. Compiles caller JS via new Function (Hard Rule #3
+ * residual: full sandbox deferred). Pipeline enforces loopback + always-auth
+ * before this handler runs; requireManagementAuth is defence-in-depth when
+ * requireLogin=true.
  */
 export async function POST(request: Request) {
   const authError = await requireManagementAuth(request);
@@ -108,12 +115,15 @@ export async function POST(request: Request) {
     // Persist to DB
     const saved = createMiddlewareHook(hookConfig);
 
-    // Register in runtime registry
+    // Register in runtime registry (compiles code — loopback-gated by routeGuard)
     registerHook(saved);
 
     return NextResponse.json({ hook: saved }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[API] POST /api/middleware/hooks error:", error);
-    return NextResponse.json({ error: error?.message || "Failed to create hook" }, { status: 500 });
+    return NextResponse.json(
+      { error: sanitizeErrorMessage(error) || "Failed to create hook" },
+      { status: 500 }
+    );
   }
 }

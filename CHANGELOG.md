@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Security
+- **RouteGuard LOCAL_ONLY / ALWAYS_PROTECTED / SPAWN_CAPABLE expansion (Task 0040 / Epic 0008 S1)** — close tunnel RCE and auth-disabled spawn holes.
+  - **F-07-001**: `/api/openapi/try` no longer allows bare `"/api/"`; deny LOCAL_ONLY / SPAWN_CAPABLE / ALWAYS_PROTECTED destinations before fetch; cookies never attached to denied paths
+  - **F-07-W2-001**: `/api/middleware/hooks` is LOCAL_ONLY + ALWAYS_PROTECTED + SPAWN_CAPABLE (remote `new Function` install gated; full sandbox deferred)
+  - **F-07-002/003/W2-002/003**: LOCAL_ONLY (+ SPAWN_CAPABLE) for `version-manager/`, tailscale install/start-daemon, antigravity-mitm, cloudflared/ngrok mutators (GET tunnel status exempt)
+  - **F-07-004/005**: ALWAYS_PROTECTED for `db-backups/export`, `db-backups/import`, `/api/restart`
+  - **F-04-004**: SPAWN_CAPABLE parity with LOCAL_ONLY spawn inventory (system/version, exportAll, cursor auto-import, …)
+  - **F-04-005**: spawn-capable paths always require auth even when `requireLogin=false` (management policy)
+  - Docs: `docs/security/ROUTE_GUARD_TIERS.md`; tests: `routeGuard`, `openapi-try-route`, `middleware-hooks-route-guard`, management-policy F-04-005
+  **Author**: builder (Task 0040)
+
 ### Added
 - **ProviderLimits auth-status copy + i18n (Epic 0007 S3–S4 / Task 0039)** — replace hard-coded OAuth re-auth suffix on quota 401 with auth-mode-aware helper; land EN keys.
   - `ProviderLimits` 401 path uses `formatQuotaAuthErrorMessage` (apikey → rotate/retest; oauth → re-auth; cookie → update session)

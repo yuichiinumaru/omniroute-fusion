@@ -24,11 +24,29 @@ non-loopback traffic would allow an attacker who obtained a valid JWT (e.g.,
 via a Cloudflared/Ngrok tunnel) to trigger process spawning — a known CVE
 class (GHSA-fhh6-4qxv-rpqj).
 
-| Prefix                    | Reason                                                    | Bypassable by `manage`? |
-| ------------------------- | --------------------------------------------------------- | ----------------------- |
-| `/api/mcp/`               | MCP server — spawns stdio bridges and SSE handlers        | Yes                     |
-| `/api/cli-tools/runtime/` | CLI tool runtime — executes arbitrary plugin code         | No (strict-loopback)    |
-| `/api/services/`          | Embedded services (9router, CLIProxy) — npm install+spawn | No (strict-loopback)    |
+| Prefix / path                          | Reason                                                              | Bypassable by `manage`? |
+| -------------------------------------- | ------------------------------------------------------------------- | ----------------------- |
+| `/api/mcp/`                            | MCP server — stdio bridges and SSE handlers                         | Yes                     |
+| `/api/cli-tools/runtime/`              | CLI tool runtime — executes arbitrary plugin code                   | No (strict-loopback)    |
+| `/api/services/`                       | Embedded services (9router, CLIProxy) — npm install+spawn           | No (strict-loopback)    |
+| `/dashboard/providers/services/`       | Reverse proxy to embedded service UIs                               | No                      |
+| `/api/copilot/`                        | Unauthenticated LLM driver — CLI-only by default                    | Yes (opt-in)            |
+| `/api/tools/agent-bridge/`             | MITM server + DNS edits                                             | No                      |
+| `/api/tools/traffic-inspector/`        | http-proxy listener + system proxy                                  | No                      |
+| `/api/plugins/` (+ bare `/api/plugins`)| Plugin load/execute via worker_threads + child_process              | No                      |
+| `/api/system/version`                  | Auto-update: git checkout + npm install (GET status exempt)         | No                      |
+| `/api/db-backups/exportAll`            | Spawns tar for full export archive                                  | No                      |
+| `/api/local/`                          | 1-click local service launchers (podman/docker)                     | No                      |
+| `/api/headroom/start` / `stop`         | Headroom python CLI lifecycle                                       | No                      |
+| `/api/oauth/cursor/auto-import`        | `execFile("which", ["cursor"])`                                     | No                      |
+| `/api/version-manager/`                | CLIProxyAPI install/start/stop/restart (Task 0040 / F-07-002)       | No                      |
+| `/api/cli-tools/antigravity-mitm`      | MITM spawn + sudo (F-07-W2-002)                                     | No                      |
+| `/api/tunnels/tailscale/install`       | Package install spawn (F-07-003)                                    | No                      |
+| `/api/tunnels/tailscale/start-daemon`  | Daemon start spawn (F-07-003)                                       | No                      |
+| `/api/tunnels/cloudflared`             | Binary download + spawn; GET status exempt (F-07-W2-003)            | No                      |
+| `/api/tunnels/ngrok`                   | Same tunnel class as cloudflared; GET status exempt                 | No                      |
+| `/api/middleware/hooks`                | Compiles caller JS via `new Function` — process RCE (F-07-W2-001)   | No                      |
+| Pattern: `/api/providers/{id}/login`   | Headful Playwright Chromium spawn                                   | No                      |
 
 **Response on violation:** `403 LOCAL_ONLY`
 
@@ -64,10 +82,24 @@ These routes are destructive or irreversible. Allowing them in a "no-password"
 install would mean anyone on the same LAN could wipe the database or kill the
 server process.
 
-| Path                     | Reason                            |
-| ------------------------ | --------------------------------- |
-| `/api/shutdown`          | Terminates the server process     |
-| `/api/settings/database` | Database export, import, and wipe |
+| Path                                       | Reason                                              |
+| ------------------------------------------ | --------------------------------------------------- |
+| `/api/shutdown`                            | Terminates the server process                       |
+| `/api/restart`                             | `process.kill(SIGTERM)` — sibling of shutdown (F-07-005) |
+| `/api/settings/database`                   | Database export, import, and wipe                   |
+| `/api/providers/health-autopilot/actions`  | Irreversible health-autopilot mutations             |
+| `/api/db-backups/export`                   | Live SQLite dump — credential exfil (F-07-004)      |
+| `/api/db-backups/import`                   | Destructive DB replace (F-07-004)                   |
+| `/api/middleware/hooks`                    | `new Function` install always needs auth (F-07-W2-001) |
+
+### SPAWN_CAPABLE (deny-list for manage-scope bypass + always-auth)
+
+Defined in `src/shared/constants/spawnCapablePrefixes.ts`. Every entry is also
+LOCAL_ONLY (or a LOCAL_ONLY subpath). Runtime effects:
+
+1. **Never bypassable** via `localOnlyManageScopeBypassPrefixes` (zod + runtime).
+2. **Always require auth** even when `requireLogin=false` (F-04-005) — the
+   management policy skips the anonymous allow for these paths.
 
 **Response on violation:** `401 Authentication required`
 
@@ -89,15 +121,19 @@ managementPolicy.evaluate(ctx)
      → allow (system)
   3. hasValidCliToken(headers)?
      → allow (cli) [loopback + timingSafeEqual HMAC check]
-  4. isAlwaysProtectedPath(path) or requireLogin=true?
+  4. isAlwaysProtectedPath(path) OR isSpawnCapablePath(path) OR requireLogin=true?
      → isDashboardSessionAuthenticated?
         → allow (dashboard_session)
-     → manage-scope Bearer on a non-bypassable path?
+     → manage-scope Bearer / access token?
         → allow (management_key)
      → reject 401/403
-  5. requireLogin=false?
+  5. requireLogin=false AND not always-protected AND not spawn-capable?
      → allow (anonymous)
 ```
+
+**F-04-005**: spawn-capable routes never grant anonymous access on open
+(`requireLogin=false`) installs. Local CLI still authenticates via the loopback
+CLI token (step 3).
 
 Step 1's manage-scope branch is the only authenticated path that can satisfy a
 LOCAL_ONLY route; the auth-backend failure mode returns 503 (not 403) so an

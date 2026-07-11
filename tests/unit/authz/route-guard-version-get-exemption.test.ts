@@ -85,13 +85,15 @@ describe("isLocalOnlyPath — GET exemption for /api/system/version (#5083)", ()
     assert.equal(isLocalOnlyPath("/api/db-backups/exportAll", "GET"), true);
   });
 
-  // ── EXEMPTION SET IS EXPORTED AND CONTAINS EXACTLY /api/system/version ───
+  // ── EXEMPTION SET (Task 0040: cloudflared/ngrok status GET) ───
 
-  test("LOCAL_ONLY_API_GET_EXEMPTIONS contains /api/system/version", () => {
+  test("LOCAL_ONLY_API_GET_EXEMPTIONS contains version + tunnel status paths", () => {
     assert.ok(LOCAL_ONLY_API_GET_EXEMPTIONS.has("/api/system/version"));
+    assert.ok(LOCAL_ONLY_API_GET_EXEMPTIONS.has("/api/tunnels/cloudflared"));
+    assert.ok(LOCAL_ONLY_API_GET_EXEMPTIONS.has("/api/tunnels/ngrok"));
   });
 
-  test("LOCAL_ONLY_API_GET_EXEMPTIONS has exactly 1 entry", () => {
-    assert.equal(LOCAL_ONLY_API_GET_EXEMPTIONS.size, 1);
+  test("LOCAL_ONLY_API_GET_EXEMPTIONS has exactly 3 entries", () => {
+    assert.equal(LOCAL_ONLY_API_GET_EXEMPTIONS.size, 3);
   });
 });

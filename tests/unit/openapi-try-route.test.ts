@@ -86,7 +86,7 @@ test("openapi try route requires management authentication before proxying", asy
   const response = await route.POST(
     makeRequest({
       method: "GET",
-      path: "/api/monitoring/health",
+      path: "/api/v1/models",
     }) as any
   );
   const body = (await response.json()) as any;
@@ -119,7 +119,72 @@ test("openapi try route rejects protocol-relative targets after authentication",
   assert.equal(fetchCalled, false);
 });
 
-test("openapi try route strips hop-by-hop headers and proxies same-origin API paths", async () => {
+test("openapi try route rejects bare /api/ management paths (allowlist tightened, F-07-001)", async () => {
+  let fetchCalled = false;
+  globalThis.fetch = async () => {
+    fetchCalled = true;
+    return new Response("unexpected");
+  };
+
+  const response = await route.POST(
+    makeRequest(
+      {
+        method: "GET",
+        path: "/api/combos/test",
+      },
+      await createAuthCookie()
+    ) as any
+  );
+  const body = (await response.json()) as any;
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error.message, "Invalid request");
+  assert.equal(fetchCalled, false);
+});
+
+test("openapi try route denies LOCAL_ONLY / SPAWN_CAPABLE destinations without fetch or cookie forward (F-07-001)", async () => {
+  const cookie = await createAuthCookie();
+  let fetchCalled = false;
+  globalThis.fetch = async () => {
+    fetchCalled = true;
+    return new Response("unexpected");
+  };
+
+  // Even with a valid management session, try-proxy must refuse spawn surfaces.
+  // Bare `/api/` is already rejected by the allowlist; the denylist is
+  // defence-in-depth for any future allowlist slip (tested via helpers below).
+  for (const path of [
+    "/api/services/cliproxy/install",
+    "/api/cli-tools/runtime/claude",
+    "/api/version-manager/install",
+    "/api/middleware/hooks",
+  ]) {
+    const response = await route.POST(
+      makeRequest({ method: "POST", path, body: {} }, cookie) as any
+    );
+    const body = (await response.json()) as { error?: unknown };
+    // Allowlist rejects bare /api/* first (400). Either 400 or 403 is fail-closed.
+    assert.ok(
+      response.status === 400 || response.status === 403,
+      `expected fail-closed for ${path}, got ${response.status}`
+    );
+    assert.equal(fetchCalled, false, `must not fetch for denied path ${path}`);
+    // Fail-closed response carries an error; fetch never ran → cookies not forwarded.
+    assert.ok(body.error, `expected error body for denied path ${path}`);
+  }
+});
+
+test("isDeniedTryProxyPath flags LOCAL_ONLY and SPAWN_CAPABLE paths (F-07-001)", () => {
+  assert.equal(route.isDeniedTryProxyPath("/api/services/cliproxy/install", "POST"), true);
+  assert.equal(route.isDeniedTryProxyPath("/api/cli-tools/runtime/claude", "POST"), true);
+  assert.equal(route.isDeniedTryProxyPath("/api/version-manager/start", "POST"), true);
+  assert.equal(route.isDeniedTryProxyPath("/api/middleware/hooks", "POST"), true);
+  assert.equal(route.isDeniedTryProxyPath("/api/restart", "POST"), true);
+  assert.equal(route.isDeniedTryProxyPath("/api/v1/models", "GET"), false);
+  assert.equal(route.isDeniedTryProxyPath("/v1/chat/completions", "POST"), false);
+});
+
+test("openapi try route strips hop-by-hop headers and proxies same-origin client API paths", async () => {
   const cookie = await createAuthCookie();
   let fetchUrl = "";
   let fetchInit: RequestInit | undefined;
@@ -136,13 +201,13 @@ test("openapi try route strips hop-by-hop headers and proxies same-origin API pa
     makeRequest(
       {
         method: "POST",
-        path: "/api/combos/test",
+        path: "/api/v1/chat/completions",
         headers: {
           Authorization: "Bearer test-key",
           Host: "evil.example",
           "X-Forwarded-Proto": "https",
         },
-        body: { comboName: "smoke" },
+        body: { model: "test", messages: [] },
       },
       cookie
     ) as any
@@ -152,7 +217,7 @@ test("openapi try route strips hop-by-hop headers and proxies same-origin API pa
 
   assert.equal(response.status, 200);
   assert.equal(body.status, 200);
-  assert.equal(fetchUrl, "http://localhost/api/combos/test");
+  assert.equal(fetchUrl, "http://localhost/api/v1/chat/completions");
   assert.equal(fetchInit?.method, "POST");
   assert.equal(forwardedHeaders.Authorization, "Bearer test-key");
   assert.equal(forwardedHeaders.Host, undefined);

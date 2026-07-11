@@ -16,6 +16,7 @@ import {
   isLocalOnlyPath,
   isLoopbackHost,
   isPrivateLanHost,
+  isSpawnCapablePath,
 } from "../routeGuard";
 
 const MODEL_SYNC_MANAGEMENT_PATH = /^\/api\/providers\/[^/]+\/(sync-models|models)$/;
@@ -220,8 +221,16 @@ export const managementPolicy: RoutePolicy = {
       return allow({ kind: "management_key", id: "cli", label: "local-cli-token" });
     }
 
-    // Tier 2: always-protected routes skip the requireLogin=false bypass.
-    if (!isAlwaysProtectedPath(path) && !(await isAuthRequired(ctx.request))) {
+    // Tier 2: always-protected routes AND spawn-capable / process-RCE routes
+    // skip the requireLogin=false bypass (F-04-005). Open (auth-disabled)
+    // installs must never grant anonymous access to child-process spawn or
+    // in-process code-compile surfaces — CLI token / session / manage key still
+    // authenticate above/below. Hard Rules #15 + #17.
+    if (
+      !isAlwaysProtectedPath(path) &&
+      !isSpawnCapablePath(path) &&
+      !(await isAuthRequired(ctx.request))
+    ) {
       return allow({ kind: "anonymous", id: "anonymous", label: "auth-disabled" });
     }
 
