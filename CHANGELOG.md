@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Dual-mode auth / false-positive `no_refresh_token` (Epic 0006 S1–S3 / Tasks 0032–0034)** — shared connection auth-mode SSoT so static credentials are never OAuth-expired.
+  - **0032**: `src/shared/utils/connectionAuthMode.ts` — `normalizeAuthType`, `connectionUsesOAuthRefresh`, `shouldMarkNoRefreshExpired`; re-exported from `tokenHealthCheck.ts` for back-compat
+  - **0033**: dual-mode matrix (gemini/qoder/codebuddy-cn apikey, cookie, blank+apiKey stay active; oauth #5326 still expires)
+  - **0034**: `healFalsePositiveNoRefreshConnections` domain heal (TS via get/updateProviderConnection) + idempotent startup hook; never heals legitimate oauth `no_refresh_token`
+  - Tests: `connection-auth-mode.test.ts`, `token-health-dual-mode-matrix.test.ts`, `heal-no-refresh-token.test.ts` (+ existing `#5326` suite)
+  **Author**: builder (Tasks 0032–0034)
+
 ### Changed
 - **Frontend IA naming / i18n cleanup (Epic 0005 S7 / Task 0026)** — operator vocabulary fixes after the seven-pillar rebuild (labels only; structure frozen).
   - **Analytics hub** sidebar leaf uses `analytics` (not `usage`); Usage remains token-volume language

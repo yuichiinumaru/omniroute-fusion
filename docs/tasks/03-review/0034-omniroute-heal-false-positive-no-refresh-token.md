@@ -1,6 +1,6 @@
 # Task 0034: Heal False-Positive Apikey `no_refresh_token` Rows
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Complete — pending review
 > **Priority**: 🔴 P0
 > **Type**: `remediation`
 > **Origin**: Epic 0006 — Dual-Mode Auth / API-Key Refresh Correctness (S3)
@@ -73,19 +73,19 @@ Even after Task 0032/0033 code fix, **stuck rows do not self-heal** — sweep on
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Heal implementation exists as **TS domain function** (parent pin) + invoked from migrationRunner or idempotent boot hook
-- [ ] Unit tests cover heal + non-heal matrix (`tests/unit/heal-no-refresh-token*.test.ts` or equivalent)
-- [ ] `node --import tsx/esm --test tests/unit/heal-no-refresh-token*.test.ts` (or named suite) passes
-- [ ] Shared auth-mode helper used to decide heal eligibility (from Task 0032) — no ad-hoc string-only half matrix
-- [ ] Operator verification SQL documented in task Completion Evidence:
+- [x] Heal implementation exists as **TS domain function** (parent pin) + invoked from migrationRunner or idempotent boot hook
+- [x] Unit tests cover heal + non-heal matrix (`tests/unit/heal-no-refresh-token*.test.ts` or equivalent)
+- [x] `node --import tsx/esm --test tests/unit/heal-no-refresh-token*.test.ts` (or named suite) passes
+- [x] Shared auth-mode helper used to decide heal eligibility (from Task 0032) — no ad-hoc string-only half matrix
+- [x] Operator verification SQL documented in task Completion Evidence:
   ```sql
   SELECT auth_type, provider, COUNT(*) FROM provider_connections
   WHERE error_code='no_refresh_token' GROUP BY 1,2;
   ```
   Expected after heal on fixed code: **0 rows** with `auth_type='apikey' AND error_code='no_refresh_token'`
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` passes without new errors on touched files
-- [ ] CHANGELOG.md entry at TOP (heal false-positive no_refresh_token)
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` passes without new errors on touched files
+- [x] CHANGELOG.md entry at TOP (heal false-positive no_refresh_token)
 
 ---
 
@@ -154,15 +154,26 @@ Operators already have 22 false-positive apikey rows on 21000. Code fix alone le
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
-- **Arquivos criados/modificados**: [lista]
-- **Testes que verificam o trabalho**: [comandos]
-- **Resultado dos testes**: [PASS/FAIL + contagem]
-- **Resultado do lint**: [PASS/FAIL]
-- **Resultado do typecheck/build**: [PASS/FAIL]
-- **Heal path chosen**: [migration | boot function | both]
-- **Entrada no changelog**: [referência]
-- **Agente executor**: [nome/role]
-- **Data de conclusão**: [YYYY-MM-DD]
+- **Arquivos criados/modificados**:
+  - `src/lib/db/healFalsePositiveNoRefresh.ts` (created — domain heal)
+  - `src/instrumentation-node.ts` (idempotent startup hook after crash-cooldown clear)
+  - `tests/unit/heal-no-refresh-token.test.ts` (created)
+  - `CHANGELOG.md` (combined 0032–0034 entry)
+- **Testes que verificam o trabalho**:
+  - `node --import tsx/esm --test tests/unit/heal-no-refresh-token.test.ts`
+- **Resultado dos testes**: PASS — 6 heal tests (gemini heal, qoder heal, oauth keep, unrelated codes, idempotent, mixed)
+- **Resultado do lint**: PASS
+- **Resultado do typecheck/build**: PASS (`npm run typecheck:core`)
+- **Heal path chosen**: TS domain function + idempotent boot hook in `instrumentation-node.ts` (not bare SQL)
+- **Operator verification SQL** (run after deploy on 21000 / Task 0036):
+  ```sql
+  SELECT auth_type, provider, COUNT(*) FROM provider_connections
+  WHERE error_code='no_refresh_token' GROUP BY 1,2;
+  ```
+  Expected: **0** rows with `auth_type='apikey' AND error_code='no_refresh_token'`. OAuth rows may remain (legitimate #5326).
+- **Entrada no changelog**: Unreleased → Fixed → Dual-mode auth (0032–0034)
+- **Agente executor**: Grok Build subagent (main session, operator-authorized)
+- **Data de conclusão**: 2026-07-11
 
 ---
 

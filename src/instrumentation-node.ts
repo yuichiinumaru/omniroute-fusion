@@ -102,6 +102,24 @@ export async function registerNodejs(): Promise<void> {
     console.warn("[STARTUP] Could not clear stale crash cooldowns (non-fatal):", msg);
   }
 
+  // Epic 0006: restore static API-key / cookie rows false-marked no_refresh_token
+  // by dual-mode health sweep (provider-level supportsTokenRefresh without auth mode).
+  // Idempotent — only matches non-OAuth rows with that error code; oauth #5326 kept.
+  try {
+    const { healFalsePositiveNoRefreshConnections } = await import(
+      "@/lib/db/healFalsePositiveNoRefresh"
+    );
+    const { healed } = await healFalsePositiveNoRefreshConnections();
+    if (healed > 0) {
+      console.log(
+        `[STARTUP] Healed ${healed} false-positive no_refresh_token connection(s) (static credentials)`
+      );
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[STARTUP] Could not heal false-positive no_refresh_token rows (non-fatal):", msg);
+  }
+
   const [
     { initGracefulShutdown },
     { initApiBridgeServer },
