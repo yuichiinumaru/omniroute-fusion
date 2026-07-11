@@ -19,11 +19,30 @@ import { randomUUID } from "crypto";
 import { getSearchProvider, type SearchProviderConfig } from "../config/searchRegistry.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
-import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
+import {
+  SafeOutboundFetchError,
+  safeOutboundFetch,
+} from "@/shared/network/safeOutboundFetch";
+import {
+  OutboundUrlGuardError,
+  parseAndValidateNonMetadataUrl,
+  parseAndValidatePublicUrl,
+} from "@/shared/network/outboundUrlGuard";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+
+/**
+ * Self-hosted search providers may accept a client `provider_options.baseUrl`
+ * (e.g. operator SearXNG on LAN). Commercial providers MUST ignore client baseUrl
+ * to prevent SSRF + API-key exfiltration (F-01-W2-001).
+ */
+const SELF_HOSTED_SEARCH_PROVIDERS = new Set(["searxng-search", "ollama-search"]);
+
+function isSelfHostedSearchProvider(providerId: string): boolean {
+  return SELF_HOSTED_SEARCH_PROVIDERS.has(providerId);
+}
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -255,9 +274,55 @@ function getProviderSettingString(
   return undefined;
 }
 
+/**
+ * Resolve the upstream base URL for a search provider.
+ *
+ * Policy (F-01-W2-001):
+ * - Commercial providers: ignore client `provider_options.baseUrl`. Operator-configured
+ *   `providerSpecificData.baseUrl` (credentials) is allowed but must pass public-only
+ *   URL validation so secrets never leave for private/metadata hosts.
+ * - Self-hosted (`searxng-search`, `ollama-search`): client + credential baseUrl allowed;
+ *   private/LAN hosts ok, cloud-metadata / link-local always blocked.
+ */
 function resolveSearchBaseUrl(config: SearchProviderConfig, params: SearchRequestParams): string {
-  const override = getProviderSettingString(params, "baseUrl");
-  return (override || config.baseUrl).replace(/\/+$/, "");
+  const clientOverride =
+    typeof params.providerOptions?.baseUrl === "string" &&
+    params.providerOptions.baseUrl.trim().length > 0
+      ? params.providerOptions.baseUrl.trim()
+      : undefined;
+  const credentialOverride =
+    typeof params.providerSpecificData?.baseUrl === "string" &&
+    params.providerSpecificData.baseUrl.trim().length > 0
+      ? params.providerSpecificData.baseUrl.trim()
+      : undefined;
+
+  let override: string | undefined;
+  if (isSelfHostedSearchProvider(config.id)) {
+    override = clientOverride || credentialOverride;
+  } else {
+    // Never honor client baseUrl for commercial search — SSRF / credential theft.
+    override = credentialOverride;
+  }
+
+  const raw = (override || config.baseUrl).replace(/\/+$/, "");
+
+  try {
+    if (isSelfHostedSearchProvider(config.id)) {
+      parseAndValidateNonMetadataUrl(raw);
+    } else {
+      parseAndValidatePublicUrl(raw);
+    }
+  } catch (error) {
+    const message =
+      error instanceof OutboundUrlGuardError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "Invalid search baseUrl";
+    throw new Error(`Invalid search baseUrl for ${config.id}: ${message}`);
+  }
+
+  return raw;
 }
 
 function toSearchPageNumber(offset: number | undefined, maxResults: number): number | undefined {
@@ -997,7 +1062,14 @@ async function zaiSearchExecute(params: {
 }): Promise<{ results: SearchResult[]; totalResults: number | null }> {
   const baseUrl = resolveSearchBaseUrl(params.config, params.params);
   const transport = new StreamableHTTPClientTransport(new URL(baseUrl), {
-    fetch: safeOutboundFetch,
+    // Z.AI is commercial — public-only + no redirect follow (secrets in Authorization).
+    fetch: (input, init) =>
+      safeOutboundFetch(input, {
+        ...(init || {}),
+        guard: "public-only",
+        allowRedirect: false,
+        retry: false,
+      }),
     requestInit: {
       headers: {
         Authorization: `Bearer ${params.token}`,
@@ -1434,16 +1506,23 @@ async function tryProvider(
   // Timeout: min of provider timeout and remaining global timeout
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
   const timeout = Math.min(config.timeoutMs, Math.max(remainingGlobal, 1000));
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
 
   if (log) {
     log.info("SEARCH", `${config.id} | query: "${query.slice(0, 80)}" | type: ${searchType}`);
   }
 
+  // Commercial search always uses public-only guard; self-hosted may hit LAN but never
+  // cloud-metadata (F-01-W2-001). Secrets must not ride client-influenced origins.
+  const outboundGuard = isSelfHostedSearchProvider(config.id) ? "block-metadata" : "public-only";
+
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    clearTimeout(timer);
+    const response = await safeOutboundFetch(url, {
+      ...init,
+      timeoutMs: timeout,
+      allowRedirect: false,
+      retry: false,
+      guard: outboundGuard,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1514,23 +1593,32 @@ async function tryProvider(
         errors: [],
       },
     };
-  } catch (err: any) {
-    clearTimeout(timer);
-
-    const isTimeout = err.name === "AbortError";
+  } catch (err: unknown) {
+    const errObj = err as { name?: string; message?: string; code?: string };
+    const isTimeout =
+      errObj?.name === "AbortError" ||
+      (err instanceof SafeOutboundFetchError && err.code === "TIMEOUT");
+    const isUrlGuard =
+      err instanceof SafeOutboundFetchError &&
+      (err.code === "URL_GUARD_BLOCKED" || err.code === "INVALID_URL");
+    const rawMessage = errObj?.message || String(err);
     if (log) {
-      log.error("SEARCH", `${config.id} ${isTimeout ? "timeout" : "fetch error"}: ${err.message}`);
+      log.error(
+        "SEARCH",
+        `${config.id} ${isTimeout ? "timeout" : isUrlGuard ? "url blocked" : "fetch error"}: ${rawMessage}`
+      );
     }
 
+    const status = isTimeout ? 504 : isUrlGuard ? 400 : 502;
     saveCallLog({
       method: config.method,
       path: "/v1/search",
-      status: isTimeout ? 504 : 502,
+      status,
       model: config.id,
       provider: config.id,
       duration: Date.now() - startTime,
       requestType: "search",
-      error: err.message,
+      error: sanitizeErrorMessage(rawMessage).slice(0, 500),
       requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
     }).catch(() => {
       /* non-critical — logging must not block search response */
@@ -1538,8 +1626,8 @@ async function tryProvider(
 
     return {
       success: false,
-      status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(err.message)}`,
+      status,
+      error: `Search provider ${isTimeout ? "timeout" : isUrlGuard ? "blocked url" : "error"}: ${sanitizeErrorMessage(rawMessage)}`,
     };
   }
 }

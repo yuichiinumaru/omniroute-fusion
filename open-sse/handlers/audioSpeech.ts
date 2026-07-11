@@ -21,6 +21,7 @@ import { getSpeechProvider, parseSpeechModel } from "../config/audioRegistry.ts"
 import { buildAuthHeaders } from "../config/registryUtils.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { vertexGenerateSpeech } from "../executors/vertexMedia.ts";
+import { isValidPathSegment } from "@/shared/network/safePathSegment";
 import { buildErrorBody, errorResponse, sanitizeErrorMessage } from "../utils/error.ts";
 import {
   getKieCallbackUrl,
@@ -165,14 +166,6 @@ function findKieAudioUrl(recordData: unknown): string | null {
   }
 
   return null;
-}
-
-/**
- * Validate a path segment to prevent path traversal / SSRF.
- * Returns true if safe, false if it contains traversal sequences.
- */
-function isValidPathSegment(segment: string): boolean {
-  return !segment.includes("..") && !segment.includes("//");
 }
 
 function getStringValue(value): string | null {

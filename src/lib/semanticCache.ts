@@ -3,10 +3,10 @@
  *
  * Caches LLM responses (temperature=0) to reduce cost and latency.
  * Supports both streaming and non-streaming requests: streaming responses
- * are cached after assembly; cache hits always return JSON.
+ * are cached after assembly; stream hits serve OpenAI-shaped SSE only.
  * Two-tier: in-memory LRU (fast) + SQLite (persistent across restarts).
  *
- * Cache key = SHA-256(model + normalized messages + temperature + top_p)
+ * Cache key = SHA-256(model + messages + temperature + top_p + tools/format/…)
  * Bypass: X-OmniRoute-No-Cache: true
  *
  * @module lib/semanticCache
@@ -108,12 +108,61 @@ function getMemoryCache() {
 // ─── Signature Generation ─────────────────
 
 /**
+ * Material request fields that must participate in the semantic-cache key
+ * (F-01-W2-002). Omitting tools/format caused wrong completions and wrong
+ * wire shapes for non-OpenAI clients.
+ */
+export type SemanticCacheSignatureExtras = {
+  tools?: unknown;
+  tool_choice?: unknown;
+  response_format?: unknown;
+  /** Client wire format (openai / claude / gemini / openai-responses). */
+  clientResponseFormat?: string | null;
+  stream?: boolean;
+  seed?: unknown;
+  stop?: unknown;
+  max_tokens?: unknown;
+};
+
+/**
+ * Extract signature extras from a chat/responses request body.
+ */
+export function extractSemanticCacheSignatureExtras(
+  body: Record<string, unknown> | null | undefined,
+  options?: { clientResponseFormat?: string | null; stream?: boolean }
+): SemanticCacheSignatureExtras {
+  const record = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  return {
+    tools: record.tools ?? null,
+    tool_choice: record.tool_choice ?? null,
+    response_format: record.response_format ?? null,
+    clientResponseFormat: options?.clientResponseFormat ?? null,
+    stream: options?.stream === true,
+    seed: record.seed ?? null,
+    stop: record.stop ?? null,
+    max_tokens: record.max_tokens ?? record.max_completion_tokens ?? null,
+  };
+}
+
+/**
+ * Stream hits synthesize OpenAI Chat Completions SSE. Only serve/store stream
+ * cache entries for OpenAI-format clients.
+ */
+export function canServeSemanticCacheStreamHit(
+  clientResponseFormat: string | null | undefined
+): boolean {
+  if (clientResponseFormat == null || clientResponseFormat === "") return true;
+  return clientResponseFormat === "openai";
+}
+
+/**
  * Generate deterministic cache signature from request params.
  * @param {string} model
  * @param {Array} messages - Normalized messages array
  * @param {number} temperature
  * @param {number} topP
  * @param {string} [apiKeyId] - API key ID for per-key isolation (prevents cross-user cache hits)
+ * @param {SemanticCacheSignatureExtras} [extras] - tools/format/stream and related fields
  * @returns {string} hex signature
  */
 export function generateSignature(
@@ -121,13 +170,23 @@ export function generateSignature(
   conversation,
   temperature = 0,
   topP = 1,
-  apiKeyId?: string
+  apiKeyId?: string,
+  extras?: SemanticCacheSignatureExtras | null
 ) {
+  const extra = extras ?? {};
   const payload = JSON.stringify({
     model,
     messages: normalizeConversation(conversation),
     temperature,
     top_p: topP,
+    tools: extra.tools ?? null,
+    tool_choice: extra.tool_choice ?? null,
+    response_format: extra.response_format ?? null,
+    client_format: extra.clientResponseFormat ?? null,
+    stream: extra.stream === true,
+    seed: extra.seed ?? null,
+    stop: extra.stop ?? null,
+    max_tokens: extra.max_tokens ?? null,
   });
   const digest = crypto.createHash("sha256").update(payload).digest("hex");
   // Per-key cache isolation (#3740) namespaces the signature with the apiKeyId as a

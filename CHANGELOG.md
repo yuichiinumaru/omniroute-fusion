@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Security
+- **Search SSRF + semantic cache signature + path segments (Task 0048 / Epic 0008 S9)** — close client-influenced search SSRF, cache poisoning/mismatch, and path injection.
+  - **F-01-W2-001**: commercial search ignores client `provider_options.baseUrl`; self-hosted (`searxng-search`, `ollama-search`) allow LAN override with cloud-metadata block; all search HTTP via `safeOutboundFetch` (public-only / block-metadata)
+  - **F-01-W2-002**: semantic cache signature includes tools / tool_choice / response_format / client format / stream / seed / stop / max_tokens; stream hits/stores only for OpenAI client format
+  - **F-01-006**: shared `isValidPathSegment` / `assertSafePathSegment` (`src/shared/network/safePathSegment.ts`) — reject `/`, `\`, `?`, `#`, `%`, `..`; wired into audio speech + transcription (0045 may reuse)
+  - **F-01-W2-004**: search cache key includes `provider_options` + `content`
+  - Tests: `tests/unit/search-ssrf-semantic-cache-path-0048.test.ts`
+  **Author**: builder (Task 0048)
+
 - **Secrets at rest — JWT/API secrets encrypt + rotate, API key hash, PSD cookies (Task 0041 / Epic 0008 S2)** — close F-05-001 / F-05-W2-003 / F-05-002 / F-05-003 class plaintext storage.
   - `secrets.ts`: encrypt at rest when `STORAGE_ENCRYPTION_KEY` present; **INSERT OR REPLACE** (rotatable, not forever INSERT OR IGNORE); lazy re-encrypt plaintext rows
   - `apiKeys.ts`: hash-only validation path hardened; no bulk plaintext reveal regression

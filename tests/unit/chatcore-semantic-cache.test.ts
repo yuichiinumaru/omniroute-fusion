@@ -14,9 +14,12 @@ const core = await import("../../src/lib/db/core.ts");
 // Seeding the real cache (no mock.module under the Stryker tap-runner) lets us drive the
 // HIT branch deterministically: setCachedResponse populates the in-memory cache that
 // getCachedResponse checks first, so the signature checkSemanticCache rebuilds resolves.
-const { generateSignature, setCachedResponse, clearCache } = await import(
-  "../../src/lib/semanticCache.ts"
-);
+const {
+  generateSignature,
+  setCachedResponse,
+  clearCache,
+  extractSemanticCacheSignatureExtras,
+} = await import("../../src/lib/semanticCache.ts");
 const { OMNIROUTE_RESPONSE_HEADERS } = await import("../../src/shared/constants/headers.ts");
 const { calculateCost } = await import("../../src/lib/usage/costCalculator.ts");
 const { formatOmniRouteCost } = await import("../../src/domain/omnirouteResponseMeta.ts");
@@ -177,12 +180,18 @@ function makeHitArgs(overrides: Record<string, unknown> = {}) {
 
 // Seed the cache under the EXACT signature checkSemanticCache rebuilds for `args`.
 function seedHit(args: ReturnType<typeof makeHitArgs>["args"], response: unknown) {
+  const body = args.body as Record<string, unknown>;
+  const extras = extractSemanticCacheSignatureExtras(body, {
+    clientResponseFormat: (args as { clientResponseFormat?: string | null }).clientResponseFormat,
+    stream: args.stream === true,
+  });
   const signature = generateSignature(
     args.model,
-    args.body.messages ?? (args.body as Record<string, unknown>).input,
-    args.body.temperature,
-    (args.body as Record<string, unknown>).top_p,
-    args.apiKeyId ?? undefined
+    body.messages ?? body.input,
+    body.temperature,
+    body.top_p,
+    args.apiKeyId ?? undefined,
+    extras
   );
   setCachedResponse(signature, args.model, response);
   return signature;

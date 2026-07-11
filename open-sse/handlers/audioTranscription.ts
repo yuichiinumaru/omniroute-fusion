@@ -22,6 +22,7 @@ import {
 import { buildAuthHeaders } from "../config/registryUtils.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { vertexTranscribe } from "../executors/vertexMedia.ts";
+import { isValidPathSegment } from "@/shared/network/safePathSegment";
 import { buildErrorBody, errorResponse, sanitizeErrorMessage } from "../utils/error.ts";
 
 type TranscriptionCredentials = {
@@ -58,13 +59,6 @@ function upstreamErrorResponse(res, errText) {
     status: res.status,
     headers: { ...CORS_HEADERS },
   });
-}
-
-/**
- * Validate a path segment to prevent path traversal / SSRF.
- */
-function isValidPathSegment(segment: string): boolean {
-  return !segment.includes("..") && !segment.includes("//");
 }
 
 function getUploadedFileName(file: Blob & { name?: unknown }): string {

@@ -1,6 +1,6 @@
 # Task 0048: Search SSRF, Semantic Cache Correctness, Path-Segment Injection
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Ready for review
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S9)
@@ -81,12 +81,12 @@ See **Source reports** above for full relative paths.
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] F-01-W2-001, F-01-W2-002, F-01-006 closed with tests
-- [ ] F-01-W2-004 closed or explicitly residual with partial note
-- [ ] `node --import tsx/esm --test` targeted suite passes (search + semantic-cache + path)
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` — no new errors
-- [ ] CHANGELOG.md entry
+- [x] F-01-W2-001, F-01-W2-002, F-01-006 closed with tests
+- [x] F-01-W2-004 closed or explicitly residual with partial note
+- [x] `node --import tsx/esm --test` targeted suite passes (search + semantic-cache + path)
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` — no new errors
+- [x] CHANGELOG.md entry
 
 ---
 
@@ -96,14 +96,14 @@ See **Source reports** above for full relative paths.
 
 Subtasks:
 
-- [ ] **Ler código existente** e o(s) report(s) em `docs/reports/01-open-sse-pipeline.md` (+ stretch `docs/reports/05-lib-data-auth.md`) listados em Source reports: `open-sse/handlers/search.ts`, `src/app/api/v1/search/route.ts`, `src/lib/semanticCache.ts`, `open-sse/handlers/chatCore/semanticCache.ts`, `open-sse/services/searchCache.ts`, `src/shared/network/safeOutboundFetch.ts`, `audioSpeech.ts` / `audioTranscription.ts` path checks, optional headroom probe fetch
-- [ ] Implement destination policy for search baseUrl (block private ranges / require https allowlist / ignore client baseUrl unless self-hosted operator flag)
-- [ ] Route search HTTP through `safeOutboundFetch` where secrets attach
-- [ ] Expand semantic cache signature fields + format-aware hit serving
-- [ ] Include provider_options in search cache key
-- [ ] Harden path segment validator; share with 0045 if exists
-- [ ] Optional headroom SSRF guard
-- [ ] Tests + CHANGELOG
+- [x] **Ler código existente** e o(s) report(s) em `docs/reports/01-open-sse-pipeline.md` (+ stretch `docs/reports/05-lib-data-auth.md`) listados em Source reports: `open-sse/handlers/search.ts`, `src/app/api/v1/search/route.ts`, `src/lib/semanticCache.ts`, `open-sse/handlers/chatCore/semanticCache.ts`, `open-sse/services/searchCache.ts`, `src/shared/network/safeOutboundFetch.ts`, `audioSpeech.ts` / `audioTranscription.ts` path checks, optional headroom probe fetch
+- [x] Implement destination policy for search baseUrl (block private ranges / require https allowlist / ignore client baseUrl unless self-hosted operator flag)
+- [x] Route search HTTP through `safeOutboundFetch` where secrets attach
+- [x] Expand semantic cache signature fields + format-aware hit serving
+- [x] Include provider_options in search cache key
+- [x] Harden path segment validator; share with 0045 if exists
+- [ ] Optional headroom SSRF guard (stretch — not done)
+- [x] Tests + CHANGELOG
 
 ### Where
 
@@ -148,23 +148,38 @@ SSRF from search baseUrl can steal cloud metadata or exfiltrate API keys. Cache 
 
 ## 🛡️ Compliance Checklist (Leis Primárias do AGENTS.md)
 
-- [ ] **Doc Accuracy**
-- [ ] **Zod Validation** for provider_options if schema tightened
-- [ ] **Security**: SSRF + path
-- [ ] **Tests**
-- [ ] **No raw secrets in fixtures**
+- [x] **Doc Accuracy**
+- [x] **Zod Validation** for provider_options if schema tightened (no schema change required — policy enforced in handler)
+- [x] **Security**: SSRF + path
+- [x] **Tests**
+- [x] **No raw secrets in fixtures**
 
 ---
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
 - **Arquivos criados/modificados**:
-- **Finding IDs closed**:
+  - `src/shared/network/safePathSegment.ts` — shared path-segment allowlist (0045 may import)
+  - `open-sse/handlers/audioSpeech.ts` / `audioTranscription.ts` — use shared validator
+  - `open-sse/handlers/search.ts` — baseUrl policy + `safeOutboundFetch` (public-only / block-metadata)
+  - `open-sse/services/searchCache.ts` + `src/app/api/v1/search/route.ts` — cache key includes provider_options + content
+  - `src/lib/semanticCache.ts` — signature extras (tools/format/stream/…)
+  - `open-sse/handlers/chatCore/semanticCache.ts` / `semanticCacheStore.ts` / `streamingSemanticCacheStore.ts` + `chatCore.ts` wire
+  - `tests/unit/search-ssrf-semantic-cache-path-0048.test.ts` — new (20 tests)
+  - `tests/unit/chatcore-semantic-cache.test.ts` — seedHit aligned with extras
+  - `CHANGELOG.md` — Unreleased Security entry
+  - task moved `01-open` → `03-review`
+- **Finding IDs closed**: F-01-W2-001, F-01-W2-002, F-01-006, F-01-W2-004
+- **Residual / stretch (not done)**: F-05-W2-005 headroom health probe SSRF
 - **Testes**:
+  - `node --import tsx/esm --test tests/unit/search-ssrf-semantic-cache-path-0048.test.ts` → 20/20 pass
+  - related: semantic-cache, chatcore-semantic-cache*, search-route, search-handler-extended, search-registry, search-cache-ttl-zero → green
 - **typecheck / lint**:
-- **CHANGELOG**:
-- **Agente executor**:
-- **Data de conclusão**:
+  - `npm run typecheck:core` → clean
+  - eslint on touched files → 0 errors (pre-existing `any` warnings only in search.ts)
+- **CHANGELOG**: Unreleased Security — Task 0048
+- **Agente executor**: builder (Task 0048)
+- **Data de conclusão**: 2026-07-11
 
 ---
 
