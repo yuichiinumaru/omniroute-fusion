@@ -57,13 +57,30 @@ export async function handleModeration({ body, credentials }) {
 
     if (!res.ok) {
       const errText = await res.text();
-      return new Response(errText, {
-        status: res.status,
-        headers: {
-          "Content-Type": "application/json",
-          ...CORS_HEADERS,
-        },
-      });
+      // Hard Rule #12: never return raw upstream bodies (may embed stacks/paths).
+      let errorMessage: string;
+      try {
+        const parsed = JSON.parse(errText) as {
+          error?: { message?: unknown } | string;
+          message?: unknown;
+        };
+        const raw =
+          (typeof parsed?.error === "object" && parsed.error && "message" in parsed.error
+            ? parsed.error.message
+            : null) ||
+          (typeof parsed?.error === "string" ? parsed.error : null) ||
+          (typeof parsed?.message === "string" ? parsed.message : null);
+        errorMessage = raw ? String(raw) : errText || `Moderation upstream error (${res.status})`;
+      } catch {
+        errorMessage = errText || `Moderation upstream error (${res.status})`;
+      }
+      const response = errorResponse(res.status, errorMessage);
+      // Preserve CORS on error responses (errorResponse only sets Content-Type).
+      const headers = new Headers(response.headers);
+      for (const [k, v] of Object.entries(CORS_HEADERS)) {
+        headers.set(k, v);
+      }
+      return new Response(response.body, { status: response.status, headers });
     }
 
     const data = await res.json();

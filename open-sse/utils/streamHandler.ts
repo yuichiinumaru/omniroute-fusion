@@ -1,6 +1,7 @@
 import { trackPendingRequest } from "@/lib/usageDb";
 import { STREAM_IDLE_TIMEOUT_MS } from "../config/constants.ts";
 import { FORMATS } from "../translator/formats.ts";
+import { sanitizeErrorMessage } from "./error.ts";
 import { PENDING_REQUEST_CLEARED_MARKER } from "./stream.ts";
 
 // Stream handler with disconnect detection - shared for all providers
@@ -161,9 +162,12 @@ export function isClientDisconnectError(error: unknown): boolean {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === "string" && error.trim().length > 0) return error;
-  return "Upstream stream error";
+  // Hard Rule #12 / F-01-W2-003: mid-stream SSE frames must not embed raw stacks/paths.
+  let raw: string;
+  if (error instanceof Error && error.message) raw = error.message;
+  else if (typeof error === "string" && error.trim().length > 0) raw = error;
+  else raw = "Upstream stream error";
+  return sanitizeErrorMessage(raw) || "Upstream stream error";
 }
 
 function getErrorStatusCode(error: unknown): number {

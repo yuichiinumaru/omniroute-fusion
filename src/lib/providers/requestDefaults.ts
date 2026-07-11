@@ -212,23 +212,44 @@ export function normalizeProviderSpecificData(
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+/**
+ * Credential keys that must never appear in management API responses.
+ * Includes AWS/console scrapers, web-session cookies/tokens (F-05-W2-001),
+ * and the preferred keys from `webSessionDedup.PREFERRED_CREDENTIAL_KEYS`.
+ */
+const PSD_RESPONSE_REDACT_KEYS = [
+  "consoleApiKey",
+  "secretAccessKey",
+  "awsSecretAccessKey",
+  "sessionToken",
+  "session-token",
+  "awsSessionToken",
+  "openCodeGoAuthCookie",
+  "opencodeGoAuthCookie",
+  "authCookie",
+  "ollamaUsageCookie",
+  "ollamaCloudUsageCookie",
+  "ollamaCloudCookie",
+  "usageCookie",
+  // Web-session credentials (F-05-W2-001)
+  "cookie",
+  "token",
+  "sso",
+  "sso-rw",
+  "access_token",
+  "accessToken",
+  "copilotToken",
+  "cf_clearance",
+] as const;
+
 export function sanitizeProviderSpecificDataForResponse(value: unknown): JsonRecord | undefined {
   const record = asRecord(value);
   if (Object.keys(record).length === 0) return undefined;
 
   const sanitized: JsonRecord = { ...record };
-  delete sanitized.consoleApiKey;
-  delete sanitized.secretAccessKey;
-  delete sanitized.awsSecretAccessKey;
-  delete sanitized.sessionToken;
-  delete sanitized.awsSessionToken;
-  delete sanitized.openCodeGoAuthCookie;
-  delete sanitized.opencodeGoAuthCookie;
-  delete sanitized.authCookie;
-  delete sanitized.ollamaUsageCookie;
-  delete sanitized.ollamaCloudUsageCookie;
-  delete sanitized.ollamaCloudCookie;
-  delete sanitized.usageCookie;
+  for (const key of PSD_RESPONSE_REDACT_KEYS) {
+    delete sanitized[key];
+  }
   return sanitized;
 }
 

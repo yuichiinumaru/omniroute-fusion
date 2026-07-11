@@ -389,11 +389,13 @@ function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
     _stmtDb = db;
     _stmtGetAllKeys = db.prepare<ApiKeyRow>("SELECT * FROM api_keys ORDER BY created_at");
     _stmtGetKeyById = db.prepare<ApiKeyRow>("SELECT * FROM api_keys WHERE id = ?");
+    // Hash-only primary lookup (F-05-002). Legacy plaintext dual-read uses a
+    // separate statement so hash-only placeholders can never authenticate.
     _stmtValidateKey = db.prepare<JsonRecord>(
-      "SELECT id, expires_at, revoked_at, is_active, is_banned FROM api_keys WHERE key = ? OR key_hash = ?"
+      "SELECT id, expires_at, revoked_at, is_active, is_banned FROM api_keys WHERE key_hash = ?"
     );
     _stmtGetKeyMetadata = db.prepare<ApiKeyRow>(
-      "SELECT id, name, machine_id, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, proxy_id FROM api_keys WHERE key = ? OR key_hash = ?"
+      "SELECT id, name, machine_id, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, proxy_id FROM api_keys WHERE key_hash = ?"
     );
     _stmtInsertKey = db.prepare(
       "INSERT INTO api_keys (id, name, key, machine_id, allowed_models, no_log, created_at, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -423,6 +425,7 @@ function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
 }
 
 export async function getApiKeys() {
+  await ensureApiKeysHashOnlyMigrated();
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
   const rows = stmt.getAllKeys.all();
@@ -450,11 +453,12 @@ export async function getApiKeys() {
     if (typeof camelRow.id === "string" && camelRow.id.length > 0) {
       setNoLog(camelRow.id, camelRow.noLog === true);
     }
-    return camelRow;
+    return stripStoredApiKeyMaterial(camelRow) as ApiKeyView;
   });
 }
 
 export async function getApiKeyById(id: string) {
+  await ensureApiKeysHashOnlyMigrated();
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
   const row = stmt.getKeyById.get(id);
@@ -482,7 +486,7 @@ export async function getApiKeyById(id: string) {
   if (typeof camelRow.id === "string" && camelRow.id.length > 0) {
     setNoLog(camelRow.id, camelRow.noLog === true);
   }
-  return camelRow;
+  return stripStoredApiKeyMaterial(camelRow) as ApiKeyView;
 }
 
 async function hashKey(key: string): Promise<string> {
@@ -495,21 +499,128 @@ async function hashKey(key: string): Promise<string> {
   return createHash("sha256").update(key).digest("hex"); // nosemgrep: insufficient-password-hash
 }
 
+/**
+ * Placeholder stored in `api_keys.key` so the historical NOT NULL UNIQUE column
+ * stays satisfied without retaining the real secret (F-05-002 hash-only).
+ * Real keys never use this prefix; validators never treat it as a presented key.
+ */
+const HASH_ONLY_KEY_PREFIX = "omni_hashonly_";
+
+function hashOnlyKeyPlaceholder(id: string): string {
+  return `${HASH_ONLY_KEY_PREFIX}${id}`;
+}
+
+function isHashOnlyKeyPlaceholder(value: unknown): boolean {
+  return typeof value === "string" && value.startsWith(HASH_ONLY_KEY_PREFIX);
+}
+
+/**
+ * Strip any stored key material from a row returned to callers.
+ * Plaintext is only ever returned from createApiKey / regenerateApiKey.
+ */
+function stripStoredApiKeyMaterial<T extends JsonRecord>(row: T): T {
+  if (!row) return row;
+  // Never expose DB key column (placeholder or legacy plaintext) via list/get paths.
+  (row as JsonRecord).key = null;
+  return row;
+}
+
+/**
+ * One-time/lazy migration: ensure every api_keys row has key_hash and replace
+ * residual plaintext `key` values with a unique non-secret placeholder.
+ * Returns the number of rows rewritten. Safe to call repeatedly.
+ */
+export async function migrateApiKeysToHashOnly(): Promise<number> {
+  const db = getDbInstance() as ApiKeysDbLike;
+  ensureApiKeysColumns(db);
+  const rows = db
+    .prepare<{ id: string; key: string | null; key_hash: string | null }>(
+      "SELECT id, key, key_hash FROM api_keys"
+    )
+    .all() as Array<{ id: string; key: string | null; key_hash: string | null }>;
+
+  let migrated = 0;
+  const updateStmt = db.prepare(
+    "UPDATE api_keys SET key = ?, key_hash = ?, key_prefix = COALESCE(NULLIF(key_prefix, ''), ?) WHERE id = ?"
+  );
+
+  for (const row of rows) {
+    const id = row.id;
+    if (!id) continue;
+    const currentKey = row.key;
+    const alreadyPlaceholder = isHashOnlyKeyPlaceholder(currentKey);
+    let keyHash = typeof row.key_hash === "string" && row.key_hash.length > 0 ? row.key_hash : null;
+    let keyPrefix: string | null = null;
+
+    if (
+      !keyHash &&
+      typeof currentKey === "string" &&
+      currentKey.length > 0 &&
+      !alreadyPlaceholder
+    ) {
+      keyHash = await hashKey(currentKey);
+      keyPrefix = currentKey.slice(0, 12);
+    }
+
+    if (!keyHash) {
+      // Unrecoverable row without hash or plaintext — leave alone.
+      continue;
+    }
+
+    // Already hash-only (placeholder + hash present).
+    if (alreadyPlaceholder && row.key_hash) {
+      continue;
+    }
+
+    // Still holding plaintext (or missing placeholder) — rewrite.
+    const placeholder = hashOnlyKeyPlaceholder(id);
+    if (!keyPrefix && typeof currentKey === "string" && !alreadyPlaceholder) {
+      keyPrefix = currentKey.slice(0, 12);
+    }
+    updateStmt.run(placeholder, keyHash, keyPrefix ?? "", id);
+    migrated += 1;
+  }
+
+  if (migrated > 0) {
+    clearApiKeyCaches();
+  }
+  return migrated;
+}
+
+let _apiKeysHashOnlyMigrated = false;
+
+async function ensureApiKeysHashOnlyMigrated(): Promise<void> {
+  if (_apiKeysHashOnlyMigrated) return;
+  try {
+    await migrateApiKeysToHashOnly();
+  } catch {
+    // Non-fatal: validation still dual-reads legacy plaintext until next attempt.
+  }
+  _apiKeysHashOnlyMigrated = true;
+}
+
 export async function createApiKey(name: string, machineId: string, scopes: string[] = []) {
   if (!machineId) {
     throw new Error("machineId is required");
   }
 
+  await ensureApiKeysHashOnlyMigrated();
   const db = getDbInstance() as ApiKeysDbLike;
   const now = new Date().toISOString();
 
   const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
   const result = generateApiKeyWithMachine(machineId);
+  const id = uuidv4();
+  const keyHash = await hashKey(result.key);
+  const keyPrefix = result.key.slice(0, 12);
+  // Persist only hash + display prefix — never the plaintext secret (F-05-002).
+  // `key` column holds a unique non-secret placeholder (historical NOT NULL UNIQUE).
+  const storedKeyPlaceholder = hashOnlyKeyPlaceholder(id);
 
   const apiKey = {
-    id: uuidv4(),
+    id,
     name: name,
-    key: result.key,
+    key: result.key, // returned once to caller; not what is stored
     machineId: machineId,
     allowedModels: [], // Empty array means all models allowed
     allowedCombos: [], // Empty array means no explicit combo restriction
@@ -518,19 +629,20 @@ export async function createApiKey(name: string, machineId: string, scopes: stri
     allowUsageCommand: false,
     createdAt: now,
     scopes,
+    keyPrefix,
   };
 
   const stmt = getPreparedStatements(db);
   stmt.insertKey.run(
     apiKey.id,
     apiKey.name,
-    apiKey.key,
+    storedKeyPlaceholder,
     apiKey.machineId,
     "[]",
     0,
     apiKey.createdAt,
-    apiKey.key.slice(0, 12),
-    await hashKey(apiKey.key),
+    keyPrefix,
+    keyHash,
     JSON.stringify(scopes)
   );
   setNoLog(apiKey.id, false);
@@ -540,6 +652,7 @@ export async function createApiKey(name: string, machineId: string, scopes: stri
 }
 
 export async function regenerateApiKey(id: string) {
+  await ensureApiKeysHashOnlyMigrated();
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
   const row = stmt.getKeyById.get(id) as ApiKeyRow | undefined;
@@ -550,12 +663,13 @@ export async function regenerateApiKey(id: string) {
   const { key: newKey } = generateApiKeyWithMachine(machineId);
   const newHash = await hashKey(newKey);
   const newPrefix = newKey.slice(0, 12);
+  const storedKeyPlaceholder = hashOnlyKeyPlaceholder(id);
 
-  // Update in DB
+  // Update in DB — hash-only (no plaintext secret column)
   const updateStmt = db.prepare(
     "UPDATE api_keys SET key = ?, key_hash = ?, key_prefix = ? WHERE id = ?"
   );
-  updateStmt.run(newKey, newHash, newPrefix, id);
+  updateStmt.run(storedKeyPlaceholder, newHash, newPrefix, id);
 
   // Invalidate all caches
   clearApiKeyCaches();
@@ -569,6 +683,7 @@ export async function regenerateApiKey(id: string) {
     details: { name: String(row.name || "") },
   });
 
+  // Return plaintext once (only time caller can see it)
   return { id, key: newKey };
 }
 
@@ -1030,7 +1145,12 @@ export async function setApiKeyExpiry(id: string, expiresAt: string | null): Pro
 export async function validateApiKey(key: string | null | undefined) {
   if (!key || typeof key !== "string") return false;
 
+  // Never accept the internal hash-only placeholder as a presented credential.
+  if (isHashOnlyKeyPlaceholder(key)) return false;
+
   if (isConfiguredEnvApiKey(key)) return true;
+
+  await ensureApiKeysHashOnlyMigrated();
 
   const now = Date.now();
   const hashedKey = await hashKey(key);
@@ -1072,7 +1192,36 @@ export async function validateApiKey(key: string | null | undefined) {
 
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.validateKey.get(key, hashedKey) as JsonRecord | undefined;
+  // Hash-only lookup (F-05-002). Legacy plaintext dual-read only when the stored
+  // key is still a real secret (not a hash-only placeholder).
+  let row = stmt.validateKey.get(hashedKey) as JsonRecord | undefined;
+  if (!row) {
+    const legacy = db
+      .prepare<JsonRecord>(
+        "SELECT id, expires_at, revoked_at, is_active, is_banned, key, key_hash FROM api_keys WHERE key = ?"
+      )
+      .get(key) as JsonRecord | undefined;
+    if (
+      legacy &&
+      !isHashOnlyKeyPlaceholder(legacy.key) &&
+      typeof legacy.key === "string" &&
+      legacy.key === key
+    ) {
+      // Opportunistic migrate this row to hash-only.
+      try {
+        const id = String(legacy.id || "");
+        if (id) {
+          const prefix = key.slice(0, 12);
+          db.prepare(
+            "UPDATE api_keys SET key = ?, key_hash = ?, key_prefix = COALESCE(NULLIF(key_prefix, ''), ?) WHERE id = ?"
+          ).run(hashOnlyKeyPlaceholder(id), hashedKey, prefix, id);
+        }
+      } catch {
+        // Non-fatal — validation can still succeed on the legacy row.
+      }
+      row = legacy;
+    }
+  }
 
   if (!row) return false;
 
@@ -1131,6 +1280,9 @@ export async function getApiKeyMetadata(
   key: string | null | undefined
 ): Promise<ApiKeyMetadata | null> {
   if (!key || typeof key !== "string") return null;
+
+  // Never treat the internal hash-only placeholder as a presented credential.
+  if (isHashOnlyKeyPlaceholder(key)) return null;
 
   const now = Date.now();
 
@@ -1200,9 +1352,31 @@ export async function getApiKeyMetadata(
     return cached.value;
   }
 
+  await ensureApiKeysHashOnlyMigrated();
   const db = getDbInstance() as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.getKeyMetadata.get(key, hashedKey);
+  // Hash-only primary; legacy dual-read for unmigrated plaintext rows only.
+  let row = stmt.getKeyMetadata.get(hashedKey) as ApiKeyRow | undefined;
+  if (!row) {
+    const legacy = db
+      .prepare<ApiKeyRow>(
+        "SELECT id, name, machine_id, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, proxy_id, key FROM api_keys WHERE key = ?"
+      )
+      .get(key) as (ApiKeyRow & { key?: string }) | undefined;
+    if (legacy && !isHashOnlyKeyPlaceholder(legacy.key) && legacy.key === key) {
+      try {
+        const id = String(legacy.id || "");
+        if (id) {
+          db.prepare(
+            "UPDATE api_keys SET key = ?, key_hash = ?, key_prefix = COALESCE(NULLIF(key_prefix, ''), ?) WHERE id = ?"
+          ).run(hashOnlyKeyPlaceholder(id), hashedKey, key.slice(0, 12), id);
+        }
+      } catch {
+        /* non-fatal */
+      }
+      row = legacy;
+    }
+  }
 
   if (!row) return null;
 
@@ -1407,6 +1581,7 @@ export function clearApiKeyCaches() {
 export function resetApiKeyState() {
   clearPreparedStatementCache();
   clearApiKeyCaches();
+  _apiKeysHashOnlyMigrated = false;
 }
 
 registerDbStateResetter(resetApiKeyState);

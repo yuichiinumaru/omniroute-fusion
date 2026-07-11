@@ -48,8 +48,39 @@ export interface ConnectionFields {
   accessToken?: string | null;
   refreshToken?: string | null;
   idToken?: string | null;
+  /** May be a parsed object or JSON string depending on call site. */
+  providerSpecificData?: unknown;
   [key: string]: unknown;
 }
+
+/**
+ * Credential keys inside `provider_specific_data` that must be encrypted at rest
+ * (web-session cookies/tokens, cloud console secrets, usage scrapers, etc.).
+ * Aligned with `webSessionDedup.PREFERRED_CREDENTIAL_KEYS` + PSD response sanitizer.
+ */
+export const PSD_SECRET_KEYS = [
+  "cookie",
+  "token",
+  "sessionToken",
+  "session-token",
+  "sso",
+  "sso-rw",
+  "access_token",
+  "accessToken",
+  "copilotToken",
+  "cf_clearance",
+  "consoleApiKey",
+  "secretAccessKey",
+  "awsSecretAccessKey",
+  "awsSessionToken",
+  "authCookie",
+  "openCodeGoAuthCookie",
+  "opencodeGoAuthCookie",
+  "ollamaUsageCookie",
+  "ollamaCloudUsageCookie",
+  "ollamaCloudCookie",
+  "usageCookie",
+] as const;
 
 /**
  * Derive the PRIMARY encryption key using the static salt.
@@ -216,6 +247,44 @@ export function decrypt(ciphertext: string | null | undefined): string | null | 
 }
 
 /**
+ * Encrypt known credential keys inside a provider_specific_data object.
+ * Non-secret metadata (workspaceId, tags, etc.) stays plaintext so
+ * `json_extract(provider_specific_data, '$.workspaceId')` keep working.
+ * Dual-write safe: already-encrypted values are left alone by `encrypt()`.
+ */
+export function encryptProviderSpecificData<T>(psd: T): T {
+  if (!isEncryptionEnabled()) return psd;
+  if (!psd || typeof psd !== "object" || Array.isArray(psd)) return psd;
+
+  const out: Record<string, unknown> = { ...(psd as Record<string, unknown>) };
+  for (const key of PSD_SECRET_KEYS) {
+    const value = out[key];
+    if (typeof value === "string" && value.length > 0) {
+      out[key] = encrypt(value);
+    }
+  }
+  return out as T;
+}
+
+/**
+ * Decrypt known credential keys inside provider_specific_data.
+ * Plaintext legacy values pass through (`decrypt` is dual-read).
+ */
+export function decryptProviderSpecificData<T>(psd: T): T {
+  if (!psd || typeof psd !== "object" || Array.isArray(psd)) return psd;
+  if (!isEncryptionEnabled()) return psd;
+
+  const out: Record<string, unknown> = { ...(psd as Record<string, unknown>) };
+  for (const key of PSD_SECRET_KEYS) {
+    const value = out[key];
+    if (typeof value === "string" && value.length > 0) {
+      out[key] = decrypt(value);
+    }
+  }
+  return out as T;
+}
+
+/**
  * Encrypt sensitive fields in a connection object (mutates in-place).
  * After decryption that required legacy key, re-encrypt with static key
  * to migrate tokens automatically.
@@ -228,6 +297,9 @@ export function encryptConnectionFields<T extends ConnectionFields | null | unde
   if (conn.accessToken) conn.accessToken = encrypt(conn.accessToken);
   if (conn.refreshToken) conn.refreshToken = encrypt(conn.refreshToken);
   if (conn.idToken) conn.idToken = encrypt(conn.idToken);
+  if (conn.providerSpecificData && typeof conn.providerSpecificData === "object") {
+    conn.providerSpecificData = encryptProviderSpecificData(conn.providerSpecificData);
+  }
   return conn;
 }
 
@@ -241,13 +313,22 @@ export function decryptConnectionFields<T extends ConnectionFields | null | unde
   if (!row) return row;
   if (!isEncryptionEnabled()) return row;
 
-  return {
+  const decrypted: ConnectionFields = {
     ...row,
     apiKey: decrypt(row.apiKey),
     accessToken: decrypt(row.accessToken),
     refreshToken: decrypt(row.refreshToken),
     idToken: decrypt(row.idToken),
   };
+
+  // Only touch PSD when present so callers without the field keep their shape.
+  if (Object.prototype.hasOwnProperty.call(row, "providerSpecificData")) {
+    const psd = row.providerSpecificData;
+    decrypted.providerSpecificData =
+      psd && typeof psd === "object" ? decryptProviderSpecificData(psd) : psd;
+  }
+
+  return decrypted as T;
 }
 
 /**

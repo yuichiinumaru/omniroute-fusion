@@ -129,3 +129,28 @@ test("sanitizeProviderSpecificDataForResponse removes quota scraping cookies", (
     tag: "primary",
   });
 });
+
+test("sanitizeProviderSpecificDataForResponse strips web-session credential keys (F-05-W2-001)", () => {
+  const sanitized = sanitizeProviderSpecificDataForResponse({
+    cookie: "session=abc; sso=xyz",
+    token: "web-token",
+    sessionToken: "sess-tok",
+    "session-token": "sess-tok-alt",
+    sso: "sso-value",
+    "sso-rw": "sso-rw-value",
+    access_token: "at-value",
+    accessToken: "atCamel",
+    copilotToken: "gh-copilot",
+    cf_clearance: "cf-clearance-cookie",
+    workspaceId: "ws-keep",
+    tag: "primary",
+  });
+
+  assert.deepEqual(sanitized, {
+    workspaceId: "ws-keep",
+    tag: "primary",
+  });
+  assert.equal("cookie" in (sanitized ?? {}), false);
+  assert.equal("sso" in (sanitized ?? {}), false);
+  assert.equal("token" in (sanitized ?? {}), false);
+});

@@ -475,6 +475,96 @@ test("regenerateApiKey non-existent id returns null", async () => {
   assert.equal(await apiKeys.regenerateApiKey("no-such-id"), null);
 });
 
+// ──────────────── Hash-only storage (F-05-002 / Task 0041) ────────────────
+
+test("createApiKey does not store plaintext key in DB", async () => {
+  await resetStorage();
+  const created = await apiKeys.createApiKey("Hash Only", "ma-hash-001");
+  assert.ok(created.key);
+
+  const db = core.getDbInstance();
+  const row = db
+    .prepare("SELECT key, key_hash, key_prefix FROM api_keys WHERE id = ?")
+    .get(created.id) as { key: string; key_hash: string; key_prefix: string };
+
+  assert.ok(row);
+  assert.notEqual(row.key, created.key);
+  assert.ok(row.key.startsWith("omni_hashonly_"));
+  assert.ok(row.key_hash);
+  assert.equal(row.key_hash.length, 64);
+  assert.equal(row.key.includes(created.key), false);
+  assert.equal(await apiKeys.validateApiKey(created.key), true);
+
+  // List/get paths never return plaintext
+  const listed = await apiKeys.getApiKeyById(created.id);
+  assert.ok(listed);
+  assert.equal(listed!.key, null);
+});
+
+test("regenerateApiKey does not leave plaintext in key column", async () => {
+  await resetStorage();
+  const created = await apiKeys.createApiKey("Regen Hash", "ma-hash-002");
+  const result = await apiKeys.regenerateApiKey(created.id);
+  assert.ok(result?.key);
+
+  const db = core.getDbInstance();
+  const row = db
+    .prepare("SELECT key, key_hash FROM api_keys WHERE id = ?")
+    .get(created.id) as { key: string; key_hash: string };
+
+  assert.notEqual(row.key, result!.key);
+  assert.ok(row.key.startsWith("omni_hashonly_"));
+  assert.equal(await apiKeys.validateApiKey(created.key), false);
+  assert.equal(await apiKeys.validateApiKey(result!.key), true);
+});
+
+test("migrateApiKeysToHashOnly rewrites legacy plaintext rows", async () => {
+  await resetStorage();
+  // Ensure extension columns (key_hash, key_prefix, …) exist before raw INSERT.
+  await apiKeys.getApiKeys();
+  const db = core.getDbInstance();
+  // Seed a legacy plaintext row (pre-hash-only) — real key in `key` column.
+  const legacyKey = "omni_legacy_plaintext_key_abc123xyz";
+  const { createHash } = await import("node:crypto");
+  const hash = createHash("sha256").update(legacyKey).digest("hex");
+  db.prepare(
+    "INSERT INTO api_keys (id, name, key, machine_id, allowed_models, no_log, created_at, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(
+    "legacy-key-id-001",
+    "Legacy",
+    legacyKey,
+    "ma-legacy",
+    "[]",
+    0,
+    new Date().toISOString(),
+    legacyKey.slice(0, 12),
+    hash,
+    "[]"
+  );
+
+  apiKeys.resetApiKeyState();
+  const n = await apiKeys.migrateApiKeysToHashOnly();
+  assert.ok(n >= 1);
+
+  const row = db
+    .prepare("SELECT key, key_hash FROM api_keys WHERE id = ?")
+    .get("legacy-key-id-001") as { key: string; key_hash: string };
+  assert.notEqual(row.key, legacyKey);
+  assert.ok(row.key.startsWith("omni_hashonly_"));
+  assert.equal(row.key_hash, hash);
+  assert.equal(await apiKeys.validateApiKey(legacyKey), true);
+});
+
+test("hash-only placeholder cannot authenticate", async () => {
+  await resetStorage();
+  const created = await apiKeys.createApiKey("No Placeholder Auth", "ma-hash-003");
+  const db = core.getDbInstance();
+  const row = db.prepare("SELECT key FROM api_keys WHERE id = ?").get(created.id) as {
+    key: string;
+  };
+  assert.equal(await apiKeys.validateApiKey(row.key), false);
+});
+
 // ──────────────── clearApiKeyCaches / resetApiKeyState ────────────────
 
 test("clearApiKeyCaches and resetApiKeyState do not throw", async () => {

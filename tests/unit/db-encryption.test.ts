@@ -93,6 +93,40 @@ test("connection field helpers encrypt and decrypt all supported credential fiel
   assert.deepEqual(decrypted, connection);
 });
 
+test("PSD credential keys encrypt on write and decrypt on read (F-05-003)", async () => {
+  process.env.STORAGE_ENCRYPTION_KEY = "task-0041-psd-secret";
+  const encryption = await importFresh("src/lib/db/encryption.ts");
+
+  const psd = {
+    cookie: "session=abc; path=/",
+    token: "web-session-token",
+    sso: "sso-secret",
+    workspaceId: "ws-123",
+    tag: "primary",
+  };
+
+  const encrypted = encryption.encryptProviderSpecificData({ ...psd });
+  assert.match(encrypted.cookie, /^enc:v1:/);
+  assert.match(encrypted.token, /^enc:v1:/);
+  assert.match(encrypted.sso, /^enc:v1:/);
+  // Non-secret metadata stays plaintext (json_extract-safe)
+  assert.equal(encrypted.workspaceId, "ws-123");
+  assert.equal(encrypted.tag, "primary");
+
+  const decrypted = encryption.decryptProviderSpecificData(encrypted);
+  assert.deepEqual(decrypted, psd);
+
+  // Via connection field helpers
+  const conn = {
+    apiKey: "sk-x",
+    providerSpecificData: { ...psd },
+  };
+  const encConn = encryption.encryptConnectionFields({ ...conn, providerSpecificData: { ...psd } });
+  assert.match(encConn.providerSpecificData.cookie, /^enc:v1:/);
+  const decConn = encryption.decryptConnectionFields(encConn);
+  assert.equal(decConn.providerSpecificData.cookie, psd.cookie);
+});
+
 test("decrypt returns null when the value is malformed or the key is wrong", async () => {
   process.env.STORAGE_ENCRYPTION_KEY = "task-304-secret-c";
   const firstModule = await importFresh("src/lib/db/encryption.ts");
@@ -115,7 +149,8 @@ test("legacy encryption migration parses ciphertext in canonical payload order",
     "legacy-provider-token"
   );
 
-  assert.equal(encryption.decrypt(legacyCiphertext), null);
+  // decrypt() dual-reads legacy dynamic-salt ciphertext for compatibility
+  assert.equal(encryption.decrypt(legacyCiphertext), "legacy-provider-token");
 
   const migrated = encryption.migrateLegacyEncryptedString(legacyCiphertext);
 

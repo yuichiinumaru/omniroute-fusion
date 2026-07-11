@@ -22,7 +22,7 @@ import {
 import { buildAuthHeaders } from "../config/registryUtils.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { vertexTranscribe } from "../executors/vertexMedia.ts";
-import { errorResponse } from "../utils/error.ts";
+import { buildErrorBody, errorResponse, sanitizeErrorMessage } from "../utils/error.ts";
 
 type TranscriptionCredentials = {
   apiKey?: string;
@@ -33,7 +33,8 @@ type TranscriptionCredentials = {
  * Return a CORS error response from an upstream fetch failure
  */
 function upstreamErrorResponse(res, errText) {
-  // Always return JSON so the client can parse the error reliably
+  // Always return JSON so the client can parse the error reliably.
+  // Hard Rule #12: sanitize before embedding in client bodies (F-01-002).
   let errorMessage: string;
   try {
     const parsed = JSON.parse(errText);
@@ -50,13 +51,13 @@ function upstreamErrorResponse(res, errText) {
     errorMessage = errText || `Upstream error (${res.status})`;
   }
 
-  return Response.json(
-    { error: { message: errorMessage, code: res.status } },
-    {
-      status: res.status,
-      headers: { ...CORS_HEADERS },
-    }
-  );
+  const body = buildErrorBody(res.status, sanitizeErrorMessage(errorMessage));
+  // Preserve the historic `code: <status>` field used by audio clients.
+  body.error.code = String(res.status);
+  return Response.json(body, {
+    status: res.status,
+    headers: { ...CORS_HEADERS },
+  });
 }
 
 /**
@@ -346,18 +347,15 @@ async function handleKieAudioTranscription(providerConfig, file, modelId, token)
       typeof err === "object" && err !== null && "status" in err
         ? Number((err as { status?: unknown }).status) || 502
         : 502;
-    return Response.json(
-      {
-        error: {
-          message: err instanceof Error ? err.message : "Kie transcription createTask failed",
-          code: status,
-        },
-      },
-      {
-        status,
-        headers: { ...CORS_HEADERS },
-      }
-    );
+    const rawMessage =
+      err instanceof Error ? err.message : "Kie transcription createTask failed";
+    // Hard Rule #12: never embed raw Error.message in client JSON (F-01-002).
+    const body = buildErrorBody(status, sanitizeErrorMessage(rawMessage));
+    body.error.code = String(status);
+    return Response.json(body, {
+      status,
+      headers: { ...CORS_HEADERS },
+    });
   }
   const taskId = data?.data?.taskId || data?.taskId;
 

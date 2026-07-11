@@ -1822,31 +1822,12 @@ export async function handleChatCore({
 
     log?.warn?.("TRANSLATE", `Request translation failed: ${message}`);
 
-    if (errorType) {
-      trackPendingRequest(model, provider, connectionId, false);
-      return {
-        success: false,
-        status: statusCode,
-        error: message,
-        response: new Response(
-          JSON.stringify({
-            error: {
-              message,
-              type: errorType,
-              code: errorType,
-            },
-          }),
-          {
-            status: statusCode,
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        ),
-      };
-    }
-
+    // Always route through createErrorResult so Hard Rule #12 sanitization applies
+    // (F-01-003: the errorType branch previously embedded raw error.message).
     trackPendingRequest(model, provider, connectionId, false);
+    if (errorType) {
+      return createErrorResult(statusCode, message, null, errorType, errorType);
+    }
     return createErrorResult(statusCode, message);
   }
 
@@ -2058,19 +2039,24 @@ export async function handleChatCore({
       });
 
       if (decision.kind === "block") {
-        const { buildErrorBody } = await import("../utils/error.ts");
         log?.warn?.(
           "QUOTA_SHARE",
           `[quotaShare] blocked apiKeyId=${apiKeyInfo.id} provider=${provider ?? "unknown"}: ${decision.reason}`
         );
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        // Clear the pending marker registered earlier in handleChatCore so a blocked
+        // request does not leak an in-flight counter (same pattern as token-limit).
+        trackPendingRequest(model, provider, pendingConnId, false);
+        // Must return the standard { success, status, error, response } envelope —
+        // bare Response collapses to undefined at the SSE chat wrapper (F-01-001).
+        const retryAfterMs =
+          typeof decision.retryAfterSeconds === "number" && decision.retryAfterSeconds > 0
+            ? decision.retryAfterSeconds * 1000
+            : null;
+        const result = createErrorResult(HTTP_STATUS.RATE_LIMITED, decision.reason, retryAfterMs);
         if (decision.retryAfterSeconds) {
-          headers["Retry-After"] = String(decision.retryAfterSeconds);
+          result.response.headers.set("Retry-After", String(decision.retryAfterSeconds));
         }
-        return new Response(JSON.stringify(buildErrorBody(429, decision.reason)), {
-          status: 429,
-          headers,
-        });
+        return result;
       }
 
       if (decision.kind === "allow" && decision.deprioritize) {

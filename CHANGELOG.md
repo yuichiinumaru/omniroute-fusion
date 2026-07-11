@@ -3,6 +3,23 @@
 ## [Unreleased]
 
 ### Security
+- **Secrets at rest — JWT/API secrets encrypt + rotate, API key hash, PSD cookies (Task 0041 / Epic 0008 S2)** — close F-05-001 / F-05-W2-003 / F-05-002 / F-05-003 class plaintext storage.
+  - `secrets.ts`: encrypt at rest when `STORAGE_ENCRYPTION_KEY` present; **INSERT OR REPLACE** (rotatable, not forever INSERT OR IGNORE); lazy re-encrypt plaintext rows
+  - `apiKeys.ts`: hash-only validation path hardened; no bulk plaintext reveal regression
+  - `encryption.ts` + `providers.ts`: encrypt/decrypt PSD web-session cookie fields; cookie dedup decrypts before compare
+  - Tests: `db-secrets`, `db-encryption`, `db-apiKeys-crud`
+  **Author**: builder (Task 0041; resumed after quota interrupt)
+
+- **Chat pipeline envelope + Hard Rule #12 sanitize (Task 0042 / Epic 0008 S3)** — restore contract-correct, sanitized failures on open-sse chat/media/stream paths.
+  - **F-01-001 (P0)**: quota-share `block` returns `{ success, status, error, response }` via `createErrorResult` (never bare `Response`); clears pending marker; preserves `Retry-After`
+  - **F-01-002**: moderations + audio speech/transcription upstream errors route through `buildErrorBody` / `sanitizeErrorMessage`
+  - **F-01-003**: translator `errorType` branch unified on `createErrorResult` (no raw `error.message` JSON)
+  - **F-01-004**: streaming response header denylist expanded (hop-by-hop + `set-cookie` / auth / cookie)
+  - **F-01-005**: `createSSEStream` `cancel` invokes `onFailure` (499 / `client_disconnected`) or clears pending counter
+  - **F-01-W2-003**: mid-stream `streamHandler.getErrorMessage` sanitizes before SSE error chunks
+  - Tests: `tests/unit/chat-pipeline-envelope-sanitize-0042.test.ts` (+ stream-handler multi-line expectations)
+  **Author**: builder (Task 0042)
+
 - **RouteGuard LOCAL_ONLY / ALWAYS_PROTECTED / SPAWN_CAPABLE expansion (Task 0040 / Epic 0008 S1)** — close tunnel RCE and auth-disabled spawn holes.
   - **F-07-001**: `/api/openapi/try` no longer allows bare `"/api/"`; deny LOCAL_ONLY / SPAWN_CAPABLE / ALWAYS_PROTECTED destinations before fetch; cookies never attached to denied paths
   - **F-07-W2-001**: `/api/middleware/hooks` is LOCAL_ONLY + ALWAYS_PROTECTED + SPAWN_CAPABLE (remote `new Function` install gated; full sandbox deferred)

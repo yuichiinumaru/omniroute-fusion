@@ -21,7 +21,7 @@ import { getSpeechProvider, parseSpeechModel } from "../config/audioRegistry.ts"
 import { buildAuthHeaders } from "../config/registryUtils.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { vertexGenerateSpeech } from "../executors/vertexMedia.ts";
-import { errorResponse } from "../utils/error.ts";
+import { buildErrorBody, errorResponse, sanitizeErrorMessage } from "../utils/error.ts";
 import {
   getKieCallbackUrl,
   getKieErrorMessage,
@@ -49,7 +49,8 @@ function extractUpstreamErrorMessage(parsed) {
 }
 
 function upstreamErrorResponse(res, errText) {
-  // Always return JSON so the client can detect 401/credential errors reliably
+  // Always return JSON so the client can detect 401/credential errors reliably.
+  // Hard Rule #12: sanitize before embedding in client bodies (F-01-002).
   let errorMessage: string;
   try {
     const parsed = JSON.parse(errText);
@@ -59,13 +60,13 @@ function upstreamErrorResponse(res, errText) {
     errorMessage = errText || `Upstream error (${res.status})`;
   }
 
-  return Response.json(
-    { error: { message: errorMessage, code: res.status } },
-    {
-      status: res.status,
-      headers: { ...CORS_HEADERS },
-    }
-  );
+  const body = buildErrorBody(res.status, sanitizeErrorMessage(errorMessage));
+  // Preserve the historic `code: <status>` field used by audio clients.
+  body.error.code = String(res.status);
+  return Response.json(body, {
+    status: res.status,
+    headers: { ...CORS_HEADERS },
+  });
 }
 
 /**

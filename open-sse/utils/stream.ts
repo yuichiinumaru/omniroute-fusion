@@ -2619,7 +2619,33 @@ export function createSSEStream(options: StreamOptions = {}) {
         }
       },
       cancel(reason) {
+        // F-01-005: client cancel must finalize pending-request accounting the same
+        // way flush/failure paths do. Previously only the idle timer was cleared,
+        // leaving in-flight counters and usage finalizers stuck until process exit.
         clearIdleTimer();
+        let failureHandled = false;
+        if (onFailure) {
+          try {
+            const message =
+              typeof reason === "string" && reason.trim().length > 0
+                ? reason
+                : reason instanceof Error && reason.message
+                  ? reason.message
+                  : "client disconnect";
+            failureHandled =
+              onFailure({
+                status: 499,
+                message,
+                code: "client_disconnected",
+                type: "client_disconnected",
+              }) === true;
+          } catch {
+            // Best-effort finalizer — never throw from cancel.
+          }
+        }
+        if (!failureHandled) {
+          clearPendingRequestFromStream();
+        }
       },
     },
     { highWaterMark: 16384 },

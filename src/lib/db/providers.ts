@@ -9,6 +9,7 @@ import { backupDbFile } from "./backup";
 import {
   encryptConnectionFields,
   decryptConnectionFields,
+  decryptProviderSpecificData,
   migrateLegacyEncryptedString,
 } from "./encryption";
 import { invalidateDbCache } from "./readCache";
@@ -205,8 +206,8 @@ export async function getProviderConnectionById(id: string) {
 // different or blank name must update the existing connection instead of
 // inserting a duplicate, mirroring the apikey dedup (#3023). Extracted from
 // createProviderConnection to keep that function below the complexity baseline.
-// provider_specific_data is plaintext JSON, so the value is compared directly
-// without decryption.
+// PSD cookie/token fields may be encrypted at rest (F-05-003) — decrypt before
+// comparing credential values.
 function findExistingCookieConnection(
   db: DbLike,
   provider: unknown,
@@ -230,7 +231,8 @@ function findExistingCookieConnection(
     .prepare("SELECT * FROM provider_connections WHERE provider = ? AND auth_type = 'cookie'")
     .all(provider) as JsonRecord[];
   for (const row of cookieRows) {
-    const psd = parseProviderSpecificData(row.provider_specific_data);
+    const rawPsd = parseProviderSpecificData(row.provider_specific_data);
+    const psd = rawPsd ? decryptProviderSpecificData(rawPsd) : null;
     if (psd && webSessionCredentialKey(psd) === newCredKey) return row;
   }
   return null;
