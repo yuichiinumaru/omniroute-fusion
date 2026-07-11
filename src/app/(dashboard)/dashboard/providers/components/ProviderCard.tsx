@@ -14,6 +14,10 @@ import {
   isClaudeCodeCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
+import {
+  connectionStatusToneToBadgeVariant,
+  resolveProviderCardAuthStatusCopy,
+} from "@/shared/utils/connectionStatusPresentation";
 
 import { CategoryDot } from "./CategoryDot";
 
@@ -22,11 +26,17 @@ interface ProviderStats {
   connected?: number;
   error?: number;
   warning?: number;
+  /** Human display tag for error-count badge ("Auth", "429", …). */
   errorCode?: string | null;
   errorTime?: string | null;
   allDisabled?: boolean;
   expiryStatus?: "expired" | "expiring_soon" | string | null;
   codexServiceTier?: "default" | "priority" | "flex" | null;
+  /** Structured code from latest failing connection (for auth-status helper). */
+  rawErrorCode?: string | number | null;
+  lastErrorType?: string | null;
+  lastError?: string | null;
+  latestTestStatus?: string | null;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -171,6 +181,16 @@ export default function ProviderCard({
   const connected = Number(stats.connected || 0);
   const error = Number(stats.error || 0);
   const allDisabled = Boolean(stats.allDisabled);
+  // Auth-mode-aware expired/error chip (Epic 0007 / 0038) — never OAuth re-auth
+  // as primary for apikey + no_refresh_token false positives.
+  const authStatusCopy = resolveProviderCardAuthStatusCopy({
+    authType,
+    expiryStatus: stats.expiryStatus,
+    rawErrorCode: stats.rawErrorCode,
+    lastErrorType: stats.lastErrorType,
+    lastError: stats.lastError,
+    latestTestStatus: stats.latestTestStatus,
+  });
   const isCompatible = isOpenAICompatibleProvider(providerId);
   const isCcCompatible = isClaudeCodeCompatibleProvider(providerId);
   const isAnthropicCompatible = isAnthropicCompatibleProvider(providerId) && !isCcCompatible;
@@ -341,7 +361,20 @@ export default function ProviderCard({
                       t,
                       codexServiceTierChip
                     )}
-                    {stats.expiryStatus === "expired" && (
+                    {authStatusCopy && (
+                      <span
+                        title={`${authStatusCopy.title}: ${authStatusCopy.detail} (${authStatusCopy.cta})`}
+                      >
+                        <Badge
+                          variant={connectionStatusToneToBadgeVariant(authStatusCopy.tone)}
+                          size="sm"
+                          dot
+                        >
+                          {authStatusCopy.badge}
+                        </Badge>
+                      </span>
+                    )}
+                    {!authStatusCopy && stats.expiryStatus === "expired" && (
                       <Badge variant="error" size="sm" dot>
                         {t("expiredBadge")}
                       </Badge>

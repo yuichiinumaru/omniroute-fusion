@@ -10,6 +10,7 @@ import { Badge, Button, Toggle } from "@/shared/components";
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { isClaudeExtraUsageBlockEnabled } from "@/lib/providers/claudeExtraUsage";
+import { resolveConnectionErrorDisplay } from "@/shared/utils/connectionStatusPresentation";
 import { shouldShowConnectionLastError } from "./connectionRowHelpers";
 import {
   getCodexEffectiveServiceTier,
@@ -441,6 +442,17 @@ export default function ConnectionRow({
       : connection.testStatus;
 
   const statusPresentation = getStatusPresentation(connection, effectiveStatus, isCooldown, t);
+  // Auth-mode-aware lastError line (0038): apikey + no_refresh_token must not
+  // surface OAuth "re-authenticate this account" as primary copy.
+  const connectionErrorDisplay = shouldShowConnectionLastError(connection)
+    ? resolveConnectionErrorDisplay({
+        authType: connection.authType ?? (isOAuth ? "oauth" : "apikey"),
+        testStatus: effectiveStatus,
+        errorCode: connection.errorCode,
+        lastErrorType: connection.lastErrorType,
+        lastError: connection.lastError,
+      })
+    : null;
   const rateLimitEnabled = !!connection.rateLimitProtection;
   const codexPolicy =
     connection.providerSpecificData &&
@@ -567,12 +579,12 @@ export default function ConnectionRow({
                 {t(statusPresentation.errorBadge.labelKey)}
               </Badge>
             )}
-            {shouldShowConnectionLastError(connection) && (
+            {connectionErrorDisplay && (
               <span
                 className={`text-xs truncate max-w-[300px] ${statusPresentation.errorTextClass}`}
-                title={connection.lastError}
+                title={connectionErrorDisplay.title}
               >
-                {connection.lastError}
+                {connectionErrorDisplay.text}
               </span>
             )}
             <span className="text-xs text-text-muted">#{connection.priority}</span>

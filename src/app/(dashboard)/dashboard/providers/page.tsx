@@ -399,6 +399,16 @@ export default function ProvidersPage() {
       return warnCount + Object.values(health).filter((h) => h.status === "warning").length;
     }, 0);
 
+    // Auth-status taxonomy for ProviderCard helper (0038). Prefer latest error
+    // connection fields; display tag `errorCode` stays human ("Auth"/"429").
+    const rawErrorCode =
+      latestError?.errorCode != null && String(latestError.errorCode).trim() !== ""
+        ? latestError.errorCode
+        : (latestError?.lastErrorType ?? null);
+    const lastErrorType = latestError?.lastErrorType ?? null;
+    const lastError = latestError?.lastError ?? null;
+    const latestTestStatus = latestError ? getEffectiveStatus(latestError) : null;
+
     return {
       connected,
       error,
@@ -409,6 +419,10 @@ export default function ProvidersPage() {
       allDisabled,
       expiryStatus,
       codexServiceTier,
+      rawErrorCode,
+      lastErrorType,
+      lastError,
+      latestTestStatus,
     };
   };
 

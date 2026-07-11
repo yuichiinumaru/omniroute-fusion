@@ -1,6 +1,6 @@
 # Task 0038: Wire Auth-Status Copy into ProviderCard + Connection Detail
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Complete — pending review
 > **Priority**: 🟡 P1
 > **Type**: `feature`
 > **Origin**: Epic 0007 — Provider Connection Auth-Status UX (S2)
@@ -59,16 +59,16 @@ Stay entirely inside existing Providers hub UI. **No new sidebar leaf** (`docs/g
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] `ProviderCard` uses helper (or parent maps helper output into badge props)
-- [ ] Connection error/expiry presentation on providers page is auth-mode aware where lastError/errorCode shown
-- [ ] Apikey + `no_refresh_token` / false expiry does not show OAuth re-auth primary copy on card
-- [ ] OAuth expired still shows re-auth-capable badge/CTA
-- [ ] `node --import tsx/esm --test tests/unit/connection-status-copy*.test.ts` passes
-- [ ] Any new wire tests pass under `node --import tsx/esm --test …`
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` passes without new errors on touched files
-- [ ] No new entries in `PRIMARY_SIDEBAR_ITEMS`
-- [ ] CHANGELOG.md entry at TOP
+- [x] `ProviderCard` uses helper (or parent maps helper output into badge props)
+- [x] Connection error/expiry presentation on providers page is auth-mode aware where lastError/errorCode shown
+- [x] Apikey + `no_refresh_token` / false expiry does not show OAuth re-auth primary copy on card
+- [x] OAuth expired still shows re-auth-capable badge/CTA
+- [x] `node --import tsx/esm --test tests/unit/connection-status-copy*.test.ts` passes
+- [x] Any new wire tests pass under `node --import tsx/esm --test …`
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` passes without new errors on touched files
+- [x] No new entries in `PRIMARY_SIDEBAR_ITEMS`
+- [x] CHANGELOG.md entry at TOP
 
 ---
 
@@ -78,13 +78,13 @@ Stay entirely inside existing Providers hub UI. **No new sidebar leaf** (`docs/g
 
 Subtasks:
 
-- [ ] **Read existing code**: `ProviderCard.tsx` full props/stats type, `providers/page.tsx` stats builder, connection detail components under `providers/[id]/` if they show lastError, Task 0037 helper API, `docs/guides/UI.md`
-- [ ] **Thread authType + errorCode** into the props the card already receives (extend stats type if needed)
-- [ ] **Replace hard-coded expired badge label** with helper badge/title when error taxonomy present; keep i18n `t()` wrappers if helper returns keys
-- [ ] **Preserve non-auth expiry** (true tokenExpiresAt past for oauth) behavior
-- [ ] **Verify TokenHealthBadge** still oauth-only (no code change unless bug found — then minimal fix)
-- [ ] **Refactoring pass**: avoid duplicating helper logic in JSX
-- [ ] **Verification**: typecheck + lint + tests
+- [x] **Read existing code**: `ProviderCard.tsx` full props/stats type, `providers/page.tsx` stats builder, connection detail components under `providers/[id]/` if they show lastError, Task 0037 helper API, `docs/guides/UI.md`
+- [x] **Thread authType + errorCode** into the props the card already receives (extend stats type if needed)
+- [x] **Replace hard-coded expired badge label** with helper badge/title when error taxonomy present; keep i18n `t()` wrappers if helper returns keys
+- [x] **Preserve non-auth expiry** (true tokenExpiresAt past for oauth) behavior
+- [x] **Verify TokenHealthBadge** still oauth-only (no code change unless bug found — then minimal fix)
+- [x] **Refactoring pass**: avoid duplicating helper logic in JSX
+- [x] **Verification**: typecheck + lint + tests
 
 ### Where
 
@@ -129,25 +129,38 @@ Card chrome is the first place operators judge credential health. Wiring the pur
 
 ## 🛡️ Compliance Checklist (Leis Primárias do AGENTS.md)
 
-- [ ] **Doc Accuracy**: Paths grepped
-- [ ] **Zod Validation**: N/A unless new API
-- [ ] **Security**: No credential display beyond existing masking
-- [ ] **Error Sanitization**: Do not render raw stacks
-- [ ] **No Raw SQL**: N/A
-- [ ] **UI IA**: No new default-visible sidebar leaf
+- [x] **Doc Accuracy**: Paths grepped
+- [x] **Zod Validation**: N/A unless new API
+- [x] **Security**: No credential display beyond existing masking
+- [x] **Error Sanitization**: Do not render raw stacks
+- [x] **No Raw SQL**: N/A
+- [x] **UI IA**: No new default-visible sidebar leaf
 
 ---
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
-- **Arquivos criados/modificados**: [lista]
-- **Testes que verificam o trabalho**: [comandos]
-- **Resultado dos testes**: [PASS/FAIL + contagem]
-- **Resultado do lint**: [PASS/FAIL]
-- **Resultado do typecheck/build**: [PASS/FAIL]
-- **Entrada no changelog**: [referência]
-- **Agente executor**: [nome/role]
-- **Data de conclusão**: [YYYY-MM-DD]
+- **Arquivos criados/modificados**:
+  - `src/shared/utils/connectionStatusPresentation.ts` (created — pure adapters for card + connection row)
+  - `src/app/(dashboard)/dashboard/providers/components/ProviderCard.tsx` (auth-status badge via helper)
+  - `src/app/(dashboard)/dashboard/providers/page.tsx` (stats: `rawErrorCode`, `lastErrorType`, `lastError`, `latestTestStatus`)
+  - `src/app/(dashboard)/dashboard/providers/[id]/components/ConnectionRow.tsx` (lastError rewrite via helper)
+  - `tests/unit/connection-status-presentation-0038.test.ts` (wire-shape + source guards)
+  - `CHANGELOG.md` (Unreleased → Added → Task 0038)
+  - `docs/tasks/03-review/0038-…` (moved from `01-open/`)
+- **Not touched (by design)**: `sidebarVisibility.ts`, ProviderLimits (0039), TokenHealthBadge (still oauth-scoped aggregate)
+- **Testes que verificam o trabalho**:
+  - `node --import tsx/esm --test tests/unit/connection-status-copy*.test.ts tests/unit/connection-status-presentation-0038.test.ts`
+- **Resultado dos testes**: PASS — 29/29 (0037 matrix + presentation wire shapes + source guards)
+  - apikey + no_refresh_token → Retest badge (no OAuth)
+  - oauth + no_refresh_token → Re-auth allowed
+  - ConnectionRow apikey rewrites OAuth lastError sentence
+  - ConnectionRow oauth keeps raw re-auth text
+- **Resultado do lint**: PASS (`eslint` on touched files, exit 0)
+- **Resultado do typecheck/build**: PASS (`npm run typecheck:core`)
+- **Entrada no changelog**: Unreleased → Added → ProviderCard auth-status copy wire (0038)
+- **Agente executor**: Grok Build subagent (main session, operator-authorized)
+- **Data de conclusão**: 2026-07-11
 
 ---
 

@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- **ProviderCard auth-status copy wire (Epic 0007 S2 / Task 0038)** — consume `formatConnectionStatusMessage` on Providers list/detail so apikey false `no_refresh_token` never primary-CTAs OAuth re-auth.
+  - Presentation adapters: `src/shared/utils/connectionStatusPresentation.ts` (card badge + connection lastError rewrite)
+  - `ProviderCard` expired/auth chip uses helper badge/title/detail/cta + tone→Badge variant
+  - `providers/page.tsx` stats pass `rawErrorCode` / `lastErrorType` / `lastError` / `latestTestStatus`
+  - `ConnectionRow` rewrites OAuth lastError text for apikey/cookie; oauth keeps re-auth copy
+  - Category authType map (`compatible`/`web-cookie`/…) → credential mode so unknown never falls through to OAuth CTA
+  - Tests: `tests/unit/connection-status-presentation-0038.test.ts` (+ 0037 matrix still green)
+  - No sidebar leaves; ProviderLimits deferred to 0039
+  **Author**: builder (Task 0038)
+
 - **Provider connection auth-status copy helper (Epic 0007 S1 / Task 0037)** — pure `formatConnectionStatusMessage` for Providers hub surfaces.
   - Module: `src/shared/utils/connectionStatusCopy.ts` (reuses `normalizeAuthType` from 0032)
   - Binary rule: apikey + `no_refresh_token` never primary-CTAs OAuth re-auth / refresh token (legacy lastError text ignored for CTA)
