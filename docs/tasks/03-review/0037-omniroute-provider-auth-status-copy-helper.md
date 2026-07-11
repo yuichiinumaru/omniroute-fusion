@@ -1,6 +1,6 @@
 # Task 0037: Provider Connection Auth-Status Copy Helper + Unit Tests
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Complete — pending review
 > **Priority**: 🟡 P1
 > **Type**: `feature`
 > **Origin**: Epic 0007 — Provider Connection Auth-Status UX (S1 + S5 matrix)
@@ -81,14 +81,14 @@ All work stays under existing Providers hub / connection cards. Do **not** add r
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Helper module created at **`src/shared/utils/connectionStatusCopy.ts`** (parent pin 2026-07-11 — shared by ProviderCard + ProviderLimits; not buried under a single page tree)
-- [ ] Unit tests: `node --import tsx/esm --test tests/unit/connection-status-copy*.test.ts` pass
-- [ ] Matrix cases above all covered with string/CTA assertions
-- [ ] Reuses `normalizeAuthType` from Task 0032 when available (or duplicates minimal alias list with TODO only if import cycle — prefer import)
-- [ ] No changes to `src/shared/constants/sidebarVisibility.ts` / no new `PRIMARY_SIDEBAR_ITEMS`
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` passes without new errors on touched files
-- [ ] CHANGELOG.md entry at TOP (UX helper; can be combined wording with later wire if preferred, but helper should still be noted)
+- [x] Helper module created at **`src/shared/utils/connectionStatusCopy.ts`** (parent pin 2026-07-11 — shared by ProviderCard + ProviderLimits; not buried under a single page tree)
+- [x] Unit tests: `node --import tsx/esm --test tests/unit/connection-status-copy*.test.ts` pass
+- [x] Matrix cases above all covered with string/CTA assertions
+- [x] Reuses `normalizeAuthType` from Task 0032 when available (or duplicates minimal alias list with TODO only if import cycle — prefer import)
+- [x] No changes to `src/shared/constants/sidebarVisibility.ts` / no new `PRIMARY_SIDEBAR_ITEMS`
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` passes without new errors on touched files
+- [x] CHANGELOG.md entry at TOP (UX helper; can be combined wording with later wire if preferred, but helper should still be noted)
 
 ---
 
@@ -98,13 +98,13 @@ All work stays under existing Providers hub / connection cards. Do **not** add r
 
 Subtasks:
 
-- [ ] **Read existing code**: `ProviderCard.tsx`, `providers/page.tsx` (expiryStatus aggregation ~L371+), `ProviderLimits/index.tsx` ~L400–430, `TokenHealthBadge.tsx`, `statusVocabulary.ts`, `docs/guides/UI.md` invariants, Task 0032 auth-mode module, error codes from health check
-- [ ] **Design return shape** aligned with Badge variants / statusVocabulary tones
-- [ ] **TDD**: write matrix tests first
-- [ ] **Implement pure helper**
-- [ ] **Document key→English map** for 0039 i18n handoff
-- [ ] **Refactoring pass**: keep < ~150 lines if possible
-- [ ] **Verification**: tests + typecheck + lint
+- [x] **Read existing code**: `ProviderCard.tsx`, `providers/page.tsx` (expiryStatus aggregation ~L371+), `ProviderLimits/index.tsx` ~L400–430, `TokenHealthBadge.tsx`, `statusVocabulary.ts`, `docs/guides/UI.md` invariants, Task 0032 auth-mode module, error codes from health check
+- [x] **Design return shape** aligned with Badge variants / statusVocabulary tones
+- [x] **TDD**: write matrix tests first
+- [x] **Implement pure helper**
+- [x] **Document key→English map** for 0039 i18n handoff
+- [x] **Refactoring pass**: keep focused; scenario table + pure formatter
+- [x] **Verification**: tests + typecheck + lint
 
 ### Where
 
@@ -148,26 +148,39 @@ Backend heal (0006) fixes data over time; UI must never tell API-key operators t
 
 ## 🛡️ Compliance Checklist (Leis Primárias do AGENTS.md)
 
-- [ ] **Doc Accuracy**: Component paths grepped
-- [ ] **Zod Validation**: N/A (pure UI helper)
-- [ ] **Security**: No secrets in copy
-- [ ] **Error Sanitization**: Do not surface raw stacks; display existing lastError only when appropriate
-- [ ] **No Raw SQL**: N/A
-- [ ] **Archive Protocol**: N/A
-- [ ] **UI IA**: No new default-visible sidebar leaf (`docs/guides/UI.md`)
+- [x] **Doc Accuracy**: Component paths grepped
+- [x] **Zod Validation**: N/A (pure UI helper)
+- [x] **Security**: No secrets in copy
+- [x] **Error Sanitization**: Do not surface raw stacks; display existing lastError only when appropriate
+- [x] **No Raw SQL**: N/A
+- [x] **Archive Protocol**: N/A
+- [x] **UI IA**: No new default-visible sidebar leaf (`docs/guides/UI.md`)
 
 ---
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
-- **Arquivos criados/modificados**: [lista]
-- **Testes que verificam o trabalho**: [comandos]
-- **Resultado dos testes**: [PASS/FAIL + contagem]
-- **Resultado do lint**: [PASS/FAIL]
-- **Resultado do typecheck/build**: [PASS/FAIL]
-- **Entrada no changelog**: [referência]
-- **Agente executor**: [nome/role]
-- **Data de conclusão**: [YYYY-MM-DD]
+- **Arquivos criados/modificados**:
+  - `src/shared/utils/connectionStatusCopy.ts` (created — pure formatter + `CONNECTION_STATUS_COPY_IDS` + `keys.*`)
+  - `tests/unit/connection-status-copy.test.ts` (created — 10 matrix/pure tests)
+  - `CHANGELOG.md` (Unreleased → Added → Task 0037)
+  - `docs/tasks/03-review/0037-…` (moved from `01-open/`)
+- **Not touched (by design)**: `sidebarVisibility.ts`, ProviderCard, ProviderLimits (0038/0039)
+- **Testes que verificam o trabalho**:
+  - `node --import tsx/esm --test tests/unit/connection-status-copy*.test.ts`
+- **Resultado dos testes**: PASS — 10/10
+  - apikey + no_refresh_token → Retest CTA (no OAuth)
+  - api_key alias + no_refresh_token → same
+  - oauth + no_refresh_token → Re-authenticate allowed
+  - apikey + 401 / invalid key → Rotate API key
+  - oauth + refresh_failed → Re-authenticate
+  - cookie + error / no_refresh_token → Update cookie
+  - pure + healthy + legacy pre-heal neutral retest
+- **Resultado do lint**: PASS (`eslint` on touched files, exit 0)
+- **Resultado do typecheck/build**: PASS (`npm run typecheck:core`)
+- **Entrada no changelog**: Unreleased → Added → Provider connection auth-status copy helper (0037)
+- **Agente executor**: Grok Build subagent (main session, operator-authorized)
+- **Data de conclusão**: 2026-07-11
 
 ---
 

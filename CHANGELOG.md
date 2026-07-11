@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- **Provider connection auth-status copy helper (Epic 0007 S1 / Task 0037)** — pure `formatConnectionStatusMessage` for Providers hub surfaces.
+  - Module: `src/shared/utils/connectionStatusCopy.ts` (reuses `normalizeAuthType` from 0032)
+  - Binary rule: apikey + `no_refresh_token` never primary-CTAs OAuth re-auth / refresh token (legacy lastError text ignored for CTA)
+  - oauth keeps re-auth; cookie uses re-paste language; apikey 401 → rotate key
+  - Stable `id` + `keys.*` for 0039 i18n handoff; English defaults only (no i18n runtime)
+  - Tests: `tests/unit/connection-status-copy.test.ts` (matrix)
+  - Wiring deferred to 0038 (ProviderCard) / 0039 (ProviderLimits + i18n)
+  **Author**: builder (Task 0037)
+
 ### Fixed
 - **Dual-mode refresh policy audit (Epic 0006 S4 / Task 0035)** — connection-scoped refresh gates + Windsurf long-lived import.
   - Policy: `supportsTokenRefresh(provider)` is necessary but **not sufficient** for connection expiry
