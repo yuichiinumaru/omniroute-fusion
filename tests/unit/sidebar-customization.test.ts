@@ -23,8 +23,10 @@ test("applySectionOrder returns original order when order is empty", () => {
   );
 });
 
-test("applySectionOrder reorders sections by provided list", () => {
-  const sections = [...SIDEBAR_SECTIONS].slice(0, 4);
+test("applySectionOrder reorders sections by provided list (flat main+devtools)", () => {
+  // Live chrome: only main + devtools (not 7 accordion pillars).
+  const sections = [...SIDEBAR_SECTIONS];
+  assert.ok(sections.length >= 2, "expected main + devtools");
   const ids = sections.map((s) => s.id) as any[];
   const reversed = [...ids].reverse();
   const result = applySectionOrder(sections, reversed);
@@ -35,35 +37,36 @@ test("applySectionOrder reorders sections by provided list", () => {
 });
 
 test("applySectionOrder ignores unknown section IDs in order", () => {
-  const sections = [...SIDEBAR_SECTIONS].slice(0, 3);
+  const sections = [...SIDEBAR_SECTIONS];
   const ids = sections.map((s) => s.id) as any[];
-  const orderWithUnknown = ["totally-unknown-section" as any, ids[1], ids[0], ids[2]];
+  const orderWithUnknown = ["totally-unknown-section" as any, ids[1], ids[0]];
   const result = applySectionOrder(sections, orderWithUnknown);
   assert.equal(result[0].id, ids[1]);
   assert.equal(result[1].id, ids[0]);
-  assert.equal(result[2].id, ids[2]);
 });
 
 test("applySectionOrder appends sections not in order list at end", () => {
-  const sections = [...SIDEBAR_SECTIONS].slice(0, 3);
+  const sections = [...SIDEBAR_SECTIONS];
   const ids = sections.map((s) => s.id) as any[];
-  const result = applySectionOrder(sections, [ids[2], ids[0]]);
-  assert.equal(result[0].id, ids[2]);
-  assert.equal(result[1].id, ids[0]);
-  assert.equal(result[2].id, ids[1]);
+  // Only pin first section; remaining must append in original relative order.
+  const result = applySectionOrder(sections, [ids[0]]);
+  assert.equal(result[0].id, ids[0]);
+  assert.equal(result.length, sections.length);
+  assert.ok(result.some((s) => s.id === ids[1]));
 });
 
 // ─── applyItemOrder ───────────────────────────────────────────────────────────
 
 test("applyItemOrder returns original children when order is empty", () => {
-  const section = SIDEBAR_SECTIONS.find((s) => s.id === "registry")!;
+  const section = SIDEBAR_SECTIONS.find((s) => s.id === "main")!;
+  assert.ok(section, "main section must exist in flat chrome");
   const children = [...section.children];
   const result = applyItemOrder(children, []);
   assert.deepEqual(result.length, children.length);
 });
 
 test("applyItemOrder reorders items by provided list", () => {
-  const section = SIDEBAR_SECTIONS.find((s) => s.id === "help")!;
+  const section = SIDEBAR_SECTIONS.find((s) => s.id === "main")!;
   const children = [...section.children] as any[];
   const ids = children.map((c) => c.id);
   const reversed = [...ids].reverse();
@@ -75,7 +78,7 @@ test("applyItemOrder reorders items by provided list", () => {
 });
 
 test("applyItemOrder ignores unknown IDs in order list", () => {
-  const section = SIDEBAR_SECTIONS.find((s) => s.id === "help")!;
+  const section = SIDEBAR_SECTIONS.find((s) => s.id === "main")!;
   const children = [...section.children] as any[];
   const ids = children.map((c) => c.id);
   const orderWithUnknown = ["ghost-item", ids[1], ids[0], ids[2]];
@@ -125,15 +128,17 @@ test("settings-sidebar is in HIDEABLE_SIDEBAR_ITEM_IDS", () => {
   );
 });
 
-test("settings-sidebar item is present in system section", () => {
-  const systemSection = SIDEBAR_SECTIONS.find((s) => s.id === "system");
-  assert.ok(systemSection, "system section should exist");
-  const items = systemSection.children.flatMap((c) =>
-    "type" in c && c.type === "group" ? c.items : [c as any]
-  );
+test("settings-sidebar remains hideable (flat chrome has no system accordion)", () => {
+  // Flat primary nav: settings live under settings-general hub + deep routes.
+  // settings-sidebar is prefs-only hideable, not a rendered system section leaf.
   assert.ok(
-    items.some((item) => item.id === "settings-sidebar"),
-    "settings-sidebar should be in system section children"
+    HIDEABLE_SIDEBAR_ITEM_IDS.includes("settings-sidebar" as any),
+    "settings-sidebar should remain hideable for stored prefs"
+  );
+  assert.equal(
+    SIDEBAR_SECTIONS.some((s) => s.id === "system"),
+    false,
+    "flat chrome must not reintroduce a system accordion section"
   );
 });
 

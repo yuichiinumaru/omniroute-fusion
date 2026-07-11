@@ -65,6 +65,32 @@ describe("Connect route files still implement redirects", () => {
       join(repoRoot, "src/app/(dashboard)/dashboard/api-endpoints/page.tsx"),
       "utf-8"
     );
-    assert.ok(src.includes("redirect") || src.includes("tab=catalog"));
+    assert.ok(src.includes("redirect"));
+    assert.ok(src.includes("tab=catalog") || src.includes("endpoint?tab=catalog"));
+  });
+
+  it("endpoint page redirects tab=mcp to /dashboard/mcp", async () => {
+    const src = await readFile(
+      join(repoRoot, "src/app/(dashboard)/dashboard/endpoint/page.tsx"),
+      "utf-8"
+    );
+    assert.ok(src.includes("redirect"), "endpoint page must use next/navigation redirect");
+    assert.ok(
+      /tab\s*===\s*["']mcp["']/.test(src) || src.includes('tab === "mcp"') || src.includes("tab===\"mcp\""),
+      "must branch on tab=mcp"
+    );
+    assert.ok(src.includes('redirect("/dashboard/mcp")') || src.includes('redirect("/dashboard/mcp")'));
+  });
+
+  it("endpoint page redirects tab=a2a to /dashboard/a2a", async () => {
+    const src = await readFile(
+      join(repoRoot, "src/app/(dashboard)/dashboard/endpoint/page.tsx"),
+      "utf-8"
+    );
+    assert.ok(
+      /tab\s*===\s*["']a2a["']/.test(src) || src.includes('tab === "a2a"'),
+      "must branch on tab=a2a"
+    );
+    assert.ok(src.includes('redirect("/dashboard/a2a")'));
   });
 });

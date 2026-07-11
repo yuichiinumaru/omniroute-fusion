@@ -1,6 +1,6 @@
 # Task 0024: Frontend IA — Connect / Registry Exposure Cleanup (S5)
 
-> **Status**: `[~]` In Progress — returned from review (score 84/100)
+> **Status**: `[x]` Ready for review (path-to-100 rework 2026-07-11 — S5 shell tests + redirect matrix)
 > **Priority**: 🔴 P0
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S5**)

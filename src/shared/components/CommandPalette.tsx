@@ -92,32 +92,15 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
     [t]
   );
 
-  const allItems = useMemo<PaletteItem[]>(
-    () =>
-      SIDEBAR_SECTIONS.flatMap((section) => {
-        const sectionLabel = safeTranslate(section.titleKey, section.titleFallback);
-        return section.children.flatMap<PaletteItem>((child) => {
-          if (isSidebarGroup(child)) {
-            const subgroupLabel = safeTranslate(child.titleKey, child.titleFallback);
-            return child.items
-              .filter((item) => !hiddenItems.has(item.id))
-              .map<PaletteItem>((item) => ({
-                id: item.id,
-                href: item.href,
-                icon: item.icon,
-                label: safeTranslate(item.i18nKey, item.id),
-                subtitle: item.subtitleKey ? safeTranslate(item.subtitleKey, "") : undefined,
-                external: item.external ?? false,
-                sectionId: section.id,
-                sectionLabel,
-                subgroupId: child.id,
-                subgroupLabel,
-              }));
-          }
-          const item = child as SidebarItemDefinition;
-          if (hiddenItems.has(item.id)) return [];
-          return [
-            {
+  const allItems = useMemo<PaletteItem[]>(() => {
+    const sectionItems = SIDEBAR_SECTIONS.flatMap((section) => {
+      const sectionLabel = safeTranslate(section.titleKey, section.titleFallback);
+      return section.children.flatMap<PaletteItem>((child) => {
+        if (isSidebarGroup(child)) {
+          const subgroupLabel = safeTranslate(child.titleKey, child.titleFallback);
+          return child.items
+            .filter((item) => !hiddenItems.has(item.id))
+            .map<PaletteItem>((item) => ({
               id: item.id,
               href: item.href,
               icon: item.icon,
@@ -126,12 +109,53 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
               external: item.external ?? false,
               sectionId: section.id,
               sectionLabel,
-            },
-          ];
-        });
-      }),
-    [hiddenItems, safeTranslate]
-  );
+              subgroupId: child.id,
+              subgroupLabel,
+            }));
+        }
+        const item = child as SidebarItemDefinition;
+        if (hiddenItems.has(item.id)) return [];
+        return [
+          {
+            id: item.id,
+            href: item.href,
+            icon: item.icon,
+            label: safeTranslate(item.i18nKey, item.id),
+            subtitle: item.subtitleKey ? safeTranslate(item.subtitleKey, "") : undefined,
+            external: item.external ?? false,
+            sectionId: section.id,
+            sectionLabel,
+          },
+        ];
+      });
+    });
+
+    // Flat chrome: Routing hub destinations not primary leaves (Task 0025 F2).
+    const routingHubExtras: PaletteItem[] = [
+      {
+        id: "fusions",
+        href: "/dashboard/fusions",
+        icon: "hub",
+        label: safeTranslate("fusions", "Fusions"),
+        subtitle: safeTranslate("fusionsSubtitle", "Panel + judge model combos"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "compression-studio",
+        href: "/dashboard/compression/studio",
+        icon: "compress",
+        label: safeTranslate("compressionStudio", "Compression Studio"),
+        subtitle: safeTranslate("compressionStudioSubtitle", "Live engine cascade"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+    ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
+
+    return [...sectionItems, ...routingHubExtras];
+  }, [hiddenItems, safeTranslate]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

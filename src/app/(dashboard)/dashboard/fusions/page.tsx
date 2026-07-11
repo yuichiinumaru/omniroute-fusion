@@ -10,6 +10,7 @@ import Card from "@/shared/components/Card";
 import EmptyState from "@/shared/components/EmptyState";
 import { CardSkeleton } from "@/shared/components/Loading";
 import { useNotificationStore } from "@/store/notificationStore";
+import RoutingHubSubnav from "@/shared/components/RoutingHubSubnav";
 
 const FUSION_STRATEGIES = new Set(["fusion", "conditional-fusion"]);
 
@@ -129,6 +130,8 @@ export default function FusionsPage() {
           Create Fusion
         </Button>
       </div>
+
+      <RoutingHubSubnav active="fusions" />
 
       {feedback && (
         <div

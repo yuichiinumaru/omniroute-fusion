@@ -1,19 +1,23 @@
 /**
  * Sidebar IA — Epic 0005 guardrail
  * --------------------------------
- * Do NOT add a new default-visible leaf without:
- *  1. Mapping it to one of the 7 pillars (Core Pulse, Registry, Routing & Strategy,
- *     Governance, Operations, Observability, System)
+ * Live chrome is **flat** (~10 primary leaves): `PRIMARY_SIDEBAR_ITEMS` → `SIDEBAR_SECTIONS`
+ * (`main` + optional `devtools`). Conceptual 7 pillars live only in
+ * `OPERATIONAL_PILLAR_SECTION_IDS` (docs/mapping) — **not** accordion sections.
+ *
+ * Nested destinations (fusions, compression, MCP/A2A, logs) = in-page tabs / hubs /
+ * command-palette extras — never default peer leaves.
+ *
+ * Do NOT add a default-visible leaf without:
+ *  1. Mapping it to one of the 7 conceptual pillars
  *  2. Confirming it is not a strategy/engine/preset/table that belongs as a tab/row
  *  3. A note on Epic 0005 (or successor task)
  *
  * When removing a leaf: keep the route (or redirect), keep the hideable id if users
  * may have stored prefs, and log provenance under `.archive/sidebar/` — never silent delete.
  *
- * Rule: if you need to hide ~60% of menus to make the product usable, the menu is wrong.
- *
- * S6 (Task 0025): SIDEBAR_SECTIONS is the 7 operational pillars. Pre-S6 snapshot:
- * `.archive/sidebar/2026-07-10-seven-pillars/`
+ * Pre-S6 / flat archives: `.archive/sidebar/2026-07-10-seven-pillars/`,
+ * `.archive/sidebar/2026-07-10-flat-primary-nav/`
  */
 
 export const HIDEABLE_SIDEBAR_ITEM_IDS = [
@@ -932,7 +936,8 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
     href: "/dashboard/analytics",
     i18nKey: "analytics",
     labelFallback: "Analytics",
-    subtitleFallback: "Usage · evals · health",
+    // Do not lead with "Usage" — that vocabulary is token-volume (usageSubtitle), not this hub.
+    subtitleFallback: "Charts · evals · health",
     icon: "analytics",
   },
   {
@@ -1020,13 +1025,24 @@ const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "docs",
 ]);
 
+/** Developer: ops-focused primary hubs (hide marketing Docs) + debug tools when debugMode. */
 const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
-  ...PRIMARY_SIDEBAR_ITEM_IDS,
+  "home",
+  "providers",
+  "combos",
+  "api-manager",
+  "activity",
+  "analytics",
+  "costs",
+  "cli-code",
+  "settings-general",
+  // docs intentionally omitted — differentiates vs all/admin primary sets
   "translator",
   "playground",
   "search-tools",
 ]);
 
+/** Admin: full primary chrome (includes Docs). Off-tree settings ids remain hideable prefs only. */
 const ADMIN_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   ...PRIMARY_SIDEBAR_ITEM_IDS,
   "settings-security",

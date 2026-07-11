@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Fixed
+- **Frontend IA returns (Tasks 0024 + 0025 path-to-100)** — rework after REJECT re-reviews (84 / 81).
+  - **0024**: S5 endpoint shell unit contract (`apis|catalog|context-sources` + protocol homes); `?tab=mcp|a2a` redirect asserts; optional status typing
+  - **0025**: Routing hub subnav (Combos/Fusions/Compression) + command-palette fusions; flat-chrome customization/back-compat tests; developer vs admin/minimal preset differentiation; header docs for flat primary
+  - Tests: `dashboard-shell-tabs`, `connect-exposure-sidebar`, `routing-hub-discoverability-0025`, sidebar suites green
+  **Author**: builder (queue Q1–Q2)
+
+
+### Fixed
 - **Dashboard error UX + MCP hub/scope SSoT (Task 0047 / Epic 0008 S8)** — stop rendering structured API errors as `[object Object]`; align MCP hub counts and shared scopes with live tools (F-08-001 / F-08-002 / F-08-003).
   - **F-08-001**: `handleResponse` uses `parseResponseBody` + `getErrorMessage`; high-traffic dashboard paths (webhooks, audit, quota widget, API endpoints tab, compression preview) funnel through `extractApiErrorMessage`
   - **F-08-002**: MCP hub intro reads `MCP_TOOL_COUNT` / `MCP_SCOPE_COUNT` / `MCP_TRANSPORT_COUNT` (no hardcode 37/13)

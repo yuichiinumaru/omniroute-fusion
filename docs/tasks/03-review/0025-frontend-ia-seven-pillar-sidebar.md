@@ -1,6 +1,6 @@
 # Task 0025: Frontend IA — Seven-Pillar Sidebar Rebuild + Role Presets (S6)
 
-> **Status**: `[x]` Completed
+> **Status**: `[x]` Ready for review (path-to-100 rework 2026-07-11 — fusion hub discoverability + flat tests)
 > **Priority**: 🔴 P0
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S6**)
@@ -10,6 +10,8 @@
 > **Parallel group**: B (serial after group A IA cleanups)
 
 ---
+> **Queued after Epic 0008**: **Q2** — [`QUEUE-post-adversarial-return.md`](../00-planning/QUEUE-post-adversarial-return.md)
+
 
 ## Objective
 
@@ -191,35 +193,41 @@ Promoted after builder proof + targeted tests.
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `94/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0025-frontend-ia-seven-pillar-sidebar-review.md`
-- **Lane outcome**: remains in review (`docs/tasks/03-review/`)
+- **Score**: `81/100`
+- **Verdict**: `REJECT`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0025-frontend-ia-seven-pillar-sidebar-review.md`
+- **Lane outcome**: returned to doing (`docs/tasks/02-doing/`)
 - **Task reference**: Task 0025 (`frontend-ia-seven-pillar-sidebar`)
 
 #### Current Open Blockers
 
-- none blocking acceptance of IA contract
-- `NEW` (Low): Epic 0005 metrics table still deferred (exit checkbox open)
-- `EVIDENCE_GAP` (Low): no browser preset smoke in this review wave
+- `REGRESSION` (High) F1: 7 related unit failures (`sidebar-customization`, `sidebar-back-compat`) vs flat chrome
+- `REGRESSION` (High) F2: `fusions` not in live tree / not discoverable under Routing hub (only dead inventory + subtitle)
+- `NEW` (Medium) F3: admin/developer presets hollow over flat primary (off-tree unhides no-op)
+- `NEW` (Medium) F4: dead pillar item arrays still in `sidebarVisibility.ts` after flat cutover
+- `PERSISTENT` (Low) F5: epic/task evidence drift (claims accordion pillars + minimal 12; live flat 10 / minimal 7)
+- `NEW` (Low) F6: stale S6 header comment on `SIDEBAR_SECTIONS`
 
 #### Path-to-100 Summary
 
-- Update Epic 0005 success metrics when closing epic / Task 0031
-- Optional stretch: minimal ≤8 or further demote default demotables
-- Optional Playwright smoke: apply `minimal` → assert ≤12 nav leaves
+1. Fix customization + back-compat tests for `main`/`devtools` + hub model; batch 0 fail
+2. Restore Fusion under Routing discoverability (combos in-page subnav and/or palette) + regression test
+3. Rebuild admin/developer as real role views over renderable leaves
+4. Delete or archive dead pillar inventories; keep primary + hideable SSoT
+5. Refresh Completion Evidence, CHANGELOG wording, Epic metrics to live counts
+6. Optional Playwright: apply `minimal` → ≤12 nav leaves
 
 #### Regression Guards (do not regress)
 
-- Exactly 7 `OPERATIONAL_PILLAR_SECTION_IDS`; product sections ≤8
-- `countPresetVisibleLeaves("minimal") ≤ 12`
-- `fusions` only under `routing`; compression engines never default leaves
-- Observe stream multi-leaves stay collapsed; analytics dual-nav stay collapsed
-- Archive under `.archive/sidebar/2026-07-10-seven-pillars/` retained
+- Exactly 7 `OPERATIONAL_PILLAR_SECTION_IDS` (conceptual); default chrome flat primary ≤10
+- `countPresetVisibleLeaves("minimal") ≤ 12` (live 7)
+- Compression engines never default leaves; observe multi-leaves + analytics dual-nav stay collapsed
+- Fusion must have a discoverable home under Routing (not orphan deep-link only)
+- Related sidebar unit suites green; archives under `.archive/sidebar/` retained
 
 ### Previous Reports
 
-- none (initial independent review)
+- `docs/reports/reviews/2026-07-10-task-0025-frontend-ia-seven-pillar-sidebar-review.md` (94, HELD_IN_REVIEW — accordion-era inventory; superseded by flat-primary drift)
 

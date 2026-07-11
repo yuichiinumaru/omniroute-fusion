@@ -48,6 +48,7 @@ import {
 import { resolveServerErrorMessage } from "@/lib/api/serverErrorMessage";
 import { withDashboardCsrfHeader } from "@/shared/utils/dashboardCsrf";
 import { useTranslations } from "next-intl";
+import RoutingHubSubnav from "@/shared/components/RoutingHubSubnav";
 
 const ModelSelectModal = dynamic(() => import("@/shared/components/ModelSelectModal"), {
   ssr: false,
@@ -1041,6 +1042,9 @@ export default function CombosPage() {
           </Button>
         </div>
       </div>
+
+      {/* Flat nav: Routing leaf → in-page Combos / Fusions / Compression (Task 0025 F2) */}
+      <RoutingHubSubnav active="combos" />
 
       <AutoComboCatalog />
 
