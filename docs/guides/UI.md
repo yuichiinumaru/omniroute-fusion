@@ -10,6 +10,7 @@ lastUpdated: 2026-07-10
 > **Token / visual SSoT**: root [`design.md`](../../design.md) + `src/app/globals.css` (not this file).  
 > **Live tree SSoT**: `src/shared/constants/sidebarVisibility.ts` (`SIDEBAR_SECTIONS`, `OPERATIONAL_PILLAR_SECTION_IDS`).  
 > **Epic**: [0005 — Frontend IA Reform](../tasks/00-planning/0005-omniroute-frontend-ia-design-system-epic.md) · [dependency tree](../dependency-tree.md)  
+> **Target nav map (L0/L1/L2)**: [`docs/architecture/NAV-TREE-TARGET.md`](../architecture/NAV-TREE-TARGET.md)  
 > **Archive policy**: [`.archive/README.md`](../../.archive/README.md)
 
 This guide permanently bans the **feature → route → sidebar leaf** reflex. Prefer short accuracy over encyclopedic coverage.
