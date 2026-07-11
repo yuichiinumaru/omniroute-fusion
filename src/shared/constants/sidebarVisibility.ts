@@ -227,15 +227,19 @@ function getDeterministicIconAccent(id: string): string {
     .replace(/^/, "#");
 }
 
-export function getSidebarIconAccent(id: string): string {
-  return (
-    SIDEBAR_ICON_ACCENTS[id as HideableSidebarItemId] ||
-    SIDEBAR_SUBITEM_ICON_ACCENTS[id] ||
-    getDeterministicIconAccent(id)
-  );
+/**
+ * Sidebar icons: neutral only (no carnival accents).
+ * Active state uses Tailwind `text-primary` on the link; icons inherit via currentColor.
+ * Legacy SIDEBAR_ICON_ACCENTS maps are retained only for historical tests / archive.
+ */
+export function getSidebarIconAccent(_id: string): string {
+  return "currentColor";
 }
 
-/** Seven operational pillars (product IA). Help / Dev Tools are non-pillars. */
+/**
+ * Conceptual product pillars (IA mapping for hubs / docs).
+ * These are NOT collapsible sidebar sections — navigation is flat primary leaves.
+ */
 export const OPERATIONAL_PILLAR_SECTION_IDS = [
   "core-pulse",
   "registry",
@@ -248,10 +252,8 @@ export const OPERATIONAL_PILLAR_SECTION_IDS = [
 
 export type OperationalPillarSectionId = (typeof OPERATIONAL_PILLAR_SECTION_IDS)[number];
 
-export type SidebarSectionId =
-  | OperationalPillarSectionId
-  | "devtools"
-  | "help";
+/** Flat sidebar chrome only — no accordion sections. */
+export type SidebarSectionId = "main" | "devtools";
 
 export interface SidebarItemDefinition {
   id: HideableSidebarItemId;
@@ -876,53 +878,108 @@ const HELP_ITEMS: readonly SidebarItemDefinition[] = [
   },
 ];
 
-// ─── Sections (7 pillars + optional help/devtools) ───────────────────────────
+// ─── Flat primary nav (~10 leaves; no accordion groups) ──────────────────────
+// Nested destinations live as in-page tabs/subnav, not sidebar collapsibles.
+// Full page inventory still routable via hideable ids + deep links/redirects.
 
+/**
+ * Exactly the default-visible primary leaves (target ≤ 10).
+ * Order = product priority. Debug tools are a separate section when debug mode is on.
+ */
+export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
+  {
+    id: "home",
+    href: "/home",
+    i18nKey: "home",
+    labelFallback: "Home",
+    icon: "home",
+    exact: true,
+  },
+  {
+    id: "providers",
+    href: "/dashboard/providers",
+    i18nKey: "providers",
+    labelFallback: "Providers",
+    subtitleFallback: "Models · services · exposures",
+    icon: "dns",
+  },
+  {
+    id: "combos",
+    href: "/dashboard/combos",
+    i18nKey: "routingNav",
+    labelFallback: "Routing",
+    subtitleFallback: "Combos · fusions · compression",
+    icon: "alt_route",
+  },
+  {
+    id: "api-manager",
+    href: "/dashboard/api-manager",
+    i18nKey: "apiKeysNav",
+    labelFallback: "API Keys",
+    subtitleFallback: "Access · tokens · security",
+    icon: "key",
+  },
+  {
+    id: "activity",
+    href: "/dashboard/activity",
+    i18nKey: "observeNav",
+    labelFallback: "Observe",
+    subtitleFallback: "Logs · audit · stream",
+    icon: "timeline",
+  },
+  {
+    id: "analytics",
+    href: "/dashboard/analytics",
+    i18nKey: "analytics",
+    labelFallback: "Analytics",
+    subtitleFallback: "Usage · evals · health",
+    icon: "analytics",
+  },
+  {
+    id: "costs",
+    href: "/dashboard/costs",
+    i18nKey: "costsNav",
+    labelFallback: "Costs",
+    subtitleFallback: "Budget · pricing · quota",
+    icon: "payments",
+  },
+  {
+    id: "cli-code",
+    href: "/dashboard/cli-code",
+    i18nKey: "operationsNav",
+    labelFallback: "Operations",
+    subtitleFallback: "CLI · agents · inspector",
+    icon: "terminal",
+  },
+  {
+    id: "settings-general",
+    href: "/dashboard/settings/general",
+    i18nKey: "settingsNav",
+    labelFallback: "Settings",
+    subtitleFallback: "System · appearance · network",
+    icon: "settings",
+  },
+  {
+    id: "docs",
+    href: "/docs",
+    i18nKey: "docs",
+    labelFallback: "Docs",
+    subtitleFallback: "Guides · changelog",
+    icon: "menu_book",
+    external: true,
+  },
+];
+
+export const PRIMARY_SIDEBAR_ITEM_IDS = PRIMARY_SIDEBAR_ITEMS.map((i) => i.id);
+
+/** Flat sidebar: one always-open main list + optional debug tools (no section accordion). */
 export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
   {
-    id: "core-pulse",
-    titleKey: "corePulseSection",
-    titleFallback: "Core Pulse",
-    children: CORE_PULSE_ITEMS,
+    id: "main",
+    titleKey: "mainNav",
+    titleFallback: "Main",
+    children: PRIMARY_SIDEBAR_ITEMS,
     showTitle: false,
-  },
-  {
-    id: "registry",
-    titleKey: "registrySection",
-    titleFallback: "Registry",
-    children: REGISTRY_ITEMS,
-    defaultPinned: true,
-  },
-  {
-    id: "routing",
-    titleKey: "routingStrategySection",
-    titleFallback: "Routing & Strategy",
-    children: ROUTING_ITEMS,
-  },
-  {
-    id: "governance",
-    titleKey: "governanceSection",
-    titleFallback: "Governance",
-    children: GOVERNANCE_ITEMS,
-  },
-  {
-    id: "operations",
-    titleKey: "operationsSection",
-    titleFallback: "Operations",
-    children: OPERATIONS_ITEMS,
-  },
-  {
-    id: "observability",
-    titleKey: "observabilitySection",
-    titleFallback: "Observability",
-    // Observe hub only for stream; analytics/cache/stats as hubs — no log/audit multi-leaves.
-    children: OBSERVABILITY_ITEMS,
-  },
-  {
-    id: "system",
-    titleKey: "systemSection",
-    titleFallback: "System",
-    children: SYSTEM_ITEMS,
   },
   {
     id: "devtools",
@@ -930,12 +987,7 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
     titleFallback: "Dev Tools",
     children: DEVTOOLS_ITEMS,
     visibility: "debug",
-  },
-  {
-    id: "help",
-    titleKey: "helpSection",
-    titleFallback: "Help",
-    children: HELP_ITEMS,
+    showTitle: false,
   },
 ] as const;
 
@@ -957,88 +1009,28 @@ export interface SidebarPresetDefinition {
   hiddenItems: HideableSidebarItemId[];
 }
 
-/** Role view: daily operator pulse + routing + keys + observe (≤ 12 leaves). */
+/** Flat primary nav role views (all ≤ 10 default leaves). */
 const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
   "providers",
-  "endpoints",
-  "api-manager",
   "combos",
+  "api-manager",
   "activity",
-  "costs",
-  "health",
   "settings-general",
-  "settings-sidebar",
   "docs",
-  "changelog",
 ]);
 
-/** Role view: builder — routing stack, tools, protocols, observe + debug surfaces. */
 const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
-  "home",
-  "providers",
-  "embedded-services",
-  "endpoints",
-  "mcp",
-  "a2a",
-  "webhooks",
-  "combos",
-  "combos-live",
-  "fusions",
-  "context-settings",
-  "context-combos",
-  "compression-studio",
-  "settings-routing",
-  "api-manager",
-  "quota",
-  "cli-code",
-  "cli-agents",
-  "acp-agents",
-  "memory",
-  "skills",
-  "plugins",
-  "analytics",
-  "cache",
-  "activity",
-  "health",
-  "runtime",
+  ...PRIMARY_SIDEBAR_ITEM_IDS,
   "translator",
   "playground",
-  "settings-general",
-  "settings-resilience",
-  "settings-sidebar",
-  "docs",
-  "issues",
-  "changelog",
+  "search-tools",
 ]);
 
-/** Role view: admin — keys, economics, security, observe, system knobs. */
 const ADMIN_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
-  "home",
-  "providers",
-  "endpoints",
-  "api-manager",
-  "settings-access-tokens",
+  ...PRIMARY_SIDEBAR_ITEM_IDS,
   "settings-security",
-  "combos",
-  "quota",
-  "costs-quota-share",
-  "costs",
-  "costs-pricing",
-  "costs-budget",
-  "analytics",
-  "cache",
-  "activity",
-  "health",
-  "runtime",
-  "settings-general",
-  "settings-routing",
-  "settings-resilience",
   "settings-feature-flags",
-  "settings-sidebar",
-  "proxy",
-  "docs",
-  "changelog",
 ]);
 
 function buildHiddenList(shown: ReadonlySet<HideableSidebarItemId>): HideableSidebarItemId[] {
@@ -1109,13 +1101,13 @@ export function normalizeHiddenSidebarItems(value: unknown): HideableSidebarItem
   return HIDEABLE_SIDEBAR_ITEM_IDS.filter((item) => hiddenItems.has(item));
 }
 
-/** Visible default-tree leaf count for a preset (items present in SIDEBAR_SECTIONS minus hidden). */
+/** Visible default-tree leaf count for a preset (non-debug sections only). */
 export function countPresetVisibleLeaves(presetId: SidebarPresetId): number {
   const preset = SIDEBAR_PRESETS.find((p) => p.id === presetId);
   if (!preset) return 0;
   const hidden = new Set(preset.hiddenItems);
-  const defaultLeafIds = SIDEBAR_SECTIONS.flatMap((section) =>
-    getSectionItems(section).map((item) => item.id)
+  const defaultLeafIds = SIDEBAR_SECTIONS.filter((section) => section.visibility !== "debug").flatMap(
+    (section) => getSectionItems(section).map((item) => item.id)
   );
   return defaultLeafIds.filter((id) => !hidden.has(id)).length;
 }

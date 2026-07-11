@@ -6,15 +6,20 @@ import {
   COMPRESSION_CONTEXT_GROUP,
   COMPRESSION_ENGINE_SIDEBAR_IDS,
   ANALYTICS_DUAL_NAV_SIDEBAR_IDS,
+  PRIMARY_SIDEBAR_ITEM_IDS,
   SIDEBAR_SECTIONS,
   getSectionItems,
 } from "../../../src/shared/constants/sidebarVisibility";
 
 /**
- * Epic 0005 S3 — compression engines are routes + hideable prefs, not sidebar leaves.
- * Epic 0005 S2 — analytics dual-nav leaves removed from default tree.
- * Epic 0005 S6 — analytics hub lives under Observability pillar.
+ * Compression engines + analytics dual-nav stay off the flat primary chrome.
  */
+
+function defaultLeafIds(): string[] {
+  return SIDEBAR_SECTIONS.filter((s) => s.visibility !== "debug").flatMap((section) =>
+    getSectionItems(section).map((i) => i.id)
+  );
+}
 
 describe("HIDEABLE_SIDEBAR_ITEM_IDS retains engine ids for prefs", () => {
   for (const id of COMPRESSION_ENGINE_SIDEBAR_IDS) {
@@ -41,16 +46,12 @@ describe("COMPRESSION_CONTEXT_GROUP is hub-only (no engine leaves)", () => {
   }
 });
 
-describe("Observability analytics hub has no dual-nav leaves", () => {
-  const observability = SIDEBAR_SECTIONS.find((s) => s.id === "observability");
-  assert.ok(observability, "observability section missing");
+describe("flat primary chrome keeps engines and dual-nav off", () => {
+  const leafIds = defaultLeafIds();
 
-  const leafIds = getSectionItems(observability).map((i) => i.id);
-
-  it("hub leaves include analytics + cache + provider-stats", () => {
+  it("analytics is a primary hub", () => {
+    assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("analytics"));
     assert.ok(leafIds.includes("analytics"));
-    assert.ok(leafIds.includes("cache"));
-    assert.ok(leafIds.includes("provider-stats"));
   });
 
   for (const id of ANALYTICS_DUAL_NAV_SIDEBAR_IDS) {
@@ -59,6 +60,12 @@ describe("Observability analytics hub has no dual-nav leaves", () => {
     });
     it(`still hideable for prefs: "${id}"`, () => {
       assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes(id));
+    });
+  }
+
+  for (const id of COMPRESSION_ENGINE_SIDEBAR_IDS) {
+    it(`engine "${id}" is not a primary leaf`, () => {
+      assert.ok(!leafIds.includes(id));
     });
   }
 });

@@ -1129,7 +1129,14 @@
     "operationsSection": "Operations",
     "observabilitySection": "Observability",
     "exposuresGroup": "Exposures",
-    "agenticGroup": "Agentic"
+    "agenticGroup": "Agentic",
+    "mainNav": "Main",
+    "routingNav": "Routing",
+    "apiKeysNav": "API Keys",
+    "observeNav": "Observe",
+    "costsNav": "Costs",
+    "operationsNav": "Operations",
+    "settingsNav": "Settings"
   },
   "webhooks": {
     "title": "Webhooks",

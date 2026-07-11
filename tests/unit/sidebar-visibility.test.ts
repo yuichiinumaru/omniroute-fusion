@@ -6,58 +6,21 @@ import { join } from "node:path";
 const sidebarVisibility = await import("../../src/shared/constants/sidebarVisibility.ts");
 const repoRoot = join(import.meta.dirname, "../..");
 
-function sectionItems(sectionId: string) {
-  const section = sidebarVisibility.SIDEBAR_SECTIONS.find(
-    (candidate) => candidate.id === sectionId
-  );
-  assert.ok(section, `expected ${sectionId} sidebar section to exist`);
-  return sidebarVisibility.getSectionItems(section);
-}
-
-test("observability sidebar: Observe hub + analytics hubs (Epic 0005 S4/S6)", () => {
-  const items = sectionItems("observability");
-  assert.deepEqual(
-    items.map((item) => item.id),
-    ["activity", "analytics", "cache", "provider-stats", "runtime"]
-  );
-});
-
-test("seven pillars primary order (Epic 0005 S6)", () => {
+test("flat primary sidebar: main + debug only", () => {
   const sectionIds = sidebarVisibility.SIDEBAR_SECTIONS.map((section) => section.id);
-  assert.deepEqual(sectionIds.slice(0, 7), [
-    "core-pulse",
-    "registry",
-    "routing",
-    "governance",
-    "operations",
-    "observability",
-    "system",
-  ]);
+  assert.deepEqual(sectionIds, ["main", "devtools"]);
+  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEMS.length, 10);
+  assert.equal(sidebarVisibility.countPresetVisibleLeaves("all"), 10);
 });
 
-test("routing hosts combos, fusions, compression hub (no engines)", () => {
-  const items = sectionItems("routing");
-  assert.deepEqual(
-    items.map((item) => item.id),
-    [
-      "combos",
-      "combos-live",
-      "fusions",
-      "context-settings",
-      "context-combos",
-      "compression-studio",
-      "settings-routing",
-    ]
-  );
-  assert.deepEqual(
-    items
-      .filter((item) => item.id.startsWith("context-"))
-      .map((item) => ({ id: item.id, href: item.href })),
-    [
-      { id: "context-settings", href: "/dashboard/context/settings" },
-      { id: "context-combos", href: "/dashboard/context/combos" },
-    ]
-  );
+test("primary hubs include observe + routing + providers", () => {
+  const ids = sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS;
+  assert.ok(ids.includes("home"));
+  assert.ok(ids.includes("providers"));
+  assert.ok(ids.includes("combos"));
+  assert.ok(ids.includes("activity"));
+  assert.ok(ids.includes("api-manager"));
+  assert.ok(ids.includes("settings-general"));
 });
 
 test("sidebar visibility drops stale entries from saved settings", () => {
@@ -74,39 +37,14 @@ test("sidebar visibility drops stale entries from saved settings", () => {
     (sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("settings"),
     false
   );
-  assert.equal((allSidebarItemIds as string[]).includes("settings"), false);
   assert.deepEqual(sidebarVisibility.normalizeHiddenSidebarItems(["auto-combo" as any, "logs"]), [
     "logs",
   ]);
 });
 
-test("help sidebar exposes changelog after docs and issues", () => {
-  const items = sectionItems("help");
-  assert.deepEqual(
-    items.map((item) => ({
-      id: item.id,
-      href: item.href,
-      i18nKey: item.i18nKey,
-    })),
-    [
-      { id: "docs", href: "/docs", i18nKey: "docs" },
-      {
-        id: "issues",
-        href: "https://github.com/diegosouzapw/OmniRoute/issues",
-        i18nKey: "issues",
-      },
-      { id: "changelog", href: "/dashboard/changelog", i18nKey: "changelog" },
-    ]
-  );
-  assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("changelog"), true);
-});
-
-test("plugins (marketplace) has a discoverable sidebar entry under operations (#3656)", async () => {
-  const items = sectionItems("operations");
-  const plugins = items.find((item) => item.id === "plugins");
-  assert.ok(plugins, "expected a plugins item in the operations section");
-  assert.equal(plugins.href, "/dashboard/plugins");
+test("plugins route remains real (marketplace) even when not a primary leaf", async () => {
   assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("plugins"), true);
+  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS.includes("plugins"), false);
 
   const pluginsPage = await readFile(
     join(repoRoot, "src/app/(dashboard)/dashboard/plugins/page.tsx"),
@@ -114,6 +52,11 @@ test("plugins (marketplace) has a discoverable sidebar entry under operations (#
   );
   assert.doesNotMatch(pluginsPage, /^\s*redirect\(/m);
   assert.match(pluginsPage, /marketplace/i);
+});
+
+test("changelog remains hideable deep surface", () => {
+  assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("changelog"), true);
+  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS.includes("changelog"), false);
 });
 
 test("legacy dashboard routes redirect to their consolidated surfaces", async () => {
@@ -140,4 +83,9 @@ test("legacy dashboard routes redirect to their consolidated surfaces", async ()
     "utf8"
   );
   assert.match(compressionPage, /redirect\("\/dashboard\/context\/caveman"\)/);
+});
+
+test("icon accents are neutral", () => {
+  assert.equal(sidebarVisibility.getSidebarIconAccent("providers"), "currentColor");
+  assert.equal(sidebarVisibility.getSidebarIconAccent("analytics"), "currentColor");
 });

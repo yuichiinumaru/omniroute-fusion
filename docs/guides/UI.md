@@ -1,3 +1,9 @@
+---
+title: "OmniRoute — UI / Information Architecture Guide"
+version: 3.8.42
+lastUpdated: 2026-07-10
+---
+
 # OmniRoute — UI / Information Architecture Guide
 
 > **Authority**: IA + mid-layer adoption rules for the dashboard.  
@@ -26,21 +32,35 @@ Code mirror of these rules: file header on `src/shared/constants/sidebarVisibili
 
 ---
 
-## 2. Seven operational pillars (post-S6 / Task 0025)
+## 2. Flat primary sidebar (~10 leaves) + conceptual pillars
 
-Canonical section ids: `OPERATIONAL_PILLAR_SECTION_IDS`. Non-pillars: `devtools` (debug visibility) and `help`.
+### 2.1 What the chrome shows (SSoT)
 
-| Pillar id | Title (fallback) | Default homes (hubs / groups) |
-|-----------|------------------|-------------------------------|
-| `core-pulse` | Core Pulse | `home`, `health` |
-| `registry` | Registry | `providers`, `embedded-services`, `media`, group `exposures` (`endpoints`, `mcp`, `a2a`, `webhooks`) |
-| `routing` | Routing & Strategy | `combos`, `combos-live`, `fusions`, group `compression-context` (settings / combos / studio — **not** engines as leaves), `settings-routing` |
-| `governance` | Governance | API keys & tokens, security, quota, costs / free-tiers / rankings |
-| `operations` | Operations | groups `tools`, `batch`, `agentic`, `gamification` |
-| `observability` | Observability | **`activity`** (observe stream), `analytics`, `cache`, `provider-stats`, `runtime` |
-| `system` | System | settings surfaces + `proxy` |
+**Default sidebar is a flat list of ≤ 10 primary hubs** — `PRIMARY_SIDEBAR_ITEMS` in
+`sidebarVisibility.ts`. Sections: `main` + optional `devtools` (debug only).
 
-**Do not invent an 8th operational pillar** without an epic-level decision. Compression stays under Routing as a hub (engines are rows/cards/tabs, never default leaves).
+| # | id | Hub |
+|---|-----|-----|
+| 1 | `home` | Home |
+| 2 | `providers` | Providers (services / exposures → **on page**) |
+| 3 | `combos` | Routing (fusions / compression / studio → **on page**) |
+| 4 | `api-manager` | API Keys |
+| 5 | `activity` | Observe (logs/audit filters → **on page**) |
+| 6 | `analytics` | Analytics |
+| 7 | `costs` | Costs |
+| 8 | `cli-code` | Operations (CLI / agents / inspector → **on page**) |
+| 9 | `settings-general` | Settings |
+| 10 | `docs` | Docs |
+
+**No collapsible accordion sections in the sidebar.** Nested destinations use in-page
+tabs / subnav / drawers only. Collapsibles in the rail are banned (government-site UX).
+
+Icons use **neutral** `currentColor` (active = primary). No rainbow icon accents.
+
+### 2.2 Conceptual pillars (docs / mapping only)
+
+`OPERATIONAL_PILLAR_SECTION_IDS` still names the product map (core-pulse…system) for
+hubbing and docs — they are **not** accordion sidebar sections.
 
 Verify before documenting or adding leaves:
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/shared/utils/cn";
@@ -24,7 +24,6 @@ import {
   normalizeHiddenSidebarItems,
   applySectionOrder,
   applyItemOrder,
-  getSidebarIconAccent,
   type SidebarSectionId,
   type SidebarItemDefinition,
   type SidebarItemGroup,
@@ -32,14 +31,7 @@ import {
 } from "@/shared/constants/sidebarVisibility";
 
 const isE2EMode = process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE === "1";
-const DEFAULT_EXPANDED: SidebarSectionId = "registry";
-const EXPANDED_SECTIONS_KEY = "sidebar-expanded-sections";
-const PINNED_SECTIONS_KEY = "sidebar-pinned-sections";
-
-type SidebarGlyphStyle = CSSProperties & {
-  "--sidebar-icon-accent": string;
-  color: string;
-};
+// Flat primary nav — no accordion sections (see PRIMARY_SIDEBAR_ITEMS).
 
 type SidebarProps = {
   onClose?: () => void;
@@ -50,36 +42,12 @@ type SidebarProps = {
 
 type HoveredItem = { id: string; label: string; x: number; y: number } | null;
 
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) return parsed as T;
-    }
-  } catch {}
-  return fallback;
-}
-
-function saveToStorage(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
-
 export default function Sidebar({
   onClose,
   collapsed = false,
   onToggleCollapse,
   isMacElectron = false,
 }: SidebarProps) {
-  const getIconStyle = (itemId: string): SidebarGlyphStyle => {
-    const accent = getSidebarIconAccent(itemId);
-    return {
-      "--sidebar-icon-accent": accent,
-      color: accent,
-    };
-  };
   const pathname = usePathname();
   const t = useTranslations("sidebar");
   const tc = useTranslations("common");
@@ -96,39 +64,7 @@ export default function Sidebar({
   const [sidebarItemOrder, setSidebarItemOrder] = useState<SidebarItemOrder>({});
   const [customAppName, setCustomAppName] = useState<string | null>(null);
   const [customLogo, setCustomLogo] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Set<SidebarSectionId>>(
-    new Set([DEFAULT_EXPANDED])
-  );
-  const [pinnedSections, setPinnedSections] = useState<Set<SidebarSectionId>>(new Set());
   const [hoveredItem, setHoveredItem] = useState<HoveredItem>(null);
-
-  // Load persisted state on mount; Registry is pinned by default on first visit
-  useEffect(() => {
-    const storedExpanded = loadFromStorage<SidebarSectionId[]>(EXPANDED_SECTIONS_KEY, [
-      DEFAULT_EXPANDED,
-    ]);
-    const pinnedRaw = (() => {
-      try {
-        return localStorage.getItem(PINNED_SECTIONS_KEY);
-      } catch {
-        return null;
-      }
-    })();
-    const storedPinned: SidebarSectionId[] =
-      pinnedRaw !== null
-        ? (JSON.parse(pinnedRaw) as SidebarSectionId[])
-        : (SIDEBAR_SECTIONS.filter((s) => s.defaultPinned).map((s) => s.id) as SidebarSectionId[]);
-
-    const initialExpanded = new Set<SidebarSectionId>(
-      storedExpanded.length > 0 ? storedExpanded : [DEFAULT_EXPANDED]
-    );
-    const initialPinned = new Set<SidebarSectionId>(storedPinned);
-    // Pinned sections must also be expanded
-    for (const id of initialPinned) initialExpanded.add(id);
-
-    setExpandedSections(initialExpanded);
-    setPinnedSections(initialPinned);
-  }, []);
 
   useEffect(() => {
     const applySettings = (data) => {
@@ -266,73 +202,6 @@ export default function Sidebar({
 
   const activeHref = getActiveSidebarHref(pathname, allVisibleItems);
 
-  // Auto-expand the section containing the active page (without closing others)
-  useEffect(() => {
-    if (collapsed) return;
-    for (const section of visibleSections) {
-      const sectionItems = section.children.flatMap((child: any) =>
-        child.type === "group" ? child.items : [child]
-      );
-      if (sectionItems.some((item: any) => !item.external && item.href === activeHref)) {
-        setExpandedSections((prev) => {
-          if (prev.has(section.id as SidebarSectionId)) return prev;
-          const next = new Set(prev);
-          next.add(section.id as SidebarSectionId);
-          saveToStorage(EXPANDED_SECTIONS_KEY, [...next]);
-          return next;
-        });
-        break;
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeHref, collapsed]);
-
-  // Accordion toggle: opening a section closes all non-pinned sections
-  const toggleSection = useCallback(
-    (sectionId: SidebarSectionId) => {
-      setExpandedSections((prev) => {
-        const isOpen = prev.has(sectionId);
-        let next: Set<SidebarSectionId>;
-        if (isOpen) {
-          // Close this section
-          next = new Set(prev);
-          next.delete(sectionId);
-        } else {
-          // Accordion: keep only pinned sections + the new one
-          next = new Set<SidebarSectionId>();
-          for (const id of pinnedSections) {
-            next.add(id);
-          }
-          next.add(sectionId);
-        }
-        saveToStorage(EXPANDED_SECTIONS_KEY, [...next]);
-        return next;
-      });
-    },
-    [pinnedSections]
-  );
-
-  const togglePin = useCallback((sectionId: SidebarSectionId) => {
-    setPinnedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(sectionId)) {
-        next.delete(sectionId);
-      } else {
-        next.add(sectionId);
-        // Ensure the section is expanded when pinned
-        setExpandedSections((prevExp) => {
-          if (prevExp.has(sectionId)) return prevExp;
-          const nextExp = new Set(prevExp);
-          nextExp.add(sectionId);
-          saveToStorage(EXPANDED_SECTIONS_KEY, [...nextExp]);
-          return nextExp;
-        });
-      }
-      saveToStorage(PINNED_SECTIONS_KEY, [...next]);
-      return next;
-    });
-  }, []);
-
   const handleShutdown = async () => {
     setIsShuttingDown(true);
     try {
@@ -386,11 +255,11 @@ export default function Sidebar({
     );
     const iconClassName = cn(
       "material-symbols-outlined text-[18px] shrink-0",
-      active ? "fill-1" : "group-hover:text-primary transition-colors"
+      active ? "fill-1 text-primary" : "text-text-muted group-hover:text-text-main transition-colors"
     );
     const content = (
       <>
-        <span className={iconClassName} style={getIconStyle(item.id)}>
+        <span className={iconClassName} aria-hidden="true">
           {item.icon}
         </span>
         {!collapsed && (
@@ -521,115 +390,12 @@ export default function Sidebar({
         <nav
           aria-label="Main navigation"
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto py-1 custom-scrollbar",
-            collapsed ? "px-2 space-y-0.5" : "px-3"
+            "min-h-0 flex-1 overflow-y-auto py-1 custom-scrollbar space-y-0.5",
+            collapsed ? "px-2" : "px-3"
           )}
         >
-          {visibleSections.map((section, idx) => {
-            const sectionId = section.id as SidebarSectionId;
-            const isExpanded = expandedSections.has(sectionId);
-            const isPinned = pinnedSections.has(sectionId);
-            const isFirst = idx === 0;
-            const sectionItems = section.children.flatMap((child: any) =>
-              child.type === "group" ? child.items : [child]
-            );
-
-            // Collapsed (mini) mode: flat items with dividers between sections
-            if (collapsed) {
-              return (
-                <div key={section.id}>
-                  {!isFirst && (
-                    <div className="border-t border-black/5 dark:border-white/5 my-1.5" />
-                  )}
-                  {sectionItems.map(renderNavLink)}
-                </div>
-              );
-            }
-
-            // Sections without a visible title (e.g. Home) render items directly
-            if (section.showTitle === false) {
-              return (
-                <div key={section.id} className={cn("space-y-0.5", !isFirst && "mt-1")}>
-                  {sectionItems.map(renderNavLink)}
-                </div>
-              );
-            }
-
-            // Expanded mode: collapsible section with pin
-            return (
-              <div key={section.id} className={isFirst ? "space-y-0.5" : "mt-2"}>
-                <div
-                  className="flex items-center gap-0.5 px-2 py-1 rounded-md hover:bg-surface/30 transition-colors cursor-pointer group/header"
-                  onClick={() => toggleSection(sectionId)}
-                  role="button"
-                  aria-expanded={isExpanded}
-                >
-                  <span className="flex-1 text-[10px] font-semibold text-text-muted/60 uppercase tracking-wider group-hover/header:text-text-muted/90 transition-colors">
-                    {section.title}
-                  </span>
-
-                  {/* Pin button — right side near chevron */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePin(sectionId);
-                    }}
-                    title={isPinned ? t("unpinSection") : t("pinSectionOpen")}
-                    className={cn(
-                      "p-0.5 rounded transition-all shrink-0",
-                      isPinned
-                        ? "text-primary opacity-100"
-                        : "text-text-muted/30 opacity-0 group-hover/header:opacity-100 hover:text-text-muted/70"
-                    )}
-                  >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{
-                        fontSize: "10px",
-                        ...(isPinned ? { fontVariationSettings: "'FILL' 1" } : {}),
-                      }}
-                    >
-                      push_pin
-                    </span>
-                  </button>
-
-                  <span
-                    className={cn(
-                      "material-symbols-outlined text-[14px] text-text-muted/40 transition-all duration-200 group-hover/header:text-text-muted/70 shrink-0",
-                      isExpanded && "rotate-180"
-                    )}
-                  >
-                    expand_more
-                  </span>
-                </div>
-
-                {isExpanded && (
-                  <div className="mt-0.5 space-y-0.5">
-                    {section.children.map((child: any) => {
-                      if (child.type === "group") {
-                        if (child.items.length === 0) return null;
-                        const separatorHidden = child.separatorHidden === true;
-                        return (
-                          <div key={child.id} className={separatorHidden ? "mt-0.5" : "mt-2"}>
-                            {!separatorHidden && (
-                              <div className="flex items-center gap-1.5 px-2 py-0.5 mb-0.5">
-                                <div className="h-px flex-1 bg-black/8 dark:bg-white/8" />
-                                <span className="text-[8px] font-semibold text-text-muted/40 uppercase tracking-widest">
-                                  {child.title}
-                                </span>
-                              </div>
-                            )}
-                            {child.items.map(renderNavLink)}
-                          </div>
-                        );
-                      }
-                      return renderNavLink(child);
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {/* Flat primary list — no collapsible section headers */}
+          {allVisibleItems.map(renderNavLink)}
         </nav>
 
         {!isE2EMode && <CloudSyncStatus collapsed={collapsed} />}

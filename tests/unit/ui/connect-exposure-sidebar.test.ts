@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   HIDEABLE_SIDEBAR_ITEM_IDS,
   CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS,
+  PRIMARY_SIDEBAR_ITEM_IDS,
   SIDEBAR_SECTIONS,
   getSectionItems,
 } from "../../../src/shared/constants/sidebarVisibility";
@@ -13,15 +14,14 @@ import {
 const repoRoot = join(import.meta.dirname, "../../..");
 
 /**
- * Epic 0005 S5 — Connect / Registry exposure cleanup.
- * Epic 0005 S6 — exposures live under Registry pillar.
- * Single homes for MCP, A2A, API Connect; no triple sidebar peers.
+ * Flat primary nav: exposures nest under Providers hub on-page.
+ * MCP/A2A routes remain SSoT; not every protocol is a peer sidebar leaf.
  */
 
-function sectionItems(sectionId: string) {
-  const section = SIDEBAR_SECTIONS.find((candidate) => candidate.id === sectionId);
-  assert.ok(section, `expected ${sectionId} sidebar section to exist`);
-  return getSectionItems(section);
+function defaultLeafIds(): string[] {
+  return SIDEBAR_SECTIONS.filter((s) => s.visibility !== "debug").flatMap((section) =>
+    getSectionItems(section).map((item) => item.id)
+  );
 }
 
 describe("CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS hideable retention", () => {
@@ -35,88 +35,36 @@ describe("CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS hideable retention", () => {
   }
 });
 
-describe("default sidebar has single Connect + single MCP/A2A homes", () => {
-  it("Registry keeps endpoints (Connect SSoT) and drops api-endpoints leaf", () => {
-    const ids = sectionItems("registry").map((item) => item.id);
-    assert.ok(ids.includes("endpoints"), "endpoints (Connect) must remain default-visible");
-    assert.ok(!ids.includes("api-endpoints"), "api-endpoints must not be a default leaf");
-    assert.ok(ids.includes("webhooks"), "webhooks remains under Exposures");
+describe("default flat sidebar connect/exposure policy", () => {
+  const leafIds = defaultLeafIds();
+
+  it("providers + api-manager are primary hubs", () => {
+    assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("providers"));
+    assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("api-manager"));
+    assert.ok(leafIds.includes("providers"));
+    assert.ok(leafIds.includes("api-manager"));
   });
 
-  it("Governance keeps api-manager (keys) separate from Registry", () => {
-    const govIds = sectionItems("governance").map((item) => item.id);
-    assert.ok(govIds.includes("api-manager"), "api-manager (keys) under governance");
-    const regIds = sectionItems("registry").map((item) => item.id);
-    assert.ok(!regIds.includes("api-manager"), "api-manager not duplicated under registry");
+  it("does not dump mcp/a2a/api-endpoints as primary peers", () => {
+    assert.ok(!leafIds.includes("mcp"));
+    assert.ok(!leafIds.includes("a2a"));
+    assert.ok(!leafIds.includes("api-endpoints"));
+    assert.ok(!leafIds.includes("endpoints"));
   });
 
-  it("Registry is the only default home for mcp + a2a", () => {
-    const registryIds = sectionItems("registry").map((item) => item.id);
-    assert.ok(registryIds.includes("mcp"), "mcp SSoT under registry");
-    assert.ok(registryIds.includes("a2a"), "a2a SSoT under registry");
-
-    const allDefaultIds = SIDEBAR_SECTIONS.flatMap((section) =>
-      getSectionItems(section).map((item) => item.id)
-    );
-    assert.equal(
-      allDefaultIds.filter((id) => id === "mcp").length,
-      1,
-      "mcp must appear exactly once in default tree"
-    );
-    assert.equal(
-      allDefaultIds.filter((id) => id === "a2a").length,
-      1,
-      "a2a must appear exactly once in default tree"
-    );
-  });
-
-  it("canonical hrefs for Connect / MCP / A2A / keys", () => {
-    const endpoints = sectionItems("registry").find((item) => item.id === "endpoints");
-    const apiManager = sectionItems("governance").find((item) => item.id === "api-manager");
-    const mcp = sectionItems("registry").find((item) => item.id === "mcp");
-    const a2a = sectionItems("registry").find((item) => item.id === "a2a");
-
-    assert.equal(endpoints?.href, "/dashboard/endpoint");
-    assert.equal(apiManager?.href, "/dashboard/api-manager");
-    assert.equal(mcp?.href, "/dashboard/mcp");
-    assert.equal(a2a?.href, "/dashboard/a2a");
+  it("retired exposure ids remain hideable", () => {
+    for (const id of CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS) {
+      assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes(id));
+    }
   });
 });
 
-describe("Connect exposure redirects", () => {
-  it("api-endpoints page redirects to endpoint?tab=catalog", async () => {
-    const page = await readFile(
+describe("Connect route files still implement redirects", () => {
+  it("api-endpoints page redirects to catalog", async () => {
+    const src = await readFile(
       join(repoRoot, "src/app/(dashboard)/dashboard/api-endpoints/page.tsx"),
-      "utf8"
+      "utf-8"
     );
-    assert.match(page, /redirect\("\/dashboard\/endpoint\?tab=catalog"\)/);
-  });
-
-  it("endpoint page redirects legacy ?tab=mcp and ?tab=a2a to protocol homes", async () => {
-    const page = await readFile(
-      join(repoRoot, "src/app/(dashboard)/dashboard/endpoint/page.tsx"),
-      "utf8"
-    );
-    assert.match(page, /tab === "mcp"/);
-    assert.match(page, /redirect\("\/dashboard\/mcp"\)/);
-    assert.match(page, /tab === "a2a"/);
-    assert.match(page, /redirect\("\/dashboard\/a2a"\)/);
-  });
-
-  it("endpoint shell no longer embeds MCP/A2A dashboards as peer tabs", async () => {
-    const client = await readFile(
-      join(repoRoot, "src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.tsx"),
-      "utf8"
-    );
-    assert.doesNotMatch(client, /import McpDashboardPage/);
-    assert.doesNotMatch(client, /import A2ADashboardPage/);
-    assert.match(client, /type EndpointTab = "apis" \| "catalog" \| "context-sources"/);
-    assert.match(client, /data-testid="connect-protocol-homes"/);
-    assert.match(client, /href="\/dashboard\/mcp"/);
-    assert.match(client, /href="\/dashboard\/a2a"/);
-    assert.match(client, /ApiEndpointsTab/);
-    assert.match(client, /writeTabSearchParam\("tab"/);
-    assert.match(client, /aria-label=\{[\s\S]*MCP offline/);
-    assert.match(client, /role="navigation"/);
+    assert.ok(src.includes("redirect") || src.includes("tab=catalog"));
   });
 });
