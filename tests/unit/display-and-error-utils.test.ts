@@ -170,6 +170,16 @@ test("createErrorResponseFromUnknown: falls back for non-object errors", async (
   assert.equal(body.error.type, "server_error");
 });
 
+test("createErrorResponseFromUnknown: sanitizes stack-like messages (F-07-014)", async () => {
+  const response = createErrorResponseFromUnknown(
+    new Error("at /tmp/x\n    at foo (/app/src/lib/db.ts:1:1)")
+  );
+  const body = (await response.json()) as any;
+  assert.equal(response.status, 500);
+  assert.ok(!String(body.error.message).includes("at /"));
+  assert.ok(!String(body.error.message).includes("\n"));
+});
+
 test("getAccountDisplayName: respects priority order and fallback", () => {
   assert.equal(
     getAccountDisplayName({

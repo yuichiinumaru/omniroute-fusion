@@ -64,7 +64,9 @@ test("A2A status reports disabled and offline when the endpoint is off", async (
   assert.equal(body.agent, null);
 });
 
-test("A2A JSON-RPC rejects requests while the endpoint is disabled", async () => {
+test("A2A JSON-RPC rejects unauthenticated requests (fail-closed, F-07-011)", async () => {
+  // Task 0051: when OMNIROUTE_API_KEY is unset, unauthenticated calls fail closed
+  // (no longer open access). Auth runs before the disabled gate.
   const response = await a2aRoute.POST(
     makeJsonRpcRequest({
       jsonrpc: "2.0",
@@ -78,10 +80,38 @@ test("A2A JSON-RPC rejects requests while the endpoint is disabled", async () =>
     error?: { code?: number; message?: string };
   };
 
+  assert.equal(response.status, 400);
+  assert.equal(body.error?.code, -32600);
+  assert.match(body.error?.message || "", /Unauthorized/i);
+});
+
+test("A2A JSON-RPC returns disabled after valid OMNIROUTE_API_KEY auth", async () => {
+  process.env.OMNIROUTE_API_KEY = "test-secret";
+  const response = await a2aRoute.POST(
+    new Request("http://localhost/a2a", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer test-secret",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "disabled-check-authed",
+        method: "message/send",
+        params: { message: { role: "user", content: "hello" } },
+      }),
+    }) as unknown as NextRequest
+  );
+  const body = (await response.json()) as {
+    id?: string | number | null;
+    error?: { code?: number; message?: string };
+  };
+
   assert.equal(response.status, 503);
-  assert.equal(body.id, "disabled-check");
+  assert.equal(body.id, "disabled-check-authed");
   assert.equal(body.error?.code, -32000);
   assert.match(body.error?.message || "", /disabled/i);
+  delete process.env.OMNIROUTE_API_KEY;
 });
 
 test("A2A JSON-RPC checks auth before returning disabled state", async () => {

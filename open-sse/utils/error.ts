@@ -37,6 +37,13 @@ function looksLikeAbsolutePath(tok: string): boolean {
   return (SOURCE_EXT as readonly string[]).includes(ext);
 }
 
+/** Absolute path token without requiring a source extension (stack-frame tails). */
+function looksLikeAbsolutePathLoose(tok: string): boolean {
+  if (tok.length < 2 || tok.length > 2048) return false;
+  if (tok.charCodeAt(0) === 0x2f) return true; // POSIX
+  return tok.length > 2 && tok.charCodeAt(1) === 0x3a && /[A-Za-z]/.test(tok[0]);
+}
+
 /**
  * Strip stack-trace tail and absolute source paths from error messages.
  *
@@ -49,10 +56,31 @@ export function sanitizeErrorMessage(message: unknown): string {
   if (str.length > MAX_ERROR_LEN) str = str.slice(0, MAX_ERROR_LEN);
   const nl = str.indexOf("\n");
   const firstLine = nl >= 0 ? str.slice(0, nl) : str;
+
+  // Pure stack-frame first lines (e.g. "at /tmp/x" or "at foo (/app/x.ts:1:1)")
+  // must not reach clients — collapse to a stable generic message.
+  // Deliberately does NOT match product copy like "at least one model required".
+  if (/^\s*at\s+(?:.*\()?(\/|[A-Za-z]:[\\/])/.test(firstLine)) {
+    return "Internal error";
+  }
+
   // Preserve original whitespace by splitting on captured separator.
   const parts = firstLine.split(/(\s+)/);
   for (let i = 0; i < parts.length; i++) {
-    if (looksLikeAbsolutePath(parts[i])) parts[i] = "<path>";
+    if (looksLikeAbsolutePath(parts[i])) {
+      parts[i] = "<path>";
+      continue;
+    }
+    // Redact absolute path tokens that follow a bare "at" (stack-frame fragment).
+    // Example: "boom at /tmp/x" → "boom at <path>"
+    if (
+      i >= 2 &&
+      parts[i - 2] === "at" &&
+      /^\s+$/.test(parts[i - 1] || "") &&
+      looksLikeAbsolutePathLoose(parts[i])
+    ) {
+      parts[i] = "<path>";
+    }
   }
   return parts.join("");
 }

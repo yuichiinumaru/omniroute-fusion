@@ -1,4 +1,8 @@
 import { randomUUID } from "crypto";
+import {
+  sanitizeErrorMessage,
+  sanitizeUpstreamDetails,
+} from "@omniroute/open-sse/utils/error";
 
 export type ApiErrorType = "invalid_request" | "not_found" | "conflict" | "server_error";
 
@@ -9,6 +13,12 @@ interface ApiErrorPayload {
   details?: unknown;
 }
 
+/**
+ * Build a management/API JSON error response.
+ *
+ * Hard Rule #12: `message` and `details` are always sanitized before leaving
+ * the process so call sites do not need to remember to strip stack traces.
+ */
 export function createErrorResponse(payload: ApiErrorPayload): Response {
   const requestId = randomUUID();
   const resolvedType =
@@ -21,12 +31,16 @@ export function createErrorResponse(payload: ApiErrorPayload): Response {
           ? "conflict"
           : "invalid_request");
 
+  const safeMessage = sanitizeErrorMessage(payload.message) || "Unexpected server error";
+  const safeDetails =
+    payload.details === undefined ? undefined : sanitizeUpstreamDetails(payload.details);
+
   return Response.json(
     {
       error: {
-        message: payload.message,
+        message: safeMessage,
         type: resolvedType,
-        details: payload.details,
+        details: safeDetails,
       },
       requestId,
     },
@@ -34,6 +48,11 @@ export function createErrorResponse(payload: ApiErrorPayload): Response {
   );
 }
 
+/**
+ * Convert an unknown thrown value into a sanitized API error response.
+ *
+ * Prefer this in route catch blocks over raw `error.message` interpolation.
+ */
 export function createErrorResponseFromUnknown(
   error: unknown,
   fallbackMessage = "Unexpected server error"
@@ -45,9 +64,13 @@ export function createErrorResponseFromUnknown(
     details?: unknown;
   };
   const status = Number(anyError?.status) || 500;
+  const rawMessage =
+    typeof anyError?.message === "string" && anyError.message.trim().length > 0
+      ? anyError.message
+      : fallbackMessage;
   return createErrorResponse({
     status,
-    message: typeof anyError?.message === "string" ? anyError.message : fallbackMessage,
+    message: rawMessage,
     type: anyError?.type,
     details: anyError?.details,
   });

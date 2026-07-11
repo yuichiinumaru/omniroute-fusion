@@ -8,7 +8,13 @@ import { z } from "zod";
 import { listPlugins, getPluginByName, updatePluginConfig } from "../../../src/lib/db/plugins";
 import { pluginManager } from "../../../src/lib/plugins/manager";
 import { validatePluginConfig, type ConfigField } from "../../../src/lib/plugins/manifest";
+import { sanitizeErrorMessage } from "../../utils/error.ts";
 import { validatePluginInstallPath } from "./pluginPathJail.ts";
+
+function safePluginError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  return sanitizeErrorMessage(raw) || "Plugin operation failed";
+}
 
 /** @deprecated use validatePluginInstallPath — re-exported for tests */
 function validatePluginPath(path: string): string {
@@ -83,8 +89,7 @@ export const pluginTools = [
         await pluginManager.activate(args.name);
         return { success: true, message: `Plugin '${args.name}' activated` };
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { success: false, error: msg };
+        return { success: false, error: safePluginError(err) };
       }
     },
   },
@@ -101,8 +106,7 @@ export const pluginTools = [
         await pluginManager.deactivate(args.name);
         return { success: true, message: `Plugin '${args.name}' deactivated` };
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { success: false, error: msg };
+        return { success: false, error: safePluginError(err) };
       }
     },
   },
@@ -119,8 +123,7 @@ export const pluginTools = [
         await pluginManager.uninstall(args.name);
         return { success: true, message: `Plugin '${args.name}' uninstalled` };
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { success: false, error: msg };
+        return { success: false, error: safePluginError(err) };
       }
     },
   },

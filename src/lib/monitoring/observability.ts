@@ -211,6 +211,24 @@ export function summarizeConnectionCooldown(
   return summary;
 }
 
+/**
+ * Minimal public health snapshot (F-07-009).
+ * Allowlisted fields only — no breakers, sessions, credentials, or topology.
+ */
+export function buildPublicHealthPayload(appVersion: string) {
+  const uptime = process.uptime();
+  return {
+    status: "healthy" as const,
+    timestamp: new Date().toISOString(),
+    version: appVersion,
+    uptime,
+    system: {
+      version: appVersion,
+      uptime,
+    },
+  };
+}
+
 export function buildHealthPayload({
   appVersion,
   catalogCount = 0,

@@ -22,6 +22,8 @@ const PUBLIC_API_ROUTE_PREFIXES = [
 
 const PUBLIC_READONLY_API_ROUTE_PREFIXES = [
   "/api/monitoring/health",
+  // Lightweight liveness for k8s / FeatureFlagsGrid restart probes (F-07-010).
+  "/api/health/ping",
   "/api/settings/require-login",
 ];
 

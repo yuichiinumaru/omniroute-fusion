@@ -33,6 +33,7 @@ import type {
   RoutingStrategyValue,
 } from "../../../src/shared/constants/routingStrategies.ts";
 import { normalizeRoutingStrategy } from "../../../src/shared/constants/routingStrategies.ts";
+import { sanitizeErrorMessage } from "../../utils/error.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
 const OMNIROUTE_API_KEY = process.env.OMNIROUTE_API_KEY || "";
@@ -52,8 +53,10 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<unknow
   };
   const response = await fetch(url, { ...options, headers, signal: AbortSignal.timeout(30000) });
   if (!response.ok) {
+    // F-04-W2-004: do not embed full upstream bodies in tool-visible errors.
     const text = await response.text().catch(() => "Unknown error");
-    throw new Error(`API [${response.status}]: ${text}`);
+    const safe = sanitizeErrorMessage(text).slice(0, 200);
+    throw new Error(`API [${response.status}]: ${safe}`);
   }
   return response.json();
 }

@@ -16,6 +16,8 @@ import { logRoutingDecision } from "@/lib/a2a/routingLogger";
 import { createA2AStream, SSE_HEADERS } from "@/lib/a2a/streaming";
 import { A2A_SKILL_HANDLERS, executeA2ATaskWithState } from "@/lib/a2a/taskExecution";
 import { getSettings } from "@/lib/db/settings";
+import { isValidApiKey } from "@/sse/services/auth";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 type A2AMessage = { role: string; content: string };
 
@@ -64,21 +66,35 @@ function toMessageArray(raw: unknown): A2AMessage[] | null {
 
 // ============ Auth ============
 
-function authenticate(req: NextRequest): boolean {
-  // If no API key is configured, allow all requests
-  const configuredKey = process.env.OMNIROUTE_API_KEY;
-  if (!configuredKey) return true;
-
+/**
+ * A2A auth (F-07-011): fail closed.
+ * - Prefer env `OMNIROUTE_API_KEY` when set (legacy dedicated key).
+ * - Otherwise require a valid OmniRoute API key (Bearer).
+ * Never allow unauthenticated access when the endpoint is reachable.
+ */
+async function authenticate(req: NextRequest): Promise<boolean> {
   const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-  return token === configuredKey;
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+
+  const configuredKey = process.env.OMNIROUTE_API_KEY;
+  if (configuredKey) {
+    return token === configuredKey;
+  }
+
+  try {
+    return await isValidApiKey(token);
+  } catch {
+    return false;
+  }
 }
 
 // ============ JSON-RPC Helpers ============
 
 function jsonRpcError(id: string | number | null, code: number, message: string, data?: unknown) {
+  const safeMessage = sanitizeErrorMessage(message) || "Internal error";
   return NextResponse.json(
-    { jsonrpc: "2.0", id, error: { code, message, data } },
+    { jsonrpc: "2.0", id, error: { code, message: safeMessage, data } },
     { status: code === -32600 ? 400 : code === -32601 ? 404 : code === -32603 ? 500 : 200 }
   );
 }
@@ -107,8 +123,8 @@ async function rejectIfA2ADisabled(id: string | number | null) {
 
 export async function POST(req: NextRequest) {
   console.log("==> HIT A2A ROUTER:", req.url);
-  // Auth check
-  if (!authenticate(req)) {
+  // Auth check (async — fail closed)
+  if (!(await authenticate(req))) {
     return jsonRpcError(null, -32600, "Unauthorized: missing or invalid API key");
   }
 
@@ -182,7 +198,8 @@ export async function POST(req: NextRequest) {
         });
       } catch (err) {
         console.error("A2A ERROR TRACE:", err);
-        const msg = err instanceof Error ? err.message : String(err);
+        const raw = err instanceof Error ? err.message : String(err);
+        const msg = sanitizeErrorMessage(raw) || "Skill execution failed";
         tm.updateTask(task.id, "failed", [{ type: "error", content: msg }], msg);
         return jsonRpcError(id, -32603, `Skill execution failed: ${msg}`);
       }
@@ -241,8 +258,8 @@ export async function POST(req: NextRequest) {
         const task = tm.cancelTask(taskId);
         return jsonRpcResult(id, { task: { id: task.id, state: task.state } });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return jsonRpcError(id, -32603, msg);
+        const raw = err instanceof Error ? err.message : String(err);
+        return jsonRpcError(id, -32603, sanitizeErrorMessage(raw) || "Cancel failed");
       }
     }
 

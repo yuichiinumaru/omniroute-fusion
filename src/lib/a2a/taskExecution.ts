@@ -1,4 +1,5 @@
 import type { A2ATask, TaskArtifact } from "./taskManager";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 type TaskManagerLike = {
   updateTask: (
@@ -53,7 +54,9 @@ export async function executeA2ATaskWithState(
     tm.updateTask(task.id, "completed", result.artifacts);
     return result;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    // F-06-008: never persist raw stack/path messages into task artifacts.
+    const raw = err instanceof Error ? err.message : String(err);
+    const msg = sanitizeErrorMessage(raw) || "Task failed";
     try {
       tm.updateTask(task.id, "failed", [{ type: "error", content: msg }], msg);
     } catch {

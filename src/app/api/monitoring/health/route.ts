@@ -1,17 +1,27 @@
 import { NextResponse } from "next/server";
 import { getProviderConnections, getSettings } from "@/lib/localDb";
-import { buildHealthPayload } from "@/lib/monitoring/observability";
+import { buildHealthPayload, buildPublicHealthPayload } from "@/lib/monitoring/observability";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
-import { isAuthenticated } from "@/shared/utils/apiAuth";
+import { isAuthenticated, verifyAuth } from "@/shared/utils/apiAuth";
 
 /**
  * GET /api/monitoring/health — System health overview
  *
- * Returns system info, provider health (circuit breakers),
- * rate limit status, and database stats.
+ * Public (no real credentials): minimal liveness — status, version, uptime (F-07-009).
+ * Credentialed (dashboard session or manage-scope API key): full observability snapshot.
+ *
+ * Uses `verifyAuth` (not `isAuthenticated`) so open-install `requireLogin=false`
+ * does not broadcast breakers/sessions/credentials to anonymous network clients.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  // Real credentials only — ignore requireLogin=false open-install bypass.
+  const fullAccess = (await verifyAuth(request)) === null;
+
+  if (!fullAccess) {
+    return NextResponse.json(buildPublicHealthPayload(APP_CONFIG.version));
+  }
+
   const readHealthValue = <T>(label: string, reader: () => T, fallback: T): T => {
     try {
       return reader();

@@ -95,6 +95,11 @@ import {
   resolveOmniRouteBaseUrl,
 } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { bindTenantPrincipalIds } from "./principalBinding.ts";
+import {
+  mcpToolErrorResult,
+  sanitizeMcpErrorMessage,
+  sanitizeMcpToolResult,
+} from "./errorSanitize.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
 /** Opt-in enforcement; when on, scopes come only from principal/authInfo/env — never client `_meta`. */
@@ -240,8 +245,10 @@ async function omniRouteFetch(path: string, options: RequestInit = {}): Promise<
   const response = await fetch(url, { ...options, headers, signal });
 
   if (!response.ok) {
+    // F-04-W2-004: never embed full upstream HTTP bodies in tool-visible errors.
     const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error(`OmniRoute API error [${response.status}]: ${errorText}`);
+    const safeBody = sanitizeMcpErrorMessage(errorText).slice(0, 200);
+    throw new Error(`OmniRoute API error [${response.status}]: ${safeBody}`);
   }
 
   return response.json();
@@ -482,10 +489,11 @@ function withScopeEnforcement(
         false,
         `scope_denied:${reason}`
       );
-      return {
+      // Scope denials are stable product messages (no stack/path); still normalize.
+      return sanitizeMcpToolResult({
         content: [{ type: "text" as const, text: `Error: ${msg}` }],
         isError: true,
-      };
+      });
     }
 
     // F-04-003: pin multi-tenant ids to authenticated principal before tool handlers run
@@ -493,14 +501,19 @@ function withScopeEnforcement(
     try {
       boundArgs = bindTenantPrincipalIds(args, extra);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: `Error: ${msg}` }],
-        isError: true,
-      };
+      return mcpToolErrorResult(err);
     }
 
-    return handler(boundArgs, extra);
+    // F-04-W2-004: sanitize every tool error surface (thrown or returned isError).
+    try {
+      const result = await handler(boundArgs, extra);
+      if (result && typeof result === "object" && (result as TextToolResult).isError) {
+        return sanitizeMcpToolResult(result as TextToolResult & { isError: true });
+      }
+      return result;
+    } catch (err) {
+      return mcpToolErrorResult(err);
+    }
   };
 }
 

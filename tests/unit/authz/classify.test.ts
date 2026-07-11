@@ -136,6 +136,12 @@ const cases: Case[] = [
     expectedClass: "PUBLIC",
   },
   {
+    name: "/api/health/ping is PUBLIC (F-07-010)",
+    path: "/api/health/ping",
+    method: "GET",
+    expectedClass: "PUBLIC",
+  },
+  {
     name: "/api/cloud/auth is PUBLIC (worker helper)",
     path: "/api/cloud/auth",
     method: "POST",

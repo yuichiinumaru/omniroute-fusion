@@ -15,6 +15,11 @@ test("isPublicApiRoute allows readonly health and require-login bootstrap routes
   assert.equal(isPublicApiRoute("/api/monitoring/health", "OPTIONS"), true);
   assert.equal(isPublicApiRoute("/api/monitoring/health", "DELETE"), false);
 
+  // F-07-010 / Task 0051: lightweight liveness must stay public readonly.
+  assert.equal(isPublicApiRoute("/api/health/ping", "GET"), true);
+  assert.equal(isPublicApiRoute("/api/health/ping", "HEAD"), true);
+  assert.equal(isPublicApiRoute("/api/health/ping", "POST"), false);
+
   assert.equal(isPublicApiRoute("/api/settings/require-login", "GET"), true);
   assert.equal(isPublicApiRoute("/api/settings/require-login", "HEAD"), true);
   assert.equal(isPublicApiRoute("/api/settings/require-login", "OPTIONS"), true);

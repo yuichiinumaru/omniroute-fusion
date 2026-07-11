@@ -11,6 +11,16 @@
   **Author**: builder (Task 0047)
 
 ### Security
+- **Residual authz + error sanitization sweep (Task 0051 / Epic 0008 S12)** — close cross-cutting P2 leftovers after P0/P1 clusters.
+  - **F-07-014**: `createErrorResponse` / `createErrorResponseFromUnknown` sanitize `message` + `details` by default via `sanitizeErrorMessage` / `sanitizeUpstreamDetails`
+  - **F-07-009**: `GET /api/monitoring/health` public shape limited to status/version/uptime; full snapshot requires real credentials (`verifyAuth`, not open-install bypass)
+  - **F-07-010**: `/api/health/ping` added to `PUBLIC_READONLY_API_ROUTE_PREFIXES` (GET/HEAD/OPTIONS)
+  - **F-07-011**: A2A `/a2a` fail-closed — no unauthenticated access when `OMNIROUTE_API_KEY` unset; accepts env key or valid OmniRoute API key
+  - **F-06-008**: A2A task artifacts / SSE failure events / JSON-RPC errors sanitize `err.message`
+  - **F-04-W2-004**: MCP `withScopeEnforcement` + `omniRouteFetch`/`apiFetch` + plugin tool errors sanitize via `open-sse/mcp-server/errorSanitize.ts`
+  - `sanitizeErrorMessage` collapses pure stack-frame first lines (`at /path…`) to `Internal error`
+  - Tests: `tests/unit/residual-authz-sanitize-0051.test.ts` (+ public-api-routes / classify / a2a-enabled / display-and-error-utils)
+  **Author**: builder (Task 0051)
 - **Privileged API handler auth (Task 0049 / Epic 0008 S10)** — close handler-level auth/redaction gaps on high-value mutators (F-07-006 / F-07-007 / F-07-W2-004 / F-07-W2-005; stretch F-07-W2-006).
   - **F-07-006**: `/api/cloud/credentials/update` removed from PUBLIC prefix; `requireManagementAuth({ always: true })` + optional `connectionId` binding; refuses multi-connection first-match overwrite; ALWAYS_PROTECTED
   - **F-07-007**: `/api/relay/tokens` (+ `[id]`) always require management auth; responses never include `tokenHash`; `rawToken` only once on create; ALWAYS_PROTECTED
