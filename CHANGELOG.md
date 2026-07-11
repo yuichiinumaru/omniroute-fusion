@@ -109,6 +109,13 @@
   **Author**: builder (Task 0037)
 
 ### Fixed
+- **Registered-key budget window reset + usage_history rollup idempotency (Task 0050 / Epic 0008 S11)** — close false budget denies and double-counted analytics (F-05-004 / F-05-005).
+  - `validateRegisteredKey` applies day/hour window reset then compares **post-reset** counters (not the stale SELECT snapshot); returned metadata reflects zeros after boundary flip
+  - `incrementRegisteredKeyUsage` resets day/hour windows atomically before the bump (shared boundary semantics with validate)
+  - `rollupUsageHistoryBeforeDate` uses **replace** ON CONFLICT (not additive SUM); `rollupAndDeleteUsageHistoryBeforeDate` runs rollup+DELETE in one transaction
+  - Authority documented: `usage_history` is authoritative for `daily_usage_summary` request/token totals; `rollupDailyUsage` (`quota_snapshots`) is secondary/backfill
+  - Tests: `registered-key-budget-window-0050.test.ts`, `usage-history-rollup-0050.test.ts`
+  **Author**: builder (Task 0050)
 - **Combo / auto-combo resilience wiring (Epic 0008 S4 / Task 0043)** — honor 3-layer resilience on RR, nested runtime units, chat soft-failures, and auto selection.
   - **F-04-001**: chat no longer wraps soft `{success:false}` results in `breaker.execute()` success; HALF_OPEN probes use `tryReserveExecution` + post-result `_onSuccess`/`_onFailure` (soft 502 re-opens, does not heal)
   - **F-03-001 / F-03-004**: round-robin records `recordProviderFailure` + model lockout; pre-skips circuit-blocking and model-lock **before** semaphore acquire

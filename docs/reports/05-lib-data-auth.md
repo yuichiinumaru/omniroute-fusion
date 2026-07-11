@@ -76,22 +76,24 @@ Paths reviewed (data/auth/provider libs only):
 
 - Severity: **P1**
 - Category: bug
-- Evidence:
-  - `src/lib/db/registeredKeys.ts:383-400` — if `last_reset_day`/`last_reset_hour` differ, SQL resets `daily_used`/`hourly_used` to 0, then budget check uses the **pre-reset** `row.daily_used` / `row.hourly_used` from the SELECT.
-  - `src/lib/db/registeredKeys.ts:408-416` — `incrementRegisteredKeyUsage` never resets windows; only validate does.
+- **Status (2026-07-11)**: **FIXED** — Task 0050
+- Evidence (pre-fix):
+  - `src/lib/db/registeredKeys.ts` — if `last_reset_day`/`last_reset_hour` differ, SQL resets `daily_used`/`hourly_used` to 0, then budget check used the **pre-reset** `row.daily_used` / `row.hourly_used` from the SELECT.
+  - `incrementRegisteredKeyUsage` never reset windows; only validate did.
 - Why it matters: After a day/hour boundary, a key that had exhausted its budget remains rejected until counters are re-read (or forever if callers only validate). False **deny** of otherwise valid registered keys; budgets do not self-heal on the first request of a new window.
-- Suggested fix direction: After reset UPDATE, re-SELECT counters (or apply reset in-memory before compare); ideally one transaction that resets + checks + returns. Mirror reset logic into `incrementRegisteredKeyUsage`.
+- Fix applied: `applyRegisteredKeyBudgetWindowReset` returns post-reset counters used for comparison + response metadata; `incrementRegisteredKeyUsage` resets day/hour windows atomically before the bump. Regression: `tests/unit/registered-key-budget-window-0050.test.ts`.
 
 ### F-05-005 — Usage history rollup is additive and not crash-safe (double-count)
 
 - Severity: **P1**
 - Category: bug
-- Evidence:
-  - `src/lib/usage/aggregateHistory.ts:154-172` — `ON CONFLICT … DO UPDATE SET total_requests = daily_usage_summary.total_requests + excluded.total_requests` (additive).
-  - `src/lib/db/cleanup.ts:104-116` — rollup then `DELETE FROM usage_history WHERE timestamp < ?` as **separate** non-transactional steps; rollup errors abort delete, but success + crash before delete re-rolls same rows.
-  - Contrast: `src/lib/usage/aggregateHistory.ts:52-56` (`rollupDailyUsage` from `quota_snapshots`) uses **replace** (`= excluded.*`), not add — two writers to the same summary table with incompatible semantics.
-- Why it matters: Interrupted cleanup, manual re-run of rollup, or mixing `rollupDailyUsage` + `rollupUsageHistoryBeforeDate` permanently inflates analytics / cost dashboards; there is no idempotency key or “already rolled” marker on source rows.
-- Suggested fix direction: Single transaction (rollup + delete); make usage_history rollup idempotent (replace from source for date range, or mark rows `rolled_up_at`); stop dual-sourcing `daily_usage_summary` from both quota_snapshots and usage_history without a clear authority.
+- **Status (2026-07-11)**: **FIXED** — Task 0050
+- Evidence (pre-fix):
+  - `src/lib/usage/aggregateHistory.ts` — `ON CONFLICT … DO UPDATE` was **additive** (`summary + excluded`).
+  - `src/lib/db/cleanup.ts` — rollup then DELETE as **separate** non-transactional steps; crash between them re-rolled the same raw rows.
+  - Contrast: `rollupDailyUsage` from `quota_snapshots` already used replace — dual writers with incompatible semantics.
+- Why it matters: Interrupted cleanup, manual re-run of rollup, or mixing writers permanently inflates analytics / cost dashboards.
+- Fix applied: usage_history rollup uses **replace** ON CONFLICT; `rollupAndDeleteUsageHistoryBeforeDate` wraps rollup+DELETE in one transaction; module docs declare `usage_history` authoritative for request/token summary rows (`quota_snapshots` secondary/backfill). Regression: `tests/unit/usage-history-rollup-0050.test.ts`.
 
 ### F-05-006 — OAuth re-auth update path does not lockstep `tokenExpiresAt` with `expiresAt`
 

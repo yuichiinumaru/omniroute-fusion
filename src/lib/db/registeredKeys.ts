@@ -363,6 +363,44 @@ export function revokeRegisteredKey(id: string): boolean {
 }
 
 /**
+ * Apply day/hour budget window resets for a registered key row.
+ * Returns the effective counters after reset (in-memory + persisted).
+ *
+ * F-05-004: callers must use these post-reset values for budget comparison;
+ * the SELECT snapshot is stale once the window flips.
+ */
+function applyRegisteredKeyBudgetWindowReset(
+  db: ReturnType<typeof getDbInstance>,
+  row: RegisteredKeyRow
+): { dailyUsed: number; hourlyUsed: number; lastResetDay: string; lastResetHour: string } {
+  const today = nowDay();
+  const hour = nowHour();
+  let dailyUsed = row.daily_used;
+  let hourlyUsed = row.hourly_used;
+
+  if (row.last_reset_day !== today || row.last_reset_hour !== hour) {
+    if (row.last_reset_day !== today) dailyUsed = 0;
+    if (row.last_reset_hour !== hour) hourlyUsed = 0;
+    db.prepare(
+      `
+      UPDATE registered_keys
+      SET daily_used = CASE WHEN last_reset_day <> ? THEN 0 ELSE daily_used END,
+          hourly_used = CASE WHEN last_reset_hour <> ? THEN 0 ELSE hourly_used END,
+          last_reset_day = ?, last_reset_hour = ?
+      WHERE id = ?
+    `
+    ).run(today, hour, today, hour, row.id);
+  }
+
+  return {
+    dailyUsed,
+    hourlyUsed,
+    lastResetDay: today,
+    lastResetHour: hour,
+  };
+}
+
+/**
  * Validate a raw registered key against stored hashes.
  * Returns the key metadata if valid, null otherwise.
  */
@@ -380,40 +418,41 @@ export function validateRegisteredKey(rawKey: string): RegisteredKey | null {
     .get(hash) as RegisteredKeyRow | undefined;
   if (!row) return null;
 
-  // Auto-reset budget windows if needed
-  const today = nowDay();
-  const hour = nowHour();
-  if (row.last_reset_day !== today || row.last_reset_hour !== hour) {
-    db.prepare(
-      `
-      UPDATE registered_keys
-      SET daily_used = CASE WHEN last_reset_day <> ? THEN 0 ELSE daily_used END,
-          hourly_used = CASE WHEN last_reset_hour <> ? THEN 0 ELSE hourly_used END,
-          last_reset_day = ?, last_reset_hour = ?
-      WHERE id = ?
-    `
-    ).run(today, hour, today, hour, row.id);
-  }
+  // Auto-reset budget windows and compare post-reset counters (F-05-004).
+  const window = applyRegisteredKeyBudgetWindowReset(db, row);
 
-  // Budget check
-  if (row.daily_budget !== null && row.daily_used >= row.daily_budget) return null;
-  if (row.hourly_budget !== null && row.hourly_used >= row.hourly_budget) return null;
+  if (row.daily_budget !== null && window.dailyUsed >= row.daily_budget) return null;
+  if (row.hourly_budget !== null && window.hourlyUsed >= row.hourly_budget) return null;
 
-  return rowToCamel(row) as unknown as RegisteredKey;
+  return rowToCamel({
+    ...row,
+    daily_used: window.dailyUsed,
+    hourly_used: window.hourlyUsed,
+    last_reset_day: window.lastResetDay,
+    last_reset_hour: window.lastResetHour,
+  }) as unknown as RegisteredKey;
 }
 
 /**
  * Increment usage counters for a registered key (called by request pipeline).
+ * Resets day/hour windows atomically before the bump so counters never carry
+ * across period boundaries (F-05-004).
  */
 export function incrementRegisteredKeyUsage(id: string): void {
   const db = getDbInstance();
+  const today = nowDay();
+  const hour = nowHour();
   db.prepare(
     `
     UPDATE registered_keys
-    SET daily_used = daily_used + 1, hourly_used = hourly_used + 1, updated_at = datetime('now')
+    SET daily_used = CASE WHEN last_reset_day <> ? THEN 1 ELSE daily_used + 1 END,
+        hourly_used = CASE WHEN last_reset_hour <> ? THEN 1 ELSE hourly_used + 1 END,
+        last_reset_day = ?,
+        last_reset_hour = ?,
+        updated_at = datetime('now')
     WHERE id = ?
   `
-  ).run(id);
+  ).run(today, hour, today, hour, id);
 }
 
 // ─── Provider / Account Limit Management ──────────────────────────────────────
