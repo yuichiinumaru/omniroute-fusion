@@ -23,7 +23,7 @@ Execute **after** adversarial 0040–0051 are stable (review wave can run in par
 
 | Order | Task | Lane now | Score / signal | Focus |
 |------:|------|----------|----------------|-------|
-| **Q1** | **0024** Frontend IA Registry/Connect cleanup (S5) | `02-doing/` | **84 REJECT** (2026-07-11) | Path-to-100 residuals from re-review; unblocks clean 0025 pillar story |
+| **Q1** | **0024** ✅ reworked → `03-review` Frontend IA Registry/Connect cleanup (S5) | `02-doing/` | **84 REJECT** (2026-07-11) | Path-to-100 residuals from re-review; unblocks clean 0025 pillar story |
 | **Q2** | **0025** Frontend IA seven-pillar / flat primary sidebar (S6) | `02-doing/` | **81 REJECT** (2026-07-11) | Prior path-to-100 items not closed; coordinate with live `PRIMARY_SIDEBAR_ITEMS` (~10 flat) |
 | **Q3** | **0017** Fusion docs / i18n / operator notes | `02-doing/` | **88** re-review return (F3/F6 open) | Docs/i18n only — after 0024/0025 or parallel if no file collision |
 | **Q4** | **0036** Deploy/verify dual-mode on **:21000** | `01-open/` | Canary **:22000** already OK | Promote `omniroute:base` to 21000 when operator A/B signs off; heal + bundle proof |
@@ -70,3 +70,15 @@ Do **not** open competing tasks for these.
 3. Then **Q3** fusion docs.  
 4. **Q4** only when operator says promote 21000.  
 5. Keep unrelated dirty frontend-IA tree files out of security commits.
+
+
+---
+
+## Progress (2026-07-11)
+
+| Item | Status |
+|------|--------|
+| Q1 0024 | **Done** → `03-review/` (commit path-to-100 shell tests) |
+| Q2 0025 | **Done** → `03-review/` (Routing hub subnav + flat tests) |
+| Q3 0017 | **Done** → `03-review/` (18 strategies + acting/A6 docs) |
+| Q4 0036 | **Pending** — promote dual-mode to :21000 when operator A/B signs off |
