@@ -893,7 +893,11 @@ export function recordProviderFailure(
   const breaker = configureProviderBreaker(provider, profile);
   if (!breaker) return;
 
-  if (!breaker.canExecute()) return;
+  // Skip only while OPEN so we do not extend the cooldown timer.
+  // HALF_OPEN (including probe-budget exhausted after tryReserveExecution) must
+  // still record failures so a soft-fail re-opens the breaker (F-04-001 / F-03-001).
+  // Using !canExecute() here was wrong: HALF_OPEN + halfOpenAllowed=0 returns false.
+  if (breaker.getStatus().state === "OPEN") return;
 
   breaker._onFailure();
 

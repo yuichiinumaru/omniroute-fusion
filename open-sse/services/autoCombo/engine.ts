@@ -222,6 +222,12 @@ export function selectProvider(
   }
   if (!validateWeights(weights)) weights = DEFAULT_WEIGHTS;
 
+  // F-03-W2-002: activate incident mode from live breaker states (not test-only).
+  healer.updateIncidentMode(candidates.map((c) => c.circuitBreakerState));
+  const breakerByProvider = new Map(
+    candidates.map((c) => [c.provider, c.circuitBreakerState] as const)
+  );
+
   // Filter out excluded providers
   const excluded: string[] = [];
   const pool = candidates.filter((c) => {
@@ -238,17 +244,38 @@ export function selectProvider(
   });
 
   if (pool.length === 0) {
-    // Fallback: allow all candidates regardless of exclusions
-    pool.push(...candidates);
-    excluded.length = 0;
+    // F-03-W2-001: never re-admit OPEN / CB-excluded providers.
+    // Soft re-admission order: CLOSED (candidatePool miss) → HALF_OPEN probe (one).
+    // All-OPEN / empty healthy set fails closed below after scoring.
+    const nonOpen = candidates.filter((c) => c.circuitBreakerState !== "OPEN");
+    const closed = nonOpen.filter((c) => c.circuitBreakerState !== "HALF_OPEN");
+    const halfOpen = nonOpen.filter((c) => c.circuitBreakerState === "HALF_OPEN");
+    if (closed.length > 0) {
+      pool.push(...closed);
+    } else if (halfOpen.length > 0) {
+      pool.push(halfOpen[0]);
+    }
+    // Keep OPEN entries in `excluded` — do not clear.
+    for (const c of candidates) {
+      if (c.circuitBreakerState === "OPEN" && !excluded.includes(c.provider)) {
+        excluded.push(c.provider);
+      }
+    }
+  }
+
+  if (pool.length === 0) {
+    throw new Error(
+      `Auto-combo "${config.name}" has no healthy candidates (all OPEN/excluded)`
+    );
   }
 
   // Score all providers (using classified intent if available)
   const scored = scorePool(pool, effectiveTaskType, weights, getTaskFitness);
 
-  // Apply self-healing re-evaluation with actual scores
+  // Apply self-healing re-evaluation with actual scores + live breaker state (F-03-W2-002)
   const finalCandidates = scored.filter((s) => {
-    const eval_ = healer.evaluate(s.provider, s.score, "CLOSED");
+    const cbState = breakerByProvider.get(s.provider) ?? "CLOSED";
+    const eval_ = healer.evaluate(s.provider, s.score, cbState);
     if (eval_.excluded) {
       excluded.push(s.provider);
       return false;
@@ -256,9 +283,24 @@ export function selectProvider(
     return true;
   });
 
-  const candidates_ = finalCandidates.length > 0 ? finalCandidates : scored;
+  // Score-fallback must not re-admit OPEN providers.
+  const scoredHealthy = scored.filter(
+    (s) => (breakerByProvider.get(s.provider) ?? "CLOSED") !== "OPEN"
+  );
+  const candidates_ =
+    finalCandidates.length > 0
+      ? finalCandidates
+      : scoredHealthy.length > 0
+        ? scoredHealthy
+        : [];
 
-  // Incident mode check
+  if (candidates_.length === 0) {
+    throw new Error(
+      `Auto-combo "${config.name}" has no healthy candidates after self-healing filter`
+    );
+  }
+
+  // Incident mode check (updated above from live states)
   const incidentMode = healer.isInIncidentMode();
   const effectiveExplorationRate = incidentMode ? 0 : config.explorationRate;
 

@@ -1607,6 +1607,15 @@ async function handleSingleModelChat(
           );
 
       if (shouldFallback) {
+        // F-04-001: a HALF_OPEN probe that soft-fails is a failed probe even when
+        // another connection remains — re-open before rotating accounts.
+        if (
+          !forceLiveComboTest &&
+          PROVIDER_BREAKER_FAILURE_STATUSES.has(Number(result.status)) &&
+          breaker.getStatus().state === "HALF_OPEN"
+        ) {
+          breaker._onFailure();
+        }
         if (Number.isFinite(cooldownMs) && cooldownMs > 0) {
           lastCooldownMs = cooldownMs;
           requestRetryLastCooldownMs = cooldownMs;
@@ -1620,12 +1629,19 @@ async function handleSingleModelChat(
         continue;
       }
 
+      // Terminal soft-failure (no more account fallback): record provider breaker
+      // failure for non-combo traffic. Combo records via recordProviderFailure.
+      // F-04-001: also re-open on HALF_OPEN probe soft-fail so a 502 cannot leave
+      // the breaker stuck in HALF_OPEN with zero probe budget (and never "succeeds"
+      // a probe — success is only recorded on result.success above).
       if (
         !forceLiveComboTest &&
-        !isCombo &&
         PROVIDER_BREAKER_FAILURE_STATUSES.has(Number(result.status))
       ) {
-        breaker._onFailure();
+        const breakerState = breaker.getStatus().state;
+        if (!isCombo || breakerState === "HALF_OPEN") {
+          breaker._onFailure();
+        }
       }
 
       return withSelectedConnectionHeader(result.response, credentials?.connectionId);

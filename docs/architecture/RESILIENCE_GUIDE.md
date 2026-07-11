@@ -48,6 +48,12 @@ OmniRoute has three distinct but related resilience mechanisms. Each has a diffe
 
 **Lazy recovery:** when `OPEN` expires, `getStatus()`, `canExecute()`, `getRetryAfterMs()` refresh state to `HALF_OPEN`. No background timer needed.
 
+**Chat soft-failures (Task 0043 / F-04-001):** `handleChatCore` returns `{ success: false, status: 5xx }` without throwing. The chat path must **not** treat that as a circuit-breaker probe success. Use `tryReserveExecution()` (or `canExecute()` for read-only gates) plus explicit `_onSuccess` / `_onFailure` after classifying the soft result. `breaker.execute()` still auto-succeeds on non-throw for non-chat callers.
+
+**Combo pre-gates:** prefer `canExecute()` / `isProviderCircuitBlocking(provider)` over `getStatus().state === "OPEN"` so HALF_OPEN with exhausted probe budget is skipped the same way as OPEN (priority, weighted, RR, pre-screen, sticky RR health). Round-robin and runtime-unit (nested combo-ref model legs) record provider breaker failures via `shouldRecordProviderBreakerFailure` + `recordProviderFailure`.
+
+**Auto-combo empty pool:** never re-admit candidates still `OPEN`. Prefer CLOSED residual (e.g. candidatePool miss) or a single HALF_OPEN probe; if every candidate is OPEN/excluded, fail closed (503).
+
 ---
 
 ## 2. Connection Cooldown

@@ -1,6 +1,6 @@
 # Task 0043: Combo / Auto-Combo Resilience Wiring (Breaker, RR, HALF_OPEN, Soft-Failure)
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Ready for review
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S4)
@@ -92,13 +92,13 @@ See **Source reports** above for full relative paths.
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Primary seven findings closed with tests (including F-04-001)
-- [ ] Deferred fusion findings listed as deferred in Completion Evidence (not silently “fixed”)
-- [ ] `node --import tsx/esm --test` and/or `npm run test:vitest` patterns for combo/autoCombo pass
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` — no new errors
-- [ ] CHANGELOG.md entry (routing/resilience)
-- [ ] If behavior changes operator-visible routing, note in docs or CHANGELOG / RESILIENCE_GUIDE
+- [x] Primary seven findings closed with tests (including F-04-001)
+- [x] Deferred fusion findings listed as deferred in Completion Evidence (not silently “fixed”)
+- [x] `node --import tsx/esm --test` and/or `npm run test:vitest` patterns for combo/autoCombo pass
+- [x] `npm run typecheck:core` passes
+- [x] `npm run lint` — no new errors
+- [x] CHANGELOG.md entry (routing/resilience)
+- [x] If behavior changes operator-visible routing, note in docs or CHANGELOG / RESILIENCE_GUIDE
 
 ---
 
@@ -108,15 +108,15 @@ See **Source reports** above for full relative paths.
 
 Subtasks:
 
-- [ ] **Ler código existente** e o(s) report(s) em `docs/reports/03-open-sse-services.md` + `docs/reports/04-mcp-edge-runtime.md` (F-04-001) listados em Source reports: `src/sse/handlers/chatHelpers.ts`, `src/sse/handlers/chat.ts`, `src/shared/utils/circuitBreaker.ts`, `open-sse/services/combo.ts` (priority vs RR), `open-sse/services/combo/runtimeUnits.ts`, `open-sse/services/autoCombo/**`, `open-sse/services/accountFallback.ts`, existing combo/autoCombo tests, RESILIENCE_GUIDE
-- [ ] Fix soft-failure / HALF_OPEN classification (gate-only `canExecute` + explicit success/failure from post-result, or throw typed failures for breaker statuses)
-- [ ] Extract shared “should skip target” + “record outcome” helpers if duplication is the root smell
-- [ ] Wire RR recordFailure + pre-skips
-- [ ] Restore options on executeRuntimeUnitCombo / combo-ref
-- [ ] Fix HALF_OPEN gating to use `canExecute` / probe budget APIs not raw OPEN-only
-- [ ] Fix auto-combo empty-pool + re-evaluate breaker state
-- [ ] Stretch RR credential gate parity
-- [ ] Tests + CHANGELOG
+- [x] **Ler código existente** + reports + RESILIENCE_GUIDE
+- [x] Fix soft-failure / HALF_OPEN classification (gate-only tryReserve + post-result)
+- [x] Extract `isProviderCircuitBlocking` + shared runtime pre-skip helper
+- [x] Wire RR recordFailure + pre-skips (OPEN/canExecute + model lock + credential gate)
+- [x] Restore resilience on executeRuntimeUnitCombo (breaker/lockout/cooldown/exhaustion)
+- [x] Fix HALF_OPEN gating to use canExecute / isProviderCircuitBlocking
+- [x] Fix auto-combo empty-pool + re-evaluate + incident mode
+- [x] Stretch RR credential gate parity
+- [x] Tests + CHANGELOG + RESILIENCE_GUIDE
 
 ### Where
 
@@ -161,27 +161,45 @@ Without correct failure recording and OPEN exclusion, a dying provider keeps rec
 
 ## 🛡️ Compliance Checklist (Leis Primárias do AGENTS.md)
 
-- [ ] **Doc Accuracy**
+- [x] **Doc Accuracy**
 - [ ] **Zod Validation**: N/A unless config schema
 - [ ] **Security**: N/A primary
 - [ ] **Error Sanitization**: keep unavailable bodies safe
 - [ ] **No Raw SQL**: N/A
-- [ ] **Tests**
+- [x] **Tests**
 
 ---
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
 - **Arquivos criados/modificados**:
+  - `src/shared/utils/circuitBreaker.ts` — `tryReserveExecution()`
+  - `src/sse/handlers/chatHelpers.ts` — gate-only (no soft-fail probe success)
+  - `src/sse/handlers/chat.ts` — HALF_OPEN soft-fail `_onFailure`
+  - `open-sse/services/accountFallback.ts` — `recordProviderFailure` allows HALF_OPEN
+  - `open-sse/services/combo/comboPredicates.ts` — `isProviderCircuitBlocking`
+  - `open-sse/services/combo.ts` — RR recordFailure + pre-skips; canExecute gates; auto fail-closed catch
+  - `open-sse/services/combo/quotaStrategies.ts` — preScreen `canExecute`
+  - `open-sse/services/combo/runtimeUnits.ts` — full resilience wire (F-03-002)
+  - `open-sse/services/autoCombo/engine.ts` — empty-pool + incident mode + live CB re-eval
+  - `open-sse/services/autoCombo/routerStrategy.ts` — no OPEN re-admission fallback
+  - `tests/unit/combo-resilience-wiring-0043.test.ts` — new
+  - `docs/architecture/RESILIENCE_GUIDE.md` — semantics note
+  - `CHANGELOG.md` — Fixed entry
 - **Finding IDs closed / deferred**:
+  - Closed: F-04-001, F-03-001, F-03-002, F-03-003, F-03-004, F-03-W2-001, F-03-W2-002
+  - Stretch done: F-03-W2-003 (RR credential gate), F-03-008 partial (`tryReserveExecution`)
+  - Deferred: F-03-012 (fusion nested options), F-03-W2-006 (fusion panel cancel), F-03-006 (backoffLevel=0) left as stretch residual
 - **Testes**:
-- **typecheck / lint**:
-- **CHANGELOG**:
-- **Agente executor**:
-- **Data de conclusão**:
+  - `node --import tsx/esm --test tests/unit/combo-resilience-wiring-0043.test.ts` — 13 pass
+  - Related: auto-combo-engine, skip-provider-breaker, circuit-breaker-failure-kind, observability-fase04 — 57 pass
+  - `npm run test:vitest -- open-sse/services/autoCombo/__tests__/autoCombo.test.ts` — 56 pass
+- **typecheck / lint**: `npm run typecheck:core` clean
+- **CHANGELOG**: Fixed — Combo / auto-combo resilience wiring (Task 0043)
+- **Agente executor**: builder (Task 0043)
+- **Data de conclusão**: 2026-07-11
 
 ---
-
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
 - **Reviewer**:

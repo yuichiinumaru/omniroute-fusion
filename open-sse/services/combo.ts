@@ -150,6 +150,7 @@ import {
   clampComboDepth,
   shouldSkipForPredictedTtft,
   shouldRecordProviderBreakerFailure,
+  isProviderCircuitBlocking,
   resolveDelayMs,
   comboModelNotFoundResponse,
   isStreamReadinessFailureErrorBody,
@@ -217,7 +218,12 @@ export { QUOTA_SOFT_DEPRIORITIZE_FACTOR, setCandidateQuotaSoftPenalty };
 export { scoreAutoTargets, expandAutoComboCandidatePool };
 export type { SingleModelTarget, ResolvedComboTarget };
 export { validateResponseQuality };
-export { clampComboDepth, shouldSkipForPredictedTtft, shouldRecordProviderBreakerFailure };
+export {
+  clampComboDepth,
+  shouldSkipForPredictedTtft,
+  shouldRecordProviderBreakerFailure,
+  isProviderCircuitBlocking,
+};
 export { resolveShadowTargets, scheduleShadowRouting };
 export { preScreenTargets };
 export { resolveComboRuntimeUnits, resolveComboTargets, filterTargetsByRequestCompatibility };
@@ -1131,8 +1137,8 @@ export async function handleComboChat({
 
   const isTargetSelectableForWeighted = async (target: ResolvedComboTarget): Promise<boolean> => {
     const rawModel = parseModel(target.modelStr).model || target.modelStr;
-    if (target.provider && getCircuitBreaker(target.provider).getStatus().state === "OPEN")
-      return false;
+    // F-03-003: honor HALF_OPEN probe budget (canExecute), not raw OPEN-only.
+    if (isProviderCircuitBlocking(target.provider)) return false;
     if (
       resilienceSettings.providerCooldown.enabled &&
       Boolean(target.provider && target.provider !== "unknown") &&
@@ -1444,23 +1450,33 @@ export async function handleComboChat({
       }
 
       if (!selectedProvider || !selectedModel) {
-        const selection = selectAutoProvider(
-          {
-            id: combo.id || combo.name,
-            name: combo.name,
-            type: "auto",
-            candidatePool,
-            weights,
-            modePack,
-            budgetCap,
-            explorationRate,
-          },
-          routableCandidates,
-          taskType
-        );
-        selectedProvider = selection.provider;
-        selectedModel = selection.model;
-        selectionReason = `score=${selection.score.toFixed(3)}${selection.isExploration ? " (exploration)" : ""}`;
+        try {
+          // F-03-W2-001: selectProvider fails closed when every candidate is OPEN/excluded.
+          const selection = selectAutoProvider(
+            {
+              id: combo.id || combo.name,
+              name: combo.name,
+              type: "auto",
+              candidatePool,
+              weights,
+              modePack,
+              budgetCap,
+              explorationRate,
+            },
+            routableCandidates,
+            taskType
+          );
+          selectedProvider = selection.provider;
+          selectedModel = selection.model;
+          selectionReason = `score=${selection.score.toFixed(3)}${selection.isExploration ? " (exploration)" : ""}`;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          log.warn("COMBO", `Auto-combo selection failed closed: ${message}`);
+          return errorResponse(
+            503,
+            "No healthy auto-combo candidates available (all providers OPEN or excluded)"
+          );
+        }
       }
 
       // Complexity-aware routing (2026, opt-in): classify the request's
@@ -1839,9 +1855,12 @@ export async function handleComboChat({
         const rawModel = parseModel(modelStr).model || modelStr;
         const provider = target.provider;
 
-        const cb = getCircuitBreaker(provider);
-        if (cb.getStatus().state === "OPEN") {
-          log.info("COMBO", `Skipping ${modelStr} — circuit breaker OPEN for ${provider}`);
+        // F-03-003: skip when OPEN or HALF_OPEN with no probe budget left.
+        if (isProviderCircuitBlocking(provider)) {
+          log.info(
+            "COMBO",
+            `Skipping ${modelStr} — circuit breaker not executable for ${provider}`
+          );
           if (i > 0) fallbackCount++;
           return null;
         }
@@ -2905,8 +2924,7 @@ async function handleRoundRobinCombo({
       if (stickyTarget) {
         const rawModel = parseModel(stickyTarget.modelStr).model || stickyTarget.modelStr;
         const stickyAvailable =
-          (!stickyTarget.provider ||
-            getCircuitBreaker(stickyTarget.provider).getStatus().state !== "OPEN") &&
+          !isProviderCircuitBlocking(stickyTarget.provider) &&
           !(
             resilienceSettings.providerCooldown.enabled &&
             Boolean(stickyTarget.provider && stickyTarget.provider !== "unknown") &&
@@ -3005,6 +3023,25 @@ async function handleRoundRobinCombo({
       ? { ...target, allowRateLimitedConnection: true }
       : target;
 
+    const rawModel = parseModel(modelStr).model || modelStr;
+
+    // F-03-003 / F-03-004: pre-skip circuit-blocking + model lock BEFORE semaphore
+    // so OPEN / exhausted HALF_OPEN providers do not hold concurrency slots.
+    if (isProviderCircuitBlocking(provider)) {
+      log.info(
+        "COMBO-RR",
+        `Skipping ${modelStr} — circuit breaker not executable for ${provider}`
+      );
+      if (offset > 0) fallbackCount++;
+      continue;
+    }
+
+    if (provider && rawModel && isModelLocked(provider, target.connectionId || "", rawModel)) {
+      log.info("COMBO-RR", `Skipping ${modelStr} — model locked by resilience (cooldown active)`);
+      if (offset > 0) fallbackCount++;
+      continue;
+    }
+
     // Pre-check availability
     if (isModelAvailable) {
       const available = await isModelAvailable(modelStr, targetForAttempt);
@@ -3038,6 +3075,17 @@ async function handleRoundRobinCombo({
       log.info("COMBO-RR", exhaustedSkip);
       if (offset > 0) fallbackCount++;
       continue;
+    }
+
+    // F-03-W2-003: credential gate parity with priority path (before semaphore).
+    const rrConnectionId = target.connectionId as string | undefined;
+    if (rrConnectionId) {
+      const gateResult = checkCredentialGate(rrConnectionId, provider, modelStr);
+      if (gateResult.allowed === false) {
+        logCredentialSkip(log, modelStr, gateResult.reason || "Credential gate blocked");
+        if (offset > 0) fallbackCount++;
+        continue;
+      }
     }
 
     // Acquire semaphore slot (may wait in queue). Honor the connection's own
@@ -3378,6 +3426,25 @@ async function handleRoundRobinCombo({
           continue;
         }
 
+        // F-03-001: record provider circuit-breaker failures on RR (parity with priority).
+        const nextOffset = offset + 1;
+        const nextTarget =
+          nextOffset < modelCount
+            ? filteredTargets[(rrStartIndex + nextOffset) % modelCount]
+            : undefined;
+        const sameProviderNext =
+          typeof nextTarget?.provider === "string" && nextTarget.provider === provider;
+        if (
+          shouldRecordProviderBreakerFailure({
+            isStreamReadinessFailure,
+            status: result.status,
+            sameProviderNext,
+            skipProviderBreaker: fallbackResult.skipProviderBreaker,
+          })
+        ) {
+          recordProviderFailure(provider, log, targetWithConnection.connectionId, profile);
+        }
+
         // Done with this model
         recordComboRequest(combo.name, modelStr, {
           success: false,
@@ -3390,6 +3457,25 @@ async function handleRoundRobinCombo({
         lastError = errorText || String(result.status);
         if (!lastStatus) lastStatus = result.status;
         if (offset > 0) fallbackCount++;
+        // Model lockout parity with priority path so subsequent RR offsets pre-skip.
+        if (provider && rawModel) {
+          const mlSettings = resolveModelLockoutSettings(settings);
+          if (mlSettings.enabled && mlSettings.errorCodes.includes(result.status)) {
+            recordModelLockoutFailure(
+              provider,
+              targetWithConnection.connectionId || "",
+              rawModel,
+              classifyLockoutReason(result.status),
+              result.status,
+              mlSettings.baseCooldownMs,
+              profile,
+              {
+                exactCooldownMs: selectLockoutCooldownMs(cooldownMs, mlSettings),
+                maxCooldownMs: mlSettings.maxCooldownMs,
+              }
+            );
+          }
+        }
         log.warn("COMBO-RR", `${modelStr} failed, trying next model`, { status: result.status });
 
         if (resilienceSettings.providerCooldown.enabled && provider && provider !== "unknown") {

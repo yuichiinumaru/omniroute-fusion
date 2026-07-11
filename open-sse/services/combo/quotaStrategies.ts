@@ -430,8 +430,9 @@ export async function preScreenTargets(
     async (target): Promise<{ key: string; result: PreScreenResult }> => {
       const profile = await getRuntimeProviderProfile(target.provider).catch(() => null);
 
+      // F-03-003: skip when OPEN or HALF_OPEN probe budget exhausted (canExecute).
       const breaker = getCircuitBreaker(target.provider);
-      if (breaker.getStatus().state === "OPEN") {
+      if (!breaker.canExecute()) {
         return { key: target.executionKey, result: { profile, available: false } };
       }
 

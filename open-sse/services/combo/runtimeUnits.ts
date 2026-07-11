@@ -1,8 +1,35 @@
 // Nested combo runtime unit execution — see combo.ts for integration.
+import {
+  checkFallbackError,
+  classifyLockoutReason,
+  getRuntimeProviderProfile,
+  isModelLocked,
+  recordModelLockoutFailure,
+  recordProviderFailure,
+  selectLockoutCooldownMs,
+} from "../accountFallback.ts";
 import { errorResponse } from "../../utils/error.ts";
 import { recordComboRequest } from "../comboMetrics.ts";
-import { resolveDelayMs } from "./comboPredicates.ts";
+import {
+  isProviderCircuitBlocking,
+  isStreamReadinessFailureErrorBody,
+  isTokenLimitBreachErrorBody,
+  shouldRecordProviderBreakerFailure,
+  resolveDelayMs,
+} from "./comboPredicates.ts";
+import { applyComboTargetExhaustion } from "./targetExhaustion.ts";
 import { validateResponseQuality } from "./validateQuality.ts";
+import { resolveModelLockoutSettings } from "../../../src/lib/resilience/modelLockoutSettings";
+import {
+  isProviderInCooldown,
+  recordProviderCooldown,
+  recordProviderSuccess,
+} from "../providerCooldownTracker.ts";
+import {
+  resolveResilienceSettings,
+  type ResilienceSettings,
+} from "../../../src/lib/resilience/settings";
+import { parseModel } from "../model.ts";
 import type {
   ComboCollectionLike,
   ComboLike,
@@ -41,6 +68,11 @@ function unitDisplayName(unit: ResolvedComboUnit): string {
   return unit.kind === "combo-ref" ? `combo:${unit.comboName}` : unit.modelStr;
 }
 
+function unitProvider(unit: ResolvedComboUnit): string | null {
+  if (unit.kind === "model" && typeof unit.provider === "string") return unit.provider;
+  return null;
+}
+
 function shuffleUnits(units: ResolvedComboUnit[]): ResolvedComboUnit[] {
   const result = [...units];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -59,6 +91,44 @@ function selectWeightedUnit(units: ResolvedComboUnit[]): ResolvedComboUnit | nul
     if (draw <= 0) return unit;
   }
   return units[units.length - 1] || null;
+}
+
+/** F-03-002: shared pre-skip for model units (breaker / lockout / cooldown / exhaustion). */
+function getRuntimeModelSkipReason(args: {
+  unit: Extract<ResolvedComboUnit, { kind: "model" }>;
+  exhaustedProviders: Set<string>;
+  exhaustedConnections: Set<string>;
+  resilienceSettings: ResilienceSettings;
+}): string | null {
+  const { unit, exhaustedProviders, exhaustedConnections, resilienceSettings } = args;
+  const provider = unit.provider;
+  const rawModel = parseModel(unit.modelStr).model || unit.modelStr;
+
+  if (isProviderCircuitBlocking(provider)) {
+    return `Skipping ${unit.modelStr} — circuit breaker not executable for ${provider}`;
+  }
+
+  if (
+    resilienceSettings.providerCooldown.enabled &&
+    Boolean(provider && provider !== "unknown") &&
+    isProviderInCooldown(provider, unit.connectionId ?? undefined, resilienceSettings)
+  ) {
+    return `Skipping ${unit.modelStr} — provider ${provider} in global cooldown`;
+  }
+
+  if (provider && exhaustedProviders.has(provider)) {
+    return `Skipping ${unit.modelStr} — provider ${provider} exhausted this request`;
+  }
+
+  if (unit.connectionId && exhaustedConnections.has(unit.connectionId)) {
+    return `Skipping ${unit.modelStr} — connection exhausted this request`;
+  }
+
+  if (provider && rawModel && isModelLocked(provider, unit.connectionId || "", rawModel)) {
+    return `Skipping ${unit.modelStr} — model locked by resilience (cooldown active)`;
+  }
+
+  return null;
 }
 
 async function executeModelUnit(args: {
@@ -188,7 +258,32 @@ export async function executeRuntimeUnitCombo(args: {
   let lastResponse: Response | null = null;
   let fallbackCount = 0;
 
-  for (const unit of orderedUnits) {
+  // F-03-002: per-request resilience sets + settings (parity with flat combo paths).
+  const exhaustedProviders = new Set<string>();
+  const exhaustedConnections = new Set<string>();
+  const transientRateLimitedProviders = new Set<string>();
+  const resilienceSettings: ResilienceSettings = args.settings
+    ? resolveResilienceSettings(args.settings)
+    : resolveResilienceSettings(null);
+
+  for (let unitIndex = 0; unitIndex < orderedUnits.length; unitIndex += 1) {
+    const unit = orderedUnits[unitIndex];
+
+    // Pre-skip model legs that the flat priority/RR paths would also skip.
+    if (unit.kind === "model") {
+      const skipReason = getRuntimeModelSkipReason({
+        unit,
+        exhaustedProviders,
+        exhaustedConnections,
+        resilienceSettings,
+      });
+      if (skipReason) {
+        args.log.info("COMBO", skipReason);
+        if (unitIndex > 0) fallbackCount += 1;
+        continue;
+      }
+    }
+
     for (let retry = 0; retry <= maxRetries; retry += 1) {
       if (args.signal?.aborted)
         return { response: errorResponse(499, "Client disconnected"), unit };
@@ -229,6 +324,12 @@ export async function executeRuntimeUnitCombo(args: {
         }
         const quality = await validateResponseQuality(response, clientRequestedStream, args.log);
         if (quality.valid) {
+          if (unit.kind === "model") {
+            const provider = unit.provider;
+            if (provider && provider !== "unknown") {
+              recordProviderSuccess(provider, unit.connectionId || undefined);
+            }
+          }
           recordComboRequest(args.combo.name, unit.modelStr, {
             success: true,
             latencyMs: Date.now() - startTime,
@@ -239,6 +340,101 @@ export async function executeRuntimeUnitCombo(args: {
           return { response: quality.clonedResponse ?? response, unit };
         }
       }
+
+      // F-03-002: post-failure resilience for model units (breaker / lockout / cooldown).
+      if (unit.kind === "model") {
+        const provider = unit.provider;
+        const rawModel = parseModel(unit.modelStr).model || unit.modelStr;
+        const errorText = await response
+          .clone()
+          .text()
+          .catch(() => "");
+        let errorBody: unknown = null;
+        try {
+          errorBody = errorText ? JSON.parse(errorText) : null;
+        } catch {
+          errorBody = null;
+        }
+        const isStreamReadinessFailure =
+          (response.status === 502 || response.status === 504) &&
+          isStreamReadinessFailureErrorBody(errorBody);
+        const isTokenLimitBreach =
+          response.status === 429 && isTokenLimitBreachErrorBody(errorBody);
+        const profile = provider ? await getRuntimeProviderProfile(provider).catch(() => null) : null;
+        const fallbackResult = checkFallbackError(
+          response.status,
+          errorText,
+          0,
+          null,
+          provider,
+          response.headers,
+          profile
+        );
+        const selectedConnectionId =
+          response.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
+          response.headers?.get("x-omniroute-selected-connection-id") ||
+          unit.connectionId ||
+          null;
+        const targetWithConnection = {
+          ...unit,
+          connectionId: selectedConnectionId,
+        };
+        applyComboTargetExhaustion(targetWithConnection, {
+          result: response,
+          fallbackResult,
+          errorText,
+          rawModel,
+          isTokenLimitBreach,
+          allAccountsRateLimited: false,
+          sets: { exhaustedProviders, exhaustedConnections, transientRateLimitedProviders },
+          log: args.log,
+          tag: "COMBO-RUNTIME",
+          exhaustedLogLevel: "debug",
+        });
+
+        const nextUnit = orderedUnits[unitIndex + 1];
+        const nextProvider = nextUnit ? unitProvider(nextUnit) : null;
+        const sameProviderNext =
+          typeof nextProvider === "string" && nextProvider === provider;
+        if (
+          shouldRecordProviderBreakerFailure({
+            isStreamReadinessFailure,
+            status: response.status,
+            sameProviderNext,
+            skipProviderBreaker: fallbackResult.skipProviderBreaker,
+          })
+        ) {
+          recordProviderFailure(provider, args.log, selectedConnectionId, profile);
+        }
+
+        if (provider && rawModel) {
+          const mlSettings = resolveModelLockoutSettings(args.settings);
+          if (mlSettings.enabled && mlSettings.errorCodes.includes(response.status)) {
+            recordModelLockoutFailure(
+              provider,
+              selectedConnectionId || "",
+              rawModel,
+              classifyLockoutReason(response.status),
+              response.status,
+              mlSettings.baseCooldownMs,
+              profile,
+              {
+                exactCooldownMs: selectLockoutCooldownMs(fallbackResult.cooldownMs, mlSettings),
+                maxCooldownMs: mlSettings.maxCooldownMs,
+              }
+            );
+          }
+        }
+
+        if (
+          resilienceSettings.providerCooldown.enabled &&
+          provider &&
+          provider !== "unknown"
+        ) {
+          recordProviderCooldown(provider, selectedConnectionId ?? undefined, resilienceSettings);
+        }
+      }
+
       if (![408, 429, 500, 502, 503, 504].includes(response.status)) break;
     }
     fallbackCount += 1;

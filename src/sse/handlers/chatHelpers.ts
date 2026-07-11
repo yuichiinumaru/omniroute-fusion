@@ -477,45 +477,65 @@ export async function executeChatWithBreaker({
       )
       );
 
-    if (isShadowTraffic) {
-      if (!bypassCircuitBreaker && breaker && !breaker.canExecute()) {
+    // F-04-001: gate + reserve HALF_OPEN probe only — do NOT wrap soft-failure
+    // results in breaker.execute() success semantics. handleChatCore returns
+    // `{ success:false, status:5xx }` without throwing; execute() would treat
+    // that as probe-success and close HALF_OPEN. Outcome accounting lives in
+    // chat.ts (_onSuccess / _onFailure) and combo recordProviderFailure.
+    if (!bypassCircuitBreaker && breaker) {
+      const allowed = isShadowTraffic ? breaker.canExecute() : breaker.tryReserveExecution();
+      if (!allowed) {
         const retryAfterMs = breaker.getRetryAfterMs();
-        return {
-          result: {
-            success: false,
-            response: providerCircuitOpenResponse(provider, Math.ceil(retryAfterMs / 1000)),
-            status: HTTP_STATUS.SERVICE_UNAVAILABLE,
-          },
-          tlsFingerprintUsed: false,
-        };
+        if (isShadowTraffic) {
+          return {
+            result: {
+              success: false,
+              response: providerCircuitOpenResponse(provider, Math.ceil(retryAfterMs / 1000)),
+              status: HTTP_STATUS.SERVICE_UNAVAILABLE,
+            },
+            tlsFingerprintUsed: false,
+          };
+        }
+        throw new CircuitBreakerOpenError(
+          `Circuit breaker "${provider}" is not accepting requests.`,
+          provider,
+          retryAfterMs
+        );
       }
+    }
 
+    const runChat = async () => {
       if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
         const tracked = await runWithTlsTracking(chatFn);
         return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
       }
-
       const result = await chatFn();
       return { result, tlsFingerprintUsed: false };
-    }
+    };
 
-    if (bypassCircuitBreaker) {
-      if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-        const tracked = await runWithTlsTracking(chatFn);
-        return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
+    try {
+      return await runChat();
+    } catch (runErr: unknown) {
+      // Throwing failures still count against the breaker (execute() used to).
+      // Soft failures are non-throwing and classified by the chat post-result path.
+      if (
+        !bypassCircuitBreaker &&
+        breaker &&
+        !(runErr instanceof CircuitBreakerOpenError) &&
+        breaker.isFailure(runErr)
+      ) {
+        let kind: FailureKind | undefined;
+        if (typeof breaker.classifyError === "function") {
+          try {
+            kind = breaker.classifyError(runErr);
+          } catch {
+            kind = undefined;
+          }
+        }
+        breaker._onFailure(kind);
       }
-
-      const result = await chatFn();
-      return { result, tlsFingerprintUsed: false };
+      throw runErr;
     }
-
-    if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-      const tracked = await breaker.execute(async () => runWithTlsTracking(chatFn));
-      return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
-    }
-
-    const result = await breaker.execute(chatFn);
-    return { result, tlsFingerprintUsed: false };
   } catch (cbErr: any) {
     if (cbErr instanceof CircuitBreakerOpenError) {
       log.warn("CIRCUIT", `${provider} circuit open during retry: ${cbErr.message}`);

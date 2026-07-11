@@ -89,6 +89,17 @@
   **Author**: builder (Task 0037)
 
 ### Fixed
+- **Combo / auto-combo resilience wiring (Epic 0008 S4 / Task 0043)** — honor 3-layer resilience on RR, nested runtime units, chat soft-failures, and auto selection.
+  - **F-04-001**: chat no longer wraps soft `{success:false}` results in `breaker.execute()` success; HALF_OPEN probes use `tryReserveExecution` + post-result `_onSuccess`/`_onFailure` (soft 502 re-opens, does not heal)
+  - **F-03-001 / F-03-004**: round-robin records `recordProviderFailure` + model lockout; pre-skips circuit-blocking and model-lock **before** semaphore acquire
+  - **F-03-002**: `executeRuntimeUnitCombo` wires breaker/lockout/cooldown/exhaustion pre-skips and failure recording for nested model units
+  - **F-03-003**: combo pre-gates use `canExecute()` / `isProviderCircuitBlocking` (OPEN **or** HALF_OPEN probe budget exhausted), not raw `state === "OPEN"`
+  - **F-03-W2-001/002**: auto-combo empty-pool never re-admits OPEN; re-evaluate passes live breaker state; `updateIncidentMode` runs in production selection
+  - Stretch: RR credential gate parity; `tryReserveExecution` atomic probe reserve (F-03-008 partial); `recordProviderFailure` allows HALF_OPEN after probe
+  - Deferred: fusion nested options (F-03-012), fusion panel cancel (F-03-W2-006) — tracked under fusion review tasks
+  - Tests: `tests/unit/combo-resilience-wiring-0043.test.ts`
+  **Author**: builder (Task 0043)
+
 - **Dual-mode refresh policy audit (Epic 0006 S4 / Task 0035)** — connection-scoped refresh gates + Windsurf long-lived import.
   - Policy: `supportsTokenRefresh(provider)` is necessary but **not sufficient** for connection expiry
   - `isLongLivedImportCredential` for Windsurf/Devin import-token (no RT by design); `#5326` sweep no longer false-expires them

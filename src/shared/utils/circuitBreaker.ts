@@ -231,27 +231,33 @@ export class CircuitBreaker {
     );
   }
 
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
+  /**
+   * Atomically check whether a request may proceed and reserve a HALF_OPEN probe
+   * slot when needed. Does **not** record success/failure — soft (non-throwing)
+   * chat results must be classified by the caller (F-04-001).
+   *
+   * Prefer this over a bare `canExecute()` read when you will actually dispatch,
+   * so concurrent probes cannot all observe halfOpenAllowed > 0 (F-03-008).
+   */
+  tryReserveExecution(): boolean {
     this._refreshOpenState();
-
-    if (this.state === STATE.OPEN) {
-      throw new CircuitBreakerOpenError(
-        `Circuit breaker "${this.name}" is OPEN. Try again later.`,
-        this.name,
-        this._timeUntilReset()
-      );
-    }
-
-    if (this.state === STATE.HALF_OPEN && this.halfOpenAllowed <= 0) {
-      throw new CircuitBreakerOpenError(
-        `Circuit breaker "${this.name}" is HALF_OPEN, no more probe requests allowed.`,
-        this.name,
-        this._timeUntilReset()
-      );
-    }
-
+    if (this.state === STATE.CLOSED || this.state === STATE.DEGRADED) return true;
+    if (this.state === STATE.OPEN) return false;
     if (this.state === STATE.HALF_OPEN) {
+      if (this.halfOpenAllowed <= 0) return false;
       this.halfOpenAllowed--;
+      return true;
+    }
+    return false;
+  }
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.tryReserveExecution()) {
+      const message =
+        this.state === STATE.HALF_OPEN
+          ? `Circuit breaker "${this.name}" is HALF_OPEN, no more probe requests allowed.`
+          : `Circuit breaker "${this.name}" is OPEN. Try again later.`;
+      throw new CircuitBreakerOpenError(message, this.name, this._timeUntilReset());
     }
 
     try {

@@ -9,7 +9,23 @@
 import { isProviderFailureCode } from "../accountFallback.ts";
 import { errorResponse } from "../../utils/error.ts";
 import { parseModel } from "../model.ts";
+import { getCircuitBreaker } from "../../../src/shared/utils/circuitBreaker";
 import type { ResolvedComboTarget } from "./types.ts";
+
+/**
+ * True when the shared provider circuit breaker will not accept traffic right
+ * now — OPEN, or HALF_OPEN with probe budget exhausted (F-03-003).
+ * Prefer this over `getStatus().state === "OPEN"` so combo pre-gates honor
+ * lazy recovery + half-open slots via canExecute().
+ */
+export function isProviderCircuitBlocking(provider: string | null | undefined): boolean {
+  if (!provider || provider === "unknown") return false;
+  try {
+    return !getCircuitBreaker(provider).canExecute();
+  } catch {
+    return false;
+  }
+}
 
 // Status codes that should mark round-robin target semaphores as cooling down.
 export const TRANSIENT_FOR_SEMAPHORE = [429, 502, 503, 504];

@@ -55,9 +55,13 @@ class RulesStrategyImpl implements RouterStrategy {
     "6-factor weighted scoring: quota, health, cost, latency, taskFit, stability";
 
   select(pool: ProviderCandidate[], context: RoutingContext): RoutingDecision {
+    // F-03-W2-001 parity: never fall back to OPEN providers when healthy set is empty.
     const eligible = pool.filter((c) => c.circuitBreakerState !== "OPEN");
+    if (eligible.length === 0) {
+      throw new Error("[RulesStrategy] No healthy (non-OPEN) candidates to score");
+    }
     const ranked: ScoredProvider[] = scorePool(
-      eligible.length > 0 ? eligible : pool,
+      eligible,
       context.taskType,
       undefined,
       getTaskFitness
@@ -82,9 +86,12 @@ class CostStrategyImpl implements RouterStrategy {
   readonly description = "Always selects cheapest available provider (by costPer1MTokens)";
 
   select(pool: ProviderCandidate[], context: RoutingContext): RoutingDecision {
+    // F-03-W2-001 parity: never fall back to OPEN providers when healthy set is empty.
     const healthy = pool.filter((c) => c.circuitBreakerState !== "OPEN");
-    const candidates = healthy.length > 0 ? healthy : pool;
-    const sorted = [...candidates].sort((a, b) => a.costPer1MTokens - b.costPer1MTokens);
+    if (healthy.length === 0) {
+      throw new Error("[CostStrategy] No healthy (non-OPEN) candidates available");
+    }
+    const sorted = [...healthy].sort((a, b) => a.costPer1MTokens - b.costPer1MTokens);
     const best = sorted[0];
     if (!best) throw new Error("[CostStrategy] No candidates available");
     return {
@@ -92,7 +99,7 @@ class CostStrategyImpl implements RouterStrategy {
       model: best.model,
       strategy: this.name,
       reason: `CostStrategy: cheapest at $${best.costPer1MTokens.toFixed(3)}/1M tokens`,
-      candidatesConsidered: candidates.length,
+      candidatesConsidered: healthy.length,
       finalScore: best.costPer1MTokens === 0 ? 1.0 : 1 / best.costPer1MTokens,
     };
   }
@@ -105,9 +112,12 @@ class LatencyStrategyImpl implements RouterStrategy {
   readonly description = "Prioritizes lowest p95 latency with reliability weighting";
 
   select(pool: ProviderCandidate[], context: RoutingContext): RoutingDecision {
+    // F-03-W2-001 parity: never fall back to OPEN providers when healthy set is empty.
     const healthy = pool.filter((c) => c.circuitBreakerState !== "OPEN");
-    const candidates = healthy.length > 0 ? healthy : pool;
-    const sorted = [...candidates].sort((a, b) => {
+    if (healthy.length === 0) {
+      throw new Error("[LatencyStrategy] No healthy (non-OPEN) candidates available");
+    }
+    const sorted = [...healthy].sort((a, b) => {
       const aPenalty = a.errorRate * 1000;
       const bPenalty = b.errorRate * 1000;
       return a.p95LatencyMs + aPenalty - (b.p95LatencyMs + bPenalty);
@@ -124,7 +134,7 @@ class LatencyStrategyImpl implements RouterStrategy {
       model: best.model,
       strategy: this.name,
       reason: `LatencyStrategy: p95=${best.p95LatencyMs}ms, errorRate=${(best.errorRate * 100).toFixed(2)}%`,
-      candidatesConsidered: candidates.length,
+      candidatesConsidered: healthy.length,
       finalScore,
     };
   }
