@@ -150,7 +150,7 @@ Notes:
 
 ## All Routing Strategies
 
-OmniRoute's combo engine supports **17 routing strategies** (declared in `src/shared/constants/routingStrategies.ts` → `ROUTING_STRATEGY_VALUES`). The Auto Combo engine itself is exposed under the `auto` strategy; the others are available for persisted combos.
+OmniRoute's combo engine supports **18 routing strategies** (declared in `src/shared/constants/routingStrategies.ts` → `ROUTING_STRATEGY_VALUES`). The Auto Combo engine itself is exposed under the `auto` strategy; the others are available for persisted combos. (`quota-share` is internal-only — not in this list.)
 
 | Strategy            | Description                                                                                  |
 | :------------------ | :------------------------------------------------------------------------------------------- |
@@ -171,8 +171,9 @@ OmniRoute's combo engine supports **17 routing strategies** (declared in `src/sh
 | `lkgp`              | Last-Known-Good Path (sticky route to last successful target)                                |
 | `context-optimized` | Pick target with best fit for current context size                                           |
 | `fusion` 🧬         | Fan out to a panel of models in parallel, then synthesize one answer via a judge (see below) |
+| `conditional-fusion` 🧬 | Fusion only when triggers match; otherwise fallback strategy or acting-only (A6)          |
 
-⭐ = New in v3.8.0 · 🧬 = New in v3.8.36
+⭐ = New in v3.8.0 · 🧬 = Fusion family (see `docs/architecture/FUSION.md`)
 
 ## Fusion Strategy
 

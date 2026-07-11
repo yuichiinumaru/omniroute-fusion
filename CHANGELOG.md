@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Fixed
+- **Fusion docs path-to-100 (Task 0017)** — align strategy inventory to live **18** `ROUTING_STRATEGY_VALUES` (include `conditional-fusion`); document acting unit + A6 trigger-miss path in `FUSION.md`.
+  **Author**: builder (queue Q3)
+
+
+### Fixed
 - **Frontend IA returns (Tasks 0024 + 0025 path-to-100)** — rework after REJECT re-reviews (84 / 81).
   - **0024**: S5 endpoint shell unit contract (`apis|catalog|context-sources` + protocol homes); `?tab=mcp|a2a` redirect asserts; optional status typing
   - **0025**: Routing hub subnav (Combos/Fusions/Compression) + command-palette fusions; flat-chrome customization/back-compat tests; developer vs admin/minimal preset differentiation; header docs for flat primary

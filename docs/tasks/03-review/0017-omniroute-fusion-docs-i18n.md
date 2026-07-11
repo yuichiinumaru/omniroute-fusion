@@ -1,6 +1,6 @@
 # Task 0017: Fusion Docs, i18n Keys, and Operator Notes
 
-> > **Status**: `[ ]` Returned to doing after re-review 2026-07-10 — **88/100** (F3/F6 open)
+> **Status**: `[x]` Ready for review (F3/F6 path-to-100 2026-07-11 — strategy count 18 + acting/A6 runtime docs)
 > **Priority**: 🟢 P2
 > **Type**: `feature`
 > **Origin**: Epic 0003 — Fusion First-Class (S7)

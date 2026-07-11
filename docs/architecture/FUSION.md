@@ -192,11 +192,23 @@ For `strategy === "fusion" || strategy === "conditional-fusion"`:
 1. If strategy is unconditional fusion (`fusion` and no non-always triggers) →
    `dispatchFusionStrategy()` immediately.
 2. Else if `shouldTriggerFusion(body, triggers)` → fusion path.
-3. Else → set strategy to `resolveFusionFallbackStrategy(config.fallbackStrategy)` and
-   continue normal combo strategy dispatch.
+3. Else **trigger miss** (Epic **0004 / A6**):
+   - If top-level `acting` unit is set → **acting-only** dispatch (no panel fan-out;
+     acting is the final voice with the original client stream/tools).
+   - Else → set strategy to `resolveFusionFallbackStrategy(config.fallbackStrategy)` and
+     continue normal combo strategy dispatch.
 
 `dispatchFusionStrategy` always calls `resolveFusionUnits` then `handleFusionChatV2` with
-the recursive `handleComboChat` entry point, `allCombos`, and shared `nestingContext`.
+panels, judge, **optional acting**, recursive `handleComboChat`, `allCombos`, and shared
+`nestingContext`.
+
+### Units resolved by `resolveFusionUnits`
+
+| Field | Source | Notes |
+|-------|--------|-------|
+| `panels` | combo models list | model strings and/or combo-ref steps |
+| `judge` | `judgeModel` / judge unit | synthesizes panel answers |
+| `acting` | top-level `acting` only (A4/A8) | optional final voice after judge review |
 
 ### `handleFusionChatV2` stages
 
@@ -205,10 +217,14 @@ the recursive `handleComboChat` entry point, `allCombos`, and shared `nestingCon
 3. Build `panelBody` once (see Panel body ownership).
 4. Fan out each panel via `dispatchFusionUnit` + `withTimeout(panelHardTimeoutMs)`.
 5. `collectPanel` for quorum-grace collection.
-6. Degrade:
+6. Degrade / synthesize:
    - 0 answers → `503` “All fusion panel models failed”
-   - 1 answer → re-dispatch surviving unit with **original** body
+   - 1 answer → re-dispatch surviving unit with **original** body (or acting if set)
    - 2+ answers → append judge prompt via `appendUserTurn` + `buildJudgePrompt`, dispatch judge
+7. **`finalizeWithActing`** (Epic 0004): when `acting` is set, hand the judge review
+   (or surviving prose) to the acting unit as the **final** client-facing response
+   (acting owns stream/tools). When acting is absent, return the judge/survivor response
+   as-is (legacy).
 
 ### Unit dispatch
 
