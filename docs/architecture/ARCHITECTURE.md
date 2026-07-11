@@ -365,11 +365,11 @@ relying on a static combo definition. It powers the `auto/*` model prefix family
 
 Key capabilities:
 
-- **17 routing strategies** (priority, weighted, fill-first, round-robin, P2C, random,
-  least-used, cost-optimized, reset-aware, reset-window, headroom, strict-random,
-  **auto**, lkgp, context-optimized, context-relay, **fusion**, plus a fallback path) —
-  auto is the headline addition in v3.8.0; `fusion` (panel fan-out + judge synthesis,
-  `open-sse/services/fusion.ts`) is new in v3.8.36.
+- **18 routing strategies** in `ROUTING_STRATEGY_VALUES` (priority, weighted, fill-first,
+  round-robin, P2C, random, least-used, cost-optimized, reset-aware, reset-window, headroom,
+  strict-random, **auto**, lkgp, context-optimized, context-relay, **fusion**,
+  **conditional-fusion**) — auto is the headline addition in v3.8.0; fusion family
+  (panel fan-out + judge synthesis, `open-sse/services/fusion.ts`) is v3.8.36+.
 - **9-factor scoring**: cost, latency p95, success rate, quota headroom, lockout
   proximity, breaker state, recent failures, model availability, and tag affinity.
 - **Virtual factory** materializes ephemeral combos when no matching named combo
