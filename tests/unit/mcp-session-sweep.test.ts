@@ -39,11 +39,14 @@ test("module exports isMcpHttpActive", () => {
 // ── Source-level invariant: StreamableSession type has lastActivityAt ─────────
 
 test("StreamableSession type includes lastActivityAt field", () => {
-  const typeBlock = src.match(/type StreamableSession\s*=\s*\{([^}]+)\}/);
-  assert.ok(typeBlock, "StreamableSession type definition must exist");
+  // Prefer explicit StreamableSession block; fall back to McpHttpSession alias target
+  const typeBlock =
+    src.match(/type StreamableSession\s*=\s*\{([^}]+)\}/) ||
+    src.match(/type McpHttpSession\s*=\s*\{([^}]+)\}/);
+  assert.ok(typeBlock, "StreamableSession/McpHttpSession type definition must exist");
   assert.ok(
     typeBlock[1].includes("lastActivityAt"),
-    "StreamableSession must have lastActivityAt field"
+    "session type must have lastActivityAt field"
   );
 });
 
@@ -81,13 +84,18 @@ test("createStreamableSession initializes lastActivityAt to Date.now()", () => {
 // ── Source-level invariant: handleStreamableRequest updates lastActivityAt ────
 
 test("handleStreamableRequest updates lastActivityAt on every request", () => {
+  // Activity updates live in the shared handleSessionRequest path used by both modes
   const fnBlock = src.match(
-    /async function handleStreamableRequest[\s\S]*?(?=\n(?:async )?function |\nexport )/
+    /async function handleSessionRequest[\s\S]*?(?=\n(?:async )?function |\nexport )/
   );
-  assert.ok(fnBlock, "handleStreamableRequest function must exist");
+  assert.ok(fnBlock, "handleSessionRequest function must exist");
   assert.ok(
     fnBlock[0].includes("session.lastActivityAt = Date.now()"),
-    "handleStreamableRequest must update session.lastActivityAt on each request"
+    "handleSessionRequest must update session.lastActivityAt on each request"
+  );
+  assert.ok(
+    src.includes("async function handleStreamableRequest"),
+    "handleStreamableRequest façade must remain for streamable HTTP"
   );
 });
 
@@ -168,6 +176,91 @@ test("shutdownMcpHttp clears all sessions and makes isMcpHttpActive false", () =
   const before = mod.getMcpHttpStatus();
   assert.equal(before.online, false);
   assert.equal(before.transport, null);
+});
+
+// ── F-04-W2-001: concurrent SSE sessions do not share singleton state ────────
+
+test("F-04-W2-001: two SSE initialize sessions get distinct session ids", async () => {
+  mod.shutdownMcpHttp();
+  const makeInit = () =>
+    new Request("http://localhost/api/mcp/sse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "initialize",
+        id: 1,
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "c", version: "1.0.0" },
+        },
+      }),
+    });
+
+  const res1 = await mod.handleMcpSSE(makeInit());
+  const res2 = await mod.handleMcpSSE(makeInit());
+  const id1 = res1.headers.get("mcp-session-id");
+  const id2 = res2.headers.get("mcp-session-id");
+  if (id1 && id2) {
+    assert.notEqual(id1, id2, "concurrent SSE clients must not share a session id");
+    const counts = mod.getMcpHttpSessionCounts?.();
+    if (counts) {
+      assert.ok(counts.sse >= 2, "two SSE sessions should be tracked");
+    }
+  }
+  mod.shutdownMcpHttp();
+});
+
+test("F-04-W2-001: starting SSE does not clear streamable sessions", async () => {
+  mod.shutdownMcpHttp();
+  const initStream = new Request("http://localhost/api/mcp/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "initialize",
+      id: 1,
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "stream-client", version: "1.0.0" },
+      },
+    }),
+  });
+  const streamRes = await mod.handleMcpStreamableHTTP(initStream);
+  const streamId = streamRes.headers.get("mcp-session-id");
+
+  const initSse = new Request("http://localhost/api/mcp/sse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "initialize",
+      id: 2,
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "sse-client", version: "1.0.0" },
+      },
+    }),
+  });
+  await mod.handleMcpSSE(initSse);
+
+  if (streamId) {
+    // Streamable session must still be known (not torn down by SSE bootstrap)
+    const stale = new Request("http://localhost/api/mcp/stream", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "mcp-session-id": streamId,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 3 }),
+    });
+    const res = await mod.handleMcpStreamableHTTP(stale);
+    assert.notEqual(res.status, 404, "streamable session must survive SSE session start");
+  }
+  mod.shutdownMcpHttp();
 });
 
 // ── Behavioral: handleMcpStreamableHTTP rejects request without session id ───

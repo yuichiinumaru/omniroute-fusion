@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // ── Temp dirs ──
@@ -22,10 +21,17 @@ function getTool(name: string) {
   return tool!;
 }
 
+function pluginStagingRoot(): string {
+  // F-04-W2-003: install sources must live under allowed plugin roots
+  const root = path.join(TEST_DATA_DIR, "plugin-sources");
+  fs.mkdirSync(root, { recursive: true });
+  return root;
+}
+
 function writeTestPlugin(opts?: { name?: string; onRequest?: boolean }) {
   const name = opts?.name ?? "test-tools-plugin";
   const onRequest = opts?.onRequest ?? true;
-  const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-plugin-src-"));
+  const sourceDir = fs.mkdtempSync(path.join(pluginStagingRoot(), "omniroute-plugin-src-"));
   const pluginDir = path.join(sourceDir, name);
   fs.mkdirSync(pluginDir, { recursive: true });
   const manifest = {
@@ -135,13 +141,23 @@ test("plugin_install: installs a valid plugin", async () => {
 
 test("plugin_install: throws for invalid path", async () => {
   const tool = getTool("plugin_install");
+  // Outside plugin roots → path jail rejects before install attempt
   await assert.rejects(
     () => tool.handler({ path: "/nonexistent/path" }),
     (err: Error) => {
-      assert.ok(err.message.includes("No valid plugin found"));
+      assert.ok(
+        err.message.includes("outside allowed") || err.message.includes("No valid plugin found"),
+        `unexpected error: ${err.message}`
+      );
       return true;
     }
   );
+});
+
+test("plugin_install: F-04-W2-003 rejects /etc/passwd and /tmp/evil", async () => {
+  const tool = getTool("plugin_install");
+  await assert.rejects(() => tool.handler({ path: "/etc/passwd" }), /outside allowed/);
+  await assert.rejects(() => tool.handler({ path: "/tmp/evil" }), /outside allowed/);
 });
 
 // ── plugin_activate ──

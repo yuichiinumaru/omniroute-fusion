@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Security
+- **MCP scopes SSoT, IDOR pin, SSE isolation, plugin path jail, credential host pin (Task 0044 / Epic 0008 S5)** — close F-04-002 / F-04-003 / F-04-W2-001 / F-04-W2-002 / F-04-W2-003.
+  - **F-04-002**: `scopeEnforcement` never trusts client `_meta.scopes`; HTTP transport injects principal `authInfo` from management session / API key
+  - **F-04-003**: memory / skill / gamification `apiKeyId` (and `fromApiKeyId`) bound to caller principal; operators (`dashboard`/`cli`/`env-key`/`admin`) may cross-tenant
+  - **F-04-W2-001**: MCP SSE + streamable HTTP use per-session transports (no process-global singleton; modes no longer tear each other down)
+  - **F-04-W2-002**: `omniRouteFetch` / `apiFetch` refuse non-loopback `OMNIROUTE_BASE_URL` when credentials are attached
+  - **F-04-W2-003**: `plugin_install` path jail — only configured plugins / `plugin-sources` roots
+  - Tests: `t08-mcp-scope-enforcement`, `mcp-session-sweep`, `plugins-tools`, `resolve-omniroute-base-url`
+  **Author**: builder (Task 0044)
+
 - **Secrets at rest — JWT/API secrets encrypt + rotate, API key hash, PSD cookies (Task 0041 / Epic 0008 S2)** — close F-05-001 / F-05-W2-003 / F-05-002 / F-05-003 class plaintext storage.
   - `secrets.ts`: encrypt at rest when `STORAGE_ENCRYPTION_KEY` present; **INSERT OR REPLACE** (rotatable, not forever INSERT OR IGNORE); lazy re-encrypt plaintext rows
   - `apiKeys.ts`: hash-only validation path hardened; no bulk plaintext reveal regression

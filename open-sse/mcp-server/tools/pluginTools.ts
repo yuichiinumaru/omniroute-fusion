@@ -5,32 +5,17 @@
  */
 
 import { z } from "zod";
-import { resolve, normalize, isAbsolute } from "path";
 import { listPlugins, getPluginByName, updatePluginConfig } from "../../../src/lib/db/plugins";
 import { pluginManager } from "../../../src/lib/plugins/manager";
 import { validatePluginConfig, type ConfigField } from "../../../src/lib/plugins/manifest";
+import { validatePluginInstallPath } from "./pluginPathJail.ts";
 
-/**
- * Validate a path is safe for plugin installation.
- * Prevents directory traversal and null byte injection.
- */
+/** @deprecated use validatePluginInstallPath — re-exported for tests */
 function validatePluginPath(path: string): string {
-  // Reject null bytes
-  if (path.includes("\0")) {
-    throw new Error("Invalid path: contains null bytes");
-  }
-  // Must be absolute
-  if (!isAbsolute(path)) {
-    throw new Error("Path must be absolute");
-  }
-  // Normalize and resolve to prevent traversal
-  const normalized = normalize(resolve(path));
-  // Reject paths with traversal patterns
-  if (normalized.includes("..") || normalized.includes("~")) {
-    throw new Error("Invalid path: directory traversal detected");
-  }
-  return normalized;
+  return validatePluginInstallPath(path);
 }
+
+export { validatePluginInstallPath, validatePluginPath };
 
 export const pluginTools = [
   {
@@ -66,10 +51,14 @@ export const pluginTools = [
     description: "Install a plugin from a local directory path.",
     scopes: ["write:plugins"],
     inputSchema: z.object({
-      path: z.string().describe("Absolute path to the plugin directory containing plugin.json"),
+      path: z
+        .string()
+        .describe(
+          "Absolute path under the plugins root or plugin-sources staging dir (plugin.json required)"
+        ),
     }),
     handler: async (args: { path: string }) => {
-      const safePath = validatePluginPath(args.path);
+      const safePath = validatePluginInstallPath(args.path);
       const plugin = await pluginManager.install(safePath);
       return {
         success: true,

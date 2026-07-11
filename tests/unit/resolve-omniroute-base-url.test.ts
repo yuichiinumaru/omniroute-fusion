@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   DEFAULT_OMNIROUTE_BASE_URL,
+  assertCredentialSafeOmniRouteBaseUrl,
+  isLoopbackOmniRouteBaseUrl,
   resolveOmniRouteBaseUrl,
 } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 
@@ -49,4 +51,20 @@ test("resolveOmniRouteBaseUrl ignores blank values", () => {
 
 test("resolveOmniRouteBaseUrl uses the default localhost fallback", () => {
   assert.equal(resolveOmniRouteBaseUrl({}), DEFAULT_OMNIROUTE_BASE_URL);
+});
+
+test("isLoopbackOmniRouteBaseUrl accepts only loopback hosts", () => {
+  assert.equal(isLoopbackOmniRouteBaseUrl("http://localhost:20128"), true);
+  assert.equal(isLoopbackOmniRouteBaseUrl("http://127.0.0.1"), true);
+  assert.equal(isLoopbackOmniRouteBaseUrl("https://example.com"), false);
+});
+
+test("assertCredentialSafeOmniRouteBaseUrl blocks credentialed non-loopback", () => {
+  assert.throws(
+    () => assertCredentialSafeOmniRouteBaseUrl("https://public.example.com", true),
+    /non-loopback/
+  );
+  assert.doesNotThrow(() =>
+    assertCredentialSafeOmniRouteBaseUrl(DEFAULT_OMNIROUTE_BASE_URL, true)
+  );
 });

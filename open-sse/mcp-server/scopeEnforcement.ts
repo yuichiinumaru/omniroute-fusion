@@ -1,17 +1,21 @@
 import { MCP_TOOL_MAP } from "./schemas/tools.ts";
+import { getMcpPrincipalFromStore } from "./httpAuthContext.ts";
 
 type AuthInfoLike = {
   clientId?: string;
   scopes?: string[];
+  extra?: Record<string, unknown>;
 };
 
 export type McpToolExtraLike = {
   authInfo?: AuthInfoLike;
   sessionId?: string;
+  /** Client-controlled metadata — NEVER used as a scope grant source (F-04-002). */
   _meta?: unknown;
 };
 
-export type ScopeSource = "authInfo" | "meta" | "env" | "none";
+/** Scope grant sources. Client `_meta` is intentionally not a grant path. */
+export type ScopeSource = "authInfo" | "env" | "none";
 
 export interface CallerScopeContext {
   callerId: string;
@@ -36,28 +40,6 @@ function normalizeScopeList(raw: unknown): string[] {
   return Array.from(new Set(normalized));
 }
 
-function extractMetaScopeList(meta: unknown): string[] {
-  if (!meta || typeof meta !== "object") return [];
-  const metaRecord = meta as Record<string, unknown>;
-
-  const direct = normalizeScopeList(metaRecord.scopes);
-  if (direct.length > 0) return direct;
-
-  const auth = metaRecord.auth;
-  if (auth && typeof auth === "object") {
-    const authScopes = normalizeScopeList((auth as Record<string, unknown>).scopes);
-    if (authScopes.length > 0) return authScopes;
-  }
-
-  const omni = metaRecord.omniroute;
-  if (omni && typeof omni === "object") {
-    const omniScopes = normalizeScopeList((omni as Record<string, unknown>).scopes);
-    if (omniScopes.length > 0) return omniScopes;
-  }
-
-  return [];
-}
-
 function scopeMatches(grantedScope: string, requiredScope: string): boolean {
   if (grantedScope === "*" || grantedScope === requiredScope) {
     return true;
@@ -69,12 +51,25 @@ function scopeMatches(grantedScope: string, requiredScope: string): boolean {
   return false;
 }
 
+/**
+ * Resolve caller scopes from authenticated principal only.
+ *
+ * Priority:
+ * 1. `extra.authInfo` (injected by HTTP transport from management principal)
+ * 2. ALS principal store (same HTTP request context)
+ * 3. Process env `OMNIROUTE_MCP_SCOPES` fallback (stdio / operator)
+ *
+ * Client-supplied `_meta.scopes` / `_meta.auth.scopes` are **never** trusted (F-04-002).
+ */
 export function resolveCallerScopeContext(
   extra: McpToolExtraLike | undefined,
   fallbackScopes: readonly string[] = []
 ): CallerScopeContext {
+  const store = getMcpPrincipalFromStore();
+
   const callerId =
     (typeof extra?.authInfo?.clientId === "string" && extra.authInfo.clientId.trim()) ||
+    (typeof store?.clientId === "string" && store.clientId.trim()) ||
     (typeof extra?.sessionId === "string" && extra.sessionId.trim()) ||
     "anonymous";
 
@@ -83,11 +78,12 @@ export function resolveCallerScopeContext(
     return { callerId, scopes: authScopes, source: "authInfo" };
   }
 
-  const metaScopes = extractMetaScopeList(extra?._meta);
-  if (metaScopes.length > 0) {
-    return { callerId, scopes: metaScopes, source: "meta" };
+  const storeScopes = normalizeScopeList(store?.scopes);
+  if (storeScopes.length > 0) {
+    return { callerId, scopes: storeScopes, source: "authInfo" };
   }
 
+  // Intentionally ignore extra._meta — forged client scopes must not escalate.
   const fallback = normalizeScopeList(fallbackScopes);
   if (fallback.length > 0) {
     return { callerId, scopes: fallback, source: "env" };

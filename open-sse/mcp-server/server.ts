@@ -90,9 +90,14 @@ import { getProviderConnections } from "../../src/lib/db/providers.ts";
 import { getCodexRequestDefaults } from "../../src/lib/providers/requestDefaults.ts";
 import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { AI_PROVIDERS, NOAUTH_PROVIDERS } from "../../src/shared/constants/providers.ts";
-import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
+import {
+  assertCredentialSafeOmniRouteBaseUrl,
+  resolveOmniRouteBaseUrl,
+} from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
+import { bindTenantPrincipalIds } from "./principalBinding.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
+/** Opt-in enforcement; when on, scopes come only from principal/authInfo/env — never client `_meta`. */
 const MCP_ENFORCE_SCOPES = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES === "true";
 const MCP_ALLOWED_SCOPES = new Set(
   (process.env.OMNIROUTE_MCP_SCOPES || "")
@@ -211,11 +216,16 @@ function getOmniRouteApiKey(): string {
 }
 
 async function omniRouteFetch(path: string, options: RequestInit = {}): Promise<unknown> {
-  const url = `${OMNIROUTE_BASE_URL}${path}`;
   const apiKey = getOmniRouteApiKey();
+  const authHeaders = getMcpHttpAuthHeadersForInternalFetch();
+  const hasCredentials = Boolean(apiKey) || Object.keys(authHeaders).length > 0;
+  // F-04-W2-002: never forward management cookies/bearer to non-loopback base URLs
+  assertCredentialSafeOmniRouteBaseUrl(OMNIROUTE_BASE_URL, hasCredentials);
+
+  const url = `${OMNIROUTE_BASE_URL}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...getMcpHttpAuthHeadersForInternalFetch(),
+    ...authHeaders,
     ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
@@ -472,7 +482,19 @@ function withScopeEnforcement(
       };
     }
 
-    return handler(args, extra);
+    // F-04-003: pin multi-tenant ids to authenticated principal before tool handlers run
+    let boundArgs = args;
+    try {
+      boundArgs = bindTenantPrincipalIds(args, extra);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [{ type: "text" as const, text: `Error: ${msg}` }],
+        isError: true,
+      };
+    }
+
+    return handler(boundArgs, extra);
   };
 }
 

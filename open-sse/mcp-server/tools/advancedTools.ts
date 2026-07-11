@@ -19,7 +19,10 @@
 import { logToolCall } from "../audit.ts";
 import { getMcpHttpAuthHeadersForInternalFetch } from "../httpAuthContext.ts";
 import { normalizeQuotaResponse } from "../../../src/shared/contracts/quota.ts";
-import { resolveOmniRouteBaseUrl } from "../../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
+import {
+  assertCredentialSafeOmniRouteBaseUrl,
+  resolveOmniRouteBaseUrl,
+} from "../../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import {
   getComboModelProvider,
   getComboModelString,
@@ -35,10 +38,15 @@ const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
 const OMNIROUTE_API_KEY = process.env.OMNIROUTE_API_KEY || "";
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<unknown> {
+  const authHeaders = getMcpHttpAuthHeadersForInternalFetch();
+  const hasCredentials = Boolean(OMNIROUTE_API_KEY) || Object.keys(authHeaders).length > 0;
+  // F-04-W2-002: pin credentialed internal fetches to loopback
+  assertCredentialSafeOmniRouteBaseUrl(OMNIROUTE_BASE_URL, hasCredentials);
+
   const url = `${OMNIROUTE_BASE_URL}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...getMcpHttpAuthHeadersForInternalFetch(),
+    ...authHeaders,
     ...(OMNIROUTE_API_KEY ? { Authorization: `Bearer ${OMNIROUTE_API_KEY}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };

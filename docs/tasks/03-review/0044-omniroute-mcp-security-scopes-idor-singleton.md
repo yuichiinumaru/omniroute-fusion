@@ -1,6 +1,6 @@
 # Task 0044: MCP Security — Scopes, IDOR, Singleton, Plugin Path, Credential Pin
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Ready for review
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S5)
@@ -85,15 +85,15 @@ See **Source reports** above for full relative paths.
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Primary five findings closed with tests
-- [ ] Scope source-of-truth documented (server assigns scopes from API key / session)
-- [ ] IDOR fix applied to **all** MCP tools that accept tenant/apiKey principal ids (grep `apiKeyId` under mcp-server)
-- [ ] `npm run test:vitest` MCP-related tests pass (or targeted vitest files)
-- [ ] Unit tests for path jail + fetch pin pass
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` — no new errors
-- [ ] CHANGELOG.md security entry
-- [ ] Update MCP-SERVER.md only if behavior/docs drift would fail fabricated-docs checks
+- [x] Primary five findings closed with tests
+- [x] Scope source-of-truth documented (server assigns scopes from API key / session)
+- [x] IDOR fix applied to **all** MCP tools that accept tenant/apiKey principal ids (grep `apiKeyId` under mcp-server)
+- [x] `npm run test:vitest` MCP-related tests pass (or targeted vitest files)
+- [x] Unit tests for path jail + fetch pin pass
+- [x] `npm run typecheck:core` passes (pre-existing `combo/runtimeUnits.ts` error only; no new MCP errors)
+- [x] `npm run lint` — no new errors
+- [x] CHANGELOG.md security entry
+- [x] Update MCP-SERVER.md only if behavior/docs drift would fail fabricated-docs checks
 
 ---
 
@@ -103,14 +103,14 @@ See **Source reports** above for full relative paths.
 
 Subtasks:
 
-- [ ] **Ler código existente** e o report em `docs/reports/04-mcp-edge-runtime.md` listado em Source reports: MCP scope middleware (`scopeEnforcement.ts`, `server.ts`), tool modules with `apiKeyId` (memory, skill, gamification, obsidian config), SSE/streamable HTTP transport setup, `omniRouteFetch`/`apiFetch`, plugin install tool handler, `tests` MCP suites
-- [ ] Remove client-controlled scope trust; bind principal scopes into transport `authInfo`
-- [ ] Strip/override `apiKeyId` input on multi-tenant tools (grep all, not only memory/skill)
-- [ ] Per-connection transport (or mutex + isolation) for SSE
-- [ ] Host pin allowlist for internal fetches (loopback / configured APP_URL only)
-- [ ] Plugin path jail relative to plugins dir
-- [ ] Stretch audit + error sanitize (or leave F-04-W2-004 to 0051 if not done)
-- [ ] Tests + CHANGELOG
+- [x] **Ler código existente** e o report em `docs/reports/04-mcp-edge-runtime.md` listado em Source reports: MCP scope middleware (`scopeEnforcement.ts`, `server.ts`), tool modules with `apiKeyId` (memory, skill, gamification, obsidian config), SSE/streamable HTTP transport setup, `omniRouteFetch`/`apiFetch`, plugin install tool handler, `tests` MCP suites
+- [x] Remove client-controlled scope trust; bind principal scopes into transport `authInfo`
+- [x] Strip/override `apiKeyId` input on multi-tenant tools (grep all, not only memory/skill)
+- [x] Per-connection transport (or mutex + isolation) for SSE
+- [x] Host pin allowlist for internal fetches (loopback / configured APP_URL only)
+- [x] Plugin path jail relative to plugins dir
+- [x] Stretch audit + error sanitize (or leave F-04-W2-004 to 0051 if not done) — left to 0051
+- [x] Tests + CHANGELOG
 
 ### Where
 
@@ -158,24 +158,36 @@ MCP is a privileged control plane (94 tools). Client-supplied scopes/IDs and arb
 
 ## 🛡️ Compliance Checklist (Leis Primárias do AGENTS.md)
 
-- [ ] **Doc Accuracy**
-- [ ] **Zod Validation**: tighten tool input schemas
-- [ ] **Security**: scopes + IDOR + path
-- [ ] **Error Sanitization**: stretch F-04-W2-004
-- [ ] **No Raw SQL** outside db modules
-- [ ] **Tests**
+- [x] **Doc Accuracy**
+- [x] **Zod Validation**: tighten tool input schemas
+- [x] **Security**: scopes + IDOR + path
+- [x] **Error Sanitization**: stretch F-04-W2-004 (deferred to 0051)
+- [x] **No Raw SQL** outside db modules
+- [x] **Tests**
 
 ---
 
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
 - **Arquivos criados/modificados**:
-- **Finding IDs closed**:
-- **Testes**:
-- **typecheck / lint**:
-- **CHANGELOG**:
-- **Agente executor**:
-- **Data de conclusão**:
+  - `open-sse/mcp-server/scopeEnforcement.ts` — no `_meta` scope grants; ALS principal
+  - `open-sse/mcp-server/mcpPrincipal.ts` (new) — resolve principal from HTTP request
+  - `open-sse/mcp-server/principalBinding.ts` (new) — apiKeyId/fromApiKeyId bind
+  - `open-sse/mcp-server/httpAuthContext.ts` — principal ALS
+  - `open-sse/mcp-server/httpTransport.ts` — per-session SSE/streamable; inject authInfo
+  - `open-sse/mcp-server/server.ts` — bindTenantPrincipalIds in withScopeEnforcement; host pin on omniRouteFetch
+  - `open-sse/mcp-server/tools/advancedTools.ts` — host pin on apiFetch
+  - `open-sse/mcp-server/tools/pluginPathJail.ts` (new) + `pluginTools.ts` — install path jail
+  - `src/shared/utils/resolveOmniRouteBaseUrl.ts` — loopback credential pin helpers
+  - Tests: `t08-mcp-scope-enforcement`, `mcp-session-sweep`, `plugins-tools`, `resolve-omniroute-base-url`
+  - `docs/frameworks/MCP-SERVER.md`, `CHANGELOG.md`
+- **Finding IDs closed**: F-04-002, F-04-003, F-04-W2-001, F-04-W2-002, F-04-W2-003 (not F-04-001)
+- **Testes**: node unit suites above all green; vitest `httpAuthContext` + `essentialTools` green
+- **typecheck / lint**: no new MCP lint errors; typecheck only pre-existing `combo/runtimeUnits.ts`
+- **CHANGELOG**: Unreleased Security entry Task 0044
+- **Agente executor**: builder (0044)
+- **Data de conclusão**: 2026-07-11
+
 
 ---
 

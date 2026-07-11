@@ -1,10 +1,19 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+/** Minimal principal snapshot stored in ALS for tool handlers (F-04-002/003). */
+export type McpHttpPrincipal = {
+  clientId: string;
+  scopes: string[];
+  role: "tenant" | "admin" | "none";
+  token: string;
+};
+
 type McpHttpAuthContext = {
   authorization?: string;
   cookie?: string;
   xApiKey?: string;
   anthropicVersion?: string;
+  principal?: McpHttpPrincipal | null;
 };
 
 const mcpHttpAuthContext = new AsyncLocalStorage<McpHttpAuthContext>();
@@ -26,9 +35,24 @@ export function getMcpHttpAuthHeadersForInternalFetch(): Record<string, string> 
   return headers;
 }
 
+export function getMcpPrincipalFromStore(): {
+  clientId: string;
+  scopes: string[];
+  role: "tenant" | "admin" | "none";
+} | null {
+  const principal = mcpHttpAuthContext.getStore()?.principal;
+  if (!principal) return null;
+  return {
+    clientId: principal.clientId,
+    scopes: principal.scopes,
+    role: principal.role,
+  };
+}
+
 export async function withMcpHttpAuthContext<T>(
   request: Request,
-  callback: () => Promise<T>
+  callback: () => Promise<T>,
+  principal?: McpHttpPrincipal | null
 ): Promise<T> {
   return mcpHttpAuthContext.run(
     {
@@ -36,6 +60,7 @@ export async function withMcpHttpAuthContext<T>(
       cookie: headerValue(request, "cookie"),
       xApiKey: headerValue(request, "x-api-key"),
       anthropicVersion: headerValue(request, "anthropic-version"),
+      principal: principal ?? null,
     },
     callback
   );

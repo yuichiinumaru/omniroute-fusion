@@ -267,7 +267,14 @@ Both SSE and Streamable HTTP transports are blocked until the MCP server is enab
 ## Authentication & Scopes
 
 MCP tools are authenticated through API key scopes. Scope enforcement is centralized in
-`open-sse/mcp-server/scopeEnforcement.ts`. Each tool requires specific scopes:
+`open-sse/mcp-server/scopeEnforcement.ts`. **Scope source of truth (F-04-002):** scopes are
+taken only from the authenticated principal (`authInfo` injected by the HTTP transport from
+management session / API key metadata, or `OMNIROUTE_MCP_SCOPES` for stdio). Client-supplied
+`_meta.scopes` / `_meta.auth.scopes` are **never** trusted as grants. Multi-tenant tools
+(memory, skills, gamification) bind `apiKeyId` to the caller principal (F-04-003); operator
+principals (`dashboard`, `cli`, `env-key`, or scope `admin`) may target other keys.
+
+Each tool requires specific scopes:
 
 | Scope                 | Tools                                                                                                             |
 | :-------------------- | :---------------------------------------------------------------------------------------------------------------- |
@@ -304,10 +311,10 @@ Wildcard scopes are supported: `read:*` grants all read-scopes, `*` grants full 
 
 | Variable                                | Default                            | Purpose                                                                                                                  |
 | :-------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-| `OMNIROUTE_BASE_URL`                    | `http://localhost:20128`           | Base URL the MCP server uses when calling OmniRoute internal APIs                                                        |
+| `OMNIROUTE_BASE_URL`                    | `http://localhost:20128`           | Base URL the MCP server uses when calling OmniRoute internal APIs. Credentialed fetches require a **loopback** host (F-04-W2-002) |
 | `OMNIROUTE_API_KEY`                     | (empty)                            | API key forwarded as `Authorization: Bearer` to internal API calls                                                       |
-| `OMNIROUTE_MCP_ENFORCE_SCOPES`          | `false` (only `"true"` enables it) | When enabled, missing scopes deny tool calls and log `scope_denied:<reason>` in audit log                                |
-| `OMNIROUTE_MCP_SCOPES`                  | (empty)                            | Comma-separated allowlist of scopes considered "available" by default (used when caller does not provide its own scopes) |
+| `OMNIROUTE_MCP_ENFORCE_SCOPES`          | `false` (only `"true"` enables it) | When enabled, missing scopes deny tool calls and log `scope_denied:<reason>` in audit log. Scopes never come from client `_meta` |
+| `OMNIROUTE_MCP_SCOPES`                  | (empty)                            | Comma-separated env fallback scopes for stdio / when principal has no scopes (not client-controllable)                   |
 | `OMNIROUTE_MCP_COMPRESS_DESCRIPTIONS`   | (unset = on)                       | When set to `0/false/off/no`, disables MCP description compression at registration time                                  |
 | `OMNIROUTE_MCP_DESCRIPTION_COMPRESSION` | (unset = on)                       | Alternate alias for the same toggle as above                                                                             |
 | `MCP_TOOL_DENY`                         | (unset = no filter)                | Comma-separated tool names to drop from `tools/list` (tool-cardinality reduction — see below)                            |

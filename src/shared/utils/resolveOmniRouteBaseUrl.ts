@@ -21,4 +21,39 @@ export function resolveOmniRouteBaseUrl(env: OmniRouteBaseUrlEnv = process.env):
   );
 }
 
+/**
+ * True when the URL host is process-local loopback (F-04-W2-002 host pin).
+ * Used before forwarding management cookies / bearer credentials.
+ */
+export function isLoopbackOmniRouteBaseUrl(baseUrl: string): boolean {
+  try {
+    const url = new URL(baseUrl);
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Refuse credentialed internal fetches to non-loopback hosts (SSRF / cookie leak).
+ */
+export function assertCredentialSafeOmniRouteBaseUrl(
+  baseUrl: string,
+  hasCredentials: boolean
+): void {
+  if (!hasCredentials) return;
+  if (isLoopbackOmniRouteBaseUrl(baseUrl)) return;
+  let host = baseUrl;
+  try {
+    host = new URL(baseUrl).host;
+  } catch {
+    // keep raw
+  }
+  throw new Error(
+    `Refusing to forward credentials to non-loopback OmniRoute base URL (${host}). ` +
+      `Set OMNIROUTE_BASE_URL to a loopback origin (e.g. http://127.0.0.1:20128).`
+  );
+}
+
 export { DEFAULT_OMNIROUTE_BASE_URL };
