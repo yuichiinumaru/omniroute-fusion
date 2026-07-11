@@ -1,12 +1,9 @@
-import {
-  BaseExecutor,
-  mergeAbortSignals,
-  mergeUpstreamExtraHeaders,
-  type ExecuteInput,
-} from "./base.ts";
+import { BaseExecutor, mergeUpstreamExtraHeaders, type ExecuteInput } from "./base.ts";
 import { FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { normalizeSessionCookieHeader } from "@/lib/providers/webCookieAuth";
 import { prepareToolMessages, buildToolAwareResult } from "../translator/webTools.ts";
+import { fetchWithStartTimeout } from "../utils/fetchStartTimeout.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 
 const BLACKBOX_CHAT_API = "https://app.blackbox.ai/api/chat";
 const BLACKBOX_DEFAULT_COOKIE = "next-auth.session-token";
@@ -497,19 +494,20 @@ export class BlackboxWebExecutor extends BaseExecutor {
       selectedElement: null,
     };
 
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
-
+    // Start-only timeout: clears after headers; body lifetime uses stream idle budget (F-02-W2-002).
     let upstreamResponse: Response;
     try {
-      upstreamResponse = await fetch(BLACKBOX_CHAT_API, {
+      upstreamResponse = await fetchWithStartTimeout(BLACKBOX_CHAT_API, {
         method: "POST",
         headers,
         body: JSON.stringify(transformedBody),
-        signal: combinedSignal,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        clientSignal: signal ?? null,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = sanitizeErrorMessage(
+        error instanceof Error ? error.message : String(error)
+      );
       log?.error?.("BLACKBOX-WEB", `Fetch failed: ${message}`);
       const errorResponse = new Response(
         JSON.stringify({

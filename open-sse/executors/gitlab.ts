@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import {
   BaseExecutor,
-  mergeAbortSignals,
   mergeUpstreamExtraHeaders,
   type ExecuteInput,
   type ExecutorLog,
   type ProviderCredentials,
 } from "./base.ts";
 import { FETCH_TIMEOUT_MS } from "../config/constants.ts";
+import { fetchWithStartTimeout } from "../utils/fetchStartTimeout.ts";
 import { getAccessToken } from "../services/tokenRefresh.ts";
 import {
   buildGitLabDirectGatewayUrl,
@@ -402,15 +402,14 @@ export class GitlabExecutor extends BaseExecutor {
     bodyText: string;
   }> {
     const endpoints = buildGitLabOAuthEndpoints(root);
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
-    const response = await fetch(endpoints.directAccessUrl, {
+    const response = await fetchWithStartTimeout(endpoints.directAccessUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
       },
-      signal: combinedSignal,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      clientSignal: signal ?? null,
     });
 
     const bodyText = await response.text();
@@ -560,15 +559,12 @@ export class GitlabExecutor extends BaseExecutor {
   ) {
     const headers = { ...target.headers };
     mergeUpstreamExtraHeaders(headers, input.upstreamExtraHeaders);
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = input.signal
-      ? mergeAbortSignals(input.signal, timeoutSignal)
-      : timeoutSignal;
-    const response = await fetch(target.url, {
+    const response = await fetchWithStartTimeout(target.url, {
       method: "POST",
       headers,
       body: JSON.stringify(transformedBody),
-      signal: combinedSignal,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      clientSignal: input.signal ?? null,
     });
     return { response, headers };
   }

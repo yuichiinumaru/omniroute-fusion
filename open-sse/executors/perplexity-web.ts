@@ -712,7 +712,9 @@ function buildStreamingResponse(
                   {
                     index: 0,
                     delta: {
-                      content: `[Stream error: ${err instanceof Error ? err.message : String(err)}]`,
+                      content: sanitizeErrorMessage(
+                        `[Stream error: ${err instanceof Error ? err.message : String(err)}]`
+                      ),
                     },
                     finish_reason: "stop",
                     logprobs: null,

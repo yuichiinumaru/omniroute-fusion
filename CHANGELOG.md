@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Security
+- **Executor harden — path/SSRF/timeouts/sanitize/Opencode race (Task 0045 / Epic 0008 S6)** — close F-02-001…005 + F-02-W2-001…003.
+  - Shared `assertSafePathSegment` / `isSafeChatPath` (`open-sse/utils/safePath.ts`); DefaultExecutor + BaseExecutor production chatPath sanitize
+  - Qwen `resourceUrl` host allowlist (`qwen.ai` / `aliyuncs.com`); reject IP/local/non-allowlisted (fail closed)
+  - `redactUrlSecrets` for Vertex Express `?key=` in BaseExecutor logs + `requestLogger.logTargetRequest`
+  - Mid-stream + HTTP JSON errors sanitized (chatgpt/perplexity web, bedrock, copilot-web, blackbox, huggingchat, mimocode; grok already safe)
+  - Start-only `fetchWithStartTimeout` + TimeoutError classification (F-02-005); specialized executors (9router, CLIProxyAPI, blackbox, huggingchat, gitlab) no longer abort long streams at FETCH_TIMEOUT_MS
+  - OpencodeExecutor request format via AsyncLocalStorage (singleton concurrency safe)
+  - Tests: `tests/unit/executor-harden-0045.test.ts`
+  **Author**: builder (Task 0045)
+
 - **MCP scopes SSoT, IDOR pin, SSE isolation, plugin path jail, credential host pin (Task 0044 / Epic 0008 S5)** — close F-04-002 / F-04-003 / F-04-W2-001 / F-04-W2-002 / F-04-W2-003.
   - **F-04-002**: `scopeEnforcement` never trusts client `_meta.scopes`; HTTP transport injects principal `authInfo` from management session / API key
   - **F-04-003**: memory / skill / gamification `apiKeyId` (and `fromApiKeyId`) bound to caller principal; operators (`dashboard`/`cli`/`env-key`/`admin`) may cross-tenant

@@ -38,6 +38,8 @@ import { LOCAL_PROVIDERS } from "@/shared/constants/providers";
 import { isForbiddenCustomHeaderName } from "@/shared/constants/upstreamHeaders";
 import { getClaudeCodeCompatibleRequestDefaults } from "@/lib/providers/requestDefaults";
 import { buildClineHeaders } from "@/shared/utils/clineAuth";
+import { resolveSafeChatPath } from "../utils/safePath.ts";
+import { resolveQwenChatCompletionsUrl } from "../utils/qwenResourceUrl.ts";
 
 import type { PoolConfig } from "../services/sessionPool/types.ts";
 
@@ -184,7 +186,8 @@ export class DefaultExecutor extends BaseExecutor {
       const psd = credentials?.providerSpecificData;
       const baseUrl = psd?.baseUrl || "https://api.openai.com/v1";
       const normalized = baseUrl.replace(/\/$/, "");
-      const customPath = typeof psd?.chatPath === "string" && psd.chatPath ? psd.chatPath : null;
+      // Production path: reject traversal / query / null-byte chatPath (F-02-001).
+      const customPath = resolveSafeChatPath(psd?.chatPath);
       if (customPath) return `${normalized}${customPath}`;
       const path =
         getOpenAICompatibleType(this.provider, psd) === "responses"
@@ -195,7 +198,7 @@ export class DefaultExecutor extends BaseExecutor {
     if (this.provider?.startsWith?.("anthropic-compatible-")) {
       const psd = credentials?.providerSpecificData;
       const baseUrl = psd?.baseUrl || "https://api.anthropic.com/v1";
-      const customPath = typeof psd?.chatPath === "string" && psd.chatPath ? psd.chatPath : null;
+      const customPath = resolveSafeChatPath(psd?.chatPath);
       if (isClaudeCodeCompatible(this.provider)) {
         return joinClaudeCodeCompatibleUrl(
           baseUrl,
@@ -306,8 +309,8 @@ export class DefaultExecutor extends BaseExecutor {
       case "gemini":
         return `${this.config.baseUrl}/${model}:${stream ? "streamGenerateContent?alt=sse" : "generateContent"}`;
       case "qwen": {
-        const resourceUrl = credentials?.providerSpecificData?.resourceUrl;
-        return `https://${resourceUrl || "portal.qwen.ai"}/v1/chat/completions`;
+        // OAuth resource_url is upstream-controlled — host-allowlist before fetch (F-02-003).
+        return resolveQwenChatCompletionsUrl(credentials?.providerSpecificData?.resourceUrl);
       }
       default: {
         // Honor a user-supplied custom base URL (providerSpecificData.baseUrl) for

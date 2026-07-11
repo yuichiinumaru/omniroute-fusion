@@ -65,20 +65,12 @@ import {
   stainlessRuntimeVersion,
   stripProxyToolPrefix,
 } from "./claudeIdentity.ts";
-
-/**
- * Sanitizes a custom API path to prevent path traversal attacks.
- * Valid paths must start with '/', contain no '..' segments,
- * no null bytes, and be reasonable in length.
- */
-function sanitizePath(path: string): boolean {
-  if (typeof path !== "string") return false;
-  if (!path.startsWith("/")) return false;
-  if (path.includes("\0")) return false; // null byte
-  if (path.includes("..")) return false; // path traversal
-  if (path.length > 512) return false; // sanity limit
-  return true;
-}
+import { resolveSafeChatPath } from "../utils/safePath.ts";
+import {
+  fetchWithStartTimeout as fetchWithStartTimeoutHelper,
+  isFetchStartTimeoutError,
+} from "../utils/fetchStartTimeout.ts";
+import { redactUrlSecrets } from "../utils/urlSanitize.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -514,9 +506,8 @@ export class BaseExecutor {
       const psd = credentials?.providerSpecificData;
       const baseUrl = typeof psd?.baseUrl === "string" ? psd.baseUrl : "https://api.openai.com/v1";
       const normalized = baseUrl.replace(/\/$/, "");
-      // Sanitize custom path: must start with '/', no path traversal, no null bytes
-      const rawPath = typeof psd?.chatPath === "string" && psd.chatPath ? psd.chatPath : null;
-      const customPath = rawPath && sanitizePath(rawPath) ? rawPath : null;
+      // Sanitize custom path: must start with '/', no path traversal, no null bytes / query
+      const customPath = resolveSafeChatPath(psd?.chatPath);
       if (customPath) return `${normalized}${customPath}`;
       const path =
         getOpenAICompatibleType(this.provider, psd) === "responses"
@@ -908,37 +899,19 @@ export class BaseExecutor {
         ) as typeof transformedBody;
       }
 
+      // Redact ?key= / tokens before any log line (Vertex Express etc. — F-02-002).
+      const safeLogUrl = (requestUrl: string) => redactUrlSecrets(requestUrl);
+
       try {
         // Timeout only covers response start; stream stalls are handled downstream.
+        // See open-sse/utils/fetchStartTimeout.ts for FETCH_TIMEOUT_MS semantics.
         const fetchStartTimeoutMs = this.getTimeoutMs();
-        const fetchWithStartTimeout = async (requestUrl: string, requestOptions: RequestInit) => {
-          const timeoutController = fetchStartTimeoutMs > 0 ? new AbortController() : null;
-          let timeoutId: ReturnType<typeof setTimeout> | null = null;
-          if (timeoutController) {
-            timeoutId = setTimeout(() => {
-              const timeoutError = new Error(
-                `Fetch timeout after ${fetchStartTimeoutMs}ms on ${requestUrl}`
-              );
-              timeoutError.name = "TimeoutError";
-              timeoutController.abort(timeoutError);
-            }, fetchStartTimeoutMs);
-          }
-
-          const timeoutSignal = timeoutController?.signal ?? null;
-          const combinedSignal =
-            signal && timeoutSignal
-              ? mergeAbortSignals(signal, timeoutSignal)
-              : signal || timeoutSignal;
-          const optionsWithSignal = combinedSignal
-            ? { ...requestOptions, signal: combinedSignal }
-            : requestOptions;
-
-          try {
-            return await fetch(requestUrl, optionsWithSignal);
-          } finally {
-            if (timeoutId) clearTimeout(timeoutId);
-          }
-        };
+        const fetchWithStartTimeout = async (requestUrl: string, requestOptions: RequestInit) =>
+          fetchWithStartTimeoutHelper(requestUrl, {
+            ...requestOptions,
+            timeoutMs: fetchStartTimeoutMs,
+            clientSignal: signal ?? null,
+          });
 
         const isClaudeCodeClient =
           clientHeaders?.["x-app"] === "cli" ||
@@ -1412,7 +1385,7 @@ export class BaseExecutor {
             }
             log?.debug?.(
               "CONTEXT_EDITING",
-              `Upstream 400 rejected context_management on ${url} — retrying without it`
+              `Upstream 400 rejected context_management on ${safeLogUrl(url)} — retrying without it`
             );
             response = await fetchWithStartTimeout(url, { ...fetchOptions, body: retryBody });
           }
@@ -1442,7 +1415,7 @@ export class BaseExecutor {
             }
             log?.debug?.(
               "FIELD_400",
-              `Upstream 400 rejected ${offending} on ${url} — retrying without it`
+              `Upstream 400 rejected ${offending} on ${safeLogUrl(url)} — retrying without it`
             );
             response = await fetchWithStartTimeout(url, { ...fetchOptions, body: retryBody });
           }
@@ -1458,7 +1431,7 @@ export class BaseExecutor {
           const attempt = retryAttemptsByUrl[urlIndex];
           log?.debug?.(
             "RETRY",
-            `429 intra-retry ${attempt}/${BaseExecutor.RETRY_CONFIG.maxAttempts} on ${url} — waiting ${BaseExecutor.RETRY_CONFIG.delayMs}ms`
+            `429 intra-retry ${attempt}/${BaseExecutor.RETRY_CONFIG.maxAttempts} on ${safeLogUrl(url)} — waiting ${BaseExecutor.RETRY_CONFIG.delayMs}ms`
           );
           await new Promise((resolve) => setTimeout(resolve, BaseExecutor.RETRY_CONFIG.delayMs));
           urlIndex--; // re-run this urlIndex on the next loop iteration
@@ -1467,25 +1440,39 @@ export class BaseExecutor {
 
         // T07: Handle 401 authentication errors — log and continue to fallback
         if (response.status === 401 && credentials.connectionId && credentials.apiKey) {
-          log?.warn?.("AUTH", `401 on ${url} - API key may be invalid`);
+          log?.warn?.("AUTH", `401 on ${safeLogUrl(url)} - API key may be invalid`);
         }
 
         if (!skipUpstreamRetry && this.shouldRetry(response.status, urlIndex)) {
-          log?.debug?.("RETRY", `${response.status} on ${url}, trying fallback ${urlIndex + 1}`);
+          log?.debug?.(
+            "RETRY",
+            `${response.status} on ${safeLogUrl(url)}, trying fallback ${urlIndex + 1}`
+          );
           lastStatus = response.status;
           continue;
         }
 
         return { response, url, headers: finalHeaders, transformedBody: serializedBody };
       } catch (error) {
-        // Distinguish timeout errors from other abort errors
+        // Distinguish timeout errors from other abort errors (F-02-005).
+        // undici may surface AbortError even when abort reason was TimeoutError —
+        // isFetchStartTimeoutError walks cause/reason/message for stable classification.
         const err = error instanceof Error ? error : new Error(String(error));
-        if (err.name === "TimeoutError") {
-          log?.warn?.("TIMEOUT", `Fetch timeout after ${this.getTimeoutMs()}ms on ${url}`);
+        if (isFetchStartTimeoutError(err)) {
+          if (err.name !== "TimeoutError") {
+            err.name = "TimeoutError";
+          }
+          log?.warn?.(
+            "TIMEOUT",
+            `Fetch timeout after ${this.getTimeoutMs()}ms on ${safeLogUrl(url)}`
+          );
         }
         lastError = err;
         if (!skipUpstreamRetry && urlIndex + 1 < fallbackCount) {
-          log?.debug?.("RETRY", `Error on ${url}, trying fallback ${urlIndex + 1}`);
+          log?.debug?.(
+            "RETRY",
+            `Error on ${safeLogUrl(url)}, trying fallback ${urlIndex + 1}`
+          );
           continue;
         }
         throw err;

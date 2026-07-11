@@ -10,6 +10,7 @@ import { BaseExecutor } from "./base.ts";
 import { PROVIDERS } from "../config/constants.ts";
 import { buildBedrockNativeConverseUrl, resolveBedrockRegion } from "../config/bedrock.ts";
 import * as prl from "../utils/providerRequestLogging.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 
 const encoder = new TextEncoder();
 
@@ -468,7 +469,9 @@ function statusFromError(error) {
 function errorBody(error, fallback = "Bedrock request failed") {
   const status = statusFromError(error);
   const code = typeof error?.name === "string" ? error.name : `HTTP_${status}`;
-  const message = typeof error?.message === "string" && error.message ? error.message : fallback;
+  const raw = typeof error?.message === "string" && error.message ? error.message : fallback;
+  // Hard rule #12: never return raw SDK/path noise to clients (F-02-W2-003).
+  const message = sanitizeErrorMessage(raw) || fallback;
   return {
     error: {
       message,
@@ -521,7 +524,7 @@ function createOpenAIStreamFromBedrock(stream, model) {
             controller.enqueue(
               sse({
                 error: {
-                  message: exception.message || "Bedrock stream failed",
+                  message: sanitizeErrorMessage(exception.message || "Bedrock stream failed"),
                   type: status === 429 ? "rate_limit_error" : "upstream_error",
                   code: exception.name || "bedrock_stream_error",
                   status,

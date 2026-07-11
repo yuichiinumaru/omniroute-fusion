@@ -18,12 +18,12 @@
 import {
   BaseExecutor,
   mergeUpstreamExtraHeaders,
-  mergeAbortSignals,
   type ProviderCredentials,
 } from "./base.ts";
 import { HTTP_STATUS, FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { cloakThirdPartyToolNames } from "../services/claudeCodeToolRemapper.ts";
 import { sanitizeClaudeToolSchemas } from "../translator/helpers/schemaCoercion.ts";
+import { fetchWithStartTimeout } from "../utils/fetchStartTimeout.ts";
 
 const DEFAULT_PORT = 8317;
 const DEFAULT_HOST = "127.0.0.1";
@@ -399,11 +399,6 @@ export class CliproxyapiExecutor extends BaseExecutor {
     );
     mergeUpstreamExtraHeaders(headers, input.upstreamExtraHeaders);
 
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = input.signal
-      ? mergeAbortSignals(input.signal, timeoutSignal)
-      : timeoutSignal;
-
     input.log?.info?.("CPA", `CLIProxyAPI → ${url} (model: ${input.model}, shape: ${shape})`);
 
     // _toolNameMap is an in-memory channel to chatCore for response-side
@@ -415,11 +410,13 @@ export class CliproxyapiExecutor extends BaseExecutor {
           )
         : JSON.stringify(transformedBody);
 
-    const response = await fetch(url, {
+    // Start-only timeout — long streams must not abort at FETCH_TIMEOUT_MS (F-02-W2-002).
+    const response = await fetchWithStartTimeout(url, {
       method: "POST",
       headers,
       body: wireBody,
-      signal: combinedSignal,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      clientSignal: input.signal ?? null,
     });
 
     if (response.status === HTTP_STATUS.RATE_LIMITED) {

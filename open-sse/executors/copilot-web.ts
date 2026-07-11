@@ -671,7 +671,9 @@ export class CopilotWebExecutor extends BaseExecutor {
           transformedBody: { conversationId, mode, prompt: fullPrompt.slice(0, 100) },
         };
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Copilot non-streaming error";
+        const msg = sanitizeErrorMessage(
+          err instanceof Error ? err.message : "Copilot non-streaming error"
+        );
         return {
           response: new Response(JSON.stringify({ error: { message: msg } }), {
             status: 502,
@@ -707,7 +709,9 @@ export class CopilotWebExecutor extends BaseExecutor {
         transformedBody: { conversationId, mode, prompt: fullPrompt.slice(0, 100) },
       };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Copilot streaming error";
+      const msg = sanitizeErrorMessage(
+        err instanceof Error ? err.message : "Copilot streaming error"
+      );
       return {
         response: new Response(JSON.stringify({ error: { message: msg } }), {
           status: 502,

@@ -1,5 +1,6 @@
 import { getPendingById } from "@/lib/usage/usageHistory";
 import { sanitizeErrorMessage } from "./error.ts";
+import { redactUrlSecrets } from "./urlSanitize.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -344,7 +345,8 @@ export async function createRequestLogger(
     logTargetRequest(url, headers, body) {
       payloads.providerRequest = {
         timestamp: new Date().toISOString(),
-        url,
+        // Redact Vertex Express ?key= / OAuth tokens from logged URLs (F-02-002).
+        url: typeof url === "string" ? redactUrlSecrets(url) : url,
         headers: maskSensitiveHeaders(headers),
         body: cloneBoundedForLog(body),
       };

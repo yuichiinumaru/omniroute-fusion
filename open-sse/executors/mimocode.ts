@@ -20,6 +20,7 @@ import * as os from "node:os";
 import { BaseExecutor, type ExecuteInput, type ProviderCredentials } from "./base.ts";
 import { createProxyDispatcher } from "../utils/proxyDispatcher.ts";
 import { fetch as undiciFetch, type Dispatcher } from "undici";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 
 const BOOTSTRAP_PATH = "/api/free-ai/bootstrap";
 const CHAT_PATH = "/api/free-ai/openai/chat";
@@ -518,7 +519,7 @@ export class MimocodeExecutor extends BaseExecutor {
       } catch (err) {
         this.markCooldown(account);
         if (attempt === this.accounts.length - 1) {
-          const msg = err instanceof Error ? err.message : String(err);
+          const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
           log?.error?.("MIMOCODE", `Executor error: ${msg}`);
           return {
             response: new Response(

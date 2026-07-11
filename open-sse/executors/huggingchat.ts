@@ -17,14 +17,11 @@
  *   - { type: "reasoning", subtype: "stream", token: "..." } -- thinking tokens
  *   - { type: "status", status: "error", message: "..." }    -- error
  */
-import {
-  BaseExecutor,
-  mergeAbortSignals,
-  mergeUpstreamExtraHeaders,
-  type ExecuteInput,
-} from "./base.ts";
+import { BaseExecutor, mergeUpstreamExtraHeaders, type ExecuteInput } from "./base.ts";
 import { FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { normalizeSessionCookieHeader } from "@/lib/providers/webCookieAuth";
+import { fetchWithStartTimeout } from "../utils/fetchStartTimeout.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 
 const HUGGINGFACE_BASE = "https://huggingface.co";
 const CONVERSATION_URL = `${HUGGINGFACE_BASE}/chat/conversation`;
@@ -402,19 +399,18 @@ export class HuggingChatExecutor extends BaseExecutor {
     };
 
     // -- Step 1: Create conversation ----------------------------------------
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
-
+    // Each hop uses a start-only timeout (not full-request abort) — F-02-W2-002.
     let conversationId: string;
     try {
       const createBody: Record<string, unknown> = { model: resolvedModel };
       if (systemPrompt) createBody.preprompt = systemPrompt;
 
-      const createRes = await fetch(CONVERSATION_URL, {
+      const createRes = await fetchWithStartTimeout(CONVERSATION_URL, {
         method: "POST",
         headers: { ...baseHeaders, "Content-Type": "application/json" },
         body: JSON.stringify(createBody),
-        signal: combinedSignal,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        clientSignal: signal ?? null,
       });
 
       if (!createRes.ok) {
@@ -460,7 +456,7 @@ export class HuggingChatExecutor extends BaseExecutor {
 
       log?.debug?.("HUGGINGCHAT", `Created conversation: ${conversationId}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
       log?.error?.("HUGGINGCHAT", `Conversation creation failed: ${message}`);
       return {
         response: new Response(
@@ -490,14 +486,15 @@ export class HuggingChatExecutor extends BaseExecutor {
 
     let upstreamResponse: Response;
     try {
-      upstreamResponse = await fetch(messageUrl, {
+      upstreamResponse = await fetchWithStartTimeout(messageUrl, {
         method: "POST",
         headers: baseHeaders,
         body: formData,
-        signal: combinedSignal,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        clientSignal: signal ?? null,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
       log?.error?.("HUGGINGCHAT", `Message send failed: ${message}`);
       return {
         response: new Response(

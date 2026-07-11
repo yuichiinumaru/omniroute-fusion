@@ -6,7 +6,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { stripTrailingSlashes } from "../../open-sse/utils/urlSanitize.ts";
+import { redactUrlSecrets, stripTrailingSlashes } from "../../open-sse/utils/urlSanitize.ts";
 
 describe("stripTrailingSlashes", () => {
   it("returns the same string when no trailing slashes", () => {
@@ -41,5 +41,21 @@ describe("stripTrailingSlashes", () => {
     assert.equal(result, "https://example.com");
     // Should complete in under 50ms even with 10k trailing slashes
     assert.ok(elapsed < 50, `took ${elapsed}ms — expected < 50ms`);
+  });
+});
+
+describe("redactUrlSecrets", () => {
+  it("redacts key query parameter", () => {
+    const secret = "super-secret-vertex-key";
+    const out = redactUrlSecrets(
+      `https://aiplatform.googleapis.com/v1/x?key=${secret}&alt=sse`
+    );
+    assert.ok(!out.includes(secret));
+    assert.match(out, /key=(\*\*\*|%2A%2A%2A)/);
+  });
+
+  it("leaves non-secret URLs unchanged", () => {
+    const url = "https://api.openai.com/v1/chat/completions";
+    assert.equal(redactUrlSecrets(url), url);
   });
 });

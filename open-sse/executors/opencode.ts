@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   BaseExecutor,
   setUserAgentHeader,
@@ -12,6 +13,13 @@ import {
   isThinkingMessageModel,
 } from "../utils/reasoningContentInjector.ts";
 import { runWithProxyContext } from "../utils/proxyFetch.ts";
+
+/**
+ * Per-request target format for OpencodeExecutor.
+ * Must NOT live on the singleton instance — concurrent claude + openai models
+ * would race on `_requestFormat` (F-02-W2-001).
+ */
+const opencodeRequestFormat = new AsyncLocalStorage<string>();
 
 /**
  * Per-account proxy configuration, persisted by NoAuthAccountCard under
@@ -43,7 +51,15 @@ const OPENCODE_COOLDOWN_BASE_MS = 5_000;
 const OPENCODE_COOLDOWN_MAX_MS = 60_000;
 
 export class OpencodeExecutor extends BaseExecutor {
+  /**
+   * @deprecated Instance field retained only for tests that inspect historical shape.
+   * Production path uses AsyncLocalStorage — do not write per-request format here.
+   */
   _requestFormat: string | null = null;
+
+  private getRequestFormat(): string {
+    return opencodeRequestFormat.getStore() || this._requestFormat || "openai";
+  }
 
   /**
    * Per-account rotation state, rebuilt from credentials on each request. The
@@ -136,8 +152,9 @@ export class OpencodeExecutor extends BaseExecutor {
   }
 
   async execute(input: ExecuteInput) {
-    this._requestFormat = getModelTargetFormat(this.provider, input.model) || "openai";
-    try {
+    const requestFormat = getModelTargetFormat(this.provider, input.model) || "openai";
+    // ALS isolates format for concurrent requests on the singleton (F-02-W2-001).
+    return opencodeRequestFormat.run(requestFormat, async () => {
       this.syncAccountsFromCredentials(input.credentials);
 
       const hasProxies = this.accounts.some((a) => a.proxy !== null);
@@ -186,9 +203,7 @@ export class OpencodeExecutor extends BaseExecutor {
 
       // All accounts returned 429 (or errored) — surface the last response.
       return lastResult ?? (await super.execute(input));
-    } finally {
-      this._requestFormat = null;
-    }
+    });
   }
 
   buildUrl(
@@ -201,7 +216,7 @@ export class OpencodeExecutor extends BaseExecutor {
     void credentials;
 
     const base = this.config.baseUrl;
-    switch (this._requestFormat) {
+    switch (this.getRequestFormat()) {
       case "claude":
         return `${base}/messages`;
       case "openai-responses":
@@ -221,16 +236,17 @@ export class OpencodeExecutor extends BaseExecutor {
   ) {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const key = credentials?.apiKey || credentials?.accessToken;
+    const requestFormat = this.getRequestFormat();
 
     if (key) {
-      if (this._requestFormat === "claude") {
+      if (requestFormat === "claude") {
         headers["x-api-key"] = key;
       } else {
         headers["Authorization"] = `Bearer ${key}`;
       }
     }
 
-    if (this._requestFormat === "claude") {
+    if (requestFormat === "claude") {
       headers["anthropic-version"] = "2023-06-01";
     }
 

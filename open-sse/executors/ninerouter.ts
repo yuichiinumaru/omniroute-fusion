@@ -22,12 +22,12 @@
 import {
   BaseExecutor,
   mergeUpstreamExtraHeaders,
-  mergeAbortSignals,
   type ProviderCredentials,
   type ExecuteInput,
 } from "./base.ts";
 import { FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { buildErrorBody } from "../utils/error.ts";
+import { fetchWithStartTimeout } from "../utils/fetchStartTimeout.ts";
 import { getSupervisor } from "@/lib/services/registry";
 import { getOrCreateApiKey } from "@/lib/services/apiKey";
 
@@ -168,21 +168,18 @@ export class NineRouterExecutor extends BaseExecutor {
     );
     mergeUpstreamExtraHeaders(headers, input.upstreamExtraHeaders ?? null);
 
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = input.signal
-      ? mergeAbortSignals(input.signal, timeoutSignal)
-      : timeoutSignal;
-
     input.log?.info?.(
       "9ROUTER",
       `→ ${url} (model: ${innerModel}, shape: ${shape}, port: ${dynamicPort})`
     );
 
-    const response = await fetch(url, {
+    // Start-only: do not abort mid-stream when FETCH_TIMEOUT_MS elapses (F-02-W2-002).
+    const response = await fetchWithStartTimeout(url, {
       method: "POST",
       headers,
       body: JSON.stringify(transformedBody),
-      signal: combinedSignal,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      clientSignal: input.signal ?? null,
     });
 
     return { response, url, headers, transformedBody };
