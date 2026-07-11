@@ -30,6 +30,80 @@ const DEFAULT_CONFIG: SandboxConfig = {
   readOnly: true,
 };
 
+/**
+ * Minimal env for the docker CLI host process. Never spread full `process.env`
+ * (F-06-001) — host secrets (JWT_SECRET, API_KEY_SECRET, STORAGE_ENCRYPTION_KEY,
+ * provider tokens) must not be inherited by the client or container.
+ */
+const DOCKER_CLI_ENV_ALLOWLIST = [
+  "PATH",
+  "HOME",
+  "USER",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "TZ",
+  "TMPDIR",
+  "TMP",
+  "TEMP",
+  "DOCKER_HOST",
+  "DOCKER_TLS_VERIFY",
+  "DOCKER_CERT_PATH",
+  "DOCKER_CONFIG",
+  "XDG_RUNTIME_DIR",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "no_proxy",
+] as const;
+
+/** Safe defaults for the container when no skill overlay is provided. */
+const CONTAINER_BASE_ENV: Readonly<Record<string, string>> = {
+  HOME: "/workspace",
+  LANG: "C.UTF-8",
+  PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+};
+
+/**
+ * Build host env for `docker` spawn — allowlist only, never full process.env.
+ * Exported for unit tests.
+ */
+export function buildDockerCliEnv(
+  hostEnv: NodeJS.ProcessEnv = process.env
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of DOCKER_CLI_ENV_ALLOWLIST) {
+    const value = hostEnv[key];
+    if (typeof value === "string" && value.length > 0) {
+      env[key] = value;
+    }
+  }
+  // PATH is required for finding the docker binary.
+  if (!env.PATH) {
+    env.PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+  }
+  return env;
+}
+
+/**
+ * Merge container base env with the skill-provided overlay. Overlay keys override
+ * base; never includes host process.env secrets.
+ * Exported for unit tests.
+ */
+export function buildContainerEnv(
+  overlay: Record<string, string> = {}
+): Record<string, string> {
+  const env: Record<string, string> = { ...CONTAINER_BASE_ENV };
+  for (const [key, value] of Object.entries(overlay)) {
+    if (typeof key === "string" && key.length > 0 && typeof value === "string") {
+      env[key] = value;
+    }
+  }
+  return env;
+}
+
 class SandboxRunner {
   private static instance: SandboxRunner;
   private runningContainers: Map<string, ChildProcess> = new Map();
@@ -89,11 +163,18 @@ class SandboxRunner {
       dockerArgs.push("--read-only");
     }
 
+    // Pass only allowlisted/skill-overlay vars into the container via -e.
+    // Do not inherit host secrets (F-06-001).
+    const containerEnv = buildContainerEnv(env);
+    for (const [key, value] of Object.entries(containerEnv)) {
+      dockerArgs.push("-e", `${key}=${value}`);
+    }
+
     dockerArgs.push(image, ...command);
 
     return new Promise((resolve) => {
       const proc = childProcess.spawn("docker", dockerArgs, {
-        env: { ...process.env, ...env },
+        env: buildDockerCliEnv(process.env),
         stdio: ["ignore", "pipe", "pipe"],
       });
 

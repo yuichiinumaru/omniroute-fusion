@@ -96,16 +96,20 @@ export async function downloadRelease(
   const archivePath = path.join(versionDir, assetName);
   await downloadFile(asset.url, archivePath, signal);
 
+  // F-06-004: always require a SHA-256 for the resolved asset — no skip path.
+  // Missing/unreadable checksums.txt or absent asset name is a hard failure.
   const checksums = await getChecksums(version);
-  if (checksums.size > 0) {
-    const expected = checksums.get(assetName);
-    if (expected) {
-      const valid = await verifyChecksum(archivePath, expected);
-      if (!valid) {
-        await fs.unlink(archivePath);
-        throw new Error(`SHA256 checksum mismatch for ${assetName}`);
-      }
-    }
+  const expected = checksums.get(assetName);
+  if (!expected) {
+    await fs.unlink(archivePath).catch(() => {});
+    throw new Error(
+      `SHA256 checksum unavailable for ${assetName} — refusing install without verification`
+    );
+  }
+  const valid = await verifyChecksum(archivePath, expected);
+  if (!valid) {
+    await fs.unlink(archivePath).catch(() => {});
+    throw new Error(`SHA256 checksum mismatch for ${assetName}`);
   }
 
   if (platform === "windows") {

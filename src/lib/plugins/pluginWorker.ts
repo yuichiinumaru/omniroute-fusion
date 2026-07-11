@@ -11,7 +11,7 @@
 
 import { parentPort, workerData } from "worker_threads";
 import { readFile, readdir, stat, writeFile, mkdir, rm } from "fs/promises";
-import { resolve } from "path";
+import { isAbsolute, relative, resolve } from "path";
 import * as vm from "vm";
 
 if (!parentPort) {
@@ -19,6 +19,26 @@ if (!parentPort) {
 }
 
 const port = parentPort;
+
+/**
+ * Contain plugin-relative paths inside pluginDir (F-06-006).
+ * Rejects absolute paths and any `..` escape via path.relative.
+ */
+function resolvePluginPath(pluginDir: string, p: string): string {
+  if (typeof p !== "string" || p.length === 0) {
+    throw new Error("Plugin path must be a non-empty relative string");
+  }
+  if (isAbsolute(p)) {
+    throw new Error("Plugin file paths must be relative to the plugin directory");
+  }
+  const root = resolve(pluginDir);
+  const resolved = resolve(root, p);
+  const rel = relative(root, resolved);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error("Plugin file path escapes the plugin directory");
+  }
+  return resolved;
+}
 
 interface LoadMessage {
   type: "load";
@@ -52,7 +72,11 @@ type WorkerMessage = LoadMessage | CallMessage | CleanupMessage;
  *      (opt-in, default OFF) — child_process is never wired silently.
  * Treat plugins as local-operator-trusted code, not sandboxed untrusted code.
  */
-function createSandbox(permissions: string[], pluginDir: string): Record<string, unknown> {
+function createSandbox(
+  permissions: string[],
+  pluginDir: string,
+  name: string
+): Record<string, unknown> {
   const activeTimers = new Set<ReturnType<typeof setTimeout>>();
 
   const sandbox: Record<string, unknown> = {
@@ -107,17 +131,18 @@ function createSandbox(permissions: string[], pluginDir: string): Record<string,
 
   if (permissions.includes("file-read")) {
     sandbox.fs = {
-      readFile: (p: string, enc?: string) => readFile(resolve(pluginDir, p), enc as BufferEncoding),
-      readdir: (p: string) => readdir(resolve(pluginDir, p)),
-      stat: (p: string) => stat(resolve(pluginDir, p)),
+      readFile: (p: string, enc?: string) =>
+        readFile(resolvePluginPath(pluginDir, p), enc as BufferEncoding),
+      readdir: (p: string) => readdir(resolvePluginPath(pluginDir, p)),
+      stat: (p: string) => stat(resolvePluginPath(pluginDir, p)),
     };
   }
 
   if (permissions.includes("file-write")) {
-    const fs = sandbox.fs as Record<string, unknown> || {};
-    fs.writeFile = (p: string, data: string) => writeFile(resolve(pluginDir, p), data);
-    fs.mkdir = (p: string) => mkdir(resolve(pluginDir, p), { recursive: true });
-    fs.rm = (p: string) => rm(resolve(pluginDir, p), { recursive: true, force: true });
+    const fs = (sandbox.fs as Record<string, unknown>) || {};
+    fs.writeFile = (p: string, data: string) => writeFile(resolvePluginPath(pluginDir, p), data);
+    fs.mkdir = (p: string) => mkdir(resolvePluginPath(pluginDir, p), { recursive: true });
+    fs.rm = (p: string) => rm(resolvePluginPath(pluginDir, p), { recursive: true, force: true });
     sandbox.fs = fs;
   }
 
@@ -151,7 +176,7 @@ let activeTimers: Set<ReturnType<typeof setTimeout>> | null = null;
 
 async function loadPlugin(entryPoint: string, permissions: string[], name: string): Promise<string[]> {
   const pluginDir = resolve(entryPoint, "..");
-  const sandbox = createSandbox(permissions, pluginDir);
+  const sandbox = createSandbox(permissions, pluginDir, name);
   context = vm.createContext(sandbox);
   activeTimers = sandbox.__activeTimers as Set<ReturnType<typeof setTimeout>>;
 

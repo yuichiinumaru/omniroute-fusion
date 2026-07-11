@@ -4,13 +4,18 @@ import { buildConfigSyncEnvelope, toLegacyCloudSyncPayload } from "@/lib/sync/bu
 
 const CLOUD_URL = process.env.CLOUD_URL || process.env.NEXT_PUBLIC_CLOUD_URL;
 const CLOUD_SYNC_TIMEOUT_MS = Number(process.env.CLOUD_SYNC_TIMEOUT_MS || 12000);
-const CLOUD_SYNC_SECRET = process.env.OMNIROUTE_CLOUD_SYNC_SECRET || "";
 
 // Opt-in: only when explicitly set to "true" will updateLocalTokens overwrite
 // accessToken/refreshToken/providerSpecificData from the Cloud response. Default
 // behaviour from v3.8.6 onward syncs only non-credential metadata (expiresAt,
 // status, lastError*, rateLimitedUntil, updatedAt) so a misconfigured or
 // hostile CLOUD_URL cannot silently swap user OAuth tokens.
+// Also gates outbound credential upload (F-06-W2-001).
+function isCloudSyncSecretsEnabled(): boolean {
+  return process.env.OMNIROUTE_CLOUD_SYNC_SECRETS === "true";
+}
+
+/** @deprecated Prefer isCloudSyncSecretsEnabled() — kept for stub/export parity. */
 const CLOUD_SYNC_SECRETS_ENABLED = process.env.OMNIROUTE_CLOUD_SYNC_SECRETS === "true";
 
 type JsonRecord = Record<string, unknown>;
@@ -31,6 +36,18 @@ function toDateMs(value: unknown): number {
   return 0;
 }
 
+function getCloudSyncSecret(): string {
+  return process.env.OMNIROUTE_CLOUD_SYNC_SECRET || "";
+}
+
+/**
+ * Explicit opt-in for legacy unsigned cloud sync (F-06-003 fail-closed default).
+ * Production must set OMNIROUTE_CLOUD_SYNC_SECRET; INSECURE=1 is for local/dev only.
+ */
+function isCloudSyncInsecureAllowed(): boolean {
+  return process.env.OMNIROUTE_CLOUD_SYNC_INSECURE === "1";
+}
+
 // SECURITY-AUDITOR-NOTE: HMAC signature verification of the Cloud response.
 // Closes the silent-credential-swap surface flagged by Socket.dev (finding for
 // `app/.next/server/app/api/keys/[id]/route.js`). Two-leg defence:
@@ -40,26 +57,29 @@ function toDateMs(value: unknown): number {
 //   2. We verify the signature with `crypto.timingSafeEqual` before parsing the
 //      JSON, so a MITM on the CLOUD_URL channel — or a misconfigured CLOUD_URL
 //      pointing at an attacker — cannot inject providers/tokens.
-// If `OMNIROUTE_CLOUD_SYNC_SECRET` is unset, signature validation is logged but
-// not enforced (back-compat for users on v3.8.x who haven't issued a shared
-// secret yet). The enforce-by-default switch will flip in v3.9.
+// Fail-closed (F-06-003): when the secret is unset, reject unless the operator
+// explicitly opts into legacy mode with OMNIROUTE_CLOUD_SYNC_INSECURE=1.
 export function verifyCloudSignature(rawBody: string, sigHeader: string | null): boolean {
-  if (!CLOUD_SYNC_SECRET) {
-    if (sigHeader) {
-      // We can't verify, but the server is at least trying. Pass through.
+  const secret = getCloudSyncSecret();
+  if (!secret) {
+    if (isCloudSyncInsecureAllowed()) {
+      console.warn(
+        "[cloudSync] OMNIROUTE_CLOUD_SYNC_SECRET is not set; OMNIROUTE_CLOUD_SYNC_INSECURE=1 allows " +
+          "unsigned responses (legacy mode). Do not use this in production."
+      );
       return true;
     }
     console.warn(
-      "[cloudSync] OMNIROUTE_CLOUD_SYNC_SECRET is not set and the Cloud response carries no X-Cloud-Sig. " +
-        "Token sync runs in legacy unverified mode — set the secret to enforce HMAC verification."
+      "[cloudSync] OMNIROUTE_CLOUD_SYNC_SECRET is not set — rejecting unsigned/unverified cloud " +
+        "payload (fail-closed). Set the shared secret, or OMNIROUTE_CLOUD_SYNC_INSECURE=1 for local-only legacy mode."
     );
-    return true;
+    return false;
   }
   if (!sigHeader) {
     console.warn("[cloudSync] Cloud response missing X-Cloud-Sig — rejecting payload.");
     return false;
   }
-  const expected = crypto.createHmac("sha256", CLOUD_SYNC_SECRET).update(rawBody).digest("hex");
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
   try {
     const expectedBuf = Buffer.from(expected, "hex");
     const actualBuf = Buffer.from(sigHeader, "hex");
@@ -68,6 +88,16 @@ export function verifyCloudSignature(rawBody: string, sigHeader: string | null):
   } catch {
     return false;
   }
+}
+
+/**
+ * Sign an outbound cloud-sync request body (F-06-W2-001).
+ * Returns null when secret is unset (caller may still POST metadata-only).
+ */
+export function signCloudRequestBody(rawBody: string): string | null {
+  const secret = getCloudSyncSecret();
+  if (!secret) return null;
+  return crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
 }
 
 export async function fetchWithTimeout(url, options = {}, timeoutMs = CLOUD_SYNC_TIMEOUT_MS) {
@@ -90,21 +120,39 @@ export async function syncToCloud(machineId, createdKey = null) {
     return { error: "NEXT_PUBLIC_CLOUD_URL is not configured" };
   }
 
+  // Fail closed before upload when secret is missing (unless INSECURE opt-in).
+  // Prevents MITM apply of response metadata even when no secrets are uploaded.
+  if (!getCloudSyncSecret() && !isCloudSyncInsecureAllowed()) {
+    return {
+      error:
+        "Cloud sync requires OMNIROUTE_CLOUD_SYNC_SECRET (or OMNIROUTE_CLOUD_SYNC_INSECURE=1 for local legacy mode)",
+    };
+  }
+
   // Keep legacy field names for upstream compatibility, but derive them
   // from a canonical sync bundle with deterministic version hashing.
-  const { version, bundle } = await buildConfigSyncEnvelope();
+  // F-06-W2-001: default outbound payload is metadata-only; credentials require
+  // OMNIROUTE_CLOUD_SYNC_SECRETS=true (mirrors inbound credential overwrite gate).
+  const includeSecrets = isCloudSyncSecretsEnabled();
+  const { version, bundle } = await buildConfigSyncEnvelope({ includeSecrets });
   const legacyPayload = toLegacyCloudSyncPayload(bundle);
+  const body = JSON.stringify({
+    ...legacyPayload,
+    version,
+  });
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const requestSig = signCloudRequestBody(body);
+  if (requestSig) {
+    headers["X-Cloud-Sig"] = requestSig;
+  }
 
   let response;
   try {
     // Send to Cloud
     response = await fetchWithTimeout(`${CLOUD_URL}/sync/${machineId}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...legacyPayload,
-        version,
-      }),
+      headers,
+      body,
     });
   } catch (error) {
     const isTimeout = error?.name === "AbortError";
@@ -195,7 +243,7 @@ async function updateLocalTokens(cloudProviders: unknown) {
       // Credentials and providerSpecificData are only overwritten when the
       // operator has explicitly opted in to remote credential sync. Default
       // OFF closes the silent-swap surface.
-      if (CLOUD_SYNC_SECRETS_ENABLED) {
+      if (isCloudSyncSecretsEnabled()) {
         updates.accessToken = cloudProvider.accessToken;
         updates.refreshToken = cloudProvider.refreshToken;
         updates.providerSpecificData =

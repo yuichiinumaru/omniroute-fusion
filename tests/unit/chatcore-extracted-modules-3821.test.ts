@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { sanitizeChatRequestBody } from "../../open-sse/handlers/chatCore/sanitization.ts";
 import { checkIdempotencyCache } from "../../open-sse/handlers/chatCore/idempotency.ts";
 import { FORMATS } from "../../open-sse/translator/formats.ts";
-import { saveIdempotency } from "../../src/lib/idempotencyLayer.ts";
+import { saveIdempotency, scopeIdempotencyKey } from "../../src/lib/idempotencyLayer.ts";
 
 test("sanitizeChatRequestBody: Chat Completions target maps max_output_tokens → max_tokens", () => {
   const out = sanitizeChatRequestBody({ max_output_tokens: 256 }, FORMATS.OPENAI, FORMATS.OPENAI);
@@ -64,7 +64,8 @@ test("sanitizeChatRequestBody: strips empty message name and filters nameless to
 });
 
 test("checkIdempotencyCache returns { hit:null, idempotencyKey } on a miss", async () => {
-  const headers = new Headers({ "idempotency-key": "idem-miss-3821" });
+  const raw = "idem-miss-3821";
+  const headers = new Headers({ "idempotency-key": raw });
   const result = await checkIdempotencyCache({
     clientRawRequest: { headers },
     provider: "openai",
@@ -72,16 +73,19 @@ test("checkIdempotencyCache returns { hit:null, idempotencyKey } on a miss", asy
     effectiveServiceTier: undefined,
     startTime: 0,
     log: undefined,
+    apiKeyId: "key-3821",
   });
   assert.equal(result.hit, null);
-  assert.equal(result.idempotencyKey, "idem-miss-3821");
+  assert.equal(result.idempotencyKey, scopeIdempotencyKey(raw, "key-3821"));
 });
 
 test("checkIdempotencyCache returns a hit Response reusing the same key after a save", async () => {
-  const key = "idem-hit-3821";
+  const raw = "idem-hit-3821";
+  const principal = "key-3821";
+  const key = scopeIdempotencyKey(raw, principal);
   saveIdempotency(key, { object: "chat.completion", choices: [], usage: {} }, 200);
 
-  const headers = new Headers({ "idempotency-key": key });
+  const headers = new Headers({ "idempotency-key": raw });
   const result = await checkIdempotencyCache({
     clientRawRequest: { headers },
     provider: "openai",
@@ -89,6 +93,7 @@ test("checkIdempotencyCache returns a hit Response reusing the same key after a 
     effectiveServiceTier: undefined,
     startTime: 0,
     log: undefined,
+    apiKeyId: principal,
   });
 
   assert.equal(result.idempotencyKey, key, "the resolved key is returned for the save site to reuse");

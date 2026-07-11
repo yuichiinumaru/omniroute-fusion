@@ -537,6 +537,7 @@ export async function handleChatCore({
     effectiveServiceTier,
     startTime,
     log,
+    apiKeyId: apiKeyInfo?.id ?? null,
   });
   if (idempotencyHit) {
     return idempotencyHit;

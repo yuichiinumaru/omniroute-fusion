@@ -39,13 +39,21 @@ test("verifyCloudSignature rejects when the secret is set but sig header is miss
   assert.equal((mod as any).verifyCloudSignature(body, null), false);
 });
 
-test("verifyCloudSignature falls through (legacy mode) when secret is unset", async () => {
+test("verifyCloudSignature fails closed when secret is unset (F-06-003)", async () => {
   delete process.env.OMNIROUTE_CLOUD_SYNC_SECRET;
+  delete process.env.OMNIROUTE_CLOUD_SYNC_INSECURE;
   // Force re-import so module constants pick up the cleared env.
   delete (globalThis as any).__omniroute_cloudSync_cache;
   const mod = await import("../../../src/lib/cloudSync.ts");
   const body = JSON.stringify({ data: { providers: {} } });
-  // Behaviour: accept unsigned body but log warning. We assert it doesn't throw.
-  const result = (mod as any).verifyCloudSignature(body, null);
-  assert.equal(typeof result, "boolean");
+  assert.equal((mod as any).verifyCloudSignature(body, null), false);
+});
+
+test("verifyCloudSignature allows legacy only with OMNIROUTE_CLOUD_SYNC_INSECURE=1", async () => {
+  delete process.env.OMNIROUTE_CLOUD_SYNC_SECRET;
+  process.env.OMNIROUTE_CLOUD_SYNC_INSECURE = "1";
+  const mod = await import("../../../src/lib/cloudSync.ts");
+  const body = JSON.stringify({ data: { providers: {} } });
+  assert.equal((mod as any).verifyCloudSignature(body, null), true);
+  delete process.env.OMNIROUTE_CLOUD_SYNC_INSECURE;
 });

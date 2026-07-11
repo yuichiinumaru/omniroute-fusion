@@ -3,6 +3,17 @@
 ## [Unreleased]
 
 ### Security
+- **Skills / plugins / cloud sync / idempotency hygiene (Task 0046 / Epic 0008 S7)** — close untrusted-exec + credential-exfil paths (F-06-001/002/003/004 + F-06-W2-001/002).
+  - **F-06-001**: skill Docker sandbox uses allowlisted docker-CLI env + container `-e` base map; never spreads host `process.env` (no JWT/API/storage secrets in sandbox)
+  - **F-06-002**: production plugin loader `assertPluginPermissions` denies undeclared `exec`/`network`/`fs` usage; `exec` still requires `OMNIROUTE_PLUGINS_ALLOW_EXEC=1`
+  - **F-06-003**: cloud sync fail-closed without `OMNIROUTE_CLOUD_SYNC_SECRET`; legacy only via explicit `OMNIROUTE_CLOUD_SYNC_INSECURE=1`
+  - **F-06-004**: CLIProxy install always requires SHA-256 for the resolved asset (no skip when checksums missing)
+  - **F-06-W2-001**: outbound cloud payload metadata-only by default; tokens/keys only when `OMNIROUTE_CLOUD_SYNC_SECRETS=true`; request HMAC when secret set
+  - **F-06-W2-002**: idempotency keyed by `sha256(apiKeyId|Idempotency-Key)` — `X-Request-Id` no longer acts as a global idempotency key
+  - Stretch **F-06-006**: pluginWorker path jail + `name` param (no path escape / ReferenceError)
+  - Tests: `skills-sandbox-env-scrub-0046`, `plugins-permission-enforce-0046`, `cloud-sync-hygiene-0046`, `binaryManager-checksum-0046`, `idempotency`
+  **Author**: builder (Task 0046)
+
 - **Executor harden — path/SSRF/timeouts/sanitize/Opencode race (Task 0045 / Epic 0008 S6)** — close F-02-001…005 + F-02-W2-001…003.
   - Shared `assertSafePathSegment` / `isSafeChatPath` (`open-sse/utils/safePath.ts`); DefaultExecutor + BaseExecutor production chatPath sanitize
   - Qwen `resourceUrl` host allowlist (`qwen.ai` / `aliyuncs.com`); reject IP/local/non-allowlisted (fail closed)

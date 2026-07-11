@@ -79,8 +79,17 @@ test("config sync bundle is deterministic, strips auth settings, and ignores vol
   assert.equal(first.bundle.settings.password, undefined);
   assert.equal(first.bundle.settings.requireLogin, undefined);
   assert.equal(first.bundle.settings.cloudEnabled, undefined);
-  assert.equal(first.bundle.providerConnections[0].apiKey, "sk-live-secret");
+  // F-06-W2-001: default outbound bundle redacts credentials.
+  assert.equal(first.bundle.providerConnections[0].apiKey, undefined);
+  assert.equal(first.bundle.providerConnections[0].providerSpecificData, undefined);
+  assert.equal(first.bundle.apiKeys[0]?.key, undefined);
   assert.equal(first.bundle.modelAliases["smart-default"], "openai/gpt-4o-mini");
+
+  const withSecrets = await syncBundle.buildConfigSyncEnvelope({ includeSecrets: true });
+  assert.equal(withSecrets.bundle.providerConnections[0].apiKey, "sk-live-secret");
+  assert.deepEqual(withSecrets.bundle.providerConnections[0].providerSpecificData, {
+    region: "us",
+  });
 
   await providersDb.updateProviderConnection((connection as any).id, {
     lastError: "temporary upstream failure",

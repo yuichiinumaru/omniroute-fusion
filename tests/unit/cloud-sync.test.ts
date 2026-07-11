@@ -11,6 +11,8 @@ const ORIGINAL_CLOUD_URL = process.env.CLOUD_URL;
 const ORIGINAL_PUBLIC_CLOUD_URL = process.env.NEXT_PUBLIC_CLOUD_URL;
 const ORIGINAL_TIMEOUT = process.env.CLOUD_SYNC_TIMEOUT_MS;
 const ORIGINAL_CLOUD_SECRETS = process.env.OMNIROUTE_CLOUD_SYNC_SECRETS;
+const ORIGINAL_CLOUD_SECRET = process.env.OMNIROUTE_CLOUD_SYNC_SECRET;
+const ORIGINAL_CLOUD_INSECURE = process.env.OMNIROUTE_CLOUD_SYNC_INSECURE;
 const ORIGINAL_FETCH = globalThis.fetch;
 const cloudSyncModuleUrl = pathToFileURL(path.join(process.cwd(), "src/lib/cloudSync.ts")).href;
 
@@ -44,6 +46,8 @@ async function resetStorage() {
   delete process.env.NEXT_PUBLIC_CLOUD_URL;
   delete process.env.CLOUD_SYNC_TIMEOUT_MS;
   delete process.env.OMNIROUTE_CLOUD_SYNC_SECRETS;
+  delete process.env.OMNIROUTE_CLOUD_SYNC_SECRET;
+  delete process.env.OMNIROUTE_CLOUD_SYNC_INSECURE;
 }
 
 test.beforeEach(async () => {
@@ -80,6 +84,16 @@ test.after(() => {
   } else {
     process.env.OMNIROUTE_CLOUD_SYNC_SECRETS = ORIGINAL_CLOUD_SECRETS;
   }
+  if (ORIGINAL_CLOUD_SECRET === undefined) {
+    delete process.env.OMNIROUTE_CLOUD_SYNC_SECRET;
+  } else {
+    process.env.OMNIROUTE_CLOUD_SYNC_SECRET = ORIGINAL_CLOUD_SECRET;
+  }
+  if (ORIGINAL_CLOUD_INSECURE === undefined) {
+    delete process.env.OMNIROUTE_CLOUD_SYNC_INSECURE;
+  } else {
+    process.env.OMNIROUTE_CLOUD_SYNC_INSECURE = ORIGINAL_CLOUD_INSECURE;
+  }
 });
 
 test("cloudSync returns a configuration error when the cloud URL is missing", async () => {
@@ -107,6 +121,8 @@ test("fetchWithTimeout aborts when the timeout elapses", async () => {
 test("cloudSync maps timeout and transport failures to stable error messages", async () => {
   process.env.NEXT_PUBLIC_CLOUD_URL = "https://cloud.example";
   process.env.CLOUD_SYNC_TIMEOUT_MS = "5";
+  // HMAC secret set so preflight does not fail closed before fetch (F-06-003).
+  process.env.OMNIROUTE_CLOUD_SYNC_SECRET = "test-hmac-secret-cloud-sync";
 
   globalThis.fetch = (_url, options) =>
     new Promise((_, reject) => {
@@ -127,6 +143,7 @@ test("cloudSync maps timeout and transport failures to stable error messages", a
 
 test("cloudSync returns a generic error when the API responds with a non-OK status", async () => {
   process.env.CLOUD_URL = "https://cloud.example";
+  process.env.OMNIROUTE_CLOUD_SYNC_SECRET = "test-hmac-secret-cloud-sync";
 
   const originalConsoleLog = console.log;
   const logged = [];
@@ -156,9 +173,23 @@ test("cloudSync returns a generic error when the API responds with a non-OK stat
   }
 });
 
+test("cloudSync fails closed when secret is unset (F-06-003)", async () => {
+  process.env.CLOUD_URL = "https://cloud.example";
+  delete process.env.OMNIROUTE_CLOUD_SYNC_SECRET;
+  delete process.env.OMNIROUTE_CLOUD_SYNC_INSECURE;
+
+  const cloudSync = await loadCloudSync("sync-no-secret");
+  const result = await cloudSync.syncToCloud("machine-1");
+  assert.equal(typeof result.error, "string");
+  assert.match(result.error, /OMNIROUTE_CLOUD_SYNC_SECRET/);
+});
+
 test("cloudSync syncs data upstream and refreshes only locally stale provider tokens", async () => {
+  const crypto = await import("node:crypto");
   process.env.NEXT_PUBLIC_CLOUD_URL = "https://cloud.example";
   process.env.OMNIROUTE_CLOUD_SYNC_SECRETS = "true";
+  const hmacSecret = "test-hmac-secret-cloud-sync-success";
+  process.env.OMNIROUTE_CLOUD_SYNC_SECRET = hmacSecret;
 
   const stale = await providersDb.createProviderConnection({
     provider: "openai",
@@ -216,9 +247,11 @@ test("cloudSync syncs data upstream and refreshes only locally stale provider to
         },
       },
     };
-    return new Response(JSON.stringify(responseData), {
+    const raw = JSON.stringify(responseData);
+    const sig = crypto.createHmac("sha256", hmacSecret).update(raw).digest("hex");
+    return new Response(raw, {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Cloud-Sig": sig },
     });
   };
 
@@ -232,6 +265,7 @@ test("cloudSync syncs data upstream and refreshes only locally stale provider to
   assert.match(postedBody.version, /^[a-f0-9]{64}$/);
   assert.equal(postedBody.providers.length, 2);
   assert.equal(postedBody.apiKeys.length, 1);
+  // With SECRETS=true, outbound may include tokens; still assert structure.
   assert.equal(result.success, true);
   assert.equal(result.message, "Synced successfully");
   assert.deepEqual(result.changes, { providers: 1 });
@@ -244,4 +278,48 @@ test("cloudSync syncs data upstream and refreshes only locally stale provider to
   assert.equal(staleAfter.testStatus, "active");
   assert.equal(freshAfter.accessToken, "keep-token");
   assert.deepEqual(freshAfter.providerSpecificData, { plan: "pro" });
+});
+
+test("cloudSync outbound redacts credentials when OMNIROUTE_CLOUD_SYNC_SECRETS is off (F-06-W2-001)", async () => {
+  process.env.CLOUD_URL = "https://cloud.example";
+  process.env.OMNIROUTE_CLOUD_SYNC_SECRET = "test-hmac-secret-outbound-scrub";
+  delete process.env.OMNIROUTE_CLOUD_SYNC_SECRETS;
+
+  await providersDb.createProviderConnection({
+    provider: "openai",
+    authType: "oauth",
+    email: "leak@example.com",
+    accessToken: "MUST_NOT_UPLOAD",
+    refreshToken: "MUST_NOT_UPLOAD_RT",
+    apiKey: "MUST_NOT_UPLOAD_KEY",
+  });
+  await apiKeysDb.createApiKey("machine key", "machine-1");
+
+  let postedBody = null;
+  globalThis.fetch = async (_url, options) => {
+    postedBody = JSON.parse(options.body);
+    const raw = JSON.stringify({ changes: {}, data: { providers: {} } });
+    const crypto = await import("node:crypto");
+    const sig = crypto
+      .createHmac("sha256", "test-hmac-secret-outbound-scrub")
+      .update(raw)
+      .digest("hex");
+    return new Response(raw, {
+      status: 200,
+      headers: { "Content-Type": "application/json", "X-Cloud-Sig": sig },
+    });
+  };
+
+  const cloudSync = await loadCloudSync("sync-outbound-scrub");
+  const result = await cloudSync.syncToCloud("machine-1");
+  assert.equal(result.success, true);
+  assert.ok(Array.isArray(postedBody.providers));
+  for (const p of postedBody.providers) {
+    assert.equal(p.accessToken, undefined);
+    assert.equal(p.refreshToken, undefined);
+    assert.equal(p.apiKey, undefined);
+  }
+  for (const k of postedBody.apiKeys) {
+    assert.equal(k.key, undefined);
+  }
 });

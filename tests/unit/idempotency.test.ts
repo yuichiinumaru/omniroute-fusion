@@ -2,6 +2,7 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import {
   getIdempotencyKey,
+  scopeIdempotencyKey,
   checkIdempotency,
   saveIdempotency,
   clearIdempotency,
@@ -18,27 +19,38 @@ describe("Idempotency Layer", () => {
       assert.equal(getIdempotencyKey(null), null);
     });
 
-    it("returns Idempotency-Key header", () => {
+    it("returns a scoped hash for Idempotency-Key header", () => {
       const headers = new Headers({ "Idempotency-Key": "abc-123" });
-      assert.equal(getIdempotencyKey(headers), "abc-123");
+      const key = getIdempotencyKey(headers);
+      assert.equal(key, scopeIdempotencyKey("abc-123", undefined));
+      assert.match(key!, /^[a-f0-9]{64}$/);
     });
 
-    it("returns X-Request-Id header", () => {
+    it("does NOT treat X-Request-Id as an idempotency key (F-06-W2-002)", () => {
       const headers = new Headers({ "X-Request-Id": "req-456" });
-      assert.equal(getIdempotencyKey(headers), "req-456");
+      assert.equal(getIdempotencyKey(headers), null);
     });
 
-    it("prefers Idempotency-Key over X-Request-Id", () => {
+    it("prefers Idempotency-Key and ignores X-Request-Id", () => {
       const headers = new Headers({
         "Idempotency-Key": "idemp-1",
         "X-Request-Id": "req-2",
       });
-      assert.equal(getIdempotencyKey(headers), "idemp-1");
+      assert.equal(getIdempotencyKey(headers), scopeIdempotencyKey("idemp-1", undefined));
     });
 
     it("supports plain object headers", () => {
       const headers = { "idempotency-key": "obj-key" };
-      assert.equal(getIdempotencyKey(headers), "obj-key");
+      assert.equal(getIdempotencyKey(headers), scopeIdempotencyKey("obj-key", undefined));
+    });
+
+    it("scopes by principal so two API keys never share a cache entry", () => {
+      const headers = new Headers({ "Idempotency-Key": "same-raw-key" });
+      const keyA = getIdempotencyKey(headers, "api-key-A");
+      const keyB = getIdempotencyKey(headers, "api-key-B");
+      assert.notEqual(keyA, keyB);
+      assert.equal(keyA, scopeIdempotencyKey("same-raw-key", "api-key-A"));
+      assert.equal(keyB, scopeIdempotencyKey("same-raw-key", "api-key-B"));
     });
   });
 
@@ -68,6 +80,15 @@ describe("Idempotency Layer", () => {
     it("does nothing for null key", async () => {
       saveIdempotency(null, { data: 1 }, 200);
       assert.equal((await getIdempotencyStats()).activeKeys, 0);
+    });
+
+    it("cross-tenant: same raw key under different principals does not collide", () => {
+      const raw = "shared-client-id";
+      const keyA = scopeIdempotencyKey(raw, "tenant-a");
+      const keyB = scopeIdempotencyKey(raw, "tenant-b");
+      saveIdempotency(keyA, { owner: "a" }, 200);
+      assert.equal(checkIdempotency(keyB), null);
+      assert.deepEqual(checkIdempotency(keyA), { response: { owner: "a" }, status: 200 });
     });
   });
 

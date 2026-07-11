@@ -5,11 +5,16 @@
  * If a request with the same key arrives within 5 seconds, returns
  * the cached response instead of making a new API call.
  *
- * Headers: X-Request-Id or Idempotency-Key
+ * Headers: Idempotency-Key (preferred). X-Request-Id is NOT used as an
+ * idempotency key (F-06-W2-002) — it is too commonly shared by proxies/SDKs.
+ *
+ * Keys are scoped by principal (API key id) so two tenants cannot share
+ * a cached completion even when they send the same Idempotency-Key.
  *
  * @module lib/idempotencyLayer
  */
 
+import { createHash } from "crypto";
 import { getSettings } from "@/lib/localDb";
 
 const DEFAULT_WINDOW_MS = 5000;
@@ -35,19 +40,47 @@ function ensureCleanup() {
 }
 
 /**
- * Extract idempotency key from request headers.
- * @param {Headers|object} headers
- * @returns {string|null}
+ * Build a principal-scoped store key: sha256(principal|rawKey).
+ * Exported for unit tests.
+ *
+ * @param {string} rawKey
+ * @param {string|null|undefined} principalId - API key id (or similar tenant id)
+ * @returns {string}
  */
-export function getIdempotencyKey(headers) {
-  if (!headers) return null;
-  const get = typeof headers.get === "function" ? (k) => headers.get(k) : (k) => headers[k];
-  return get("idempotency-key") || get("x-request-id") || null;
+export function scopeIdempotencyKey(rawKey, principalId) {
+  const scope =
+    typeof principalId === "string" && principalId.trim().length > 0
+      ? principalId.trim()
+      : "anonymous";
+  return createHash("sha256").update(`${scope}|${rawKey}`).digest("hex");
 }
 
 /**
- * Check if a response exists for the given idempotency key.
- * @param {string} key
+ * Extract and scope an idempotency key from request headers.
+ * Only the dedicated Idempotency-Key header is accepted (not X-Request-Id).
+ *
+ * @param {Headers|object|null|undefined} headers
+ * @param {string|null|undefined} [principalId] - API key id for tenant isolation
+ * @returns {string|null} scoped store key, or null when no Idempotency-Key
+ */
+export function getIdempotencyKey(headers, principalId) {
+  if (!headers) return null;
+  const get = typeof headers.get === "function" ? (k) => headers.get(k) : (k) => headers[k];
+  // Prefer canonical header; Headers.get is case-insensitive; plain objects may be lowercased.
+  const raw =
+    get("idempotency-key") ||
+    get("Idempotency-Key") ||
+    (typeof headers === "object" && headers !== null
+      ? // plain object fallback with common casings
+        headers["Idempotency-Key"] || headers["idempotency-key"] || null
+      : null);
+  if (typeof raw !== "string" || raw.trim().length === 0) return null;
+  return scopeIdempotencyKey(raw.trim(), principalId);
+}
+
+/**
+ * Check if a response exists for the given (already scoped) idempotency key.
+ * @param {string|null|undefined} key
  * @returns {{ response: object, status: number }|null}
  */
 export function checkIdempotency(key) {
@@ -63,7 +96,7 @@ export function checkIdempotency(key) {
 
 /**
  * Save a response for idempotency dedup.
- * @param {string} key
+ * @param {string|null|undefined} key - already scoped key from getIdempotencyKey
  * @param {object} response - Response body to cache
  * @param {number} status - HTTP status code
  * @param {number} [windowMs=5000] - Dedup window in ms

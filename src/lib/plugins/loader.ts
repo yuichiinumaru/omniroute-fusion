@@ -72,6 +72,82 @@ process.on("message", async (msg) => {
 `;
 
 /**
+ * Map of Node built-in / common modules to the permission required to use them.
+ * Used for static enforcement on the production child-process load path (F-06-002).
+ * Residual risk: dynamic import via variables can still bypass static scan —
+ * operators should still treat plugins as local-trust code (LOCAL_ONLY routes).
+ */
+const MODULE_PERMISSION_RULES: ReadonlyArray<{
+  permission: Permission;
+  patterns: RegExp[];
+}> = [
+  {
+    permission: "exec",
+    patterns: [
+      /\b(?:require|import)\s*\(\s*['"](?:node:)?child_process['"]\s*\)/,
+      /\bfrom\s+['"](?:node:)?child_process['"]/,
+    ],
+  },
+  {
+    permission: "network",
+    patterns: [
+      /\b(?:require|import)\s*\(\s*['"](?:node:)?(?:http|https|net|dns|undici|dgram|tls)['"]\s*\)/,
+      /\bfrom\s+['"](?:node:)?(?:http|https|net|dns|undici|dgram|tls)['"]/,
+      /\b(?:require|import)\s*\(\s*['"](?:axios|got|node-fetch|undici)['"]\s*\)/,
+      /\bfrom\s+['"](?:axios|got|node-fetch|undici)['"]/,
+    ],
+  },
+  {
+    permission: "file-read",
+    patterns: [
+      /\b(?:require|import)\s*\(\s*['"](?:node:)?fs(?:\/promises)?['"]\s*\)/,
+      /\bfrom\s+['"](?:node:)?fs(?:\/promises)?['"]/,
+    ],
+  },
+];
+
+/**
+ * Assert that plugin source only uses capabilities declared in manifest.requires.permissions.
+ * Also enforces OMNIROUTE_PLUGINS_ALLOW_EXEC=1 when `exec` is declared (F-06-002).
+ * Exported for unit tests.
+ */
+export function assertPluginPermissions(
+  source: string,
+  permissions: readonly Permission[],
+  pluginName: string
+): void {
+  const granted = new Set(permissions);
+
+  if (granted.has("exec") && process.env.OMNIROUTE_PLUGINS_ALLOW_EXEC !== "1") {
+    throw new Error(
+      `Plugin '${pluginName}' requested the 'exec' permission, which is disabled. ` +
+        `Set OMNIROUTE_PLUGINS_ALLOW_EXEC=1 to enable (local operator only).`
+    );
+  }
+
+  for (const rule of MODULE_PERMISSION_RULES) {
+    const used = rule.patterns.some((re) => re.test(source));
+    if (!used) continue;
+
+    if (rule.permission === "file-read") {
+      // file-write also covers fs access (writes imply read capability on the path).
+      if (granted.has("file-read") || granted.has("file-write")) continue;
+      throw new Error(
+        `Plugin '${pluginName}' uses filesystem APIs but does not declare ` +
+          `'file-read' or 'file-write' in requires.permissions`
+      );
+    }
+
+    if (!granted.has(rule.permission)) {
+      throw new Error(
+        `Plugin '${pluginName}' uses capabilities requiring '${rule.permission}' ` +
+          `but does not declare it in requires.permissions`
+      );
+    }
+  }
+}
+
+/**
  * Load a plugin in an isolated child process.
  * Returns the plugin interface with hooks that communicate via IPC.
  */
@@ -79,18 +155,20 @@ export async function loadPlugin(
   entryPoint: string,
   manifest: PluginManifestWithDefaults
 ): Promise<LoadedPlugin> {
+  // Always read the entry source once for integrity + permission enforcement.
+  let source: string;
+  try {
+    source = await readFile(entryPoint, "utf-8");
+  } catch (err: unknown) {
+    throw new Error(
+      `Plugin '${manifest.name}' load failed: cannot read entry point — ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
   // Integrity check: if the manifest declares an integrity field, verify the entry point.
   // Missing integrity is OK for backward compatibility; mismatched integrity is a fatal error.
   const integrityField = (manifest as unknown as Record<string, unknown>).integrity;
   if (typeof integrityField === "string" && integrityField.length > 0) {
-    let source: string;
-    try {
-      source = await readFile(entryPoint, "utf-8");
-    } catch (err: unknown) {
-      throw new Error(
-        `Plugin '${manifest.name}' integrity check failed: cannot read entry point — ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
     const actual = computeIntegrity(source);
     if (actual !== integrityField) {
       throw new Error(
@@ -99,7 +177,10 @@ export async function loadPlugin(
     }
   }
 
-  const permissions = manifest.requires.permissions;
+  const permissions = manifest.requires.permissions ?? [];
+
+  // F-06-002: enforce declared permissions on the production load path (not labels-only).
+  assertPluginPermissions(source, permissions, manifest.name);
 
   // IMPORTANT-6: Write the host script with O_EXCL (wx flag) so the open fails if
   // anything already exists at that path, defeating symlink/pre-create races (TOCTOU).

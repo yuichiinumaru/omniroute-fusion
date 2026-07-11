@@ -1,6 +1,6 @@
 # Task 0046: Skills / Plugins Sandbox + Cloud Sync + Idempotency Hygiene
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` In review
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S7)
@@ -73,12 +73,12 @@ See **Source reports** above for full relative paths.
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Primary six findings closed
-- [ ] Security-relevant defaults documented in CHANGELOG
-- [ ] Unit tests pass for env scrub, permissions, sync sign, hash, idempotency scope
-- [ ] `npm run typecheck:core` passes
-- [ ] `npm run lint` — no new errors
-- [ ] CHANGELOG.md entry
+- [x] Primary six findings closed
+- [x] Security-relevant defaults documented in CHANGELOG
+- [x] Unit tests pass for env scrub, permissions, sync sign, hash, idempotency scope
+- [x] `npm run typecheck:core` passes (no new errors in touched files; pre-existing combo/runtimeUnits only)
+- [x] `npm run lint` — no new errors on touched files
+- [x] CHANGELOG.md entry
 
 ---
 
@@ -88,14 +88,14 @@ See **Source reports** above for full relative paths.
 
 Subtasks:
 
-- [ ] **Ler código existente** e o report em `docs/reports/06-lib-features-tooling.md` listado em Source reports: skill sandbox/docker executor, plugin loader/manifest, cloud sync client (in/out), CLIProxy installer hash path, idempotency middleware/service, related tests/docs
-- [ ] Env allowlist for skill containers
-- [ ] Enforce permissions on production load path (not only labels)
-- [ ] Signature verification policy + outbound redaction
-- [ ] Force hash verify on install
-- [ ] Key idempotency by `hash(apiKeyId|requestId|bodyFingerprint)` or equivalent
-- [ ] Stretch pluginWorker + signing invoke
-- [ ] Tests + CHANGELOG
+- [x] **Ler código existente** e o report em `docs/reports/06-lib-features-tooling.md` listado em Source reports: skill sandbox/docker executor, plugin loader/manifest, cloud sync client (in/out), CLIProxy installer hash path, idempotency middleware/service, related tests/docs
+- [x] Env allowlist for skill containers
+- [x] Enforce permissions on production load path (not only labels)
+- [x] Signature verification policy + outbound redaction
+- [x] Force hash verify on install
+- [x] Key idempotency by `hash(apiKeyId|requestId|bodyFingerprint)` or equivalent
+- [x] Stretch pluginWorker path jail + name (F-06-006); signing invoke deferred (F-06-010 P2)
+- [x] Tests + CHANGELOG
 
 ### Where
 
@@ -148,12 +148,21 @@ Skills/plugins run operator-adjacent code; cloud sync and idempotency without te
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
 - **Arquivos criados/modificados**:
-- **Finding IDs closed**:
-- **Testes**:
-- **typecheck / lint**:
-- **CHANGELOG**:
-- **Agente executor**:
-- **Data de conclusão**:
+  - `src/lib/skills/sandbox.ts` — `buildDockerCliEnv` / `buildContainerEnv`; no `...process.env`
+  - `src/lib/plugins/loader.ts` — `assertPluginPermissions` on production load
+  - `src/lib/plugins/pluginWorker.ts` — path jail + `name` param (F-06-006 stretch)
+  - `src/lib/cloudSync.ts` — fail-closed signature; outbound HMAC; secrets gate for upload
+  - `src/lib/sync/bundle.ts` — default metadata-only sanitize; `includeSecrets` opt-in
+  - `src/lib/versionManager/binaryManager.ts` — hard-fail missing/mismatch SHA-256
+  - `src/lib/idempotencyLayer.ts` + `open-sse/handlers/chatCore/idempotency.ts` + chatCore wire — principal-scoped keys; drop X-Request-Id as idempotency key
+  - Tests: `skills-sandbox-env-scrub-0046`, `plugins-permission-enforce-0046`, `cloud-sync-hygiene-0046`, `binaryManager-checksum-0046`, updated `idempotency`, `cloud-sync`, `cloud-sync-hmac`, `sync-bundle`, `chatcore-extracted-modules-3821`, `plugin-sandbox-permissions`
+  - `CHANGELOG.md`, `docs/reference/ENVIRONMENT.md`
+- **Finding IDs closed**: F-06-001, F-06-002, F-06-003, F-06-004, F-06-W2-001, F-06-W2-002 (+ stretch F-06-006)
+- **Testes**: `node --import tsx/esm --test` on the suite above — 72 pass / 0 fail
+- **typecheck / lint**: no errors in touched files; eslint clean on touched paths
+- **CHANGELOG**: Unreleased Security entry for Task 0046
+- **Agente executor**: builder (Task 0046)
+- **Data de conclusão**: 2026-07-11
 
 ---
 

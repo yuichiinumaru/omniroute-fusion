@@ -62,31 +62,50 @@ function pickDefined(record: JsonRecord, keys: string[]) {
   );
 }
 
-function sanitizeProviderConnectionForSync(connection: unknown): JsonRecord {
+/** Metadata-only fields — safe to upload without OMNIROUTE_CLOUD_SYNC_SECRETS. */
+const PROVIDER_CONNECTION_METADATA_KEYS = [
+  "id",
+  "provider",
+  "authType",
+  "name",
+  "displayName",
+  "email",
+  "priority",
+  "globalPriority",
+  "defaultModel",
+  "isActive",
+  "expiresAt",
+  "expiresIn",
+  "tokenType",
+  "scope",
+  "projectId",
+  "group",
+] as const;
+
+/** Credential fields — only included when includeSecrets=true (F-06-W2-001). */
+const PROVIDER_CONNECTION_SECRET_KEYS = [
+  "accessToken",
+  "refreshToken",
+  "idToken",
+  "apiKey",
+  "providerSpecificData",
+] as const;
+
+/**
+ * Sanitize a provider connection for outbound cloud sync.
+ * Default redacts OAuth tokens / API keys (F-06-W2-001).
+ * Exported for unit tests / snapshot assertions.
+ */
+export function sanitizeProviderConnectionForSync(
+  connection: unknown,
+  options: { includeSecrets?: boolean } = {}
+): JsonRecord {
   const record = asRecord(connection);
-  return pickDefined(record, [
-    "id",
-    "provider",
-    "authType",
-    "name",
-    "displayName",
-    "email",
-    "priority",
-    "globalPriority",
-    "defaultModel",
-    "isActive",
-    "accessToken",
-    "refreshToken",
-    "expiresAt",
-    "expiresIn",
-    "tokenType",
-    "scope",
-    "idToken",
-    "projectId",
-    "apiKey",
-    "providerSpecificData",
-    "group",
-  ]);
+  const keys: string[] = [...PROVIDER_CONNECTION_METADATA_KEYS];
+  if (options.includeSecrets === true) {
+    keys.push(...PROVIDER_CONNECTION_SECRET_KEYS);
+  }
+  return pickDefined(record, keys);
 }
 
 function sanitizeProviderNodeForSync(node: unknown): JsonRecord {
@@ -109,25 +128,38 @@ function sanitizeComboForSync(combo: unknown): JsonRecord {
   return rest;
 }
 
-function sanitizeApiKeyForSync(apiKey: unknown): JsonRecord {
+const API_KEY_METADATA_KEYS = [
+  "id",
+  "name",
+  "machineId",
+  "allowedModels",
+  "allowedCombos",
+  "allowedConnections",
+  "noLog",
+  "autoResolve",
+  "isActive",
+  "accessSchedule",
+  "maxRequestsPerDay",
+  "maxRequestsPerMinute",
+  "throttleDelayMs",
+  "maxSessions",
+] as const;
+
+/**
+ * Sanitize an API key record for outbound cloud sync.
+ * Default omits the plaintext `key` (F-06-W2-001).
+ * Exported for unit tests / snapshot assertions.
+ */
+export function sanitizeApiKeyForSync(
+  apiKey: unknown,
+  options: { includeSecrets?: boolean } = {}
+): JsonRecord {
   const record = asRecord(apiKey);
-  return pickDefined(record, [
-    "id",
-    "name",
-    "key",
-    "machineId",
-    "allowedModels",
-    "allowedCombos",
-    "allowedConnections",
-    "noLog",
-    "autoResolve",
-    "isActive",
-    "accessSchedule",
-    "maxRequestsPerDay",
-    "maxRequestsPerMinute",
-    "throttleDelayMs",
-    "maxSessions",
-  ]);
+  const keys: string[] = [...API_KEY_METADATA_KEYS];
+  if (options.includeSecrets === true) {
+    keys.push("key");
+  }
+  return pickDefined(record, keys);
 }
 
 function canonicalizeJson(value: unknown): unknown {
@@ -154,7 +186,18 @@ export function computeConfigSyncVersion(bundle: ConfigSyncBundle) {
   return createHash("sha256").update(serializeStableJson(bundle)).digest("hex");
 }
 
-export async function buildConfigSyncBundle(): Promise<ConfigSyncBundle> {
+export interface BuildConfigSyncOptions {
+  /**
+   * When true, include OAuth tokens / API keys in the bundle.
+   * Default false (F-06-W2-001) — set only when OMNIROUTE_CLOUD_SYNC_SECRETS=true.
+   */
+  includeSecrets?: boolean;
+}
+
+export async function buildConfigSyncBundle(
+  options: BuildConfigSyncOptions = {}
+): Promise<ConfigSyncBundle> {
+  const includeSecrets = options.includeSecrets === true;
   const [settings, providerConnections, providerNodes, modelAliases, combos, apiKeys] =
     await Promise.all([
       getSettings(),
@@ -168,7 +211,9 @@ export async function buildConfigSyncBundle(): Promise<ConfigSyncBundle> {
   return {
     settings: sanitizeSettingsForSync(settings),
     providerConnections: sortByStringKeys(
-      providerConnections.map((connection) => sanitizeProviderConnectionForSync(connection)),
+      providerConnections.map((connection) =>
+        sanitizeProviderConnectionForSync(connection, { includeSecrets })
+      ),
       ["provider", "name", "id"]
     ),
     providerNodes: sortByStringKeys(
@@ -181,14 +226,14 @@ export async function buildConfigSyncBundle(): Promise<ConfigSyncBundle> {
       ["sortOrder", "name", "id"]
     ),
     apiKeys: sortByStringKeys(
-      apiKeys.map((apiKey) => sanitizeApiKeyForSync(apiKey)),
+      apiKeys.map((apiKey) => sanitizeApiKeyForSync(apiKey, { includeSecrets })),
       ["name", "id"]
     ),
   };
 }
 
-export async function buildConfigSyncEnvelope() {
-  const bundle = await buildConfigSyncBundle();
+export async function buildConfigSyncEnvelope(options: BuildConfigSyncOptions = {}) {
+  const bundle = await buildConfigSyncBundle(options);
   const version = computeConfigSyncVersion(bundle);
   return {
     version,

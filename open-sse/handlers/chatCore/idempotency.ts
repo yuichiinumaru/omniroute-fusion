@@ -7,6 +7,8 @@ import { attachOmniRouteMetaHeaders } from "@/domain/omnirouteResponseMeta";
  * resolved `idempotencyKey` alongside the cache `hit` so the caller can reuse the SAME key
  * for the later save path instead of re-deriving it — eliminating the dual-derivation that
  * the chatCore modularization (#3598) introduced. (#3821-review LEDGER-6)
+ *
+ * F-06-W2-002: keys are scoped by apiKeyId (principal) so tenants cannot share caches.
  */
 export async function checkIdempotencyCache({
   clientRawRequest,
@@ -15,6 +17,7 @@ export async function checkIdempotencyCache({
   effectiveServiceTier,
   startTime,
   log,
+  apiKeyId,
 }: {
   clientRawRequest: unknown;
   provider: string;
@@ -22,8 +25,16 @@ export async function checkIdempotencyCache({
   effectiveServiceTier: unknown;
   startTime: number;
   log: unknown;
-}): Promise<{ hit: { success: true; response: Response } | null; idempotencyKey: string }> {
-  const idempotencyKey = getIdempotencyKey(clientRawRequest?.headers);
+  apiKeyId?: string | null;
+}): Promise<{
+  hit: { success: true; response: Response } | null;
+  idempotencyKey: string | null;
+}> {
+  const headers =
+    clientRawRequest && typeof clientRawRequest === "object" && "headers" in clientRawRequest
+      ? (clientRawRequest as { headers?: unknown }).headers
+      : undefined;
+  const idempotencyKey = getIdempotencyKey(headers, apiKeyId ?? null);
   const cachedIdemp = checkIdempotency(idempotencyKey);
   if (cachedIdemp) {
     log?.debug?.("IDEMPOTENCY", `Hit for key=${idempotencyKey?.slice(0, 12)}...`);

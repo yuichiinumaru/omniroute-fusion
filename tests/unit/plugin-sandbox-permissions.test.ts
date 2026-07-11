@@ -125,3 +125,32 @@ describe("pluginWorker sandbox — trust-model comment", () => {
     );
   });
 });
+
+describe("pluginWorker sandbox — path jail + name param (F-06-006)", () => {
+  it("contains resolvePluginPath with relative/.. rejection", () => {
+    assert.ok(source.includes("function resolvePluginPath"), "must define resolvePluginPath");
+    assert.ok(
+      source.includes("Plugin file path escapes the plugin directory") ||
+        source.includes("escapes the plugin directory"),
+      "must reject path escape"
+    );
+    assert.ok(
+      source.includes("must be relative to the plugin directory") ||
+        source.includes("isAbsolute"),
+      "must reject absolute paths"
+    );
+  });
+
+  it("passes plugin name into createSandbox (no free identifier ReferenceError)", () => {
+    assert.match(
+      source,
+      /createSandbox\(\s*permissions\s*,\s*pluginDir\s*,\s*name\s*\)/,
+      "createSandbox must receive name as third argument"
+    );
+    assert.match(
+      source,
+      /function createSandbox\(\s*permissions:\s*string\[\]\s*,\s*pluginDir:\s*string\s*,\s*name:\s*string\s*\)/,
+      "createSandbox signature must include name parameter"
+    );
+  });
+});
