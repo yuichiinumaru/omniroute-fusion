@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Fixed
+- **Dual-mode refresh policy audit (Epic 0006 S4 / Task 0035)** — connection-scoped refresh gates + Windsurf long-lived import.
+  - Policy: `supportsTokenRefresh(provider)` is necessary but **not sufficient** for connection expiry
+  - `isLongLivedImportCredential` for Windsurf/Devin import-token (no RT by design); `#5326` sweep no longer false-expires them
+  - Manual refresh route / connection test / token-health API use `connectionUsesOAuthRefresh` (+ long-lived skip)
+  - Documented createProviderConnection `authType || "oauth"` foot-gun (default unchanged — caller audit risk)
+  - Docs: `docs/architecture/RESILIENCE_GUIDE.md` dual-mode section
+  - Tests: `connection-auth-mode.test.ts`, `token-health-no-refresh-token-expired-5326.test.ts`, `dual-mode-refresh-policy-audit-0035.test.ts`
+  **Author**: builder (Task 0035)
+
 - **Dual-mode auth / false-positive `no_refresh_token` (Epic 0006 S1–S3 / Tasks 0032–0034)** — shared connection auth-mode SSoT so static credentials are never OAuth-expired.
   - **0032**: `src/shared/utils/connectionAuthMode.ts` — `normalizeAuthType`, `connectionUsesOAuthRefresh`, `shouldMarkNoRefreshExpired`; re-exported from `tokenHealthCheck.ts` for back-compat
   - **0033**: dual-mode matrix (gemini/qoder/codebuddy-cn apikey, cookie, blank+apiKey stay active; oauth #5326 still expires)

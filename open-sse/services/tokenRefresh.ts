@@ -438,11 +438,19 @@ export async function refreshAccessToken(
 /**
  * Refresh Windsurf (Devin CLI / Codeium) tokens.
  *
- * Windsurf uses Firebase Secure Token Service (STS) for token refresh.
- * If the token is a long-lived Codeium API key (import flow), it never
- * expires and refresh is a no-op returning the same token.
- * If the token is a Firebase ID token (device-code flow), it expires after
- * ~1 hour and can be refreshed with the stored Firebase refresh token.
+ * Product paths (verified):
+ * - **Import-token (current, primary)** — `src/lib/oauth/providers/windsurf.ts`
+ *   `mapTokens` stores the pasted Codeium API key as `accessToken` with
+ *   `refreshToken: null`. `authMethod` defaults to `"import"`. These keys are
+ *   **long-lived** — refresh is a no-op. Health sweep must NOT mark them
+ *   `no_refresh_token` (see `isLongLivedImportCredential` in
+ *   `src/shared/utils/connectionAuthMode.ts`).
+ * - **Firebase STS (future / residual browser flow)** — short-lived ID tokens
+ *   (~1h) refresh via Secure Token Service when a Firebase refresh token is
+ *   stored and `authMethod` is not `"import"`.
+ *
+ * Provider id is still in `supportsTokenRefresh` so OAuth-family tooling
+ * recognizes Windsurf; connection-level gates still apply.
  */
 export async function refreshWindsurfToken(
   refreshToken: string,
@@ -461,6 +469,7 @@ export async function refreshWindsurfToken(
   const authMethod = (providerSpecificData?.authMethod as string) || "import";
 
   // Long-lived Codeium API keys (import flow) have no expiry — nothing to refresh.
+  // Aligns with isLongLivedImportCredential(conn) in connectionAuthMode.ts.
   if (authMethod === "import") {
     log?.debug?.("TOKEN_REFRESH", "Windsurf import token is long-lived — no refresh needed");
     return null;
@@ -1639,7 +1648,19 @@ async function _getAccessTokenInternal(provider, credentials, log, proxyConfig: 
 }
 
 /**
- * Whether a provider has a supported refresh path in this service.
+ * Whether a **provider family** has a supported refresh path in this service.
+ *
+ * This is a **catalog / capability** check only — necessary but not sufficient
+ * for connection expiry or re-auth messaging.
+ *
+ * Dual-mode ids (`gemini`, `qoder`, `codebuddy-cn`) and long-lived imports
+ * (`windsurf` / `devin-cli` import-token) may appear refresh-capable here while
+ * a specific connection is a static key with no RT. Connection-scoped decisions
+ * MUST also use `connectionUsesOAuthRefresh` / `shouldMarkNoRefreshExpired` /
+ * `isLongLivedImportCredential` from `src/shared/utils/connectionAuthMode.ts`.
+ *
+ * Do **not** remove dual-mode providers from this set to “fix” apikey rows —
+ * that breaks real OAuth for the same id.
  */
 export function supportsTokenRefresh(provider) {
   const explicitlySupported = new Set([

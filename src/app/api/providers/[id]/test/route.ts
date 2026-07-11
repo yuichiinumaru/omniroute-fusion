@@ -24,6 +24,11 @@ import {
 } from "@/lib/oauth/gitlab";
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
 import { removeConnectionHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
+import {
+  connectionUsesOAuthRefresh,
+  isLongLivedImportCredential,
+  normalizeAuthType,
+} from "@/shared/utils/connectionAuthMode";
 
 // Bound the OAuth probe so a hung upstream can't block the connection-test queue
 // forever (#1449). Mirrors the 30s timeout the API-key path uses via validateProviderApiKey.
@@ -295,7 +300,10 @@ async function getProviderRuntimeStatus(connection: any) {
   // installed" + 401 cascade). For Qoder, this short-circuits the runtime
   // check entirely with an actionable diagnosis.
   const isQoderOauthWithToken =
-    provider === "qoder" && connection?.authType !== "apikey" && hasQoderToken(connection);
+    provider === "qoder" &&
+    normalizeAuthType(connection?.authType) !== "apikey" &&
+    connectionUsesOAuthRefresh(connection) &&
+    hasQoderToken(connection);
   if (isQoderOauthWithToken) {
     const message =
       "Qoder OAuth/Local CLI mode is selected but a Personal Access Token is stored on this connection. Switch this connection to API Key auth instead.";
@@ -310,7 +318,7 @@ async function getProviderRuntimeStatus(connection: any) {
 
   // Qoder PAT (apikey) uses HTTP Cosy auth against api1.qoder.sh — no local CLI
   // needed. Only OAuth/CLI-flavored mode requires the `qodercli` binary.
-  if (provider === "qoder" && connection?.authType === "apikey") {
+  if (provider === "qoder" && normalizeAuthType(connection?.authType) === "apikey") {
     toolId = null;
   }
   if (!toolId) return null;
@@ -456,9 +464,25 @@ export async function testOAuthConnection(
 
   // Check if token exists
   if (!connection.accessToken) {
-    // If the refresh token is also missing on a refreshable provider,
-    // this means re-authentication is needed (e.g. after refresh_token_reused)
-    if (config.refreshable && !connection.refreshToken) {
+    // Long-lived Windsurf/Devin import has no RT by design — missing access
+    // token means re-import, not "refresh token expired" OAuth copy.
+    if (isLongLivedImportCredential(connection)) {
+      const error = "No access token — re-import the long-lived API key from the IDE.";
+      return {
+        valid: false,
+        error,
+        refreshed: false,
+        diagnosis: makeDiagnosis("auth_missing", "local", error, "missing_access_token"),
+      };
+    }
+    // If the refresh token is also missing on a refreshable OAuth connection,
+    // this means re-authentication is needed (e.g. after refresh_token_reused).
+    // config.refreshable is provider catalog — still require connection OAuth mode.
+    if (
+      config.refreshable &&
+      !connection.refreshToken &&
+      connectionUsesOAuthRefresh(connection)
+    ) {
       const error = "Refresh token expired. Please re-authenticate this account.";
       return {
         valid: false,
@@ -783,7 +807,12 @@ export async function testSingleConnection(connectionId: string, validationModel
       refreshed: false,
       diagnosis: (runtime as any).diagnosis,
     };
-  } else if (connection.authType === "apikey") {
+  } else if (
+    // Dual-mode: normalize api_key/api-key → apikey; blank+apiKey is non-OAuth.
+    // Never run OAuth refresh diagnostics for static credentials.
+    normalizeAuthType(connection.authType) === "apikey" ||
+    !connectionUsesOAuthRefresh(connection)
+  ) {
     const enrichedConnection = validationModelId
       ? {
           ...connection,

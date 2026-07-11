@@ -15,6 +15,7 @@ import {
   shouldMarkNoRefreshExpired,
   hasStaticCredential,
   isFalsePositiveNoRefreshToken,
+  isLongLivedImportCredential,
 } from "../../src/shared/utils/connectionAuthMode.ts";
 
 // ── normalizeAuthType ────────────────────────────────────────────────────────
@@ -144,6 +145,117 @@ test("shouldMarkNoRefreshExpired is false when refresh token present or provider
       },
       true
     ),
+    false
+  );
+});
+
+// ── Windsurf / Devin long-lived import (Epic 0006 / Task 0035) ───────────────
+
+test("isLongLivedImportCredential is true for windsurf/devin-cli import path", () => {
+  assert.equal(
+    isLongLivedImportCredential({
+      provider: "windsurf",
+      authType: "oauth",
+      accessToken: "sk-ws-fake",
+      refreshToken: null,
+    }),
+    true
+  );
+  assert.equal(
+    isLongLivedImportCredential({
+      provider: "devin-cli",
+      authType: "oauth",
+      accessToken: "sk-ws-fake",
+      providerSpecificData: { authMethod: "import" },
+    }),
+    true
+  );
+  assert.equal(
+    isLongLivedImportCredential({
+      provider: "windsurf",
+      providerSpecificData: { authMethod: "imported" },
+    }),
+    true
+  );
+  // Non-import method (future Firebase flow) is not long-lived.
+  assert.equal(
+    isLongLivedImportCredential({
+      provider: "windsurf",
+      providerSpecificData: { authMethod: "firebase" },
+    }),
+    false
+  );
+  assert.equal(
+    isLongLivedImportCredential({
+      provider: "antigravity",
+      authType: "oauth",
+    }),
+    false
+  );
+});
+
+test("shouldMarkNoRefreshExpired is false for Windsurf long-lived import without RT", () => {
+  assert.equal(
+    shouldMarkNoRefreshExpired(
+      {
+        provider: "windsurf",
+        authType: "oauth",
+        accessToken: "sk-ws-long-lived",
+        refreshToken: null,
+        testStatus: "active",
+      },
+      true // supportsTokenRefresh("windsurf") === true
+    ),
+    false
+  );
+  assert.equal(
+    shouldMarkNoRefreshExpired(
+      {
+        provider: "devin-cli",
+        authType: "oauth",
+        accessToken: "sk-ws-long-lived",
+        refreshToken: null,
+        testStatus: "active",
+        providerSpecificData: { authMethod: "import" },
+      },
+      true
+    ),
+    false
+  );
+  // Real OAuth family without RT still marks (antigravity #5326).
+  assert.equal(
+    shouldMarkNoRefreshExpired(
+      {
+        provider: "antigravity",
+        authType: "oauth",
+        refreshToken: null,
+        testStatus: "active",
+      },
+      true
+    ),
+    true
+  );
+});
+
+test("isFalsePositiveNoRefreshToken heals Windsurf long-lived false no_refresh_token", () => {
+  assert.equal(
+    isFalsePositiveNoRefreshToken({
+      provider: "windsurf",
+      authType: "oauth",
+      accessToken: "sk-ws-heal",
+      errorCode: "no_refresh_token",
+      lastErrorType: "no_refresh_token",
+    }),
+    true
+  );
+  // Legitimate oauth death still not healed.
+  assert.equal(
+    isFalsePositiveNoRefreshToken({
+      provider: "github",
+      authType: "oauth",
+      accessToken: "a",
+      errorCode: "no_refresh_token",
+    }),
     false
   );
 });

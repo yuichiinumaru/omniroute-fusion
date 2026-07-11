@@ -209,6 +209,43 @@ Bounded by `comboCooldownWait` (`enabled`, `maxWaitMs` 5s, `maxAttempts` 2,
 
 ---
 
+## Dual-mode OAuth refresh policy (Epic 0006)
+
+Provider-id refresh membership (`supportsTokenRefresh(provider)` in
+`open-sse/services/tokenRefresh.ts`) answers only: *can this family refresh at
+all?* It is **necessary but not sufficient** for connection expiry or re-auth
+messaging.
+
+Connection-scoped decisions (health sweep `#5326` branch, manual refresh route,
+connection test diagnostics) must also use
+`src/shared/utils/connectionAuthMode.ts`:
+
+| Helper | Role |
+| ------ | ---- |
+| `normalizeAuthType` | Canonical `oauth` / `apikey` / `cookie` / `none` / `unknown` (aliases `api_key`, `api-key`) |
+| `connectionUsesOAuthRefresh` | Static keys / cookies never enter OAuth refresh or `no_refresh_token` expiry |
+| `shouldMarkNoRefreshExpired` | Full `#5326` gate (provider support + OAuth mode + no RT + sweepable status) |
+| `isLongLivedImportCredential` | Windsurf / Devin CLI **import-token** keys — no RT by design |
+
+**Dual-mode provider ids** (same id, OAuth *or* static credential): `gemini`,
+`qoder`, `codebuddy-cn`. Never remove them from `supportsTokenRefresh` to “fix”
+apikey rows — that breaks real OAuth for the same id.
+
+**Windsurf / Devin long-lived import** (verified sources):
+
+- Login: `src/lib/oauth/providers/windsurf.ts` — `mapTokens` sets
+  `refreshToken: null`; route `/api/oauth/{windsurf\|devin-cli}/import-token`.
+- Refresh service: `refreshWindsurfToken` treats missing/`import` `authMethod` as
+  a no-op (long-lived Codeium API key). Firebase STS refresh applies only to
+  non-import methods when a refresh token is present.
+- Health must not mark these rows `errorCode=no_refresh_token`.
+
+**Create-path foot-gun:** `createProviderConnection` defaults missing `authType`
+to `"oauth"` (`src/lib/db/providers.ts`). Callers that create static keys must
+pass `authType: "apikey"` explicitly (POST `/api/providers` already does).
+
+---
+
 ## Debugging
 
 - All keys for a provider skipped → check both circuit breaker state AND each connection's `rateLimitedUntil`/`testStatus`.

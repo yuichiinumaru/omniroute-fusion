@@ -137,6 +137,31 @@ test("checkConnection leaves gemini AI Studio apikey without refresh token activ
   assert.notEqual(updated?.lastErrorType, "no_refresh_token");
 });
 
+// Windsurf import-token stores long-lived Codeium keys under authType oauth with
+// refreshToken null. supportsTokenRefresh("windsurf") is true, but product policy
+// says no RT is required — health must not #5326-expire these rows.
+test("checkConnection leaves Windsurf long-lived import without refresh token active", async () => {
+  await resetStorage();
+
+  const connection = await providersDb.createProviderConnection({
+    provider: "windsurf",
+    authType: "oauth",
+    name: "Windsurf Import Key",
+    accessToken: "sk-ws-fake-long-lived-import",
+    refreshToken: null,
+    testStatus: "active",
+    isActive: true,
+    providerSpecificData: { authMethod: "import" },
+  });
+
+  await tokenHealthCheck.checkConnection(connection);
+
+  const updated = await providersDb.getProviderConnectionById((connection as any).id);
+  assert.equal(updated?.testStatus, "active");
+  assert.notEqual(updated?.errorCode, "no_refresh_token");
+  assert.notEqual(updated?.lastErrorType, "no_refresh_token");
+});
+
 test("connectionUsesOAuthRefresh is false for apikey / cookie", () => {
   assert.equal(
     tokenHealthCheck.connectionUsesOAuthRefresh({ authType: "apikey", apiKey: "k" }),

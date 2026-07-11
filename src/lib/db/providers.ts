@@ -363,6 +363,13 @@ export async function createProviderConnection(data: JsonRecord) {
     connectionPriority = maxPriority + 1;
   }
 
+  // FOOT-GUN (Epic 0006 / Task 0035): defaulting missing authType to "oauth"
+  // mis-classifies dual-mode static keys (gemini AI Studio, qoder PAT) if a
+  // caller forgets to pass authType. Prefer explicit authType at every call
+  // site. POST /api/providers and bulk apikey routes already hardcode "apikey";
+  // OAuth imports use buildOAuthConnectionCreatePayload (authType: "oauth").
+  // Do NOT change this default without a full caller audit — silent oauth
+  // default preserves legacy OAuth import paths that omit the field.
   const connection: Record<string, unknown> = {
     id: uuidv4(),
     provider: data.provider,

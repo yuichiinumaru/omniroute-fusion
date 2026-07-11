@@ -27,12 +27,17 @@ import {
 import { pickMaskedDisplayValue } from "@/shared/utils/maskEmail";
 import {
   connectionUsesOAuthRefresh,
+  isLongLivedImportCredential,
   shouldMarkNoRefreshExpired,
 } from "@/shared/utils/connectionAuthMode";
 
 // Re-export for back-compat: existing tests/import sites use
 // `tokenHealthCheck.connectionUsesOAuthRefresh`.
-export { connectionUsesOAuthRefresh, shouldMarkNoRefreshExpired };
+export {
+  connectionUsesOAuthRefresh,
+  isLongLivedImportCredential,
+  shouldMarkNoRefreshExpired,
+};
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const TICK_MS = 60 * 1000; // sweep interval: every 60 seconds
@@ -358,10 +363,11 @@ export async function checkConnection(conn) {
     // Guard tightly so we do NOT clobber:
     //   - providers that simply don't use refresh tokens (supportsTokenRefresh=false)
     //   - static API-key / cookie connections (no refresh token by design — e.g. AI Studio gemini)
+    //   - Windsurf/Devin long-lived import keys (supportsTokenRefresh true, RT absent by design)
     //   - connections already in a terminal/specific state (expired/banned/credits_exhausted)
     //   - transient cooldown state (unavailable) owned by the request path
-    // Gate lives in connectionAuthMode (SSoT) — dual-mode providers (gemini/qoder/codebuddy-cn)
-    // must never false-expire apikey/cookie rows.
+    // Policy: supportsTokenRefresh(provider) is necessary but not sufficient —
+    // shouldMarkNoRefreshExpired also requires connectionUsesOAuthRefresh + not long-lived import.
     const refreshCapableNeedsReauth = shouldMarkNoRefreshExpired(
       conn,
       supportsTokenRefresh(conn.provider)

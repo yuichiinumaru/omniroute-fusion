@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/db/providers";
 import { getAccessToken, updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { rotationGroupFor } from "@omniroute/open-sse/services/refreshSerializer.ts";
+import {
+  connectionUsesOAuthRefresh,
+  isLongLivedImportCredential,
+} from "@/shared/utils/connectionAuthMode";
 
 type RefreshResult = {
   accessToken?: string;
@@ -16,6 +20,10 @@ type RefreshResult = {
  * doesn't want to wait for the next auto-refresh cycle.
  *
  * T12 — Manual Token Refresh UI
+ *
+ * Dual-mode policy: gate on connection auth mode (not only provider id).
+ * Static apikey / cookie / none never enter OAuth refresh.
+ * Windsurf long-lived import is a no-op skip (no RT by design).
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,11 +34,28 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    if (connection.authType !== "oauth") {
+    // Connection-level gate (api_key aliases, cookie, blank+apiKey) — not string === "oauth".
+    if (!connectionUsesOAuthRefresh(connection)) {
       return NextResponse.json(
         { error: "Only OAuth connections support manual token refresh" },
         { status: 400 }
       );
+    }
+
+    // Windsurf / Devin long-lived import keys: refresh is product no-op (see
+    // refreshWindsurfToken + isLongLivedImportCredential). Do not 422 operators.
+    if (isLongLivedImportCredential(connection)) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        connectionId: id,
+        provider: connection.provider,
+        message:
+          "Long-lived import token (Windsurf/Devin) — no OAuth refresh token by design. " +
+          "Re-import from the IDE if the access token was revoked.",
+        expiresAt: connection.tokenExpiresAt || connection.expiresAt || null,
+        refreshedAt: new Date().toISOString(),
+      });
     }
 
     if (!connection.refreshToken && !connection.accessToken) {
