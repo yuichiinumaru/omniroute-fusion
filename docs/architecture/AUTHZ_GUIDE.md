@@ -89,7 +89,10 @@ PUBLIC_API_ROUTE_PREFIXES = [
   "/api/auth/status",
   "/api/init",
   "/api/v1/", // treated as CLIENT_API in classify, not as "no-auth public"
-  "/api/cloud/",
+  // Cloud worker helpers only — credentials mutation is MANAGEMENT (Task 0049 / F-07-006)
+  "/api/cloud/auth",
+  "/api/cloud/model",
+  "/api/cloud/models",
   "/api/sync/bundle",
   "/api/oauth/",
 ];
@@ -100,6 +103,8 @@ PUBLIC_READONLY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 ```
 
 Read-only prefixes are public **only** for safe methods. Note: `classifyRoute()` excludes `/api/v1/*` and `/api/v1beta/*` from the PUBLIC fall-through — those are always `CLIENT_API` so the Bearer-key policy still applies.
+
+Matching is **segment-safe** (`/api/cloud/auth` does not match `/api/cloud/credentials` or `/api/cloud/authorize`). `/api/cloud/credentials/*` is MANAGEMENT + ALWAYS_PROTECTED and uses `requireManagementAuth({ always: true })` with optional `connectionId` binding.
 
 ## Adding a New Route
 
@@ -139,6 +144,8 @@ export async function POST(request: Request) {
 - 403 — invalid Bearer **or** Bearer present but key lacks the `manage` / `admin` scope
 
 `hasManageScope(scopes)` returns true for `"manage"` or `"admin"`.
+
+Pass `{ always: true }` for ALWAYS_PROTECTED-class handlers (relay token mint, translator spend, cloud credential overwrite, cli-tools key inventory). Without `always`, the helper no-ops when `requireLogin=false` (open install); with `always`, a real principal is required even on auth-disabled installs (Task 0049).
 
 ### Pattern 3 — Adding to the public allowlist
 

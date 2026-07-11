@@ -46,6 +46,7 @@ class (GHSA-fhh6-4qxv-rpqj).
 | `/api/tunnels/cloudflared`             | Binary download + spawn; GET status exempt (F-07-W2-003)            | No                      |
 | `/api/tunnels/ngrok`                   | Same tunnel class as cloudflared; GET status exempt                 | No                      |
 | `/api/middleware/hooks`                | Compiles caller JS via `new Function` — process RCE (F-07-W2-001)   | No                      |
+| `/api/cli-tools/keys`                  | API key inventory — no remote bulk secret dump (Task 0049 / F-07-W2-005) | No                  |
 | Pattern: `/api/providers/{id}/login`   | Headful Playwright Chromium spawn                                   | No                      |
 
 **Response on violation:** `403 LOCAL_ONLY`
@@ -91,6 +92,10 @@ server process.
 | `/api/db-backups/export`                   | Live SQLite dump — credential exfil (F-07-004)      |
 | `/api/db-backups/import`                   | Destructive DB replace (F-07-004)                   |
 | `/api/middleware/hooks`                    | `new Function` install always needs auth (F-07-W2-001) |
+| `/api/relay/tokens`                        | Relay secret mint/list (Task 0049 / F-07-007)           |
+| `/api/translator/send`                     | Spends operator provider credentials (F-07-W2-004)      |
+| `/api/cloud/credentials`                   | Overwrite provider OAuth tokens (F-07-006)              |
+| `/api/cli-tools/keys`                      | Key inventory / residual reveal surface (F-07-W2-005)   |
 
 ### SPAWN_CAPABLE (deny-list for manage-scope bypass + always-auth)
 

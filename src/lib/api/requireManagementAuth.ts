@@ -12,6 +12,17 @@ import {
 export { MANAGE_SCOPE };
 
 /**
+ * Options for handler-level management auth.
+ *
+ * `always: true` skips the `requireLogin=false` open-install bypass so the
+ * route remains authenticated even when dashboard login is disabled (Tier 2
+ * ALWAYS_PROTECTED-class handlers: credential mint, secret dump, paid spend).
+ */
+export type RequireManagementAuthOptions = {
+  always?: boolean;
+};
+
+/**
  * Check whether any of the supplied scopes authorizes management API access.
  *
  * Re-exported here for backwards compatibility with existing callers. The
@@ -21,8 +32,11 @@ export function hasManageScope(scopes: string[] = []): boolean {
   return hasManageScopeShared(scopes);
 }
 
-export async function requireManagementAuth(request: Request): Promise<Response | null> {
-  if (!(await isAuthRequired(request))) {
+export async function requireManagementAuth(
+  request: Request,
+  options: RequireManagementAuthOptions = {}
+): Promise<Response | null> {
+  if (!options.always && !(await isAuthRequired(request))) {
     return null;
   }
 

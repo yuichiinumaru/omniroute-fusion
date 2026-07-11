@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRelayTokens, createRelayToken } from "@/lib/db/relayProxies";
+import { getRelayTokens, createRelayToken, type RelayToken } from "@/lib/db/relayProxies";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 const relayTokenInputSchema = z.object({
   name: z.string().trim().min(1, "name is required"),
@@ -16,30 +18,39 @@ const relayTokenInputSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export async function GET() {
+/** Public list/detail shape — never includes tokenHash (F-07-007). */
+export function toPublicRelayToken(token: RelayToken) {
+  return {
+    id: token.id,
+    name: token.name,
+    tokenPrefix: token.tokenPrefix,
+    description: token.description,
+    comboId: token.comboId,
+    allowedModels: token.allowedModels,
+    maxTokensPerRequest: token.maxTokensPerRequest,
+    maxRequestsPerMinute: token.maxRequestsPerMinute,
+    maxRequestsPerDay: token.maxRequestsPerDay,
+    maxCostPerDay: token.maxCostPerDay,
+    enabled: token.enabled,
+    createdAt: token.createdAt,
+    updatedAt: token.updatedAt,
+    expiresAt: token.expiresAt,
+    lastUsedAt: token.lastUsedAt,
+  };
+}
+
+export async function GET(request: Request) {
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
+
   const tokens = getRelayTokens();
-  // Strip hash from response
-  const safe = tokens.map((t) => ({
-    id: t.id,
-    name: t.name,
-    tokenPrefix: t.tokenPrefix,
-    description: t.description,
-    comboId: t.comboId,
-    allowedModels: t.allowedModels,
-    maxTokensPerRequest: t.maxTokensPerRequest,
-    maxRequestsPerMinute: t.maxRequestsPerMinute,
-    maxRequestsPerDay: t.maxRequestsPerDay,
-    maxCostPerDay: t.maxCostPerDay,
-    enabled: t.enabled,
-    createdAt: t.createdAt,
-    updatedAt: t.updatedAt,
-    expiresAt: t.expiresAt,
-    lastUsedAt: t.lastUsedAt,
-  }));
-  return NextResponse.json(safe);
+  return NextResponse.json(tokens.map(toPublicRelayToken));
 }
 
 export async function POST(request: Request) {
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
+
   try {
     const rawBody = await request.json();
     const validation = validateBody(relayTokenInputSchema, rawBody);
@@ -48,6 +59,7 @@ export async function POST(request: Request) {
     }
     const token = createRelayToken(validation.data);
 
+    // rawToken only once on create; never return tokenHash
     return NextResponse.json({
       id: token.id,
       name: token.name,
@@ -55,7 +67,6 @@ export async function POST(request: Request) {
       tokenPrefix: token.tokenPrefix,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: sanitizeErrorMessage(error) }, { status: 400 });
   }
 }

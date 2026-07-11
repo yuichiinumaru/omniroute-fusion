@@ -10,6 +10,7 @@ import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { logTranslationEvent } from "@/lib/translatorEvents";
 import { translatorSendSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 
 function getProviderBaseUrl(providerSpecificData: unknown): string | undefined {
   if (!providerSpecificData || typeof providerSpecificData !== "object") return undefined;
@@ -17,8 +18,16 @@ function getProviderBaseUrl(providerSpecificData: unknown): string | undefined {
   return typeof baseUrl === "string" && baseUrl.trim().length > 0 ? baseUrl : undefined;
 }
 
-export async function POST(request) {
-  let rawBody;
+/**
+ * POST /api/translator/send
+ * Security (Task 0049 / F-07-W2-004): always require management auth — this
+ * route loads stored provider credentials and spends operator quota upstream.
+ */
+export async function POST(request: Request) {
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
+
+  let rawBody: unknown;
   try {
     rawBody = await request.json();
   } catch {

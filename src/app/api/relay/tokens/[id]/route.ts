@@ -9,6 +9,8 @@ import {
   getRelayUsage,
 } from "@/lib/db/relayProxies";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { toPublicRelayToken } from "../route";
 
 const relayTokenPatchSchema = z
   .object({
@@ -25,24 +27,29 @@ const relayTokenPatchSchema = z
   .refine((value) => Object.keys(value).length > 0, "At least one update field is required");
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
+
   const { id } = await params;
   const token = getRelayToken(id);
   if (!token) return NextResponse.json({ error: "Token not found" }, { status: 404 });
 
-  // Get usage stats
   const now = Math.floor(Date.now() / 1000);
   const lastHour = getRelayUsage(id, now - 3600);
   const lastDay = getRelayUsage(id, now - 86400);
   const logs = getRelayLogs(id, 20);
 
   return NextResponse.json({
-    ...token,
+    ...toPublicRelayToken(token),
     usage: { lastHour, lastDay },
     logs,
   });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
+
   const { id } = await params;
   const rawBody = await request.json();
   const validation = validateBody(relayTokenPatchSchema, rawBody);
@@ -54,7 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.enabled !== undefined) {
     const token = toggleRelayToken(id, body.enabled);
     if (!token) return NextResponse.json({ error: "Token not found" }, { status: 404 });
-    return NextResponse.json(token);
+    return NextResponse.json(toPublicRelayToken(token));
   }
 
   const token = updateRelayToken(id, {
@@ -69,10 +76,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   });
 
   if (!token) return NextResponse.json({ error: "Token not found" }, { status: 404 });
-  return NextResponse.json(token);
+  return NextResponse.json(toPublicRelayToken(token));
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
+
   const { id } = await params;
   deleteRelayToken(id);
   return NextResponse.json({ success: true });

@@ -3,6 +3,17 @@
 ## [Unreleased]
 
 ### Security
+- **Privileged API handler auth (Task 0049 / Epic 0008 S10)** — close handler-level auth/redaction gaps on high-value mutators (F-07-006 / F-07-007 / F-07-W2-004 / F-07-W2-005; stretch F-07-W2-006).
+  - **F-07-006**: `/api/cloud/credentials/update` removed from PUBLIC prefix; `requireManagementAuth({ always: true })` + optional `connectionId` binding; refuses multi-connection first-match overwrite; ALWAYS_PROTECTED
+  - **F-07-007**: `/api/relay/tokens` (+ `[id]`) always require management auth; responses never include `tokenHash`; `rawToken` only once on create; ALWAYS_PROTECTED
+  - **F-07-W2-004**: `/api/translator/send` always requires management auth (operator credential spend); ALWAYS_PROTECTED
+  - **F-07-W2-005**: `/api/cli-tools/keys` LOCAL_ONLY + ALWAYS_PROTECTED; never returns bulk `rawKey` (align Task 0041 hash-only — secrets only on create/regenerate)
+  - Stretch: `/api/sessions` requires `requireManagementAuth`
+  - `requireManagementAuth` gains `{ always?: boolean }` for open-install (`requireLogin=false`) dual-gate
+  - Public cloud prefixes narrowed to `/api/cloud/auth|model|models` (segment-safe matching)
+  - `.gitignore` `/cloud/` root-only so `src/app/api/cloud/**` is trackable
+  - Tests: `privileged-handler-auth-0049`, `cli-tools-keys-route`, `routeGuard`, `classify`, `public-api-routes`
+  **Author**: builder (Task 0049)
 - **Search SSRF + semantic cache signature + path segments (Task 0048 / Epic 0008 S9)** — close client-influenced search SSRF, cache poisoning/mismatch, and path injection.
   - **F-01-W2-001**: commercial search ignores client `provider_options.baseUrl`; self-hosted (`searxng-search`, `ollama-search`) allow LAN override with cloud-metadata block; all search HTTP via `safeOutboundFetch` (public-only / block-metadata)
   - **F-01-W2-002**: semantic cache signature includes tools / tool_choice / response_format / client format / stream / seed / stop / max_tokens; stream hits/stores only for OpenAI client format

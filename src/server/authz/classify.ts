@@ -1,5 +1,5 @@
 import {
-  PUBLIC_API_ROUTE_PREFIXES,
+  isPublicApiRoute,
   PUBLIC_READONLY_API_ROUTE_PREFIXES,
   PUBLIC_READONLY_METHODS,
 } from "../../shared/constants/publicApiRoutes";
@@ -127,15 +127,17 @@ export function classifyRoute(rawPath: string, method: string = "GET"): RouteCla
 
 function matchesReadonlyPublic(path: string, method: string): boolean {
   if (!PUBLIC_READONLY_METHODS.has(String(method).toUpperCase())) return false;
-  return PUBLIC_READONLY_API_ROUTE_PREFIXES.some((p) => path.startsWith(p));
+  return PUBLIC_READONLY_API_ROUTE_PREFIXES.some(
+    (p) => path === p || path.startsWith(`${p}/`) || path.startsWith(p)
+  );
 }
 
 function isClassifiedAsPublic(path: string, method: string): boolean {
-  const isV1ApiPrefix = (p: string) =>
-    p === "/api/v1" || p === "/api/v1/" || p.startsWith("/api/v1/");
-  const filtered = PUBLIC_API_ROUTE_PREFIXES.filter((p) => p !== "/api/v1/");
-  if (filtered.some((prefix) => path.startsWith(prefix)) && !isV1ApiPrefix(path)) {
-    return true;
-  }
-  return matchesReadonlyPublic(path, method);
+  // /api/v1/* is listed in PUBLIC_API_ROUTE_PREFIXES for historical reasons but is
+  // always CLIENT_API (handled earlier in classifyRoute). Exclude for safety.
+  const isV1ApiPrefix =
+    path === "/api/v1" || path === "/api/v1/" || path.startsWith("/api/v1/");
+  if (isV1ApiPrefix) return false;
+  // Segment-safe public matching (Task 0049 — /api/cloud/auth ≠ credentials).
+  return isPublicApiRoute(path, method);
 }
