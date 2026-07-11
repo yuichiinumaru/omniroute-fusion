@@ -1,6 +1,6 @@
 # Task 0024: Frontend IA — Connect / Registry Exposure Cleanup (S5)
 
-> **Status**: `[x]` Completed
+> **Status**: `[~]` In Progress — returned from review (score 84/100)
 > **Priority**: 🔴 P0
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S5**)
@@ -10,6 +10,8 @@
 > **Parallel group**: A (with Task 0023, Task 0026–0029)
 
 ---
+> **Queued after Epic 0008**: **Q1** — [`QUEUE-post-adversarial-return.md`](../00-planning/QUEUE-post-adversarial-return.md)
+
 
 ## Objective
 
@@ -70,7 +72,7 @@ Outcome: no three competing “MCP/A2A/API endpoints” entry points in the defa
 - [x] Unit tests assert new default leaf set for Connect/Registry cluster
 - [ ] Manual smoke: open MCP tools UI, A2A agent card/dashboard, API endpoints list from new homes _(browser smoke deferred to operator; unit redirects + page mounts covered)_
 - [x] `npm run typecheck:core` passes
-- [x] Targeted unit tests pass with 0 failures
+- [ ] Targeted unit tests pass with 0 failures _(re-opened 2026-07-11: `dashboard-shell-tabs.test.ts` endpoint case fails; mcp/a2a redirect unit asserts incomplete)_
 - [x] CHANGELOG.md entry
 - [x] No capability deleted without mapped home (epic invariant #5)
 
@@ -223,31 +225,37 @@ S5 unblocks Registry pillar integrity. Leaving triple exposure means Task 0025 m
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `95/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0024-frontend-ia-registry-connect-cleanup-review.md`
-- **Lane outcome**: remains in review
-- **Task reference**: Task 0024 (`frontend-ia-registry-connect-cleanup`); resolve current path from `docs/tasks/tasklist.md` or search under `docs/tasks/`
+- **Score**: `84/100`
+- **Verdict**: `REJECT` / `NEEDS FIX`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0024-frontend-ia-registry-connect-cleanup-review.md`
+- **Lane outcome**: returned to `docs/tasks/02-doing/`
+- **Task reference**: Task 0024 (`frontend-ia-registry-connect-cleanup`); live path `docs/tasks/02-doing/0024-frontend-ia-registry-connect-cleanup.md`
 
 #### Current Open Blockers
 
-- `EXTERNAL_BLOCKER`: Playwright `protocol-visibility.spec.ts` / browser smoke not executed this review (unit suite green)
-- `NEW` (Info residual): `any` on protocol status state in EndpointPageClient
+- `NEW` (High): `tests/unit/dashboard-shell-tabs.test.ts` still asserts pre-S5 `EndpointTab = "apis" | "mcp" | "a2a"` + embedded dashboards — **fails live** against post-S5 shell
+- `NEW` (Medium): `connect-exposure-sidebar.test.ts` does not unit-assert `endpoint/page.tsx` redirects for `?tab=mcp|a2a` (only soft-checks catalog redirect)
+- `PERSISTENT` (Low): Playwright `protocol-visibility.spec.ts` / browser smoke not executed with evidence
+- `PERSISTENT` (Info): `any` on protocol status state in EndpointPageClient
 
 #### Path-to-100 Summary
 
-- Run e2e protocol-visibility or operator smoke and attach evidence
-- Optional: type mcp/a2a status state
-- Reviewer already: status-dot a11y, `?tab=` URL sync, PROVENANCE-INDEX row, CHANGELOG Registry wording
+1. Rewrite `dashboard-shell-tabs.test.ts` endpoint case to S5: tabs `apis|catalog|context-sources`, protocol homes links, **no** re-embedded MCP/A2A peer tabs
+2. Extend connect-exposure (or sibling) unit tests to assert `endpoint/page.tsx` redirects `tab=mcp` → `/dashboard/mcp` and `tab=a2a` → `/dashboard/a2a`
+3. Re-run failing file + connect suite; paste pass evidence
+4. Residual: e2e protocol-visibility or operator smoke; optional type mcp/a2a status state
+5. Do **not** undo prior accepted repairs (status-dot a11y, `?tab=` URL sync, PROVENANCE-INDEX, CHANGELOG)
 
 #### Regression Guards
 
-- Default sidebar: exactly one `mcp` and one `a2a`; no `api-endpoints` leaf; `endpoints` Connect SSoT; `api-manager` under Governance only
+- Default chrome: no `api-endpoints` leaf; no triple MCP/A2A/API Endpoints peers; `api-manager` stays separate (keys)
+- Flat primary nav may nest exposures under Providers hub (post-flat-nav); hideable ids for `api-endpoints`, `endpoints`, `mcp`, `a2a` retained
 - `/dashboard/api-endpoints` → `endpoint?tab=catalog`; `endpoint?tab=mcp|a2a` → protocol homes
 - Do not re-embed MCP/A2A dashboards as Endpoint peer tabs; keep protocol homes + capability pages
+- `dashboard-shell-tabs` must not reintroduce pre-S5 MCP/A2A tab asserts
 
 ### Previous Reports
 
-- none (initial independent review 2026-07-10)
+- `docs/reports/reviews/2026-07-10-task-0024-frontend-ia-registry-connect-cleanup-review.md` (95/100, held for e2e; path-to-100 patches applied)

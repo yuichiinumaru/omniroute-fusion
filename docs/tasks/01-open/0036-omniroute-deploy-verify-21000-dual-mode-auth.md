@@ -9,6 +9,8 @@
 > **Depends on**: Task 0033, Task 0034
 
 ---
+> **Queued after Epic 0008**: **Q4** — [`QUEUE-post-adversarial-return.md`](../00-planning/QUEUE-post-adversarial-return.md)
+
 
 ## Objective
 

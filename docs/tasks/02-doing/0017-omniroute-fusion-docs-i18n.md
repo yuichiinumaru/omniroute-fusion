@@ -9,6 +9,8 @@
 > **Depends on**: Task 0016 (UI complete), Task 0013 (runtime wired)
 
 ---
+> **Queued after Epic 0008**: **Q3** — [`QUEUE-post-adversarial-return.md`](../00-planning/QUEUE-post-adversarial-return.md)
+
 
 ## Objective
 
