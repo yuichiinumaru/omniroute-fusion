@@ -68,7 +68,6 @@ export default function KiloToolCard({
   const [selectedModel, setSelectedModel] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [showManualConfigModal, setShowManualConfigModal] = useState(false);
-  const [customBaseUrl, setCustomBaseUrl] = useState("");
   const hasInitializedModel = useRef(false);
   const [backups, setBackups] = useState<ConfigurableToolCardBackup[]>([]);
   const [showBackups, setShowBackups] = useState(false);
@@ -153,10 +152,7 @@ export default function KiloToolCard({
     }
   };
 
-  const getEffectiveBaseUrl = () => {
-    if (customBaseUrl) return customBaseUrl;
-    return baseUrl || DEFAULT_DISPLAY_BASE_URL;
-  };
+  const getEffectiveBaseUrl = () => baseUrl || DEFAULT_DISPLAY_BASE_URL;
 
   const handleApply = async () => {
     setApplying(true);
@@ -240,21 +236,6 @@ export default function KiloToolCard({
     setModalOpen(false);
   };
 
-  const handleManualConfig = (config: { model?: string; apiKey?: string; baseUrl?: string }) => {
-    if (config.model) setSelectedModel(config.model);
-    // (#523) Match apiKey string to key id if possible
-    if (config.apiKey && apiKeys && apiKeys.length > 0) {
-      const prefix = config.apiKey.slice(0, 8);
-      const suffix = config.apiKey.slice(-4);
-      const matchedKey = apiKeys.find(
-        (k) => k.key && k.key.startsWith(prefix) && k.key.endsWith(suffix)
-      );
-      if (matchedKey) setSelectedApiKeyId(matchedKey.id);
-    }
-    if (config.baseUrl) setCustomBaseUrl(config.baseUrl);
-    setShowManualConfigModal(false);
-  };
-
   const runtimeTitle = cliReady
     ? t("cliDetectedReady", { tool: "Kilo Code" })
     : kiloStatus?.installed
@@ -327,9 +308,10 @@ export default function KiloToolCard({
                   </ConfigurableToolCard.ConfiguredBanner>
                 )}
 
-                <ConfigurableToolCard.Field label={t("model")}>
+                <ConfigurableToolCard.Field label={t("model")} htmlFor="kilo-model-input">
                   <div className="flex items-center gap-2">
                     <input
+                      id="kilo-model-input"
                       type="text"
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
@@ -354,9 +336,10 @@ export default function KiloToolCard({
                   </div>
                 </ConfigurableToolCard.Field>
 
-                <ConfigurableToolCard.Field label={t("apiKey")}>
+                <ConfigurableToolCard.Field label={t("apiKey")} htmlFor="kilo-api-key-select">
                   {apiKeys && apiKeys.length > 0 ? (
                     <select
+                      id="kilo-api-key-select"
                       value={selectedApiKeyId}
                       onChange={(e) => setSelectedApiKeyId(e.target.value)}
                       className="px-3 py-2 bg-bg-secondary rounded-lg text-sm border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
@@ -422,14 +405,7 @@ export default function KiloToolCard({
           isOpen={showManualConfigModal}
           onClose={() => setShowManualConfigModal(false)}
           title={t("kiloManualConfiguration")}
-          {...({
-            onApply: handleManualConfig,
-            currentConfig: {
-              model: selectedModel,
-              apiKey: apiKeys?.find((k) => k.id === selectedApiKeyId)?.key || "",
-              baseUrl: customBaseUrl || baseUrl,
-            },
-          } as Record<string, unknown>)}
+          configs={[]}
         />
       )}
     </>

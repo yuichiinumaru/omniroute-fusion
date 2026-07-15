@@ -60,7 +60,7 @@ Unify **Activity + Logs + Proxy Logs + Console Logs + Audit + MCP Audit + A2A Au
 - [x] `npm run typecheck:core` passes
 - [x] Targeted `node --import tsx/esm --test tests/unit/ui/<observe-tests>` passes
 - [x] CHANGELOG.md entry under Unreleased (or draft if concurrent collision)
-- [ ] Epic 0005 §11a/child table updated to mark S4 progress when closing
+- [x] Epic 0005 §11a/child table updated to mark S4 progress when closing
 
 ---
 
@@ -215,31 +215,33 @@ Epic success metric: log/audit surfaces as separate top-level leaves → **1 Obs
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `96/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0023-frontend-ia-observe-unified-stream-review.md`
-- **Lane outcome**: remains in review
-- **Task reference**: Task 0023 (`frontend-ia-observe-unified-stream`); resolve current path from `docs/tasks/tasklist.md` or search under `docs/tasks/`
+- **Score**: `99/100`
+- **Verdict**: `APPROVED_REMEDIATION`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0023-frontend-ia-observe-unified-stream-review.md`
+- **Lane outcome**: remains in `03-review/` pending parent promote (S ≥ 90; not moved to `02-doing/`)
+- **Task reference**: Task 0023 (`frontend-ia-observe-unified-stream`); live path `docs/tasks/03-review/0023-frontend-ia-observe-unified-stream.md`
 
 #### Current Open Blockers
 
-- `NEW` (Low): Epic 0005 §11a / child table progress still unchecked (process)
-- `EXTERNAL_BLOCKER`: browser deep-link smoke not re-run in review lane (unit redirects green)
+- none blocking
+- `EXTERNAL_BLOCKER` (accepted residual): browser deep-link smoke not re-run in review lane; full matrix now unit-asserted
+- `Info` residual: dead `OBSERVABILITY_ITEMS` after flat primary nav (optional cleanup)
 
 #### Path-to-100 Summary
 
-- Mark Epic 0005 §11a S4 progress in epic table
-- Optional operator browser smoke of Completion Evidence deep-link list
-- Reviewer already: dedicated CHANGELOG S4 entry + `normalizeObserveSource` in hub tab handler
+- Epic §11a S4 already **done** in epic file (task checkbox marked this review)
+- Reviewer 2026-07-11: strengthened `observe-hub-sidebar.test.ts` — every `OBSERVE_REDIRECT_MATRIX` page + hub composition
+- Optional for literal 100: operator browser smoke of Completion Evidence list
 
 #### Regression Guards
 
-- Default Observability tree must keep single `activity` stream hub (no logs/audit peer leaves)
-- All paths in `OBSERVE_REDIRECT_MATRIX` must remain server redirects to hub + source
+- Default chrome must keep single `activity` Observe stream hub (no logs/audit peer leaves in primary/default tree)
+- All paths in `OBSERVE_REDIRECT_MATRIX` must remain server redirects to hub + source (unit-guarded)
 - `OBSERVE_STREAM_SIDEBAR_IDS` must stay hideable; do not delete log/audit APIs or domain viewers
+- Hub must compose domain viewers behind `?source=` — no god-logger merge
 
 ### Previous Reports
 
-- none (initial independent review 2026-07-10)
+- `docs/reports/reviews/2026-07-10-task-0023-frontend-ia-observe-unified-stream-review.md` (score 96; HELD path-to-100)

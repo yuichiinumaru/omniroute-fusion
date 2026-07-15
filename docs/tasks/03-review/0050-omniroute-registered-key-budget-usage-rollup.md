@@ -170,7 +170,7 @@ False budget denies break paying/registered clients after midnight. Non-idempote
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
-- **Notas**:
+- **Reviewer**: reviewers (Code Quality Reviewer / independent) — 2026-07-11
+- **Veredito**: PASS WITH NOTES — hold in `03-review/` (S ≥ 90)
+- **Score**: 94/100
+- **Notas**: F-05-004 post-reset counters + increment window reset verified; F-05-005 replace ON CONFLICT + transactional rollup+delete verified; 50/50 tests + typecheck:core + eslint clean. Residual only: dead `rollup.errors` branch (N1), dual-writer casing (N2). Report: `docs/reports/reviews/2026-07-11-task-0050-budget-usage-rollup-review.md`. Not moved; not patched.

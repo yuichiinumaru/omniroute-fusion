@@ -191,4 +191,44 @@ describe("KiloToolCard pilot (ConfigurableToolCard shell)", () => {
     });
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
+
+  it("disables apply when no model is selected (Actions wiring)", async () => {
+    const container = render(
+      <KiloToolCard
+        tool={{ name: "Kilo Code", id: "kilo" }}
+        isExpanded
+        onToggle={() => {}}
+        hasActiveProviders
+        apiKeys={[{ id: "k1", key: "sk-****" }]}
+        activeProviders={[]}
+      />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const apply = container.querySelector(
+      "[data-testid='configurable-tool-card-apply']"
+    ) as HTMLButtonElement | null;
+    expect(apply).not.toBeNull();
+    expect(apply?.disabled).toBe(true);
+
+    // Click must not POST apply while disabled.
+    const postCallsBefore = fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes("kilo-settings") &&
+        (init as RequestInit | undefined)?.method === "POST"
+    ).length;
+    act(() => {
+      apply?.click();
+    });
+    const postCallsAfter = fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        String(url).includes("kilo-settings") &&
+        (init as RequestInit | undefined)?.method === "POST"
+    ).length;
+    expect(postCallsAfter).toBe(postCallsBefore);
+  });
 });

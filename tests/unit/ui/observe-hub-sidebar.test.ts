@@ -94,13 +94,74 @@ describe("Observe redirect matrix sources", () => {
     const paths = OBSERVE_REDIRECT_MATRIX.map((r) => r.from);
     assert.ok(paths.some((p) => p.includes("/logs")));
     assert.ok(paths.some((p) => p.includes("/audit")));
+    assert.ok(paths.includes("/dashboard/usage"));
   });
+
+  /** Map hub matrix `from` → App Router page under `src/app/(dashboard)`. */
+  const PAGE_BY_FROM: Record<string, string> = {
+    "/dashboard/logs": "src/app/(dashboard)/dashboard/logs/page.tsx",
+    "/dashboard/logs/proxy": "src/app/(dashboard)/dashboard/logs/proxy/page.tsx",
+    "/dashboard/logs/console": "src/app/(dashboard)/dashboard/logs/console/page.tsx",
+    "/dashboard/logs/activity": "src/app/(dashboard)/dashboard/logs/activity/page.tsx",
+    "/dashboard/audit": "src/app/(dashboard)/dashboard/audit/page.tsx",
+    "/dashboard/audit/mcp": "src/app/(dashboard)/dashboard/audit/mcp/page.tsx",
+    "/dashboard/audit/a2a": "src/app/(dashboard)/dashboard/audit/a2a/page.tsx",
+    "/dashboard/usage": "src/app/(dashboard)/dashboard/usage/page.tsx",
+  };
+
+  for (const entry of OBSERVE_REDIRECT_MATRIX) {
+    it(`server-redirects ${entry.from} → source=${entry.source}`, () => {
+      const rel = PAGE_BY_FROM[entry.from];
+      assert.ok(rel, `missing page mapping for ${entry.from}`);
+      const src = readSrc(rel);
+      assert.ok(
+        src.includes("redirect") || src.includes("permanentRedirect"),
+        `${rel} must call redirect/permanentRedirect`
+      );
+      assert.ok(
+        src.includes("buildObserveHubPath") || src.includes(OBSERVE_HUB_PATH),
+        `${rel} must target Observe hub`
+      );
+      // Source argument should appear when not default activity-only clean URL.
+      if (entry.source !== "activity") {
+        assert.ok(
+          src.includes(`"${entry.source}"`) || src.includes(`'${entry.source}'`),
+          `${rel} must pass source "${entry.source}"`
+        );
+      }
+      assert.ok(!src.includes('"use client"'), `${rel} must remain a server redirect`);
+    });
+  }
 });
 
-// Keep a light source smoke if route files still exist
-describe("Observe route files still present", () => {
-  it("activity page exists", () => {
+describe("Observe hub shell composition", () => {
+  it("activity page mounts ObserveHubClient", () => {
     const src = readSrc("src/app/(dashboard)/dashboard/activity/page.tsx");
-    assert.ok(src.length > 0);
+    assert.ok(src.includes("ObserveHubClient"));
+  });
+
+  it("hub composes domain viewers (no god-logger)", () => {
+    const src = readSrc("src/app/(dashboard)/dashboard/activity/ObserveHubClient.tsx");
+    for (const needle of [
+      "ActivityFeedClient",
+      "RequestLogsPanel",
+      "ProxyLogger",
+      "ConsoleLogViewer",
+      "ComplianceTab",
+      "McpAuditTab",
+      "A2aAuditTab",
+      "normalizeObserveSource",
+      "PageTabBar",
+    ]) {
+      assert.ok(src.includes(needle), `hub must compose ${needle}`);
+    }
+    assert.ok(!src.includes("god"), "sanity");
+  });
+
+  it("exposes Health as a discoverable link, not a stream tab (Task 0061)", () => {
+    const src = readSrc("src/app/(dashboard)/dashboard/activity/ObserveHubClient.tsx");
+    assert.ok(src.includes("data-observe-health-link"));
+    assert.ok(src.includes("HEALTH_NAV_ITEM"));
+    assert.ok(!src.includes('id: "health"'));
   });
 });

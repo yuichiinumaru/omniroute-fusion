@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+- **Observe Health link + Settings Interface tab (Task 0061)** — Observe hub surfaces a discoverable Health link to `/dashboard/health` as a separate dashboard page (not a log-stream tab), command palette includes Health, `/dashboard/logs/proxy` continues to redirect to `?source=proxy`, and Settings re-adds the appearance route as **Interface** while keeping theme/branding customization removed. Reviewer path-to-100 added a `// SAFETY:` justification for the next-intl translator alias in the Observe hub.
+  **Author**: builders + reviewer (Task 0061)
+- **Theme migration — VR Prism compliance (Task 0052)** — full visual identity shift from OpenClaw coral/indigo to obsidian + core cyan. Dark-only: removed light theme, `.dark` block, grid wallpaper, sidebar icon accents, and all `#e54d5e` references. New tokens: obsidian `#030506` bg, `#080c0e` panels, `#121d22` borders, `#00FFCC` primary cyan. Fonts: Rajdhani (body via next/font/google) + JetBrains Mono (code). Info/active status states now use cyan via `text-primary`. 8 hardcoded coral references removed from 3 files (~1162 auto-updating refs follow CSS variable). Theme toggle/`applyTheme()` simplified to no-op. Persist removed from themeStore.
+  **Author**: architect (S2)
+- **Settings hub PageTabBar (Task 0054)** — added shared `settings/layout.tsx` with 9-tab PageTabBar (Data & Storage, AI, Routing, Resilience, Security, Access Tokens, Feature Flags, Advanced, Sidebar) so all 10 orphaned settings sub-pages are now navigable from any settings page. Tabs use direct route navigation; Appearance and Pricing omitted (deprecated/redirect). Hub `/dashboard/settings` legacy `?tab=` redirects preserved.
+  **Author**: architect (S2)
+
 ### Fixed
 - **Fusion docs path-to-100 (Task 0017)** — align strategy inventory to live **18** `ROUTING_STRATEGY_VALUES` (include `conditional-fusion`); document acting unit + A6 trigger-miss path in `FUSION.md`.
   **Author**: builder (queue Q3)

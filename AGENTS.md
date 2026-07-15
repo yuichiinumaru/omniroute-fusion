@@ -1,6 +1,18 @@
+# PORT 21000 = PRODUÇÃO — NÃO MEXER SOB NENHUMA HIPÓTESE!
+
+> **localhost:21000 é server de PRODUÇÃO, e NÃO É PRA MEXER SOB ABSOLUTAMENTE NENHUMA HIPÓTESE, MUITO MENOS DAR DOCKER RM, sob pena de tiro no cu, pq é o que está sendo usado.**
+>
+> **localhost:22000 é o server de TESTES, qualquer coisa que modificar aqui tem que subir lá e SOMENTE LÁ.**
+>
+> **A conexão do user passa pelo 21000 e se vc mexer nele vai interromper a sessão no meio por isso, então não mexa.**
+>
+> **Desrespeitar essa regra => user vai BANIR o modelo desse workspace permanentemente.**
+
+---
+
 # omniroute — Agent Guidelines
 
-> **Workspace**: Você está trabalhando em `~/working/behemoth/diegosouzapw-omniroute/`. **Proibido visitar, ler, ou modificar arquivos fora deste workspace** a menos que explicitamente autorizado pelo usuário. Isso inclui `~/working/ganthritor/`, `~/.config/opencode/`, e qualquer outro diretório.
+> **Workspace**: Você está trabalhando em `~/working/ganthritor/omniroute-2/`. **Proibido visitar, ler, ou modificar arquivos fora deste workspace** a menos que explicitamente autorizado pelo usuário. Isso inclui `~/working/ganthritor/`, `~/.config/opencode/`, e qualquer outro diretório.
 
 ## Project
 
@@ -54,6 +66,33 @@ codebase. Run it locally before pushing docs; it runs in CI via `npm run check:d
 - **i18n**: next-intl with 42 locales (`src/i18n/messages/`) — refresh with `ls src/i18n/messages/*.json | wc -l`
 - **Desktop**: Electron (cross-platform: Windows, macOS, Linux)
 - **Schemas**: Zod v4 for all API / MCP input validation
+
+---
+
+## Dev Port Convention (RAM-safe workflow)
+
+> **The dev server (`npm run dev`) is RAM-hungry** — Turbopack holds the full module graph (236 providers, 94 MCP tools, ~184 service modules) in memory and frequently pushes past 8 GB. On a shared host running other builds (Go / Rust / Flutter / Electron, multiple opencode instances, Chromium, etc.) it OOMs the V8 heap and `segfault` crashes the process.
+>
+> **Rule of thumb before starting the dev server:**
+> ```bash
+> free -h | awk '/^Mem:/ { print "  free:    " $4 "\n  used:    " $3 "\n  avail:   " $7 }'
+> # Need at least ~10 GB "available" before `npm run dev` is safe to launch
+> ```
+
+| Port  | Mode   | How to run                                                                                  | When to use                                                                                            |
+| ----- | ------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 21000 | **prod** (stable) | `npm run build && PORT=21000 npm run start`                                                  | Default runtime. Serves from `.build/next/standalone/` (≈150–250 MB RSS). **Always use this when you just want the app running** — coexists peacefully with other workloads. |
+| 22000 | **dev** (RAM-expensive) | `PORT=22000 npm run dev`                                                                     | Only when actively editing code and need HMR. Turbopack dev server can hit 8 GB+ RSS. Pre-flight RAM check before launching. |
+
+**When to rebuild prod (`npm run build`):**
+
+- When an epic / vertical slice closes (not after every task).
+- A full prod build takes ~6–10 min and peaks at ~6–7 GB RSS — schedule it when no other heavy build is running.
+- After a theme migration or major refactor, rebuild once and re-validate on `21000` (prod) rather than spinning up `22000` (dev).
+
+**Kill zombies before launching**: if a previous `next-server` or `run-standalone.mjs` is still in the process table without a listening port, kill it — they accumulate RSS and starve the next dev start.
+
+**The "build:secure" profile** (`OMNIROUTE_BUILD_PROFILE=minimal npm run build`) skips the standalone assembly — useful when you want a quick build to validate compile-ability without spending time on `dist/standalone` packaging.
 
 ---
 

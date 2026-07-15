@@ -113,22 +113,35 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
               subgroupLabel,
             }));
         }
-        const item = child as SidebarItemDefinition;
-        if (hiddenItems.has(item.id)) return [];
+        if (hiddenItems.has(child.id)) return [];
         return [
           {
-            id: item.id,
-            href: item.href,
-            icon: item.icon,
-            label: safeTranslate(item.i18nKey, item.id),
-            subtitle: item.subtitleKey ? safeTranslate(item.subtitleKey, "") : undefined,
-            external: item.external ?? false,
+            id: child.id,
+            href: child.href,
+            icon: child.icon,
+            label: safeTranslate(child.i18nKey, child.id),
+            subtitle: child.subtitleKey ? safeTranslate(child.subtitleKey, "") : undefined,
+            external: child.external ?? false,
             sectionId: section.id,
             sectionLabel,
           },
         ];
       });
     });
+
+    // Observe / health destinations not primary leaves (Task 0061).
+    const observeHubExtras: PaletteItem[] = [
+      {
+        id: "health",
+        href: "/dashboard/health",
+        icon: "health_and_safety",
+        label: safeTranslate("health", "Health"),
+        subtitle: safeTranslate("healthSubtitle", "System health, breakers, and rate limits"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+    ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
 
     // Flat chrome: Routing hub destinations not primary leaves (Task 0025 F2).
     const routingHubExtras: PaletteItem[] = [
@@ -154,7 +167,162 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
     ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
 
-    return [...sectionItems, ...routingHubExtras];
+    // Operations hub destinations not primary leaves (Task 0059).
+    const operationsHubExtras: PaletteItem[] = [
+      {
+        id: "api-manager",
+        href: "/dashboard/api-manager",
+        icon: "key",
+        label: safeTranslate("apiKeysNav", "API Keys"),
+        subtitle: safeTranslate("apiManagerSubtitle", "Access · tokens · security"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "endpoints",
+        href: "/dashboard/endpoint",
+        icon: "api",
+        label: safeTranslate("endpoints", "Endpoints"),
+        subtitle: safeTranslate("endpointsSubtitle", "Proxy endpoints and protocols"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "mcp",
+        href: "/dashboard/mcp",
+        icon: "hub",
+        label: safeTranslate("mcp", "MCP Server"),
+        subtitle: safeTranslate("mcpSubtitle", "Model Context Protocol"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "a2a",
+        href: "/dashboard/a2a",
+        icon: "device_hub",
+        label: safeTranslate("a2a", "A2A Server"),
+        subtitle: safeTranslate("a2aSubtitle", "Agent-to-Agent protocol"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "cli-code",
+        href: "/dashboard/cli-code",
+        icon: "terminal",
+        label: safeTranslate("cliCode", "CLI Code"),
+        subtitle: safeTranslate("cliCodeSubtitle", "Code CLI tools"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "webhooks",
+        href: "/dashboard/webhooks",
+        icon: "webhook",
+        label: safeTranslate("webhooks", "Webhooks"),
+        subtitle: safeTranslate("webhooksSubtitle", "Event subscriptions"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+    ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
+
+    // Testing hub + destinations not primary leaves (Task 0060).
+    // Always surfaces playground/translator/search-tools without requiring debug mode.
+    const testingHubExtras: PaletteItem[] = [
+      {
+        id: "testing",
+        href: "/dashboard/testing",
+        icon: "science",
+        label: safeTranslate("testingNav", "Testing"),
+        subtitle: safeTranslate("testingSubtitle", "Labs · batch · media · plugins"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "playground",
+        href: "/dashboard/playground",
+        icon: "science",
+        label: safeTranslate("playground", "Playground"),
+        subtitle: safeTranslate("playgroundSubtitle", "Interactive chat lab"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "translator",
+        href: "/dashboard/translator",
+        icon: "translate",
+        label: safeTranslate("translator", "Translator"),
+        subtitle: safeTranslate("translatorSubtitle", "Format translation inspector"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "search-tools",
+        href: "/dashboard/search-tools",
+        icon: "manage_search",
+        label: safeTranslate("searchTools", "Search Tools"),
+        subtitle: safeTranslate("searchToolsSubtitle", "Web search tool exercise"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "batch",
+        href: "/dashboard/batch",
+        icon: "view_list",
+        label: safeTranslate("batch", "Batch"),
+        subtitle: safeTranslate("batchSubtitle", "Provider batch jobs"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "batch-files",
+        href: "/dashboard/batch/files",
+        icon: "folder",
+        label: safeTranslate("batchFiles", "Batch Files"),
+        subtitle: safeTranslate("batchFilesSubtitle", "Batch input files"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "media",
+        href: "/dashboard/cache/media",
+        icon: "perm_media",
+        label: safeTranslate("media", "Media Cache"),
+        subtitle: safeTranslate("mediaSubtitle", "Cached media assets"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "plugins",
+        href: "/dashboard/plugins",
+        icon: "extension",
+        label: safeTranslate("plugins", "Plugins"),
+        subtitle: safeTranslate("pluginsSubtitle", "Dashboard plugins"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+    ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
+
+    return [
+      ...sectionItems,
+      ...observeHubExtras,
+      ...routingHubExtras,
+      ...operationsHubExtras,
+      ...testingHubExtras,
+    ];
   }, [hiddenItems, safeTranslate]);
 
   const filtered = useMemo(() => {

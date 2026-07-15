@@ -95,7 +95,7 @@ function PatternTagInput({
         {values.map((pattern) => (
           <span
             key={pattern}
-            className="inline-flex items-center gap-1 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] px-2 py-0.5 text-[11px] text-text-main"
+            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/[0.03] dark:bg-white/[0.04] px-2 py-0.5 text-[11px] text-text-main"
           >
             {pattern}
             <button
@@ -121,7 +121,7 @@ function PatternTagInput({
               add();
             }
           }}
-          className="flex-1 text-xs py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+          className="flex-1 text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
         />
         <Button type="button" variant="secondary" size="sm" onClick={add}>
           Add
@@ -523,7 +523,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
               value={form.name}
               onChange={(e) => updateForm({ name: e.target.value })}
               placeholder={tx(t, "comboNamePlaceholder", "my-fusion")}
-              className="w-full text-sm py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+              className="w-full text-sm py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
               data-testid="fusion-name"
             />
           </div>
@@ -536,7 +536,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
               value={form.description}
               onChange={(e) => updateForm({ description: e.target.value })}
               placeholder={tx(t, "comboDescriptionPlaceholder", "Optional")}
-              className="w-full text-sm py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+              className="w-full text-sm py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
             />
           </div>
         </div>
@@ -596,7 +596,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
         </div>
 
         {form.panels.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-black/10 dark:border-white/10 px-4 py-6 text-center text-sm text-text-muted">
+          <div className="rounded-lg border border-dashed border-white/10 px-4 py-6 text-center text-sm text-text-muted">
             No panels yet. Add a model or combo reference.
           </div>
         ) : (
@@ -720,7 +720,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
                   className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                     selected
                       ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"
-                      : "border-black/10 dark:border-white/10 text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
+                      : "border-white/10 text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
                   {opt.label}
@@ -779,7 +779,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
             <select
               value={form.fallbackStrategy}
               onChange={(e) => updateForm({ fallbackStrategy: e.target.value })}
-              className="w-full max-w-md text-xs py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+              className="w-full max-w-md text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
             >
               {FALLBACK_STRATEGY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -817,7 +817,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
               onChange={(e) =>
                 updateForm({ tuning: { ...form.tuning, minPanel: e.target.value } })
               }
-              className="w-full text-xs py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+              className="w-full text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
             />
             <p className="text-[10px] text-text-muted">
               {tx(
@@ -842,7 +842,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
                   tuning: { ...form.tuning, stragglerGraceMs: e.target.value },
                 })
               }
-              className="w-full text-xs py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+              className="w-full text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
             />
             <p className="text-[10px] text-text-muted">
               {tx(
@@ -867,7 +867,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
                   tuning: { ...form.tuning, panelHardTimeoutMs: e.target.value },
                 })
               }
-              className="w-full text-xs py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+              className="w-full text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
             />
             <p className="text-[10px] text-text-muted">
               {tx(

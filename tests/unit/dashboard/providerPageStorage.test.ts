@@ -60,18 +60,26 @@ test("parseConfiguredOnlyPreference returns false for empty string", () => {
 });
 
 // ---------------------------------------------------------------------------
-// parseProviderDisplayModePreference
+// parseProviderDisplayModePreference — grid/list + legacy migration
 // ---------------------------------------------------------------------------
-test("parseProviderDisplayModePreference returns 'all' for 'all'", () => {
-  assert.equal(parseProviderDisplayModePreference("all"), "all");
+test("parseProviderDisplayModePreference returns 'grid' for 'grid'", () => {
+  assert.equal(parseProviderDisplayModePreference("grid"), "grid");
 });
 
-test("parseProviderDisplayModePreference returns 'configured' for 'configured'", () => {
-  assert.equal(parseProviderDisplayModePreference("configured"), "configured");
+test("parseProviderDisplayModePreference returns 'list' for 'list'", () => {
+  assert.equal(parseProviderDisplayModePreference("list"), "list");
 });
 
-test("parseProviderDisplayModePreference returns 'compact' for 'compact'", () => {
-  assert.equal(parseProviderDisplayModePreference("compact"), "compact");
+test("parseProviderDisplayModePreference migrates 'all' → 'grid'", () => {
+  assert.equal(parseProviderDisplayModePreference("all"), "grid");
+});
+
+test("parseProviderDisplayModePreference migrates 'configured' → 'grid'", () => {
+  assert.equal(parseProviderDisplayModePreference("configured"), "grid");
+});
+
+test("parseProviderDisplayModePreference migrates 'compact' → 'list'", () => {
+  assert.equal(parseProviderDisplayModePreference("compact"), "list");
 });
 
 test("parseProviderDisplayModePreference returns null for invalid value", () => {
@@ -128,82 +136,116 @@ test("writeConfiguredOnlyPreference removes key when disabled", () => {
 // ---------------------------------------------------------------------------
 // readProviderDisplayModePreference (the main function used by the page)
 // ---------------------------------------------------------------------------
-test("readProviderDisplayModePreference returns 'all' when storage is null", () => {
-  assert.equal(readProviderDisplayModePreference(null), "all");
+test("readProviderDisplayModePreference returns 'grid' when storage is null", () => {
+  assert.equal(readProviderDisplayModePreference(null), "grid");
 });
 
-test("readProviderDisplayModePreference reads stored display mode", () => {
+test("readProviderDisplayModePreference reads stored grid mode", () => {
   const storage = makeMockStorage();
-  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "configured");
-  assert.equal(readProviderDisplayModePreference(storage), "configured");
+  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "grid");
+  assert.equal(readProviderDisplayModePreference(storage), "grid");
 });
 
-test("readProviderDisplayModePreference reads 'compact' mode", () => {
+test("readProviderDisplayModePreference reads stored list mode", () => {
   const storage = makeMockStorage();
-  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "compact");
-  assert.equal(readProviderDisplayModePreference(storage), "compact");
+  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "list");
+  assert.equal(readProviderDisplayModePreference(storage), "list");
 });
 
-test("readProviderDisplayModePreference returns 'all' when no preference stored", () => {
+test("readProviderDisplayModePreference returns 'grid' when no preference stored", () => {
   const storage = makeMockStorage();
-  assert.equal(readProviderDisplayModePreference(storage), "all");
+  assert.equal(readProviderDisplayModePreference(storage), "grid");
 });
 
-test("readProviderDisplayModePreference migrates from old configured-only key", () => {
+test("readProviderDisplayModePreference migrates from old configured-only key to grid", () => {
   const storage = makeMockStorage();
   // Old key set but new key missing
   storage.setItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY, "true");
   assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), null);
 
-  // Should migrate: return "configured" AND write the new key
+  // Configured is now a filter chip — display mode defaults to grid,
+  // but the old filter intent is preserved on the independent key.
   const result = readProviderDisplayModePreference(storage);
-  assert.equal(result, "configured");
-  assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), "configured");
-  assert.equal(storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY), null);
+  assert.equal(result, "grid");
+  assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), "grid");
+  assert.equal(
+    storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY),
+    "true",
+    "old configured-only intent must survive migration as an independent filter"
+  );
 });
 
-test("readProviderDisplayModePreference prefers new display mode key over old key", () => {
+test("readProviderDisplayModePreference with legacy 'configured' display mode preserves filter intent", () => {
+  const storage = makeMockStorage();
+  // A browser that still has the old display mode stored as "configured".
+  // Before the task this presented "Configured" as a UI segment.
+  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "configured");
+  assert.equal(storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY), null);
+
+  const result = readProviderDisplayModePreference(storage);
+  assert.equal(result, "grid", 'legacy "configured" display mode → grid');
+  assert.equal(
+    storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY),
+    "grid",
+    "migrated value must persist"
+  );
+  assert.equal(
+    storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY),
+    "true",
+    "configured-only filter must be enabled to preserve old intent"
+  );
+});
+
+test("readProviderDisplayModePreference migrates legacy compact → list", () => {
   const storage = makeMockStorage();
   storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "compact");
-  storage.setItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY, "true");
+  assert.equal(readProviderDisplayModePreference(storage), "list");
+});
 
-  // New key takes precedence — no migration
-  assert.equal(readProviderDisplayModePreference(storage), "compact");
-  assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), "compact");
-  assert.equal(storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY), "true");
+test("readProviderDisplayModePreference migrates legacy all → grid", () => {
+  const storage = makeMockStorage();
+  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "all");
+  assert.equal(readProviderDisplayModePreference(storage), "grid");
+});
+
+test("readProviderDisplayModePreference migrates legacy configured → grid", () => {
+  const storage = makeMockStorage();
+  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "configured");
+  assert.equal(readProviderDisplayModePreference(storage), "grid");
 });
 
 // ---------------------------------------------------------------------------
 // writeProviderDisplayModePreference
 // ---------------------------------------------------------------------------
 test("writeProviderDisplayModePreference does nothing when storage is null", () => {
-  writeProviderDisplayModePreference("configured", null);
+  writeProviderDisplayModePreference("list", null);
 });
 
-test("writeProviderDisplayModePreference stores 'configured' and cleans old key", () => {
+test("writeProviderDisplayModePreference stores 'list' and preserves configured-only filter", () => {
   const storage = makeMockStorage();
   storage.setItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY, "true");
 
-  writeProviderDisplayModePreference("configured", storage);
-  assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), "configured");
-  assert.equal(storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY), null);
+  writeProviderDisplayModePreference("list", storage);
+  assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), "list");
+  assert.equal(
+    storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY),
+    "true",
+    "configured-only filter intent must survive display-mode writes"
+  );
 });
 
-test("writeProviderDisplayModePreference stores 'compact' and cleans old key", () => {
+test("writeProviderDisplayModePreference with 'grid' removes the mode key but preserves the configured-only filter", () => {
   const storage = makeMockStorage();
-  writeProviderDisplayModePreference("compact", storage);
-  assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), "compact");
-  assert.equal(storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY), null);
-});
-
-test("writeProviderDisplayModePreference with 'all' removes all keys", () => {
-  const storage = makeMockStorage();
-  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "configured");
+  storage.setItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "list");
   storage.setItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY, "true");
 
-  writeProviderDisplayModePreference("all", storage);
+  writeProviderDisplayModePreference("grid", storage);
   assert.equal(storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY), null);
-  assert.equal(storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY), null);
+  assert.equal(
+    storage.getItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY),
+    "true",
+    "configured-only filter must be independently persisted"
+  );
 });
 
 // ---------------------------------------------------------------------------

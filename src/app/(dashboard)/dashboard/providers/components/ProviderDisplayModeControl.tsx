@@ -25,14 +25,12 @@ function providerText(
 }
 
 interface ProviderDisplayModeControlProps {
-  disabledConfigured: boolean;
   mode: ProviderDisplayMode;
   onChange(mode: ProviderDisplayMode): void;
   t: ProviderMessageTranslator;
 }
 
 export default function ProviderDisplayModeControl({
-  disabledConfigured,
   mode,
   onChange,
   t,
@@ -45,34 +43,23 @@ export default function ProviderDisplayModeControl({
     title: string;
   }> = [
     {
-      mode: "all",
-      label: providerText(t, "providerDisplayModeAll", "All"),
+      mode: "grid",
+      label: providerText(t, "providerDisplayModeGrid", "Grid"),
       icon: "view_module",
       title: providerText(
         t,
-        "providerDisplayModeAllDesc",
-        "Show every provider in grouped sections."
+        "providerDisplayModeGridDesc",
+        "Show every provider in grouped sections as cards."
       ),
     },
     {
-      mode: "configured",
-      label: providerText(t, "providerDisplayModeConfigured", "Configured"),
-      icon: "check_circle",
-      disabled: disabledConfigured,
-      title: providerText(
-        t,
-        "providerDisplayModeConfiguredDesc",
-        "Show providers with saved connections."
-      ),
-    },
-    {
-      mode: "compact",
-      label: providerText(t, "providerDisplayModeCompact", "Compact"),
+      mode: "list",
+      label: providerText(t, "providerDisplayModeList", "List"),
       icon: "view_agenda",
       title: providerText(
         t,
-        "providerDisplayModeCompactDesc",
-        "Show configured and no-auth providers once in a single flat list."
+        "providerDisplayModeListDesc",
+        "Show one provider per row in a compact list."
       ),
     },
   ];

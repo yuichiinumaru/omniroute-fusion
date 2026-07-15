@@ -18,7 +18,6 @@ export { default as DeployRelayModal } from "./DeployRelayModal";
 export type { DeployRelayModalProps } from "./DeployRelayModal";
 export { SettingsFieldRow, SettingsTextField } from "./settings";
 export type { SettingsFieldRowProps, SettingsTextFieldProps } from "./settings";
-export { default as ThemeToggle } from "./ThemeToggle";
 export { ThemeProvider } from "./ThemeProvider";
 export { default as Sidebar } from "./Sidebar";
 export { default as Header } from "./Header";

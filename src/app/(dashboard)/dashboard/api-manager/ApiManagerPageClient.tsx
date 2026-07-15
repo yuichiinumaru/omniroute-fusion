@@ -2353,7 +2353,7 @@ const PermissionsModal = memo(function PermissionsModal({
                                 key={family.id}
                                 className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded border ${
                                   canBlock
-                                    ? "bg-white dark:bg-surface text-text-main border-border"
+                                    ? "bg-surface text-text-main border-border"
                                     : "bg-black/5 dark:bg-white/5 text-text-muted border-border"
                                 }`}
                                 title={
@@ -2391,7 +2391,7 @@ const PermissionsModal = memo(function PermissionsModal({
                 return (
                   <span
                     key={modelId}
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white dark:bg-surface text-text-main text-[10px] rounded border border-border"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-surface text-text-main text-[10px] rounded border border-border"
                   >
                     <span className="font-mono truncate max-w-[120px]" title={modelId}>
                       {getModelDisplayName(modelId)}

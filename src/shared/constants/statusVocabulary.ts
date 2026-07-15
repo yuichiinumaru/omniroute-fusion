@@ -39,14 +39,12 @@ export type StatusVocabularyEntry = Readonly<{
   glow: StatusGlow;
 }>;
 
-const GLOW_SOFT_SUCCESS =
-  "shadow-[0_0_8px_color-mix(in_srgb,var(--color-success)_35%,transparent)]";
-const GLOW_SOFT_WARNING =
-  "shadow-[0_0_8px_color-mix(in_srgb,var(--color-warning)_40%,transparent)]";
-const GLOW_SOFT_DANGER =
-  "shadow-[0_0_8px_color-mix(in_srgb,var(--color-error)_40%,transparent)]";
-const GLOW_SOFT_INFO =
-  "shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_35%,transparent)]";
+/** Soft glow utility classes — defined as proper CSS in globals.css to avoid
+ * Tailwind v4 arbitrary value parsing issues with var() containing hyphens. */
+const GLOW_SOFT_SUCCESS = "status-glow-success";
+const GLOW_SOFT_WARNING = "status-glow-warning";
+const GLOW_SOFT_DANGER = "status-glow-danger";
+const GLOW_SOFT_INFO = "status-glow-info";
 
 /**
  * Canonical status ids → visual contract.
@@ -102,9 +100,9 @@ export const STATUS_VOCABULARY: Readonly<Record<string, StatusVocabularyEntry>> 
     label: "Info",
     tone: "info",
     badgeVariant: "info",
-    textClass: "text-blue-600 dark:text-blue-400",
-    borderClass: "border-blue-500/20",
-    bgClass: "bg-blue-500/10",
+    textClass: "text-primary",
+    borderClass: "border-primary/20",
+    bgClass: "bg-primary/10",
     glowClass: "",
     glow: "none",
   },
@@ -169,9 +167,9 @@ export const STATUS_VOCABULARY: Readonly<Record<string, StatusVocabularyEntry>> 
     label: "Active",
     tone: "info",
     badgeVariant: "info",
-    textClass: "text-blue-600 dark:text-blue-400",
-    borderClass: "border-blue-500/20",
-    bgClass: "bg-blue-500/10",
+    textClass: "text-primary",
+    borderClass: "border-primary/20",
+    bgClass: "bg-primary/10",
     glowClass: GLOW_SOFT_INFO,
     glow: "soft",
   },
@@ -282,5 +280,5 @@ export const STATUS_TONE_ACCENT_CLASS: Readonly<Record<StatusTone, string>> = {
   warning: "bg-amber-500",
   danger: "bg-red-500",
   neutral: "bg-gray-400 dark:bg-gray-600",
-  info: "bg-blue-500",
+  info: "bg-primary",
 };

@@ -185,7 +185,13 @@ Even after P0 gates, residual raw errors and public recon endpoints keep Hard Ru
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
+- **Reviewer**: reviewers (Code Quality Reviewer / independent) — 2026-07-11
+- **Veredito**: PASS WITH NOTES (hold-in-review; S≥90)
+- **Score**: 92/100
 - **Notas**:
+  - Core exits closed: helper sanitize (F-07-014), public health allowlist (F-07-009), ping PUBLIC_READONLY (F-07-010), MCP wrapper sanitize (F-04-W2-004), A2A fail-closed + sanitize (F-07-011 / F-06-008).
+  - Fresh tests: 156 pass / 0 fail on claimed suites.
+  - N1 (Medium residual): full health dump via any valid client API key because route is PUBLIC → non-management `verifyAuth` path; unauth still correct. Path-to-100: require manage-scope or dashboard session for full snapshot.
+  - N2/N3 accepted residual: 13 raw route sites + sanitizer false-positive on `at /v1/...`.
+  - Report: `docs/reports/reviews/2026-07-11-task-0051-residual-authz-sanitize-review.md`
+  - Lane: stay `03-review/` (not moved to `02-doing/` or `04-completed/`).

@@ -13,6 +13,8 @@ import { providerHasServiceKind } from "@/lib/providers/serviceKindIndex";
 import { compareTr, matchesSearch } from "@/shared/utils/turkishText";
 import type { ProviderDisplayMode } from "./providerPageStorage";
 
+export type ProviderSortMode = "az" | "accounts";
+
 export interface ProviderStatsSnapshot {
   total?: number;
   [key: string]: unknown;
@@ -51,6 +53,11 @@ export function shouldFilterProviderEntriesForDisplayMode(
   displayMode: ProviderDisplayMode,
   connectionCount: number
 ): boolean {
+  // Grid/List are view modes — filtering is handled by showConfiguredOnly
+  // and showFreeOnly flags directly, not the display mode.
+  // The legacy "configured" and "compact" values are migrated to "grid"/"list".
+  if (displayMode === "grid") return false;
+  if (displayMode === "list") return false;
   if (displayMode === "compact") return true;
 
   return shouldApplyConfiguredOnlyFilter(displayMode === "configured", connectionCount);
@@ -83,6 +90,19 @@ export function sortProviderEntriesByName<TProvider>(
     const nameCompare = compareTr(getProviderSortLabel(a), getProviderSortLabel(b));
     if (nameCompare !== 0) return nameCompare;
     return a.providerId.localeCompare(b.providerId); // teknik sıralama: ASCII kasıtlı
+  });
+}
+
+export function sortProviderEntriesByAccounts<TProvider>(
+  entries: ProviderEntry<TProvider>[]
+): ProviderEntry<TProvider>[] {
+  return [...entries].sort((a, b) => {
+    const accountsCompare =
+      (Number(b.stats?.total || 0) as number) - (Number(a.stats?.total || 0) as number);
+    if (accountsCompare !== 0) return accountsCompare;
+    const nameCompare = compareTr(getProviderSortLabel(a), getProviderSortLabel(b));
+    if (nameCompare !== 0) return nameCompare;
+    return a.providerId.localeCompare(b.providerId);
   });
 }
 
@@ -178,7 +198,8 @@ export function filterConfiguredProviderEntries<TProvider>(
   searchQuery?: string,
   showFreeOnly?: boolean,
   modelSearchQuery?: string,
-  serviceKindFilter?: string | null
+  serviceKindFilter?: string | null,
+  sortMode: ProviderSortMode = "az"
 ): ProviderEntry<TProvider>[] {
   let filtered = entries;
 
@@ -225,6 +246,8 @@ export function filterConfiguredProviderEntries<TProvider>(
       return models.some((m) => matchesSearch(m.id, q) || matchesSearch(m.name, q));
     });
   }
+
+  if (sortMode === "accounts") return sortProviderEntriesByAccounts(filtered);
 
   return sortProviderEntriesByName(filtered);
 }

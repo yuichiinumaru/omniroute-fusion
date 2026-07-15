@@ -211,36 +211,36 @@ Operators need clearer health/status density; full neon redesign would fight Omn
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `93/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0028-frontend-ia-theme-micro-adoption-review.md`
+- **Score**: `98/100`
+- **Verdict**: `PASS WITH NOTES`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0028-frontend-ia-theme-micro-adoption-review.md`
 - **Lane outcome**: remains in `03-review/` (S ≥ 90 — not returned to doing; not promoted to completed)
 - **Task reference**: Task 0028 (`frontend-ia-theme-micro-adoption`); resolve current path from `docs/tasks/tasklist.md` or search under `docs/tasks/`
 
 #### Current Open Blockers
 
 - none blocking (score ≥ 90)
-- `NEW` Low: `--status-glow-*` CSS tokens defined light+dark but unused (`statusGlowClass` uses color-mix on `--color-*`)
-- `NEW` Info: Badge warning uses yellow vs vocab amber dual-track
-- `NEW` Low: no Badge component unit test for `status`/`glow` props
+- `NEW` Info OOS: full `typecheck:core` red on unrelated uncommitted fusion combo WIP (`runtimeUnits.ts` connectionId) — not Task 0028 surfaces
+- `NOTE` Info residual: `ProviderHealthMatrixCard` ModelPill degraded still yellow (Badge/vocab amber track closed)
 
 #### Path-to-100 Summary
 
-- wire glow utilities to `--status-glow-*` **or** remove dead tokens and document color-mix-only
-- align warning chroma (yellow vs amber)
-- add `badge-status` component tests
+- prior F1–F3 closed this re-review (glow CSS vars wired; Badge amber; badge-status tests)
+- residual: clean workspace typecheck:core; optional ModelPill amber polish
 
 #### Regression Guards
 
 - `DEFAULT_COLOR_THEME` / store default must remain **`coral`**; `coreCyan` stays optional Appearance-only
 - Existing `COLOR_THEMES.cyan` (`#06b6d4`) must not be overwritten by core cyan
 - Soft glow must remain limited to health/breaker surfaces (TokenHealthBadge, DegradationBadge, CB badges)
+- Glow utilities must keep referencing dual light/dark `--status-glow-*` tokens
 - StatCard `accent` default **`none`** (backward compatible)
 - No Orbitron / scanlines / Prism / `visual-reference` production imports under `src/`
 - Dual light+dark pairs for any new CSS variables
+- Badge `warning` chroma stays **amber** (aligned with statusVocabulary)
 
 ### Previous Reports
 
-- none (initial independent review 2026-07-10)
+- `docs/reports/reviews/2026-07-10-task-0028-frontend-ia-theme-micro-adoption-review.md` (93/100, path-to-100 F1–F3)

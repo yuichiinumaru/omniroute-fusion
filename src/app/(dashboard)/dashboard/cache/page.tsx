@@ -65,8 +65,6 @@ interface CacheStats {
   config?: CacheConfig;
 }
 
-type CacheView = "prompt" | "semantic" | "reasoning";
-
 function StatCard({
   icon,
   label,
@@ -357,7 +355,6 @@ export default function CachePage() {
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
-  const [activeView, setActiveView] = useState<CacheView>("prompt");
 
   const fetchStats = useCallback(async () => {
     try {
@@ -443,45 +440,6 @@ export default function CachePage() {
         </Button>
       </div>
 
-      <div className="flex w-fit gap-1 rounded-lg bg-black/5 p-1 dark:bg-white/5">
-        <button
-          type="button"
-          onClick={() => setActiveView("prompt")}
-          aria-pressed={activeView === "prompt"}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeView === "prompt"
-              ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-              : "text-text-muted hover:text-text-main"
-          }`}
-        >
-          {t("promptCache")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveView("semantic")}
-          aria-pressed={activeView === "semantic"}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeView === "semantic"
-              ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-              : "text-text-muted hover:text-text-main"
-          }`}
-        >
-          {t("semanticCache")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveView("reasoning")}
-          aria-pressed={activeView === "reasoning"}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeView === "reasoning"
-              ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-              : "text-text-muted hover:text-text-main"
-          }`}
-        >
-          {t("reasoningCache")}
-        </button>
-      </div>
-
       {loading && (
         <div className="grid grid-cols-1 gap-6" aria-busy="true" aria-label={t("loadingCacheAria")}>
           <div className="h-96 rounded-3xl bg-surface-raised animate-pulse" />
@@ -498,7 +456,7 @@ export default function CachePage() {
         />
       )}
 
-      {!loading && stats && activeView === "prompt" && (
+      {!loading && stats && (
         <Card>
           <div className="flex flex-col gap-6 p-5 md:p-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -666,7 +624,7 @@ export default function CachePage() {
         </Card>
       )}
 
-      {!loading && stats && activeView === "semantic" && (
+      {!loading && stats && (
         <Card>
           <div className="flex flex-col gap-6 p-5 md:p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -832,7 +790,8 @@ export default function CachePage() {
         </Card>
       )}
 
-      {activeView === "reasoning" && (
+      {/* Reasoning Replay — always visible when not loading */}
+      {!loading && (
         <Card className="border border-border/30 bg-surface-raised/40 backdrop-blur-sm rounded-3xl overflow-hidden">
           <div className="p-6">
             <ReasoningCacheTab />

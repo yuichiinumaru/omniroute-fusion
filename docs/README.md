@@ -28,7 +28,7 @@ Simple guides for using OmniRoute — no technical background needed.
 
 - [SETUP_GUIDE.md](guides/SETUP_GUIDE.md) — first-time setup of OmniRoute.
 - [USER_GUIDE.md](guides/USER_GUIDE.md) — daily usage of the dashboard and API.
-- [UI.md](guides/UI.md) — dashboard IA (7 pillars, no-new-leaf guardrail, shared primitives).
+- [UI.md](guides/UI.md) — dashboard IA (flat ≤10 hubs, conceptual 7 pillars, no-new-leaf, shared primitives).
 - [FEATURES.md](guides/FEATURES.md) — dashboard feature gallery.
 - [TIERS.md](guides/TIERS.md) — OmniRoute tiers explained (user guide).
 - [USAGE_QUOTA_GUIDE.md](guides/USAGE_QUOTA_GUIDE.md) — usage, quota & spend tracking.
@@ -63,7 +63,7 @@ How the system is put together — read these to understand the runtime, code la
 - [AUTHZ_GUIDE.md](architecture/AUTHZ_GUIDE.md) — authorization pipeline (route classifier + policy engine).
 - [RESILIENCE_GUIDE.md](architecture/RESILIENCE_GUIDE.md) — provider circuit breaker, connection cooldown, and model lockout.
 - [QUALITY_GATES.md](architecture/QUALITY_GATES.md) — quality-gate scripts and CI jobs inventory.
-- [MONITORING_SECTIONS.md](architecture/MONITORING_SECTIONS.md) — monitoring/costs dashboard navigation.
+- [MONITORING_SECTIONS.md](architecture/MONITORING_SECTIONS.md) — **historical** pre–Epic 0005 Monitoring/Costs nav (live: UI.md + `observeHub.ts`).
 - [cluster-decisions.md](architecture/cluster-decisions.md) — optional sidecar/cluster profile decisions.
 
 ## reference/

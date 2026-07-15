@@ -148,12 +148,12 @@ export default function PluginsPage() {
       </div>
 
       {activeTab === "marketplace" && (
-        <Card className="p-4 flex gap-4 items-end bg-gray-50">
+        <Card className="p-4 flex gap-4 items-end">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("marketplaceUrlLabel")}</label>
+            <label className="block text-sm font-medium text-text-main mb-1">{t("marketplaceUrlLabel")}</label>
             <input
               type="text"
-              className="w-full rounded border-gray-300 p-2"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-text-main placeholder:text-text-muted/60 focus:ring-1 focus:ring-accent/30 focus:border-accent/50 focus:outline-none transition-all"
               placeholder={t("marketplaceUrlPlaceholder")}
               value={marketplaceUrl}
               onChange={(e) => setMarketplaceUrl(e.target.value)}
@@ -184,7 +184,7 @@ export default function PluginsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold">{plugin.name}</h3>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-text-muted">
                         v{plugin.version}
                         {plugin.author ? ` by ${plugin.author}` : ""}
                         {plugin.description ? ` — ${plugin.description}` : ""}
@@ -193,7 +193,7 @@ export default function PluginsPage() {
                         {plugin.hooks.map((hook) => (
                           <span
                             key={hook}
-                            className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700"
+                            className="rounded bg-blue-500/10 dark:bg-blue-500/15 px-2 py-0.5 text-xs text-blue-600 dark:text-blue-300"
                           >
                             {hook}
                           </span>
@@ -223,7 +223,7 @@ export default function PluginsPage() {
       ) : (
         <div className="grid gap-4">
           {marketplacePlugins.length === 0 ? (
-             <div className="text-gray-500 py-4">{t("marketplaceEmpty")}</div>
+             <div className="text-text-muted py-4">{t("marketplaceEmpty")}</div>
           ) : (
             marketplacePlugins.map((plugin) => (
               <Card key={plugin.name} className="p-4">
@@ -233,12 +233,12 @@ export default function PluginsPage() {
                       {plugin.name}
                       {plugin.verified && <Badge variant="success">{t("verified")}</Badge>}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-text-muted">
                       v{plugin.version} by {plugin.author} — {plugin.description}
                     </p>
                     <div className="mt-1 flex gap-1">
                       {plugin.tags?.map((tag: string) => (
-                        <span key={tag} className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                        <span key={tag} className="rounded bg-slate-500/10 dark:bg-slate-500/15 px-2 py-0.5 text-xs text-slate-600 dark:text-slate-300">
                           {tag}
                         </span>
                       ))}

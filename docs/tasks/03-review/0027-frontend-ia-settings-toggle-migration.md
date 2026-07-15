@@ -217,26 +217,28 @@ Wave 1 shipped the primitive; without migration, clone tax and a11y drift remain
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
 - **Score**: `94/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0027-frontend-ia-settings-toggle-migration-review.md`
+- **Verdict**: `PASS WITH NOTES` / `HELD_IN_REVIEW_PATH_TO_100`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0027-frontend-ia-settings-toggle-migration-review.md`
 - **Lane outcome**: remains in `03-review/` (S ≥ 90 — not returned to doing; not promoted to completed)
-- **Task reference**: Task 0027 (`frontend-ia-settings-toggle-migration`); resolve current path from `docs/tasks/tasklist.md` or search under `docs/tasks/`
+- **Task reference**: Task 0027 (`frontend-ia-settings-toggle-migration`); path `docs/tasks/03-review/0027-frontend-ia-settings-toggle-migration.md`
 
 #### Current Open Blockers
 
 - none blocking (score ≥ 90)
-- `NEW` Low: `UsageLimitSettings` hardcodes EN labels; dead `enabledLabel`/`disabledLabel` BC props
-- `NEW` Low: behavioral suite mirrors create-key cluster pattern (static tests cover production source)
-- `NEW` Info: residual non-primary dashboard switches remain on documented allowlist
+- `PERSISTENT` Low: `UsageLimitSettings` hardcodes EN labels; dead `enabledLabel`/`disabledLabel` BC props
+- `PERSISTENT` Low: behavioral suite mirrors create-key cluster pattern (static tests cover production source)
+- `PERSISTENT` Info: residual non-primary dashboard switches remain on documented allowlist
+- `NEW` Info: monorepo `typecheck:core` fails on unrelated dirty `open-sse/services/combo/runtimeUnits.ts` (evidence drift — not toggle regression)
 
 #### Path-to-100 Summary
 
-- i18n `UsageLimitSettings` labels
+- i18n `UsageLimitSettings` labels (props or message keys); drop dead pill BC props
 - act-environment hygiene / keep static source assertions as SSoT
 - residual settings switches (`MemorySkillsTab`, etc.) → separate EXTEND task
+- re-run `typecheck:core` on clean tree before human promotion
 
 #### Regression Guards
 
@@ -247,4 +249,4 @@ Wave 1 shipped the primitive; without migration, clone tax and a11y drift remain
 
 ### Previous Reports
 
-- none (initial independent review 2026-07-10)
+- `docs/reports/reviews/2026-07-10-task-0027-frontend-ia-settings-toggle-migration-review.md` (score 94, initial independent review)

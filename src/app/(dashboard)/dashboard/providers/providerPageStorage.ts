@@ -1,7 +1,7 @@
 export const SHOW_CONFIGURED_ONLY_STORAGE_KEY = "omniroute-providers-show-configured-only";
 export const PROVIDER_DISPLAY_MODE_STORAGE_KEY = "omniroute-providers-display-mode";
 
-export type ProviderDisplayMode = "all" | "configured" | "compact";
+export type ProviderDisplayMode = "all" | "configured" | "compact" | "grid" | "list";
 
 interface StorageReader {
   getItem(key: string): string | null;
@@ -21,7 +21,14 @@ export function parseConfiguredOnlyPreference(value: string | null | undefined):
 export function parseProviderDisplayModePreference(
   value: string | null | undefined
 ): ProviderDisplayMode | null {
-  if (value === "all" || value === "configured" || value === "compact") return value;
+  // New canonical values
+  if (value === "grid" || value === "list") return value;
+
+  // Legacy migration: old "all" → "grid", old "configured" → "grid" (it is a filter now),
+  // old "compact" → "list"
+  if (value === "all") return "grid";
+  if (value === "configured") return "grid";
+  if (value === "compact") return "list";
 
   return null;
 }
@@ -57,18 +64,27 @@ export function writeConfiguredOnlyPreference(
 export function readProviderDisplayModePreference(
   storage: StorageReaderWriter | null = getBrowserStorage()
 ): ProviderDisplayMode {
-  if (!storage) return "all";
+  if (!storage) return "grid";
 
-  const storedMode = parseProviderDisplayModePreference(
-    storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY)
-  );
-  if (storedMode) return storedMode;
+  const rawMode = storage.getItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY);
+  const storedMode = parseProviderDisplayModePreference(rawMode);
+  if (storedMode) {
+    if (rawMode === "configured") {
+      storage.setItem?.(SHOW_CONFIGURED_ONLY_STORAGE_KEY, "true");
+    }
+    if (rawMode === "all" || rawMode === "configured") {
+      storage.setItem?.(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "grid");
+    }
+    if (rawMode === "compact") {
+      storage.setItem?.(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "list");
+    }
+    return storedMode;
+  }
 
-  if (!readConfiguredOnlyPreference(storage)) return "all";
+  if (!readConfiguredOnlyPreference(storage)) return "grid";
 
-  storage.setItem?.(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "configured");
-  storage.removeItem?.(SHOW_CONFIGURED_ONLY_STORAGE_KEY);
-  return "configured";
+  storage.setItem?.(PROVIDER_DISPLAY_MODE_STORAGE_KEY, "grid");
+  return "grid";
 }
 
 export function writeProviderDisplayModePreference(
@@ -77,9 +93,9 @@ export function writeProviderDisplayModePreference(
 ) {
   if (!storage) return;
 
-  storage.removeItem(SHOW_CONFIGURED_ONLY_STORAGE_KEY);
-
-  if (mode === "all") {
+  // NOTE: the configured-only key is owned by the independent "Configured"
+  // filter chip now — display-mode writes must not clear it.
+  if (mode === "grid") {
     storage.removeItem(PROVIDER_DISPLAY_MODE_STORAGE_KEY);
     return;
   }

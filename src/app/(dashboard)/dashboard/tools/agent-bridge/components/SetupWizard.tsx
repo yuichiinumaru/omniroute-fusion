@@ -98,7 +98,7 @@ export function SetupWizard({
               <div
                 className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium shrink-0 ${
                   i < stepIndex
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-emerald-700 text-white"
                     : i === stepIndex
                       ? "bg-primary text-white"
                       : "bg-surface text-text-muted border border-border/50"
@@ -268,7 +268,7 @@ export function SetupWizard({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 transition-colors"
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors"
               >
                 {t("done") || "Done"}
               </button>

@@ -2,6 +2,7 @@
 
 import { Button, Card, Input } from "@/shared/components";
 import type { ProviderDisplayMode } from "../providerPageStorage";
+import type { ProviderSortMode } from "../providerPageUtils";
 import { CategoryDot } from "./CategoryDot";
 import ProviderDisplayModeControl from "./ProviderDisplayModeControl";
 
@@ -40,12 +41,16 @@ interface ProviderSummaryCardProps {
   modelSearchQuery: string;
   onBatchTest(mode: string): void;
   onCategoryChange(category: string | null, freeOnly: boolean): void;
+  onConfiguredOnlyChange(enabled: boolean): void;
   onDisplayModeChange(mode: ProviderDisplayMode): void;
   onNewProvider(): void;
+  onSortModeChange(mode: ProviderSortMode): void;
   searchQuery: string;
   setModelSearchQuery(value: string): void;
   setSearchQuery(value: string): void;
+  showConfiguredOnly: boolean;
   showFreeOnly: boolean;
+  sortMode: ProviderSortMode;
   summaryStats: ProviderSummaryStats;
   t: ProviderMessageTranslator;
   tc: ProviderMessageTranslator;
@@ -94,12 +99,16 @@ export default function ProviderSummaryCard({
   modelSearchQuery,
   onBatchTest,
   onCategoryChange,
+  onConfiguredOnlyChange,
   onDisplayModeChange,
   onNewProvider,
+  onSortModeChange,
   searchQuery,
   setModelSearchQuery,
   setSearchQuery,
+  showConfiguredOnly,
   showFreeOnly,
+  sortMode,
   summaryStats,
   t,
   tc,
@@ -192,7 +201,6 @@ export default function ProviderSummaryCard({
             )}
           </div>
           <ProviderDisplayModeControl
-            disabledConfigured={disabledConfigured}
             mode={displayMode}
             onChange={onDisplayModeChange}
             t={t}
@@ -246,6 +254,53 @@ export default function ProviderSummaryCard({
               </button>
             );
           })}
+          {/* Configured-only filter chip (moved from display mode control) */}
+          <button
+            onClick={() => onConfiguredOnlyChange(!showConfiguredOnly)}
+            disabled={disabledConfigured}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+              disabledConfigured ? "cursor-not-allowed opacity-50" : ""
+            } ${
+              showConfiguredOnly
+                ? "bg-primary text-white border-primary"
+                : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
+            }`}
+            title={t("configuredLabel")}
+          >
+            <span className={`material-symbols-outlined text-[13px] ${showConfiguredOnly ? "" : ""}`}>
+              check_circle
+            </span>
+            <span>{providerText(t, "providerDisplayModeConfigured", "Configured")}</span>
+          </button>
+        </div>
+
+        {/* Sort row */}
+        <div className="border-t border-border pt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted mr-1">
+            {providerText(t, "sortBy", "Sort")}
+          </span>
+          <button
+            onClick={() => onSortModeChange("az")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+              sortMode === "az"
+                ? "bg-primary text-white border-primary"
+                : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[14px]">sort_by_alpha</span>
+            <span>{providerText(t, "sortAz", "A-Z")}</span>
+          </button>
+          <button
+            onClick={() => onSortModeChange("accounts")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+              sortMode === "accounts"
+                ? "bg-primary text-white border-primary"
+                : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[14px]">tag</span>
+            <span>{providerText(t, "sortByAccounts", "Accounts")}</span>
+          </button>
         </div>
 
         <div className="border-t border-border pt-3 flex flex-wrap items-center gap-2">

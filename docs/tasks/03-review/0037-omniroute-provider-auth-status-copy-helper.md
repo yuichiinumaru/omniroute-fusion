@@ -186,9 +186,9 @@ Backend heal (0006) fixes data over time; UI must never tell API-key operators t
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: [APROVADO / REJEITADO]
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based]
-- **Se REJEITADO**: mover para `02-doing/` com motivo no topo
+- **Reviewer**: Code Quality Reviewer (`reviewers` / independent task reviewer)
+- **Data da review**: 2026-07-11
+- **Veredito**: APROVADO (PASS WITH NOTES)
+- **Score (path to 100)**: 96/100
+- **Notas**: Fresh 10/10 matrix; `normalizeAuthType` reused; no sidebar in commit `8eb791d`; typecheck:core + eslint green. Residuals: unused `CONNECTION_STATUS_COPY_IDS.expired`; blank/`unknown` auth → OAuth branch (0038 mitigates). Report: `docs/reports/reviews/2026-07-11-task-0037-provider-auth-status-copy-helper-review.md`. **Lane**: stay `03-review/` (S≥90); not moved to `02-doing/`; not completed.
+- **Se REJEITADO**: n/a

@@ -475,15 +475,19 @@ export interface ConfigurableToolCardFieldProps {
   label: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Optional control id association for the field label. */
+  htmlFor?: string;
 }
 
-function Field({ label, children, className }: ConfigurableToolCardFieldProps) {
+function Field({ label, children, className, htmlFor }: ConfigurableToolCardFieldProps) {
   return (
     <div
       className={cn("flex flex-col gap-2", className)}
       data-testid="configurable-tool-card-field"
     >
-      <label className="text-sm text-text-muted">{label}</label>
+      <label htmlFor={htmlFor} className="text-sm text-text-muted">
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -502,6 +506,7 @@ type ConfigurableToolCardComponent = typeof ConfigurableToolCardRoot & {
   Field: typeof Field;
 };
 
+// SAFETY: Root is the only callable; slots are assigned immediately below and never reassigned.
 const ConfigurableToolCard = ConfigurableToolCardRoot as ConfigurableToolCardComponent;
 ConfigurableToolCard.Checking = Checking;
 ConfigurableToolCard.Body = Body;

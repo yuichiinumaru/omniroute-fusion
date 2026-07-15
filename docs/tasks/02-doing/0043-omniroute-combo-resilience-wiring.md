@@ -1,6 +1,6 @@
 # Task 0043: Combo / Auto-Combo Resilience Wiring (Breaker, RR, HALF_OPEN, Soft-Failure)
 
-> **Status**: `[x]` Ready for review
+> **Status**: `[ ]` Returned to doing (review NEEDS FIX, score 84)
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S4)
@@ -202,7 +202,13 @@ Without correct failure recording and OPEN exclusion, a dying provider keeps rec
 ---
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
+- **Reviewer**: reviewers (Code Quality Reviewer) — independent first review 2026-07-11
+- **Veredito**: `NEEDS FIX`
+- **Score**: `84/100`
 - **Notas**:
+  - Report: `docs/reports/reviews/2026-07-11-task-0043-combo-resilience-review.md`
+  - Lane: returned to `02-doing/` (S < 90)
+  - Blocking F1: `runtimeUnits.ts` exhaustedConnections pre-skip uses bare `connectionId` vs writers' `provider:connectionId` (F-03-002 incomplete)
+  - MUST test gaps: F-04-001 chatFn soft-fail simulated only; no RR recordFailure spy; no runtime-unit tests
+  - Non-blocking: soft-fail + RR/priority gates + auto empty-pool/incident look solid; 13 unit + 56 vitest + typecheck:core fresh green
+  - Path-to-100: fix connection key (prefer `getExhaustedTargetSkipReason`); add F-03-002 + real chat soft-502 + RR spy tests; re-submit `03-review`

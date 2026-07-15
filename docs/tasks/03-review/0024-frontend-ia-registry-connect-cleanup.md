@@ -1,6 +1,6 @@
 # Task 0024: Frontend IA — Connect / Registry Exposure Cleanup (S5)
 
-> **Status**: `[x]` Ready for review (path-to-100 rework 2026-07-11 — S5 shell tests + redirect matrix)
+> **Status**: `[x]` Held in review — re-review 96/100 APPROVED_REMEDIATION (2026-07-11; residual e2e smoke only)
 > **Priority**: 🔴 P0
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S5**)
@@ -70,9 +70,9 @@ Outcome: no three competing “MCP/A2A/API endpoints” entry points in the defa
 - [x] Hideable IDs retained where prefs apply
 - [x] Provenance entry under `.archive/sidebar/` (or pages)
 - [x] Unit tests assert new default leaf set for Connect/Registry cluster
-- [ ] Manual smoke: open MCP tools UI, A2A agent card/dashboard, API endpoints list from new homes _(browser smoke deferred to operator; unit redirects + page mounts covered)_
+- [ ] Manual smoke: open MCP tools UI, A2A agent card/dashboard, API endpoints list from new homes _(browser/e2e deferred; unit redirects + page mounts covered — residual to 100)_
 - [x] `npm run typecheck:core` passes
-- [ ] Targeted unit tests pass with 0 failures _(re-opened 2026-07-11: `dashboard-shell-tabs.test.ts` endpoint case fails; mcp/a2a redirect unit asserts incomplete)_
+- [x] Targeted unit tests pass with 0 failures _(re-closed 2026-07-11 re-review: shell-tabs S5 + mcp/a2a redirect unit asserts green; 64/64 related suite)_
 - [x] CHANGELOG.md entry
 - [x] No capability deleted without mapped home (epic invariant #5)
 
@@ -225,28 +225,30 @@ S5 unblocks Registry pillar integrity. Leaving triple exposure means Task 0025 m
 
 ### Latest Review
 
-- **Date**: 2026-07-11
+- **Date**: 2026-07-11 (re-review)
 - **Reviewer profile**: `reviewers`
-- **Score**: `84/100`
-- **Verdict**: `REJECT` / `NEEDS FIX`
-- **Full report**: `docs/reports/reviews/2026-07-11-task-0024-frontend-ia-registry-connect-cleanup-review.md`
-- **Lane outcome**: returned to `docs/tasks/02-doing/`
-- **Task reference**: Task 0024 (`frontend-ia-registry-connect-cleanup`); live path `docs/tasks/02-doing/0024-frontend-ia-registry-connect-cleanup.md`
+- **Score**: `96/100`
+- **Verdict**: `APPROVED_REMEDIATION` / `PASS WITH NOTES`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0024-frontend-ia-registry-connect-cleanup-rereview.md`
+- **Lane outcome**: held in `docs/tasks/03-review/` (S ≥ 90; human/parent promote only)
+- **Task reference**: Task 0024 (`frontend-ia-registry-connect-cleanup`); live path `docs/tasks/03-review/0024-frontend-ia-registry-connect-cleanup.md`
 
 #### Current Open Blockers
 
-- `NEW` (High): `tests/unit/dashboard-shell-tabs.test.ts` still asserts pre-S5 `EndpointTab = "apis" | "mcp" | "a2a"` + embedded dashboards — **fails live** against post-S5 shell
-- `NEW` (Medium): `connect-exposure-sidebar.test.ts` does not unit-assert `endpoint/page.tsx` redirects for `?tab=mcp|a2a` (only soft-checks catalog redirect)
+- none
+
+#### Residual (non-blocking → 100)
+
 - `PERSISTENT` (Low): Playwright `protocol-visibility.spec.ts` / browser smoke not executed with evidence
-- `PERSISTENT` (Info): `any` on protocol status state in EndpointPageClient
+- `NOTE` (Info): Conceptual `EXPOSURES_GROUP` / `REGISTRY_ITEMS` unused by flat `SIDEBAR_SECTIONS` (discovery debt, not S5 capability loss)
 
 #### Path-to-100 Summary
 
-1. Rewrite `dashboard-shell-tabs.test.ts` endpoint case to S5: tabs `apis|catalog|context-sources`, protocol homes links, **no** re-embedded MCP/A2A peer tabs
-2. Extend connect-exposure (or sibling) unit tests to assert `endpoint/page.tsx` redirects `tab=mcp` → `/dashboard/mcp` and `tab=a2a` → `/dashboard/a2a`
-3. Re-run failing file + connect suite; paste pass evidence
-4. Residual: e2e protocol-visibility or operator smoke; optional type mcp/a2a status state
-5. Do **not** undo prior accepted repairs (status-dot a11y, `?tab=` URL sync, PROVENANCE-INDEX, CHANGELOG)
+1. ~~Rewrite `dashboard-shell-tabs.test.ts` endpoint case to S5~~ **done** (builder rework; 5/5 pass)
+2. ~~Extend connect-exposure unit tests for `?tab=mcp|a2a` redirects~~ **done** (builder rework)
+3. ~~Re-run failing file + connect suite~~ **done** — 64/64 related suite green; `typecheck:core` PASS
+4. Residual: e2e `protocol-visibility.spec.ts` or operator smoke evidence
+5. Do **not** undo prior accepted repairs (status-dot a11y, `?tab=` URL sync, PROVENANCE-INDEX, CHANGELOG, typed status state, S5 shell asserts)
 
 #### Regression Guards
 
@@ -258,4 +260,5 @@ S5 unblocks Registry pillar integrity. Leaving triple exposure means Task 0025 m
 
 ### Previous Reports
 
+- `docs/reports/reviews/2026-07-11-task-0024-frontend-ia-registry-connect-cleanup-review.md` (84/100 REJECT; shell-tabs + redirect matrix)
 - `docs/reports/reviews/2026-07-10-task-0024-frontend-ia-registry-connect-cleanup-review.md` (95/100, held for e2e; path-to-100 patches applied)

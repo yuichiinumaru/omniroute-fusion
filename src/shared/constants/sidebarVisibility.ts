@@ -45,7 +45,8 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "context-aggressive",
   "context-ultra",
   "compression-studio",
-  // Operations > Tools
+  // Operations hub (Task 0059) + Tools
+  "operations",
   "cli-code",
   "cli-agents",
   "acp-agents",
@@ -87,7 +88,8 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "audit",
   "audit-mcp",
   "audit-a2a",
-  // Dev Tools
+  // Dev Tools / Testing hub (Task 0060 — hub is not a primary leaf)
+  "testing",
   "translator",
   "playground",
   "search-tools",
@@ -125,116 +127,12 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
 
 export type HideableSidebarItemId = (typeof HIDEABLE_SIDEBAR_ITEM_IDS)[number];
 
-export const SIDEBAR_ICON_ACCENTS: Partial<Record<HideableSidebarItemId, string>> = {
-  home: "#60A5FA",
-  "api-manager": "#F59E0B",
-  endpoints: "#38BDF8",
-  providers: "#818CF8",
-  combos: "#A855F7",
-  fusions: "#E879F9",
-  quota: "#F472B6",
-  "context-caveman": "#F97316",
-  "context-rtk": "#2DD4BF",
-  "context-combos": "#C084FC",
-  "cli-code": "#FACC15",
-  "cli-agents": "#93C5FD",
-  "cloud-agents": "#7DD3FC",
-  "api-endpoints": "#14B8A6",
-  webhooks: "#EC4899",
-  proxy: "#A3E635",
-  "mitm-proxy": "#FB7185",
-  "1proxy": "#22D3EE",
-  analytics: "#06B6D4",
-  "analytics-combo-health": "#34D399",
-  "analytics-utilization": "#FBBF24",
-  costs: "#FB923C",
-  cache: "#84CC16",
-  "analytics-compression": "#F97316",
-  "analytics-search": "#38BDF8",
-  "analytics-evals": "#A78BFA",
-  activity: "#60A5FA",
-  logs: "#CBD5E1",
-  "logs-proxy": "#A3E635",
-  "logs-console": "#FACC15",
-  "logs-activity": "#60A5FA",
-  health: "#EF4444",
-  runtime: "#F59E0B",
-  "costs-pricing": "#FB923C",
-  "costs-budget": "#22C55E",
-  "costs-quota-share": "#06B6D4",
-  audit: "#F43F5E",
-  "audit-mcp": "#818CF8",
-  "audit-a2a": "#A855F7",
-  translator: "#3B82F6",
-  playground: "#EAB308",
-  "search-tools": "#0891B2",
-  memory: "#10B981",
-  skills: "#F43F5E",
-  "agent-skills": "#D946EF",
-  mcp: "#8B5CF6",
-  a2a: "#06B6D4",
-  leaderboard: "#FACC15",
-  profile: "#60A5FA",
-  tokens: "#A3E635",
-  media: "#D946EF",
-  batch: "#14B8A6",
-  "batch-files": "#38BDF8",
-  "settings-general": "#64748B",
-  "settings-appearance": "#D946EF",
-  "settings-ai": "#A78BFA",
-  "settings-routing": "#06B6D4",
-  "settings-resilience": "#22C55E",
-  "settings-advanced": "#F97316",
-  "settings-security": "#EF4444",
-  "settings-feature-flags": "#FACC15",
-  "settings-sidebar": "#38BDF8",
-  docs: "#2563EB",
-  issues: "#DC2626",
-  changelog: "#F59E0B",
-};
-
-export const SIDEBAR_SUBITEM_ICON_ACCENTS: Record<string, string> = {};
-
-function getDeterministicIconAccent(id: string): string {
-  let hash = 0;
-  for (let index = 0; index < id.length; index += 1) {
-    hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
-  }
-  const hue = hash % 360;
-  const saturation = 72;
-  const lightness = 56;
-  const chroma = (1 - Math.abs((2 * lightness) / 100 - 1)) * (saturation / 100);
-  const huePrime = hue / 60;
-  const x = chroma * (1 - Math.abs((huePrime % 2) - 1));
-  const match = lightness / 100 - chroma / 2;
-  const [red, green, blue] =
-    huePrime < 1
-      ? [chroma, x, 0]
-      : huePrime < 2
-        ? [x, chroma, 0]
-        : huePrime < 3
-          ? [0, chroma, x]
-          : huePrime < 4
-            ? [0, x, chroma]
-            : huePrime < 5
-              ? [x, 0, chroma]
-              : [chroma, 0, x];
-
-  return [red, green, blue]
-    .map((channel) =>
-      Math.round((channel + match) * 255)
-        .toString(16)
-        .padStart(2, "0")
-        .toUpperCase()
-    )
-    .join("")
-    .replace(/^/, "#");
-}
-
 /**
- * Sidebar icons: neutral only (no carnival accents).
- * Active state uses Tailwind `text-primary` on the link; icons inherit via currentColor.
- * Legacy SIDEBAR_ICON_ACCENTS maps are retained only for historical tests / archive.
+ * Sidebar icons: neutral only — active state uses Tailwind `text-primary`
+ * on the link; icons inherit via currentColor. The legacy per-item color
+ * accent map was removed in Task 0052 (2026-07-12); this stub is kept as
+ * a `currentColor` passthrough so existing tests asserting neutral icons
+ * continue to pass.
  */
 export function getSidebarIconAccent(_id: string): string {
   return "currentColor";
@@ -728,6 +626,25 @@ export const ANALYTICS_DUAL_NAV_SIDEBAR_IDS = [
  * Snapshot: `.archive/sidebar/2026-07-10-observe-stream/SNAPSHOT.md`
  * @see OBSERVE_STREAM_SIDEBAR_IDS in `./observeHub.ts`
  */
+/**
+ * Health dashboard nav target (Task 0061).
+ * Keep `/dashboard/health` + hideable id `health`. Not a primary sidebar leaf and
+ * not an Observe log-stream tab — discoverable via Observe hub link + command palette.
+ */
+export const HEALTH_NAV_ITEM: SidebarItemDefinition = {
+  id: "health",
+  href: "/dashboard/health",
+  i18nKey: "health",
+  labelFallback: "Health",
+  subtitleKey: "healthSubtitle",
+  subtitleFallback: "System health, breakers, and rate limits",
+  icon: "health_and_safety",
+};
+
+/**
+ * Observability destinations (conceptual pillar inventory).
+ * Flat primary chrome only exposes the Observe hub leaf (`activity`).
+ */
 const OBSERVABILITY_ITEMS: readonly SidebarItemDefinition[] = [
   {
     id: "activity",
@@ -737,6 +654,7 @@ const OBSERVABILITY_ITEMS: readonly SidebarItemDefinition[] = [
     subtitleFallback: "Unified event stream — activity, logs, and audit",
     icon: "timeline",
   },
+  HEALTH_NAV_ITEM,
   {
     id: "analytics",
     href: "/dashboard/analytics",
@@ -783,8 +701,11 @@ const SYSTEM_ITEMS: readonly SidebarItemDefinition[] = [
     id: "settings-appearance",
     href: "/dashboard/settings/appearance",
     i18nKey: "settingsAppearance",
+    // Task 0061 Option B: functional prefs only (theme/branding removed in 0053).
+    labelFallback: "Interface",
     subtitleKey: "settingsAppearanceSubtitle",
-    icon: "palette",
+    subtitleFallback: "Tunnels, home pins, and display prefs",
+    icon: "display_settings",
   },
   {
     id: "settings-ai",
@@ -894,8 +815,8 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
   {
     id: "home",
     href: "/home",
-    i18nKey: "home",
-    labelFallback: "Home",
+    i18nKey: "dashboard",
+    labelFallback: "Dashboard",
     icon: "home",
     exact: true,
   },
@@ -916,19 +837,11 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "alt_route",
   },
   {
-    id: "api-manager",
-    href: "/dashboard/api-manager",
-    i18nKey: "apiKeysNav",
-    labelFallback: "API Keys",
-    subtitleFallback: "Access · tokens · security",
-    icon: "key",
-  },
-  {
     id: "activity",
     href: "/dashboard/activity",
     i18nKey: "observeNav",
     labelFallback: "Observe",
-    subtitleFallback: "Logs · audit · stream",
+    subtitleFallback: "Logs · audit · health",
     icon: "timeline",
   },
   {
@@ -948,20 +861,26 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
     subtitleFallback: "Budget · pricing · quota",
     icon: "payments",
   },
+  /**
+   * Operations hub (Task 0059 Option A).
+   * Absorbs former primary "API Keys" leaf; `/dashboard/api-manager` remains deep-linked
+   * from the hub. Hideable id `api-manager` retained for stored prefs.
+   * Former Operations leaf was `cli-code` → `/dashboard/cli-code`; that route remains.
+   */
   {
-    id: "cli-code",
-    href: "/dashboard/cli-code",
+    id: "operations",
+    href: "/dashboard/operations",
     i18nKey: "operationsNav",
     labelFallback: "Operations",
-    subtitleFallback: "CLI · agents · inspector",
-    icon: "terminal",
+    subtitleFallback: "API · agents · integrations",
+    icon: "manufacturing",
   },
   {
     id: "settings-general",
     href: "/dashboard/settings/general",
     i18nKey: "settingsNav",
     labelFallback: "Settings",
-    subtitleFallback: "System · appearance · network",
+    subtitleFallback: "System · interface · network",
     icon: "settings",
   },
   {
@@ -1019,7 +938,7 @@ const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
   "providers",
   "combos",
-  "api-manager",
+  "operations",
   "activity",
   "settings-general",
   "docs",
@@ -1030,11 +949,10 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
   "providers",
   "combos",
-  "api-manager",
+  "operations",
   "activity",
   "analytics",
   "costs",
-  "cli-code",
   "settings-general",
   // docs intentionally omitted — differentiates vs all/admin primary sets
   "translator",

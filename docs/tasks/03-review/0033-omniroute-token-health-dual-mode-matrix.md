@@ -168,9 +168,9 @@ Live operators on :21000 see AI Studio and Qoder PATs as “re-authenticate / no
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: [APROVADO / REJEITADO]
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based]
-- **Se REJEITADO**: mover para `02-doing/` com motivo no topo
+- **Reviewer**: Code Quality Reviewer (`reviewers` / parent agentID=reviewers)
+- **Data da review**: 2026-07-11
+- **Veredito**: APROVADO (PASS WITH NOTES) — hold in `03-review/`
+- **Score (path to 100)**: 94/100
+- **Notas**: Connection-level gate verified (`shouldMarkNoRefreshExpired` + `connectionUsesOAuthRefresh`, not provider-id only). Dual-mode matrix covers gemini/qoder/codebuddy-cn apikey, cookie, blank+apiKey, #5326 oauth positive. Fresh re-run 27/27 (matrix + 5326 + connection-auth-mode); typecheck:core clean. Residual path-to-100: pin `supportsTokenRefresh(true)` on dual-mode negative cells; assert blank authType after fixture; optional cookie-on-refresh-capable counterfactual. Report: `docs/reports/reviews/2026-07-11-task-0033-token-health-dual-mode-matrix-review.md`
+- **Se REJEITADO**: N/A (S ≥ 90 — not moved to `02-doing/`; not promoted to `04-completed/`)

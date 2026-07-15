@@ -1,6 +1,6 @@
 # Task 0030: Frontend IA — PageTabBar + Settings Field Kit + DeployRelayModal Shell (Optional Mid-layer)
 
-> **Status**: `[~]` In Review (implementation complete — independent review 91/100 path-to-100)
+> **Status**: `[~]` In Review (implementation complete — re-review 91/100 path-to-100; hold in 03-review)
 > **Priority**: 🟢 P2
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (quickwins §5: PageTabBar, DeployRelayModal, settings field kit)
@@ -193,15 +193,17 @@ Hubs from S2–S5 multiply ad-hoc tabs/modals. These kits amortize clone cost wi
 
 ## 🔍 Review Trail
 
-- **Reviewer**: `reviewers` (frontend-quality + ts-code)
-- **Data da review**: 2026-07-10
-- **Veredito**: `HELD_IN_REVIEW_PATH_TO_100` — score **91/100**
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0030-frontend-ia-page-tabbar-field-kit-review.md`
-
+- **Reviewer**: `reviewers` (frontend-quality + ts-code) — 2026-07-10 initial → 2026-07-11 re-review
+- **Latest score**: **91/100**
+- **Veredito**: `HELD_IN_REVIEW_PATH_TO_100` / `PASS WITH NOTES`
+- **Full report (latest)**: `docs/reports/reviews/2026-07-11-task-0030-frontend-ia-page-tabbar-field-kit-review.md`
+- **Prior report**: `docs/reports/reviews/2026-07-10-task-0030-frontend-ia-page-tabbar-field-kit-review.md`
 
 ## Parent gate 2026-07-10
 Builder proof + targeted tests; independent review holds in `03-review` for path-to-100 polish (not completed).
 
+## Parent gate 2026-07-11
+Re-review confirms 3/3 kits + green targeted tests + typecheck:core; path-to-100 polish (F1–F4) still open → **stay `03-review`** (S=91).
 
 ---
 
@@ -214,12 +216,12 @@ Builder proof + targeted tests; independent review holds in `03-review` for path
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
 - **Score**: `91/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0030-frontend-ia-page-tabbar-field-kit-review.md`
-- **Lane outcome**: remains in `03-review` (not completed)
+- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100` / `PASS WITH NOTES`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0030-frontend-ia-page-tabbar-field-kit-review.md`
+- **Lane outcome**: remains in `03-review` (not completed; not demoted)
 - **Task reference**: Task 0030 (`frontend-ia-page-tabbar-field-kit`)
 
 #### Current Open Blockers
@@ -228,11 +230,12 @@ Builder proof + targeted tests; independent review holds in `03-review` for path
 
 #### Path-to-100 Summary
 
-- Collapse dual `history.replaceState` (PageTabBar + parent cleanup) into one write path
-- Use `normalizeTab` / `normalizeObserveSource` instead of `as` casts
-- Tablist arrow-key a11y (+ optional aria-controls)
-- Set `IS_REACT_ACT_ENVIRONMENT` in 0030 vitest files
+- **F1**: Collapse dual `history.replaceState` via `getDeleteParams` / `deleteParams` on PageTabBar
+- **F2**: Analytics `normalizeTab(v)` instead of `as AnalyticsTab` (Observe already normalizes)
+- **F3**: Tablist arrow-key a11y (+ optional aria-controls)
+- **F4**: Set `IS_REACT_ACT_ENVIRONMENT` in 0030 vitest files
+- **F5** (optional): settings/ path vs ToggleRow root layout
 
 ### Previous Reports
 
-- none found
+- `docs/reports/reviews/2026-07-10-task-0030-frontend-ia-page-tabbar-field-kit-review.md` (91/100, initial)

@@ -38,11 +38,14 @@ describe("CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS hideable retention", () => {
 describe("default flat sidebar connect/exposure policy", () => {
   const leafIds = defaultLeafIds();
 
-  it("providers + api-manager are primary hubs", () => {
+  it("providers + operations are primary hubs (API Keys absorbed into Operations)", () => {
     assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("providers"));
-    assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("api-manager"));
+    assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("operations"));
     assert.ok(leafIds.includes("providers"));
-    assert.ok(leafIds.includes("api-manager"));
+    assert.ok(leafIds.includes("operations"));
+    // Task 0059: api-manager is no longer a primary peer leaf
+    assert.ok(!PRIMARY_SIDEBAR_ITEM_IDS.includes("api-manager"));
+    assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("api-manager"));
   });
 
   it("does not dump mcp/a2a/api-endpoints as primary peers", () => {

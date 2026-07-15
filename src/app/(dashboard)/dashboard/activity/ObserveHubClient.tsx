@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { CardSkeleton, PageTabBar } from "@/shared/components";
@@ -11,6 +12,7 @@ import {
   OBSERVE_SOURCES,
   normalizeObserveSource,
 } from "@/shared/constants/observeHub";
+import { HEALTH_NAV_ITEM } from "@/shared/constants/sidebarVisibility";
 import ActivityFeedClient from "./ActivityFeedClient";
 import RequestLogsPanel from "../logs/RequestLogsPanel";
 import ComplianceTab from "../audit/ComplianceTab";
@@ -41,6 +43,10 @@ function sidebarText(t: SidebarTranslator, key: string, fallback: string) {
 }
 
 function ObserveHubContent() {
+  // SAFETY: next-intl's `useTranslations` returns a callable translator for the
+  // requested namespace; current runtime versions also expose optional `.has()`.
+  // `sidebarText` still guards `.has` with `typeof` before calling it, so this
+  // alias only narrows the callable shape used by this component.
   const t = useTranslations("sidebar") as SidebarTranslator;
   const searchParams = useSearchParams();
   const [activeSource, setActiveSource] = useState<ObserveSource>(() =>
@@ -81,14 +87,30 @@ function ObserveHubContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTabBar
-        options={tabOptions}
-        value={activeSource}
-        onChange={handleSourceChange}
-        syncSearchParam="source"
-        defaultValue="activity"
-        aria-label="Observe stream sources"
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <PageTabBar
+          options={tabOptions}
+          value={activeSource}
+          onChange={handleSourceChange}
+          syncSearchParam="source"
+          defaultValue="activity"
+          aria-label="Observe stream sources"
+        />
+        {/* Task 0061: Health is a dashboard page, not a log-stream tab. */}
+        <Link
+          href={HEALTH_NAV_ITEM.href}
+          data-observe-health-link
+          className="focus-ring inline-flex shrink-0 items-center gap-2 self-start rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-main transition-colors hover:border-primary/30 hover:bg-bg-subtle hover:text-primary sm:self-auto"
+        >
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+            {HEALTH_NAV_ITEM.icon}
+          </span>
+          <span>{sidebarText(t, HEALTH_NAV_ITEM.i18nKey, HEALTH_NAV_ITEM.labelFallback ?? "Health")}</span>
+          <span className="material-symbols-outlined text-[16px] text-text-muted" aria-hidden="true">
+            arrow_forward
+          </span>
+        </Link>
+      </div>
 
       <Suspense fallback={<CardSkeleton />}>
         {activeSource === "activity" ? <ActivityFeedClient /> : null}

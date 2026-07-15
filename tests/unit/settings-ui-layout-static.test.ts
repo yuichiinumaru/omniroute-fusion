@@ -20,11 +20,30 @@ function assertInOrder(source: string, labels: string[]) {
   }
 }
 
-test("Appearance page keeps theme color above branding and removes sidebar item controls", () => {
+test("Appearance page is stripped of theme/branding customization and keeps functional settings (Task 0053)", () => {
   const source = readSrc("src/app/(dashboard)/dashboard/settings/components/AppearanceTab.tsx");
 
+  // Sidebar visibility controls must remain absent (Task 0052 contract).
   assert.doesNotMatch(source, /SidebarVisibilitySetting/);
-  assertInOrder(source, ['t("themeAccent")', 't("whitelabeling")']);
+  // Task 0053 removed theme accent and white-labeling inputs from the page.
+  assert.doesNotMatch(source, /t\("themeAccent"\)/);
+  assert.doesNotMatch(source, /t\("whitelabeling"\)/);
+  assert.doesNotMatch(source, /COLOR_THEMES/);
+  assert.doesNotMatch(source, /setColorTheme|setCustomColorTheme/);
+  // Functional non-theme settings still render on the page.
+  assert.match(source, /AccountEmailVisibilitySetting/);
+  assert.match(source, /endpointTunnelVisibility|hideEndpointCloudflaredTunnel/);
+  assert.match(source, /comboConfigMode/);
+});
+
+test("Settings layout includes Interface tab for appearance path (Task 0061 Option B)", () => {
+  const layout = readSrc("src/app/(dashboard)/dashboard/settings/layout.tsx");
+  assert.match(layout, /value:\s*"appearance"/);
+  assert.match(layout, /label:\s*"Interface"/);
+  assert.doesNotMatch(layout, /label:\s*"Appearance"/);
+  // pathToTabValue must recognize the last path segment against SETTINGS_TABS.
+  assert.match(layout, /function pathToTabValue/);
+  assert.match(layout, /SETTINGS_TABS\.some/);
 });
 
 test("Usage Token Buffer lives in AI settings instead of General storage", () => {

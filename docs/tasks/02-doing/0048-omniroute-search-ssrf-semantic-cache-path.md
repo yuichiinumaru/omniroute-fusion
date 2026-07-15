@@ -1,6 +1,6 @@
 # Task 0048: Search SSRF, Semantic Cache Correctness, Path-Segment Injection
 
-> **Status**: `[x]` Ready for review
+> **Status**: `[~]` Returned to doing (review NEEDS FIX — HF path regression)
 > **Priority**: 🟠 P1
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S9)
@@ -185,7 +185,12 @@ SSRF from search baseUrl can steal cloud metadata or exfiltrate API keys. Cache 
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
+- **Reviewer**: reviewers (Code Quality Reviewer / independent)
+- **Veredito**: NEEDS FIX
+- **Score**: 73/100
 - **Notas**:
+  - Report: `docs/reports/reviews/2026-07-11-task-0048-search-ssrf-cache-review.md`
+  - F-01-W2-001 / F-01-W2-002 / F-01-W2-004 look solid (0048 suite 20/20).
+  - **Blocking F1**: `isValidPathSegment` rejects legitimate HF `org/model` IDs (`openai/whisper-large-v3`, `facebook/mms-tts-eng`, catalog TTS models). Live audio speech + transcription HF happy-path tests fail (2).
+  - Fix: multi-segment-safe path validation (validate each segment; allow `org/model`); re-green audio suites; optional SSoT merge with 0045 `open-sse/utils/safePath.ts`.
+  - Lane: S<90 → moved `03-review/` → `02-doing/` (2026-07-11).

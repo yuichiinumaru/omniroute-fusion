@@ -16,7 +16,8 @@ describe("flat primary sidebar nav", () => {
   it("exposes at most 10 primary leaves", () => {
     assert.ok(PRIMARY_SIDEBAR_ITEMS.length <= 10);
     assert.equal(PRIMARY_SIDEBAR_ITEMS.length, PRIMARY_SIDEBAR_ITEM_IDS.length);
-    assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 10);
+    // Task 0059: API Keys absorbed into Operations → 9 primary leaves
+    assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 9);
   });
 
   it("SIDEBAR_SECTIONS is main + optional debug only (no pillar accordion sections)", () => {
@@ -31,11 +32,12 @@ describe("flat primary sidebar nav", () => {
     for (const child of main!.children) {
       assert.ok(!("type" in child && (child as { type?: string }).type === "group"));
     }
-    assert.equal(getSectionItems(main!).length, 10);
+    assert.equal(getSectionItems(main!).length, 9);
   });
 
-  it("all preset shows exactly 10 non-debug leaves", () => {
-    assert.equal(countPresetVisibleLeaves("all"), 10);
+  it("all preset shows exactly primary non-debug leaves", () => {
+    assert.equal(countPresetVisibleLeaves("all"), PRIMARY_SIDEBAR_ITEMS.length);
+    assert.equal(countPresetVisibleLeaves("all"), 9);
   });
 
   it("minimal is a short role view ≤ 10", () => {
@@ -57,10 +59,20 @@ describe("flat primary sidebar nav", () => {
     assert.ok(ids.has("home"));
     assert.ok(ids.has("providers"));
     assert.ok(ids.has("combos"));
-    assert.ok(ids.has("api-manager"));
+    assert.ok(ids.has("operations"));
     assert.ok(ids.has("activity"));
     assert.ok(ids.has("settings-general"));
+    // API Keys absorbed into Operations hub (Task 0059); hideable id retained
+    assert.ok(!ids.has("api-manager"));
     assert.ok(!ids.has("leaderboard"));
     assert.ok(!ids.has("tokens"));
+  });
+
+  it("Operations primary leaf points at /dashboard/operations hub", () => {
+    const ops = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "operations");
+    assert.ok(ops);
+    assert.equal(ops.href, "/dashboard/operations");
+    assert.equal(ops.i18nKey, "operationsNav");
+    assert.equal(ops.labelFallback, "Operations");
   });
 });

@@ -519,7 +519,7 @@ export default function OnboardingWizard() {
               {isLastStep && (
                 <button
                   onClick={handleFinish}
-                  className="px-6 py-2.5 bg-green-500 rounded-lg text-white font-medium text-sm hover:bg-green-500/90 transition-colors cursor-pointer"
+                  className="px-6 py-2.5 bg-green-700 rounded-lg text-white font-medium text-sm hover:bg-green-800 transition-colors cursor-pointer"
                 >
                   {t("goToDashboard")}
                 </button>

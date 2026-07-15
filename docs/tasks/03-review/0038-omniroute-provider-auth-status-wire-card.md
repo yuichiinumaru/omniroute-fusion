@@ -166,9 +166,9 @@ Card chrome is the first place operators judge credential health. Wiring the pur
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: [APROVADO / REJEITADO]
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based]
-- **Se REJEITADO**: mover para `02-doing/` com motivo no topo
+- **Reviewer**: Code Quality Reviewer / independent task reviewer (`reviewers`)
+- **Data da review**: 2026-07-11
+- **Veredito**: APROVADO (PASS WITH NOTES)
+- **Score (path to 100)**: 94/100
+- **Notas**: ProviderCard + ConnectionRow consume shared presentation adapters over `formatConnectionStatusMessage`; apikey/`compatible` + `no_refresh_token` never primary-CTAs OAuth re-auth; oauth keeps re-auth. 29/29 unit tests green (reviewer re-run). Residual: expiryStatus still provider-scoped (N1), EN badge until 0039, dead neutral expiredBadge fallback. Report: `docs/reports/reviews/2026-07-11-task-0038-provider-auth-status-wire-card-review.md`. Lane: stay `03-review/` (S≥90); do not move to `02-doing/` or `04-completed/`.
+- **Se REJEITADO**: N/A

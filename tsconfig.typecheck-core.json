@@ -36,5 +36,5 @@
     "open-sse/handlers/responseSanitizer.ts",
     "open-sse/handlers/responseTranslator.ts"
   ],
-  "exclude": ["node_modules", ".next", "app.__qa_backup", "vscode-extension"]
+  "exclude": ["node_modules", ".next", "app.__qa_backup", "vscode-extension", ".archive"]
 }

@@ -167,9 +167,14 @@ Without a shared helper, dual-mode providers (`gemini`, `qoder`, `codebuddy-cn`)
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: [APROVADO / REJEITADO]
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based]
-- **Se REJEITADO**: mover para `02-doing/` com motivo no topo
+- **Reviewer**: Code Quality Reviewer (`reviewers` / parent agentID=reviewers)
+- **Data da review**: 2026-07-11
+- **Veredito**: APROVADO com notas (PASS WITH NOTES) — **held in `03-review/`** (S≥90; do not complete; do not return to doing)
+- **Score (path to 100)**: 96/100
+- **Report**: `docs/reports/reviews/2026-07-11-task-0032-connection-auth-mode-helper-review.md`
+- **Notas**:
+  - Shared SSoT at `src/shared/utils/connectionAuthMode.ts` with `normalizeAuthType`, `connectionUsesOAuthRefresh`, `shouldMarkNoRefreshExpired`; re-exported from `tokenHealthCheck.ts`.
+  - Fresh tests: 20/20 PASS (`connection-auth-mode` + `#5326`); eslint on touched files exit 0.
+  - #5326 oauth positive path preserved; apikey/cookie/blank+apiKey never enter no-RT expiry.
+  - Path-to-100 residuals only: Details subtasks still `[ ]` (N1); stale completion evidence test counts (N2).
+- **Se REJEITADO**: N/A — score ≥ 90, stay in `03-review/`

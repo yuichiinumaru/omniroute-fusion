@@ -365,7 +365,7 @@ export default function Sidebar({
             href="/home"
             className={cn("flex items-center", collapsed ? "justify-center" : "gap-2.5")}
           >
-            <div className="flex items-center justify-center size-8 rounded bg-linear-to-br from-[#E54D5E] to-[#C93D4E] shrink-0">
+            <div className="flex items-center justify-center size-8 rounded bg-linear-to-br from-[#00FFCC] to-[#00cca3] shrink-0">
               {customLogo ? (
                 <img
                   src={customLogo}

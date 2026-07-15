@@ -10,7 +10,6 @@ const getPlatformIsMac = () => {
   return /Mac|iPhone|iPad|iPod/.test(platform);
 };
 const getPlatformIsMacServer = () => false;
-import ThemeToggle from "./ThemeToggle";
 import TokenHealthBadge from "./TokenHealthBadge";
 import DegradationBadge from "./DegradationBadge";
 import LanguageSelector from "./LanguageSelector";
@@ -35,8 +34,10 @@ import { useIsElectron } from "@/shared/hooks/useElectron";
 const isE2EMode = process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE === "1";
 
 // Map sidebar item id → header description i18n key
-// "omni-skills" is an extended key for the /dashboard/omni-skills route (graceful fallback during deploy)
-const HEADER_DESCRIPTIONS: Partial<Record<HideableSidebarItemId | "omni-skills", string>> = {
+// "omni-skills" / "settings" are extended keys (graceful fallback; not all map 1:1 to hideable ids)
+const HEADER_DESCRIPTIONS: Partial<
+  Record<HideableSidebarItemId | "omni-skills" | "settings", string>
+> = {
   home: "homeDescription",
   endpoints: "endpointDescription",
   "api-manager": "apiManagerDescription",
@@ -49,6 +50,8 @@ const HEADER_DESCRIPTIONS: Partial<Record<HideableSidebarItemId | "omni-skills",
   quota: "limitsDescription",
   runtime: "runtimeDescription",
   media: "mediaDescription",
+  operations: "operationsDescription",
+  testing: "testingDescription",
   "cli-code": "cliToolsDescription",
   "cli-agents": "agentsDescription",
   "acp-agents": "agentsDescription",
@@ -104,6 +107,203 @@ const HEADER_DESCRIPTIONS: Partial<Record<HideableSidebarItemId | "omni-skills",
   "1proxy": "oneProxyDescription",
 };
 
+/**
+ * Deep destinations under Operations (Task 0059) are not primary sidebar leaves.
+ * Header still needs coherent titles when users arrive via hub cards or deep links.
+ */
+const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<{
+  match: (pathname: string) => boolean;
+  titleKey: string;
+  titleFallback: string;
+  descKey: string;
+  icon: string;
+}> = [
+  {
+    match: (p) => p === "/dashboard/operations",
+    titleKey: "operationsNav",
+    titleFallback: "Operations",
+    descKey: "operationsDescription",
+    icon: "manufacturing",
+  },
+  {
+    match: (p) => p === "/dashboard/api-manager" || p.startsWith("/dashboard/api-manager/"),
+    titleKey: "apiKeysNav",
+    titleFallback: "API Keys",
+    descKey: "apiManagerDescription",
+    icon: "key",
+  },
+  {
+    match: (p) => p === "/dashboard/endpoint" || p.startsWith("/dashboard/endpoint/"),
+    titleKey: "endpoints",
+    titleFallback: "Endpoints",
+    descKey: "endpointDescription",
+    icon: "api",
+  },
+  {
+    match: (p) => p === "/dashboard/api-endpoints" || p.startsWith("/dashboard/api-endpoints/"),
+    titleKey: "apiEndpoints",
+    titleFallback: "API Endpoints",
+    descKey: "apiEndpointsDescription",
+    icon: "list_alt",
+  },
+  {
+    match: (p) => p === "/dashboard/mcp" || p.startsWith("/dashboard/mcp/"),
+    titleKey: "mcp",
+    titleFallback: "MCP Server",
+    descKey: "mcpDescription",
+    icon: "hub",
+  },
+  {
+    match: (p) => p === "/dashboard/a2a" || p.startsWith("/dashboard/a2a/"),
+    titleKey: "a2a",
+    titleFallback: "A2A Server",
+    descKey: "a2aDescription",
+    icon: "device_hub",
+  },
+  {
+    match: (p) => p === "/dashboard/cli-code" || p.startsWith("/dashboard/cli-code/"),
+    titleKey: "cliCode",
+    titleFallback: "CLI Code",
+    descKey: "cliToolsDescription",
+    icon: "terminal",
+  },
+  {
+    match: (p) => p === "/dashboard/cli-agents" || p.startsWith("/dashboard/cli-agents/"),
+    titleKey: "cliAgents",
+    titleFallback: "CLI Agents",
+    descKey: "agentsDescription",
+    icon: "smart_toy",
+  },
+  {
+    match: (p) => p === "/dashboard/cloud-agents" || p.startsWith("/dashboard/cloud-agents/"),
+    titleKey: "cloudAgents",
+    titleFallback: "Cloud Agents",
+    descKey: "cloudAgentsDescription",
+    icon: "cloud",
+  },
+  {
+    match: (p) => p === "/dashboard/acp-agents" || p.startsWith("/dashboard/acp-agents/"),
+    titleKey: "acpAgents",
+    titleFallback: "ACP Agents",
+    descKey: "agentsDescription",
+    icon: "device_hub",
+  },
+  {
+    match: (p) =>
+      p === "/dashboard/tools/agent-bridge" || p.startsWith("/dashboard/tools/agent-bridge/"),
+    titleKey: "agentBridge",
+    titleFallback: "Agent Bridge",
+    descKey: "agentsDescription",
+    icon: "link",
+  },
+  {
+    match: (p) => p === "/dashboard/webhooks" || p.startsWith("/dashboard/webhooks/"),
+    titleKey: "webhooks",
+    titleFallback: "Webhooks",
+    descKey: "webhooksDescription",
+    icon: "webhook",
+  },
+  {
+    match: (p) =>
+      p === "/dashboard/tools/traffic-inspector" ||
+      p.startsWith("/dashboard/tools/traffic-inspector/"),
+    titleKey: "trafficInspector",
+    titleFallback: "Traffic Inspector",
+    descKey: "cliToolsDescription",
+    icon: "network_check",
+  },
+  {
+    match: (p) => p === "/dashboard/memory" || p.startsWith("/dashboard/memory/"),
+    titleKey: "memory",
+    titleFallback: "Memory",
+    descKey: "memoryDescription",
+    icon: "psychology",
+  },
+  {
+    match: (p) => p === "/dashboard/agent-skills" || p.startsWith("/dashboard/agent-skills/"),
+    titleKey: "agentSkills",
+    titleFallback: "Agent Skills",
+    descKey: "agentSkillsDescription",
+    icon: "share",
+  },
+  {
+    match: (p) => p === "/dashboard/omni-skills" || p.startsWith("/dashboard/omni-skills/"),
+    titleKey: "omniSkills",
+    titleFallback: "Omni Skills",
+    descKey: "omniSkillsDescription",
+    icon: "auto_fix_high",
+  },
+];
+
+/**
+ * Testing hub + deep destinations (Task 0060) are not primary sidebar leaves.
+ * Header still needs coherent titles when users arrive via hub cards or palette.
+ */
+const TESTING_DEEP_HEADER_META: ReadonlyArray<{
+  match: (pathname: string) => boolean;
+  titleKey: string;
+  titleFallback: string;
+  descKey: string;
+  icon: string;
+}> = [
+  {
+    match: (p) => p === "/dashboard/testing",
+    titleKey: "testingNav",
+    titleFallback: "Testing",
+    descKey: "testingDescription",
+    icon: "science",
+  },
+  {
+    match: (p) => p === "/dashboard/playground" || p.startsWith("/dashboard/playground/"),
+    titleKey: "playground",
+    titleFallback: "Playground",
+    descKey: "playgroundDescription",
+    icon: "science",
+  },
+  {
+    match: (p) => p === "/dashboard/translator" || p.startsWith("/dashboard/translator/"),
+    titleKey: "translator",
+    titleFallback: "Translator",
+    descKey: "translatorDescription",
+    icon: "translate",
+  },
+  {
+    match: (p) => p === "/dashboard/search-tools" || p.startsWith("/dashboard/search-tools/"),
+    titleKey: "searchTools",
+    titleFallback: "Search Tools",
+    descKey: "searchToolsDescription",
+    icon: "manage_search",
+  },
+  {
+    match: (p) => p === "/dashboard/batch/files" || p.startsWith("/dashboard/batch/files/"),
+    titleKey: "batchFiles",
+    titleFallback: "Batch Files",
+    descKey: "batchFilesDescription",
+    icon: "folder",
+  },
+  {
+    match: (p) => p === "/dashboard/batch" || p.startsWith("/dashboard/batch/"),
+    titleKey: "batch",
+    titleFallback: "Batch",
+    descKey: "batchDescription",
+    icon: "view_list",
+  },
+  {
+    match: (p) => p === "/dashboard/cache/media" || p.startsWith("/dashboard/cache/media/"),
+    titleKey: "media",
+    titleFallback: "Media Cache",
+    descKey: "mediaDescription",
+    icon: "perm_media",
+  },
+  {
+    match: (p) => p === "/dashboard/plugins" || p.startsWith("/dashboard/plugins/"),
+    titleKey: "plugins",
+    titleFallback: "Plugins",
+    descKey: "pluginsDescription",
+    icon: "extension",
+  },
+];
+
 // Build href → sidebar item lookup (non-external items only)
 const sidebarByHref = new Map<string, SidebarItemDefinition>();
 for (const section of SIDEBAR_SECTIONS) {
@@ -131,6 +331,12 @@ type HeaderProps = {
   onMenuClick?: () => void;
   onOpenCommandPalette?: () => void;
   showMenuButton?: boolean;
+};
+
+type ElectronWindow = Window & {
+  electronAPI?: {
+    platform?: string;
+  };
 };
 
 type PageInfo = {
@@ -164,10 +370,81 @@ function usePageInfo(pathname: string | null): PageInfo {
   const item = getSidebarItem(pathname);
   if (item) {
     const descKey = HEADER_DESCRIPTIONS[item.id];
+    let title = item.labelFallback ?? item.i18nKey;
+    try {
+      title = ts(item.i18nKey);
+    } catch {
+      // keep labelFallback when locale key is missing mid-deploy
+    }
     return {
-      title: ts(item.i18nKey),
+      title,
       description: descKey ? th(descKey) : "",
       icon: item.icon,
+    };
+  }
+
+  // Operations deep destinations (not primary leaves after Task 0059)
+  const opsDeep = OPERATIONS_DEEP_HEADER_META.find((entry) => entry.match(pathname));
+  if (opsDeep) {
+    let title = opsDeep.titleFallback;
+    try {
+      title = ts(opsDeep.titleKey);
+    } catch {
+      title = opsDeep.titleFallback;
+    }
+    let description = "";
+    try {
+      description = th(opsDeep.descKey);
+    } catch {
+      description = "";
+    }
+    return { title, description, icon: opsDeep.icon };
+  }
+
+  // Testing hub + deep destinations (not primary leaves after Task 0060)
+  const testingDeep = TESTING_DEEP_HEADER_META.find((entry) => entry.match(pathname));
+  if (testingDeep) {
+    let title = testingDeep.titleFallback;
+    try {
+      title = ts(testingDeep.titleKey);
+    } catch {
+      title = testingDeep.titleFallback;
+    }
+    let description = "";
+    try {
+      description = th(testingDeep.descKey);
+    } catch {
+      description = "";
+    }
+    return { title, description, icon: testingDeep.icon };
+  }
+
+  // Health dashboard (Task 0061 — not a primary leaf; linked from Observe + palette)
+  if (pathname === "/dashboard/health" || pathname.startsWith("/dashboard/health/")) {
+    let title = "Health";
+    try {
+      title = ts("health");
+    } catch {
+      title = "Health";
+    }
+    let description = "";
+    try {
+      description = th("healthDescription");
+    } catch {
+      description = "";
+    }
+    return { title, description, icon: "health_and_safety" };
+  }
+
+  // Settings → Interface (route remains /settings/appearance; Task 0061 Option B)
+  if (
+    pathname === "/dashboard/settings/appearance" ||
+    pathname.startsWith("/dashboard/settings/appearance/")
+  ) {
+    return {
+      title: "Interface",
+      description: "Tunnels, home pins, and display preferences",
+      icon: "display_settings",
     };
   }
 
@@ -188,7 +465,9 @@ export default function Header({
   const isMacElectron =
     isElectron &&
     typeof window !== "undefined" &&
-    (window as any).electronAPI?.platform === "darwin";
+    // SAFETY: ElectronWindow only adds an optional `electronAPI` member to Window;
+    // every Window satisfies it, and the optional chain guards absence at runtime.
+    (window as ElectronWindow).electronAPI?.platform === "darwin";
 
   const handleLogout = async () => {
     try {
@@ -268,7 +547,6 @@ export default function Header({
           </>
         )}
         <LanguageSelector />
-        <ThemeToggle />
         {!isE2EMode && <DegradationBadge />}
         {!isE2EMode && <TokenHealthBadge />}
         <button

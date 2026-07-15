@@ -251,25 +251,23 @@ Suggested next pilots after API stabilizes: `CopilotToolCard` + `OpenClawToolCar
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `93/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0029-frontend-ia-cli-configurable-tool-card-review.md`
-- **Lane outcome**: remains in `03-review` (not completed)
+- **Score**: `98/100`
+- **Verdict**: `PASS WITH NOTES`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0029-frontend-ia-cli-configurable-tool-card-review.md`
+- **Lane outcome**: remains in `03-review` (S≥90; not completed)
 - **Task reference**: Task 0029 (`frontend-ia-cli-configurable-tool-card`)
 
 #### Current Open Blockers
 
-- none (exit contract met: shell + 2 pilots + residuals + tests)
+- none (exit contract met: shell + 2 pilots + residuals + tests; F1–F4 closed)
 
 #### Path-to-100 Summary
 
-- Add `// SAFETY:` on compound component cast
-- Optional `htmlFor` on `.Field` for label association
-- Drop `as Record<string, unknown>` ManualConfigModal spreads in pilots
-- One pilot assertion for apply-disabled without model
+- **Closed this review**: SAFETY cast; Field `htmlFor`; ManualConfig cast dropped; Kilo apply-disabled pilot test
+- **Residual notes only**: empty ManualConfig `configs` for pilots (pre-existing API mismatch); CHANGELOG parent-owned draft
 
 ### Previous Reports
 
-- none found
+- `docs/reports/reviews/2026-07-10-task-0029-frontend-ia-cli-configurable-tool-card-review.md` (93 — HELD_IN_REVIEW_PATH_TO_100)

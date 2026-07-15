@@ -194,7 +194,7 @@ Quota-share is meant to fail closed; a broken envelope makes enforcement invisib
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
-- **Notas**:
+- **Reviewer**: reviewers (Code Quality Reviewer / independent)
+- **Veredito**: PASS WITH NOTES
+- **Score**: 93
+- **Notas**: Primary F-01-001…005 + F-01-W2-003 fixed correctly; Hard Rule #12 paths in scope sanitized. Non-blocking N1: F-01-001 MUST mock `enforceQuotaShare` not fully implemented (source-grep + createErrorResult unit instead). Stretch residual OK. Stay `03-review` (S≥90). Report: `docs/reports/reviews/2026-07-11-task-0042-chat-pipeline-envelope-review.md`. Fresh tests 45/45 pass. Not moved to `02-doing/` or `04-completed/`.

@@ -9,18 +9,22 @@ const repoRoot = join(import.meta.dirname, "../..");
 test("flat primary sidebar: main + debug only", () => {
   const sectionIds = sidebarVisibility.SIDEBAR_SECTIONS.map((section) => section.id);
   assert.deepEqual(sectionIds, ["main", "devtools"]);
-  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEMS.length, 10);
-  assert.equal(sidebarVisibility.countPresetVisibleLeaves("all"), 10);
+  // Task 0059: Operations hub absorbs API Keys → 9 primary leaves
+  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEMS.length, 9);
+  assert.equal(sidebarVisibility.countPresetVisibleLeaves("all"), 9);
 });
 
-test("primary hubs include observe + routing + providers", () => {
+test("primary hubs include observe + routing + providers + operations", () => {
   const ids = sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS;
   assert.ok(ids.includes("home"));
   assert.ok(ids.includes("providers"));
   assert.ok(ids.includes("combos"));
   assert.ok(ids.includes("activity"));
-  assert.ok(ids.includes("api-manager"));
+  assert.ok(ids.includes("operations"));
   assert.ok(ids.includes("settings-general"));
+  // API Keys absorbed into Operations hub (Task 0059)
+  assert.equal(ids.includes("api-manager"), false);
+  assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("api-manager"), true);
 });
 
 test("sidebar visibility drops stale entries from saved settings", () => {
@@ -82,7 +86,8 @@ test("legacy dashboard routes redirect to their consolidated surfaces", async ()
     join(repoRoot, "src/app/(dashboard)/dashboard/compression/page.tsx"),
     "utf8"
   );
-  assert.match(compressionPage, /redirect\("\/dashboard\/context\/caveman"\)/);
+  // Task 0058: compression hub entry points at context settings (not a mode page)
+  assert.match(compressionPage, /redirect\("\/dashboard\/context\/settings"\)/);
 });
 
 test("icon accents are neutral", () => {

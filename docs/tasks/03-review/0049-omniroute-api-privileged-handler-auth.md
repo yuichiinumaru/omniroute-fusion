@@ -179,7 +179,7 @@ Classification alone is insufficient when PUBLIC prefixes or missing in-handler 
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
-- **Notas**:
+- **Reviewer**: reviewers (Code Quality Reviewer / independent)
+- **Veredito**: PASS WITH NOTES — hold in `03-review/` (S ≥ 90; not `02-doing/`; not `04-completed/`)
+- **Score**: 94/100
+- **Notas**: Primary four P1s closed (cloud credentials dual-gate + connectionId binding; relay always-auth + tokenHash strip; translator/send always-auth; cli-tools/keys LOCAL_ONLY + no bulk rawKey). Fresh: 104/104 unit suite, typecheck:core clean, eslint clean. Residual path-to-100: multi-conn route test; explicit requireLogin=false matrix; sessions stretch lacks `always:true` (accepted). Report: `docs/reports/reviews/2026-07-11-task-0049-api-privileged-handler-auth-review.md`

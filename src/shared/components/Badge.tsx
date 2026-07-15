@@ -10,7 +10,8 @@ const variants = {
   default: "bg-black/5 dark:bg-white/10 text-text-muted",
   primary: "bg-primary/10 text-primary",
   success: "bg-green-500/10 text-green-600 dark:text-green-400",
-  warning: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+  // Amber aligns with statusVocabulary warning surfaces (Task 0028 chroma track).
+  warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   error: "bg-red-500/10 text-red-600 dark:text-red-400",
   info: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
 };
@@ -83,7 +84,7 @@ export default function Badge({
           className={cn(
             "size-1.5 rounded-full",
             resolved === "success" && "bg-green-500",
-            resolved === "warning" && "bg-yellow-500",
+            resolved === "warning" && "bg-amber-500",
             resolved === "error" && "bg-red-500",
             resolved === "info" && "bg-blue-500",
             resolved === "primary" && "bg-primary",

@@ -296,9 +296,13 @@ test("configured-only preference parser only enables explicit true values", () =
 });
 
 test("provider display mode preference parser accepts only known modes", () => {
-  assert.equal(providerPageStorage.parseProviderDisplayModePreference("all"), "all");
-  assert.equal(providerPageStorage.parseProviderDisplayModePreference("configured"), "configured");
-  assert.equal(providerPageStorage.parseProviderDisplayModePreference("compact"), "compact");
+  // New canonical modes
+  assert.equal(providerPageStorage.parseProviderDisplayModePreference("grid"), "grid");
+  assert.equal(providerPageStorage.parseProviderDisplayModePreference("list"), "list");
+  // Legacy migration: all/configured → grid, compact → list
+  assert.equal(providerPageStorage.parseProviderDisplayModePreference("all"), "grid");
+  assert.equal(providerPageStorage.parseProviderDisplayModePreference("configured"), "grid");
+  assert.equal(providerPageStorage.parseProviderDisplayModePreference("compact"), "list");
   assert.equal(providerPageStorage.parseProviderDisplayModePreference("true"), null);
   assert.equal(providerPageStorage.parseProviderDisplayModePreference(null), null);
 });
@@ -309,7 +313,13 @@ test("configured-only filter is ignored before the first provider is connected",
   assert.equal(providerPageUtils.shouldApplyConfiguredOnlyFilter(true, 1), true);
 });
 
-test("compact display mode always uses the configured provider set", () => {
+test("grid/list display modes are pure view modes (not filters)", () => {
+  // New modes never imply configured-only filtering
+  assert.equal(providerPageUtils.shouldFilterProviderEntriesForDisplayMode("grid", 0), false);
+  assert.equal(providerPageUtils.shouldFilterProviderEntriesForDisplayMode("grid", 2), false);
+  assert.equal(providerPageUtils.shouldFilterProviderEntriesForDisplayMode("list", 0), false);
+  assert.equal(providerPageUtils.shouldFilterProviderEntriesForDisplayMode("list", 2), false);
+  // Legacy values retained for transitional call sites
   assert.equal(providerPageUtils.shouldFilterProviderEntriesForDisplayMode("all", 0), false);
   assert.equal(providerPageUtils.shouldFilterProviderEntriesForDisplayMode("all", 2), false);
   assert.equal(providerPageUtils.shouldFilterProviderEntriesForDisplayMode("configured", 0), false);
@@ -364,21 +374,36 @@ test("provider display mode storage round-trips and migrates the old configured-
     },
   };
 
-  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "all");
+  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "grid");
 
+  // Old configured-only key: display mode migrates to grid, and the filter
+  // intent is preserved on the independent configured-only key (filter chip).
   storage.set(providerPageStorage.SHOW_CONFIGURED_ONLY_STORAGE_KEY, "true");
-  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "configured");
-  assert.equal(storage.get(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY), "configured");
-  assert.equal(storage.has(providerPageStorage.SHOW_CONFIGURED_ONLY_STORAGE_KEY), false);
+  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "grid");
+  assert.equal(storage.get(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY), "grid");
+  assert.equal(storage.get(providerPageStorage.SHOW_CONFIGURED_ONLY_STORAGE_KEY), "true");
 
-  providerPageStorage.writeProviderDisplayModePreference("compact", mockStorage);
-  assert.equal(storage.get(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY), "compact");
-  assert.equal(storage.has(providerPageStorage.SHOW_CONFIGURED_ONLY_STORAGE_KEY), false);
-  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "compact");
+  providerPageStorage.writeProviderDisplayModePreference("list", mockStorage);
+  assert.equal(storage.get(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY), "list");
+  assert.equal(
+    storage.get(providerPageStorage.SHOW_CONFIGURED_ONLY_STORAGE_KEY),
+    "true",
+    "display-mode writes must not clear the independent configured-only filter"
+  );
+  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "list");
 
-  providerPageStorage.writeProviderDisplayModePreference("all", mockStorage);
+  // Writing grid clears the key (default)
+  providerPageStorage.writeProviderDisplayModePreference("grid", mockStorage);
   assert.equal(storage.has(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY), false);
-  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "all");
+  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "grid");
+
+  // Legacy stored values migrate on read
+  storage.set(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY, "compact");
+  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "list");
+  storage.set(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY, "all");
+  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "grid");
+  storage.set(providerPageStorage.PROVIDER_DISPLAY_MODE_STORAGE_KEY, "configured");
+  assert.equal(providerPageStorage.readProviderDisplayModePreference(mockStorage), "grid");
 });
 
 test("static catalog entries resolve local, search, audio, web-cookie and upstream providers", () => {
@@ -1047,5 +1072,123 @@ test("buildCompatibleProviderGroups partitions nodes by type + claude-code prefi
     groups.claudeCode.map((p) => p.id),
     ["anthropic-compatible-cc-acme"],
     "anthropic-compatible nodes with the cc- prefix land in the claudeCode bucket"
+  );
+});
+
+test("sortProviderEntriesByAccounts orders by stats.total descending then name", () => {
+  const entries = [
+    {
+      providerId: "b-provider",
+      provider: { name: "Bravo" },
+      stats: { total: 1 },
+      displayAuthType: "oauth" as const,
+      toggleAuthType: "oauth" as const,
+    },
+    {
+      providerId: "a-provider",
+      provider: { name: "Alpha" },
+      stats: { total: 5 },
+      displayAuthType: "oauth" as const,
+      toggleAuthType: "oauth" as const,
+    },
+    {
+      providerId: "c-provider",
+      provider: { name: "Charlie" },
+      stats: { total: 5 },
+      displayAuthType: "apikey" as const,
+      toggleAuthType: "apikey" as const,
+    },
+    {
+      providerId: "z-provider",
+      provider: { name: "Zulu" },
+      stats: { total: 0 },
+      displayAuthType: "apikey" as const,
+      toggleAuthType: "apikey" as const,
+    },
+  ];
+
+  const sorted = providerPageUtils.sortProviderEntriesByAccounts(entries);
+  assert.deepEqual(
+    sorted.map((e) => e.providerId),
+    ["a-provider", "c-provider", "b-provider", "z-provider"]
+  );
+});
+
+test("filterConfiguredProviderEntries respects sortMode accounts", () => {
+  const entries = [
+    {
+      providerId: "low",
+      provider: { name: "Low" },
+      stats: { total: 1 },
+      displayAuthType: "oauth" as const,
+      toggleAuthType: "oauth" as const,
+    },
+    {
+      providerId: "high",
+      provider: { name: "High" },
+      stats: { total: 9 },
+      displayAuthType: "oauth" as const,
+      toggleAuthType: "oauth" as const,
+    },
+  ];
+
+  const az = providerPageUtils.filterConfiguredProviderEntries(
+    entries,
+    false,
+    undefined,
+    undefined,
+    undefined,
+    null,
+    "az"
+  );
+  assert.deepEqual(
+    az.map((e) => e.providerId),
+    ["high", "low"]
+  );
+
+  const byAccounts = providerPageUtils.filterConfiguredProviderEntries(
+    entries,
+    false,
+    undefined,
+    undefined,
+    undefined,
+    null,
+    "accounts"
+  );
+  assert.deepEqual(
+    byAccounts.map((e) => e.providerId),
+    ["high", "low"]
+  );
+
+  // With equal totals, accounts sort falls back to name (High before Low alphabetically
+  // would not apply here since High has more accounts — flip totals to verify name tiebreak).
+  const tied = [
+    {
+      providerId: "b",
+      provider: { name: "Bravo" },
+      stats: { total: 2 },
+      displayAuthType: "oauth" as const,
+      toggleAuthType: "oauth" as const,
+    },
+    {
+      providerId: "a",
+      provider: { name: "Alpha" },
+      stats: { total: 2 },
+      displayAuthType: "oauth" as const,
+      toggleAuthType: "oauth" as const,
+    },
+  ];
+  const tiedSorted = providerPageUtils.filterConfiguredProviderEntries(
+    tied,
+    false,
+    undefined,
+    undefined,
+    undefined,
+    null,
+    "accounts"
+  );
+  assert.deepEqual(
+    tiedSorted.map((e) => e.providerId),
+    ["a", "b"]
   );
 });

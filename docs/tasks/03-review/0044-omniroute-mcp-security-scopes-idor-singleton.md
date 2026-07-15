@@ -193,7 +193,7 @@ MCP is a privileged control plane (94 tools). Client-supplied scopes/IDs and arb
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
-- **Notas**:
+- **Reviewer**: reviewers (gt-code-quality-reviewer / independent)
+- **Veredito**: PASS WITH NOTES
+- **Score**: 91/100
+- **Notas**: Five P1 findings closed (scopes SSoT, IDOR bind, SSE isolation, host pin, plugin jail). Re-ran core node units + full mcp vitest (86) + typecheck:core. Residual: `plugins-tools.test.ts` missing `os` import (suite claimed green — N1); soft assert on session headers (N2); enforce scopes still opt-in (N3). Lane: hold `03-review/`. Report: `docs/reports/reviews/2026-07-11-task-0044-mcp-security-review.md`

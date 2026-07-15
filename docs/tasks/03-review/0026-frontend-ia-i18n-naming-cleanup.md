@@ -216,38 +216,40 @@ Epic 0005 drain complete. Promoted after builder proof.
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `95/100`
-- **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0026-frontend-ia-i18n-naming-cleanup-review.md`
+- **Score**: `97/100`
+- **Verdict**: `PASS WITH NOTES`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0026-frontend-ia-i18n-naming-cleanup-review.md`
 - **Lane outcome**: remains in review (`docs/tasks/03-review/`)
 - **Task reference**: Task 0026 (`frontend-ia-i18n-naming-cleanup`)
 
 #### Current Open Blockers
 
 - none blocking S7 naming contract
-- `NEW` (Low, accepted OOS): non-en locales may still loan “Proxy Logs” until human locale pass
-- `NEW` (Improvement): internal symbol `UsageAnalytics` still blends vocabulary (non-operator)
+- `PERSISTENT` (Low, accepted OOS): non-en locales may still loan “Proxy Logs” until human locale pass
+- `PERSISTENT` (Improvement): internal symbol `UsageAnalytics` still blends vocabulary (non-operator)
 
 #### Path-to-100 Summary
 
-- **Applied in review**: `logs.proxyLogs` → `"Outbound Logs"` + contract assert
+- **Applied 2026-07-10**: `logs.proxyLogs` → `"Outbound Logs"` + contract assert
+- **Applied 2026-07-11**: PRIMARY analytics `subtitleFallback` `"Usage · evals · health"` → `"Charts · evals · health"` + strengthened naming suite
 - Optional: high-traffic locale synonym pass (not required by task scope)
 - Optional: rename internal `UsageAnalytics` component (dev-only clarity)
 
 #### Regression Guards (do not regress)
 
-- Analytics hub uses `i18nKey: analytics` (not usage); distinct subtitles
+- Analytics hub uses `i18nKey: analytics` (not usage); distinct `usageSubtitle` / `analyticsSubtitle`
+- PRIMARY analytics `labelFallback` = Analytics; `subtitleFallback` must not lead with Usage
 - `settingsGeneral` / `systemStorage` = Data & Storage
 - Skills triad: Agent Skills / Omni Skills / Plugins + inbound/outbound subtitles
-- Network ≠ Outbound Logs ≠ Embedded Services
-- Pillar `*Section` strings match Task 0025 `titleFallback`
+- Network ≠ Outbound Logs ≠ Embedded Services; `logs.proxyLogs` stays Outbound Logs
 - Every default-tree sidebar i18nKey resolves in `en.sidebar`
-- Structure frozen: do not re-churn SIDEBAR_SECTIONS for label vanity
+- Flat primary chrome ≤ 10 hubs (`PRIMARY_SIDEBAR_ITEMS`); do not re-churn for label vanity
+- Conceptual 7 pillars remain mapping-only (`OPERATIONAL_PILLAR_SECTION_IDS`)
 
 ### Previous Reports
 
-- none (initial independent review)
+- `docs/reports/reviews/2026-07-10-task-0026-frontend-ia-i18n-naming-cleanup-review.md` (95, path-to-100 residual synonym)
 - Related: `docs/reports/reviews/2026-07-10-task-0025-frontend-ia-seven-pillar-sidebar-review.md` (structure freeze / pillar titles)
 

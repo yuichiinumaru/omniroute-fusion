@@ -171,7 +171,12 @@ Operators cannot debug failed management actions when errors stringify to `[obje
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
+- **Reviewer**: reviewers (Code Quality Reviewer / independent)
+- **Veredito**: PASS WITH NOTES — held in `03-review` (S ≥ 90; do not promote to `04-completed/`)
+- **Score**: 93/100
 - **Notas**:
+  - Fresh tests: 34/34 pass (`api-handle-response-0047`, `mcp-scope-parity-0047`, `api-error-message-5340`, `mcp-pool-tools-3368`)
+  - F-08-001–003 contract met: report call sites + `handleResponse` use existing extractors; hub uses `MCP_*_COUNT`; full scope/tool parity vs live modules (93 tools / 31 scopes)
+  - Path-to-100: `TOTAL_MCP_TOOL_COUNT` still double-counts agentSkill (95 vs unique 93) — hub is correct; residual non-report `data.error` paths documented; stretch deferred
+  - Report: `docs/reports/reviews/2026-07-11-task-0047-ui-error-mcp-ssot-review.md`
+  - Lane: **not moved** (remain `03-review`)

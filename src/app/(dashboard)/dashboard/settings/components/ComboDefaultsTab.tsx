@@ -385,7 +385,7 @@ export default function ComboDefaultsTab() {
                 className={cn(
                   "px-2 py-1 rounded text-xs font-medium transition-all flex items-center justify-center gap-0.5",
                   comboDefaults.strategy === s.value
-                    ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
+                    ? "bg-white/10 text-text-main shadow-sm"
                     : "text-text-muted hover:text-text-main"
                 )}
               >
@@ -786,7 +786,7 @@ export default function ComboDefaultsTab() {
             </button>
 
             {dropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-lg border border-border/50 bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
+              <div className="absolute z-50 mt-1 w-full rounded-lg border border-border/50 bg-gray-900 shadow-lg overflow-hidden">
                 <div className="p-2 border-b border-border/50">
                   <input
                     type="text"

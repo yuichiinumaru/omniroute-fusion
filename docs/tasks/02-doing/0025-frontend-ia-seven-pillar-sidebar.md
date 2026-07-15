@@ -1,6 +1,6 @@
 # Task 0025: Frontend IA — Seven-Pillar Sidebar Rebuild + Role Presets (S6)
 
-> **Status**: `[x]` Ready for review (path-to-100 rework 2026-07-11 — fusion hub discoverability + flat tests)
+> **Status**: `[ ]` Returned to doing (re-review 87/100 NEEDS FIX — residual F4/F5/F7)
 > **Priority**: 🔴 P0
 > **Type**: `feature`
 > **Origin**: Epic 0005 — Frontend IA Reform (slice **S6**)
@@ -195,39 +195,43 @@ Promoted after builder proof + targeted tests.
 
 - **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `81/100`
-- **Verdict**: `REJECT`
-- **Full report**: `docs/reports/reviews/2026-07-11-task-0025-frontend-ia-seven-pillar-sidebar-review.md`
+- **Score**: `87/100`
+- **Verdict**: `NEEDS FIX`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0025-frontend-ia-seven-pillar-sidebar-rereview.md`
 - **Lane outcome**: returned to doing (`docs/tasks/02-doing/`)
 - **Task reference**: Task 0025 (`frontend-ia-seven-pillar-sidebar`)
 
+#### Closed Since Path-to-100 (`57857f5`)
+
+- `F1` (High) prior 7 customization/back-compat fails — **closed** for scoped batch (126/0)
+- `F2` (High) Fusion under Routing — **closed** (`RoutingHubSubnav` + CommandPalette + discoverability tests)
+- `F3` (Medium) hollow admin/developer — **closed w/ notes** (primary 7/9/10 differentiated)
+- `F6` (Low) stale header — **closed**
+
 #### Current Open Blockers
 
-- `REGRESSION` (High) F1: 7 related unit failures (`sidebar-customization`, `sidebar-back-compat`) vs flat chrome
-- `REGRESSION` (High) F2: `fusions` not in live tree / not discoverable under Routing hub (only dead inventory + subtitle)
-- `NEW` (Medium) F3: admin/developer presets hollow over flat primary (off-tree unhides no-op)
-- `NEW` (Medium) F4: dead pillar item arrays still in `sidebarVisibility.ts` after flat cutover
+- `NEW residual` (High) F7: expanded sidebar unit cluster **17 fails** (`sidebar-costs-section`, `sidebar-costs-quota-plans`, `sidebar-tools-group`, `sidebar-icon-accents-3812`)
+- `PERSISTENT` (Medium) F4: dead pillar item arrays still in `sidebarVisibility.ts` after flat cutover
 - `PERSISTENT` (Low) F5: epic/task evidence drift (claims accordion pillars + minimal 12; live flat 10 / minimal 7)
-- `NEW` (Low) F6: stale S6 header comment on `SIDEBAR_SECTIONS`
 
 #### Path-to-100 Summary
 
-1. Fix customization + back-compat tests for `main`/`devtools` + hub model; batch 0 fail
-2. Restore Fusion under Routing discoverability (combos in-page subnav and/or palette) + regression test
-3. Rebuild admin/developer as real role views over renderable leaves
-4. Delete or archive dead pillar inventories; keep primary + hideable SSoT
-5. Refresh Completion Evidence, CHANGELOG wording, Epic metrics to live counts
-6. Optional Playwright: apply `minimal` → ≤12 nav leaves
+1. Rewrite costs/tools/icon-accent suites for flat hubs — full sidebar glob 0 fail
+2. Delete or archive dead pillar inventories; keep primary + hideable SSoT
+3. Refresh Completion Evidence + Epic metrics to live counts (`minimal: 7`, primary 10)
+4. Optional: `RoutingHubSubnav` on compression studio; Playwright apply `minimal` → ≤12 nav leaves
 
 #### Regression Guards (do not regress)
 
 - Exactly 7 `OPERATIONAL_PILLAR_SECTION_IDS` (conceptual); default chrome flat primary ≤10
 - `countPresetVisibleLeaves("minimal") ≤ 12` (live 7)
 - Compression engines never default leaves; observe multi-leaves + analytics dual-nav stay collapsed
-- Fusion must have a discoverable home under Routing (not orphan deep-link only)
-- Related sidebar unit suites green; archives under `.archive/sidebar/` retained
+- Fusion must have a discoverable home under Routing (subnav + palette — not orphan deep-link only)
+- Prior review batch green **and** expanded sidebar cluster green; archives under `.archive/sidebar/` retained
+- Role presets keep distinct primary visible sets (minimal < developer ≤ admin)
 
 ### Previous Reports
 
+- `docs/reports/reviews/2026-07-11-task-0025-frontend-ia-seven-pillar-sidebar-review.md` (81, REJECT — F1–F6; path-to-100 partially landed in `57857f5`)
 - `docs/reports/reviews/2026-07-10-task-0025-frontend-ia-seven-pillar-sidebar-review.md` (94, HELD_IN_REVIEW — accordion-era inventory; superseded by flat-primary drift)
 

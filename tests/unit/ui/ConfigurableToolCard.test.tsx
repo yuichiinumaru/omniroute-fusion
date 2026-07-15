@@ -270,13 +270,17 @@ describe("ConfigurableToolCard shell", () => {
   it("renders Field label and children", () => {
     const container = render(
       <ConfigurableToolCard name="Kilo" isExpanded>
-        <ConfigurableToolCard.Field label="Model">
-          <input data-testid="model-input" />
+        <ConfigurableToolCard.Field label="Model" htmlFor="model-input">
+          <input id="model-input" data-testid="model-input" />
         </ConfigurableToolCard.Field>
       </ConfigurableToolCard>
     );
     expect(container.textContent).toContain("Model");
     expect(container.querySelector("[data-testid='model-input']")).not.toBeNull();
+    const label = container.querySelector(
+      "[data-testid='configurable-tool-card-field'] label"
+    ) as HTMLLabelElement | null;
+    expect(label?.htmlFor).toBe("model-input");
   });
 
   it("toggles backups and restores via callbacks", () => {

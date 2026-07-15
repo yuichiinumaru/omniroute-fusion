@@ -194,31 +194,32 @@ Epic 0005 drain complete. Promoted after builder proof.
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `93/100`
+- **Score**: `96/100`
 - **Verdict**: `HELD_IN_REVIEW_PATH_TO_100`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0031-frontend-ia-docs-guardrail-review.md`
-- **Lane outcome**: remains in `03-review/` (not `04-completed/`)
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0031-frontend-ia-docs-guardrail-review.md`
+- **Lane outcome**: remains in `03-review/` (path closed; **not** `04-completed/` — parent/human promote only)
 - **Task reference**: Task 0031 (`frontend-ia-docs-guardrail`); resolve current path from `docs/tasks/` search
 
 #### Current Open Blockers
 
-- none blocking acceptance of the primary guide
-- residual (optional): `docs/architecture/MONITORING_SECTIONS.md` still describes pre–Epic 0005 Monitoring nav — follow-up rewrite; UI.md now labels it historical and cites `observeHub.ts`
+- none
 
 #### Path-to-100 Summary
 
-- F1–F3 **patched in review** (Observe SSoT pointer, Epic 0031 lane path, dependency-tree file index)
-- Optional: banner/rewrite MONITORING_SECTIONS.md in a separate docs chore
+- F1–F3 hold (2026-07-10): Observe → `observeHub.ts`; Epic path `03-review/`; dependency-tree file index
+- F4/F6/F7 **closed 2026-07-11**: MONITORING historical banner; UI.md explicit 7 pillar ids; docs/README framing
+- Optional F8 (out of 0031 scope): `sidebarVisibility.ts` header still says S6 SIDEBAR_SECTIONS = 7 pillars while chrome is flat `main`+`devtools`
 - Parent final promote → `04-completed/` after wave policy acceptance
 
 #### Regression Guards
 
-- Pillar ids must stay aligned with `OPERATIONAL_PILLAR_SECTION_IDS` in `sidebarVisibility.ts`
-- Do not re-cite `MONITORING_SECTIONS.md` as live Observe hub authority
+- Default chrome ids must stay aligned with `PRIMARY_SIDEBAR_ITEMS` (≤10 flat hubs)
+- Conceptual pillar ids must stay aligned with `OPERATIONAL_PILLAR_SECTION_IDS`
+- Do not re-cite `MONITORING_SECTIONS.md` as live Observe hub authority (`observeHub.ts` + UI.md §2.1)
 - Keep `design.md` (tokens) vs `docs/guides/UI.md` (IA) dual SSoT; keep `DESING.md` as stub only
 
 ### Previous Reports
 
-- none (initial documentation-accuracy review)
+- `docs/reports/reviews/2026-07-10-task-0031-frontend-ia-docs-guardrail-review.md` (93/100 · initial; F1–F3 patched)

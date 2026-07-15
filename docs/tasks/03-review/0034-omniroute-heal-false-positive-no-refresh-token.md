@@ -179,9 +179,10 @@ Operators already have 22 false-positive apikey rows on 21000. Code fix alone le
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: [APROVADO / REJEITADO]
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based]
-- **Se REJEITADO**: mover para `02-doing/` com motivo no topo
+- **Reviewer**: Code Quality Reviewer / independent task reviewer (`reviewers`)
+- **Data da review**: 2026-07-11
+- **Veredito**: APROVADO (PASS WITH NOTES)
+- **Score (path to 100)**: 95
+- **Notas**: Domain heal + SSoT `isFalsePositiveNoRefreshToken` + boot hook + 6/6 unit tests (gemini/qoder heal, oauth keep, unrelated codes, idempotent, mixed). No raw SQL on ciphertext. Fresh: `heal-no-refresh-token.test.ts` 6/6 PASS; `connection-auth-mode.test.ts` 13/13 PASS; post-heal SQL NULLs verified. Residual LOW: JSDoc drift on windsurf long-lived heal; missing cookie/blank integration fixtures. Path-to-100 in report. Stay `03-review/` (S≥90). Live 21000 verify = Task 0036.
+- **Report**: `docs/reports/reviews/2026-07-11-task-0034-heal-false-positive-no-refresh-token-review.md`
+- **Se REJEITADO**: n/a — not moved

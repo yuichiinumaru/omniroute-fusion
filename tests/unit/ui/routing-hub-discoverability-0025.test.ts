@@ -4,8 +4,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ENGINE_IDS } from "../../../open-sse/services/compression/engineCatalog.ts";
 import {
   PRIMARY_SIDEBAR_ITEM_IDS,
   SIDEBAR_SECTIONS,
@@ -39,11 +40,58 @@ test("fusions page mounts RoutingHubSubnav", () => {
   assert.ok(src.includes('active="fusions"'));
 });
 
-test("RoutingHubSubnav links Combos, Fusions, Compression", () => {
+test("RoutingHubSubnav links Combos, Fusions, Live, Compression Settings, Compression Studio", () => {
+  // Task 0058 expands the Routing hub topbar.
   const src = read("src/shared/components/RoutingHubSubnav.tsx");
   assert.ok(src.includes("/dashboard/combos"));
   assert.ok(src.includes("/dashboard/fusions"));
+  assert.ok(src.includes("/dashboard/combos/live"));
+  assert.ok(src.includes("/dashboard/context/settings"));
   assert.ok(src.includes("/dashboard/compression/studio"));
+  assert.ok(src.includes("Compression Settings"));
+  assert.ok(src.includes("Compression Studio"));
+  assert.ok(src.includes('id: "live"'));
+  assert.ok(src.includes('id: "compression-settings"'));
+  assert.ok(src.includes('id: "compression-studio"'));
+});
+
+test("compression root redirects to context settings (Task 0058)", () => {
+  const src = read("src/app/(dashboard)/dashboard/compression/page.tsx");
+  assert.ok(src.includes('redirect("/dashboard/context/settings")'));
+  assert.equal(src.includes("/dashboard/context/caveman"), false);
+});
+
+test("context settings composes enabled engine sections (Task 0058)", () => {
+  const page = read("src/app/(dashboard)/dashboard/context/settings/page.tsx");
+  assert.ok(page.includes("EnabledEngineSections"));
+  assert.ok(page.includes('active="compression-settings"'));
+  const sections = read(
+    "src/app/(dashboard)/dashboard/context/settings/EnabledEngineSections.tsx"
+  );
+  assert.ok(sections.includes("ENGINE_IDS"));
+  assert.ok(sections.includes("/api/settings/compression"));
+  assert.ok(sections.includes("EngineConfigPage"));
+  assert.ok(sections.includes("CavemanContextPageClient"));
+  assert.ok(sections.includes("RtkContextPageClient"));
+});
+
+test("every catalog compression engine has a standalone context route", () => {
+  for (const id of ENGINE_IDS) {
+    assert.equal(
+      existsSync(join(root, `src/app/(dashboard)/dashboard/context/${id}/page.tsx`)),
+      true,
+      `missing standalone route for compression engine ${id}`
+    );
+  }
+});
+
+test("live and studio pages mount RoutingHubSubnav (Task 0058)", () => {
+  const live = read("src/app/(dashboard)/dashboard/combos/live/page.tsx");
+  assert.ok(live.includes("RoutingHubSubnav"));
+  assert.ok(live.includes('active="live"'));
+  const studio = read("src/app/(dashboard)/dashboard/compression/studio/page.tsx");
+  assert.ok(studio.includes("RoutingHubSubnav"));
+  assert.ok(studio.includes('active="compression-studio"'));
 });
 
 test("CommandPalette includes fusions hub destination", () => {

@@ -1401,6 +1401,7 @@
     "analyticsDescription": "Charts, trends, evals, and utilization insights",
     "cliTools": "CLI Tools",
     "cliToolsDescription": "Configure CLI tools",
+    "operationsDescription": "API keys, endpoints, agents, webhooks, memory, and skills",
     "home": "Home",
     "homeDescription": "Welcome to OmniRoute",
     "endpoint": "Endpoints",

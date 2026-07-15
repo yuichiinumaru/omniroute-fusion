@@ -61,6 +61,11 @@ test("glow is reserved for degraded/error/circuit open-ish states", () => {
   assert.ok(statusGlowClass("error").includes("shadow-"));
   assert.ok(statusGlowClass("OPEN").includes("shadow-"));
   assert.equal(statusGlowClass("degraded", false), "");
+  // Glow utilities must reference dual light/dark CSS tokens (not dead color-mix-only).
+  assert.match(statusGlowClass("degraded"), /var\(--status-glow-warning\)/);
+  assert.match(statusGlowClass("error"), /var\(--status-glow-danger\)/);
+  assert.match(statusGlowClass("OPEN"), /var\(--status-glow-danger\)/);
+  assert.match(statusGlowClass("active"), /var\(--status-glow-info\)/);
 });
 
 test("statusSurfaceClasses combine bg + border + text utilities", () => {

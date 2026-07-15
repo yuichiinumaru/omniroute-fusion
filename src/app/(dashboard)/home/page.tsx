@@ -4,6 +4,7 @@ import { getSettings } from "@/lib/localDb";
 import HomePageClient from "../dashboard/HomePageClient";
 import BootstrapBanner from "../dashboard/BootstrapBanner";
 import AutoRoutingBanner from "@/shared/components/AutoRoutingBanner";
+import DashboardTopbar from "./DashboardTopbar";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function HomePage() {
   const isBootstrapped = process.env.OMNIROUTE_BOOTSTRAPPED === "true";
   return (
     <>
+      <DashboardTopbar />
       {isBootstrapped && <BootstrapBanner />}
       <AutoRoutingBanner />
       <HomePageClient machineId={machineId} />

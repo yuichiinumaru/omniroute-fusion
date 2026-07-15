@@ -1,6 +1,6 @@
 # Task 0017: Fusion Docs, i18n Keys, and Operator Notes
 
-> **Status**: `[x]` Ready for review (F3/F6 path-to-100 2026-07-11 — strategy count 18 + acting/A6 runtime docs)
+> **Status**: `[~]` Returned to doing (2026-07-11 re-review **89/100** — F3/F6 residual)
 > **Priority**: 🟢 P2
 > **Type**: `feature`
 > **Origin**: Epic 0003 — Fusion First-Class (S7)
@@ -144,11 +144,11 @@ Documentation is required for: operator onboarding (how to create/edit fusions),
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: `reviewers` (`gt-documentation-accuracy-reviewer`)
-- **Data da review**: 2026-07-10 (initial) · 2026-07-10 (re-review)
-- **Veredito**: `REJECTED_TO_DOING` (re-review)
-- **Score (path to 100)**: `88/100` (was 86)
-- **Notas**: Re-review at `docs/reports/reviews/2026-07-10-task-0017-omniroute-fusion-docs-i18n-rereview.md`. F1 fixed; F2 contract partial; open F3 (17 vs 18), F6 (runtime acting incomplete), F4/F5/F7 polish.
+- **Reviewer**: `reviewers` (`gt-code-quality-reviewer` / documentation accuracy)
+- **Data da review**: 2026-07-10 (initial) · 2026-07-10 (re-review) · 2026-07-11 (re-review)
+- **Veredito**: `REJECTED_TO_DOING` (2026-07-11 re-review)
+- **Score (path to 100)**: `89/100` (was 88 → 86)
+- **Notas**: Full report `docs/reports/reviews/2026-07-11-task-0017-omniroute-fusion-docs-i18n-rereview.md`. F3 primary (AUTO-COMBO/ARCHITECTURE) + F6 core runtime fixed; residual AGENTS 17 + operator/diagram/i18n acting incomplete.
 
 ---
 
@@ -162,31 +162,33 @@ Documentation is required for: operator onboarding (how to create/edit fusions),
 
 ### Latest Review
 
-- **Date**: 2026-07-10
+- **Date**: 2026-07-11
 - **Reviewer profile**: `reviewers`
-- **Score**: `88/100`
+- **Score**: `89/100`
 - **Verdict**: `REJECTED_TO_DOING`
-- **Full report**: `docs/reports/reviews/2026-07-10-task-0017-omniroute-fusion-docs-i18n-rereview.md`
+- **Full report**: `docs/reports/reviews/2026-07-11-task-0017-omniroute-fusion-docs-i18n-rereview.md`
 - **Lane outcome**: return to doing (score &lt; 90)
-- **Task reference**: Task 0017 (`omniroute-fusion-docs-i18n`); resolve current path under `docs/tasks/`
+- **Task reference**: Task 0017 (`omniroute-fusion-docs-i18n`); path `docs/tasks/02-doing/`
 
 #### Current Open Blockers
 
-- `PERSISTENT` **F3 Medium**: Strategy inventory still **17** in `AUTO-COMBO.md:153` + table missing `conditional-fusion`; `ARCHITECTURE.md:368`; `AGENTS.md` live counts — live `ROUTING_STRATEGY_VALUES` = **18**
-- `NEW` **F6 Medium**: `FUSION.md` runtime flow / dispatch gate / V2 stages / operator guide still omit or contradict live `acting` + `dispatchActingOnly` / `finalizeWithActing` (contract + A6 block are OK)
+- `PERSISTENT residual` **F3 Low-Medium**: `AGENTS.md:14` still `routing strategies 17`; strategies bullet (`AGENTS.md:383`) still **(15)** and omits `fusion` / `conditional-fusion` / `headroom` — live count **18**. AUTO-COMBO + ARCHITECTURE + CLAUDE fixed.
+- `PERSISTENT residual` **F6 Low-Medium**: FUSION.md core gate + `finalizeWithActing` OK; still missing overview/diagram acting, operator Acting step, troubleshooting acting-only, `fusionActing*` i18n notes; single-panel stage incomplete when acting set
 - `PERSISTENT` **F4 Low**: `FusionUnitRow` hardcodes English despite unit-row keys
 - `PERSISTENT` **F5 Low**: `fusionsSubtitle` / `fusionDesc` still panels→judge only
-- `NEW` **F7 Low**: Misplaced “Built by resolveFusionUnits” under D9 panel-tools paragraph
+- `PERSISTENT` **F7 Low**: Misplaced “Built by resolveFusionUnits” under D9 panel-tools paragraph
 
 #### Resolved Since Prior Review (do not regress)
 
 - `RESOLVED` **F1**: AUTO-COMBO D9 tools kept + `tool_choice:"none"`; create uses `models` not `targets`; acting + conditional miss documented
-- `RESOLVED` (as High) **F2**: Acting unit + A6 miss path present in FUSION.md data contract (runtime gaps tracked as F6)
+- `RESOLVED` (as High) **F2**: Acting unit + A6 miss path present in FUSION.md data contract
+- `RESOLVED` **F3 primary surfaces**: AUTO-COMBO 18 + `conditional-fusion` table row; ARCHITECTURE 18 + fusion family named
+- `RESOLVED` **F6 core runtime**: dispatch gate acting-only→fallback; V2 stages + `finalizeWithActing`; units table includes acting
 
 #### Path-to-100 Summary
 
-1. Fix strategy counts to **18** + add `conditional-fusion` row (AUTO-COMBO table, ARCHITECTURE, AGENTS live counts)
-2. Complete FUSION.md runtime: pass `acting` in diagram; dispatch gate = acting-only then fallback; V2 stages + `finalizeWithActing`; operator/troubleshooting + `fusionActing*` i18n notes
+1. Fix **AGENTS.md** live counts → **18** and strategies list to include fusion family (+ headroom)
+2. Finish FUSION.md: overview + ASCII diagram acting; single-panel/acting judge non-stream nuance; operator Acting step; troubleshooting acting-only; `combos.fusionActing*` in i18n notes
 3. F7 fix misplaced resolveFusionUnits sentence; optional F4/F5 polish
 4. Re-grep regression guards + `npm run check:fabricated-docs` (FUSION.md clean)
 
@@ -195,24 +197,29 @@ Documentation is required for: operator onboarding (how to create/edit fusions),
 - AUTO-COMBO must not claim panel tools are stripped
 - Create examples use `models`, not `targets`
 - Any “N strategies” claim must equal live length **18** and list both `fusion` and `conditional-fusion`
-- FUSION.md runtime + operator must stay consistent with `combo.ts` A6 + `finalizeWithActing`
+- FUSION.md runtime + **operator** must stay consistent with `combo.ts` A6 + `finalizeWithActing`
 - No fabricated paths (e.g. `open-sse/services/fusionUnits.ts`)
 
 ### Previous Reports
 
+- `2026-07-10` — `88/100` — `docs/reports/reviews/2026-07-10-task-0017-omniroute-fusion-docs-i18n-rereview.md`
+  - **Carried forward**: F3 AGENTS residual; F6 operator/diagram residual; F4/F5/F7 polish
+  - **Resolved since**: F3 AUTO-COMBO/ARCHITECTURE; F6 core dispatch + finalizeWithActing
+  - **Regression guard**: no tools-stripped; models not targets; 18 strategies; acting in runtime + operator
 - `2026-07-10` — `86/100` — `docs/reports/reviews/2026-07-10-task-0017-omniroute-fusion-docs-i18n-review.md`
-  - **Carried forward**: F3 strategy count/table; F4/F5 i18n polish
-  - **Resolved since**: F1 tools/targets; F2 acting data contract/A6 (partial)
+  - **Carried forward**: F4/F5 i18n polish
+  - **Resolved since**: F1 tools/targets; F2 acting data contract/A6
   - **Regression guard**: no tools-stripped; `models` not `targets`; 18 strategies; acting in runtime docs
 
 ---
 
-## Path-to-100 fix wave (2026-07-10)
+## Path-to-100 fix wave (2026-07-10 → 2026-07-11)
 
 **Executor**: builders (parent fix wave after reviewer return)
 
-### Task 0017 fixes (claimed; re-review verified)
-- **F1**: ✅ Rewrote `docs/routing/AUTO-COMBO.md` fusion section — D9 tools-not-stripped, `models` not `targets`, conditional-fusion + acting. **Verified fixed.**
-- **F2**: ⚠️ `docs/architecture/FUSION.md` documents acting unit + A6 in contract; **runtime/operator still incomplete (F6).**
-- **F3**: ❌ Partial only — CLAUDE.md 18 OK; AUTO-COMBO heading/table still 17; ARCHITECTURE/AGENTS still drift.
-- **F4/F5**: Residual unit-row i18n hardcoding left as low polish (editor already uses `tx()` for trigger chrome).
+### Task 0017 fixes (re-review 2026-07-11)
+- **F1**: ✅ AUTO-COMBO D9 tools-not-stripped, `models` not `targets`. **Still fixed.**
+- **F2**: ✅ Contract + A6 acting. **Still fixed.**
+- **F3**: ⚠️ AUTO-COMBO + ARCHITECTURE → 18 + conditional-fusion row. **AGENTS.md still 17 / Strategies(15).**
+- **F6**: ⚠️ Core gate + finalizeWithActing stages present. **Operator/overview/diagram/i18n acting residual.**
+- **F4/F5/F7**: still open (low polish).

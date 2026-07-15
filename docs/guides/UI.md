@@ -60,14 +60,24 @@ Icons use **neutral** `currentColor` (active = primary). No rainbow icon accents
 
 ### 2.2 Conceptual pillars (docs / mapping only)
 
-`OPERATIONAL_PILLAR_SECTION_IDS` still names the product map (core-pulse…system) for
-hubbing and docs — they are **not** accordion sidebar sections.
+`OPERATIONAL_PILLAR_SECTION_IDS` still names the product map for hubbing and docs —
+they are **not** accordion sidebar sections (chrome is §2.1):
+
+| # | Pillar id | Role (mapping) |
+|---|-----------|----------------|
+| 1 | `core-pulse` | Home / health pulse |
+| 2 | `registry` | Providers, services, exposures |
+| 3 | `routing` | Combos, fusions, compression |
+| 4 | `governance` | Keys, tokens, security, quota, costs policy |
+| 5 | `operations` | CLI, agents, tools, batch, gamification |
+| 6 | `observability` | Observe stream, analytics, cache, runtime |
+| 7 | `system` | Settings residual + proxy |
 
 Verify before documenting or adding leaves:
 
 ```bash
-# pillar ids
-rg -n "OPERATIONAL_PILLAR_SECTION_IDS|SIDEBAR_SECTIONS" src/shared/constants/sidebarVisibility.ts
+# pillar ids + live chrome
+rg -n "OPERATIONAL_PILLAR_SECTION_IDS|PRIMARY_SIDEBAR_ITEMS|SIDEBAR_SECTIONS" src/shared/constants/sidebarVisibility.ts
 ```
 
 Pre-S6 snapshot: `.archive/sidebar/2026-07-10-seven-pillars/`.
@@ -136,7 +146,7 @@ Import from `src/shared/components/` (verified paths). Prefer these over hand-ro
 | [Epic 0005](../tasks/00-planning/0005-omniroute-frontend-ia-design-system-epic.md) | Diagnosis, slices S0–S10, success metrics |
 | [`docs/dependency-tree.md`](../dependency-tree.md) | Serial vs parallel Frontend IA tasks |
 | `src/shared/constants/observeHub.ts` | Observe hub path + `?source=` filters + redirect matrix |
-| [`docs/architecture/MONITORING_SECTIONS.md`](../architecture/MONITORING_SECTIONS.md) | **Historical** pre–Epic 0005 Monitoring/Costs nav (not the live 7-pillar tree) |
+| [`docs/architecture/MONITORING_SECTIONS.md`](../architecture/MONITORING_SECTIONS.md) | **Historical** pre–Epic 0005 Monitoring/Costs nav (not live chrome; see §2.1 + `observeHub.ts`) |
 | [`.archive/README.md`](../../.archive/README.md) | Archive-not-delete policy |
 | `src/shared/constants/sidebarVisibility.ts` | Live pillars, hideables, role presets |
 

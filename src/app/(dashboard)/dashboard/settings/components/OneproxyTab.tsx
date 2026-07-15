@@ -133,7 +133,7 @@ export default function OneproxyTab() {
       socks4: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
       socks5: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
     };
-    return colors[type] || "bg-gray-100 text-gray-800";
+    return colors[type] || "bg-slate-500/10 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300";
   };
 
   return (

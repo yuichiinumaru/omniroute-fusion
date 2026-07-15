@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardSkeleton, Badge, Button, CollapsibleSection } from "@/shared/components";
+import { CardSkeleton, Button } from "@/shared/components";
 import {
   AGGREGATOR_PROVIDER_IDS,
   EMBEDDING_RERANK_PROVIDER_IDS,
@@ -21,14 +21,16 @@ import {
   buildStaticProviderEntries,
   buildCompatibleProviderGroups,
   filterConfiguredProviderEntries,
-  shouldFilterProviderEntriesForDisplayMode,
-  shouldShowFirstProviderHint,
+  sortProviderEntriesByAccounts,
+  sortProviderEntriesByName,
   upsertProviderNodeById,
 } from "./providerPageUtils";
-import type { ProviderEntry } from "./providerPageUtils";
+import type { ProviderEntry, ProviderSortMode } from "./providerPageUtils";
 import {
+  readConfiguredOnlyPreference,
   readProviderDisplayModePreference,
   shouldSyncProviderDisplayMode,
+  writeConfiguredOnlyPreference,
   writeProviderDisplayModePreference,
   type ProviderDisplayMode,
 } from "./providerPageStorage";
@@ -38,11 +40,12 @@ import {
   type CodexGlobalServiceMode,
 } from "@/lib/providers/codexFastTier";
 import AddCompatibleProviderModal from "./components/AddCompatibleProviderModal";
-import { CategoryDot } from "./components/CategoryDot";
 import NoAuthProvidersSection from "./components/NoAuthProvidersSection";
 import ProviderCard from "./components/ProviderCard";
 import ProviderCountBadge from "./components/ProviderCountBadge";
 import ProviderSummaryCard from "./components/ProviderSummaryCard";
+import ProviderListRow from "./components/ProviderListRow";
+import ProvidersTopBar from "./components/ProvidersTopBar";
 import {
   buildCompactProviderEntriesForPage,
   getCompactProviderAuthType,
@@ -174,13 +177,14 @@ export default function ProvidersPage() {
   const [codexGlobalServiceMode, setCodexGlobalServiceMode] =
     useState<CodexGlobalServiceMode>("none");
   const [loading, setLoading] = useState(true);
-  const [showAllProviders, setShowAllProviders] = useState(false);
   const [showAddCompatibleModal, setShowAddCompatibleModal] = useState(false);
   const [showAddAnthropicCompatibleModal, setShowAddAnthropicCompatibleModal] = useState(false);
   const [showAddCcCompatibleModal, setShowAddCcCompatibleModal] = useState(false);
   const [testingMode, setTestingMode] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<any>(null);
-  const [providerDisplayMode, setProviderDisplayMode] = useState<ProviderDisplayMode>("all");
+  const [providerDisplayMode, setProviderDisplayMode] = useState<ProviderDisplayMode>("grid");
+  const [showConfiguredOnly, setShowConfiguredOnly] = useState(false);
+  const [sortMode, setSortMode] = useState<ProviderSortMode>("az");
   const [displayModePreferenceReady, setDisplayModePreferenceReady] = useState(false);
   const [oauthEnvRepairStatus, setOauthEnvRepairStatus] = useState<{
     available: boolean;
@@ -195,7 +199,6 @@ export default function ProvidersPage() {
   // search and configured-only. null = no serviceKind filter.
   const [activeServiceKind, setActiveServiceKind] = useState<string | null>(null);
   const notify = useNotificationStore();
-  const hasSearchQuery = searchQuery.trim().length > 0 || modelSearchQuery.trim().length > 0;
   const sectionCategoryAliases: Record<string, string> = {
     cloud: "cloudagent",
     noauth: "no-auth",
@@ -204,8 +207,6 @@ export default function ProvidersPage() {
   };
   const showSection = (category: string) => {
     const normalizedCategory = sectionCategoryAliases[category] ?? category;
-    if (showFreeOnly) return normalizedCategory === "free";
-    if (hasSearchQuery && !activeCategory) return normalizedCategory !== "free";
     return !activeCategory || activeCategory === normalizedCategory;
   };
   const t = useTranslations("providers");
@@ -220,7 +221,9 @@ export default function ProvidersPage() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    setProviderDisplayMode(readProviderDisplayModePreference());
+    const storage = globalThis.localStorage;
+    setProviderDisplayMode(readProviderDisplayModePreference(storage));
+    setShowConfiguredOnly(readConfiguredOnlyPreference(storage));
     setDisplayModePreferenceReady(true);
   }, []);
 
@@ -265,20 +268,16 @@ export default function ProvidersPage() {
 
   useEffect(() => {
     if (!shouldSyncProviderDisplayMode(displayModePreferenceReady, loading)) return;
-
-    const storedDisplayMode =
-      connections.length === 0 && providerDisplayMode === "configured"
-        ? "all"
-        : providerDisplayMode;
-    writeProviderDisplayModePreference(storedDisplayMode);
-  }, [connections.length, displayModePreferenceReady, providerDisplayMode, loading]);
+    writeProviderDisplayModePreference(providerDisplayMode);
+    writeConfiguredOnlyPreference(showConfiguredOnly);
+  }, [displayModePreferenceReady, providerDisplayMode, showConfiguredOnly, loading]);
 
   useEffect(() => {
     if (!shouldSyncProviderDisplayMode(displayModePreferenceReady, loading)) return;
-    if (connections.length === 0 && providerDisplayMode === "configured") {
-      setProviderDisplayMode("all");
+    if (connections.length === 0 && showConfiguredOnly) {
+      setShowConfiguredOnly(false);
     }
-  }, [connections.length, displayModePreferenceReady, providerDisplayMode, loading]);
+  }, [connections.length, displayModePreferenceReady, showConfiguredOnly, loading]);
 
   const fetchOauthEnvRepairStatus = useCallback(async () => {
     try {
@@ -512,12 +511,11 @@ export default function ProvidersPage() {
   const ccCompatibleProviders = compatibleProviderGroups.claudeCode;
 
   const effectiveProviderDisplayMode =
-    providerDisplayMode === "configured" && connections.length === 0 ? "all" : providerDisplayMode;
-  const effectiveShowConfiguredOnly = shouldFilterProviderEntriesForDisplayMode(
-    effectiveProviderDisplayMode,
-    connections.length
-  );
-  const isCompactProviderDisplay = effectiveProviderDisplayMode === "compact";
+    providerDisplayMode === "list" ? "list" : "grid";
+  // Configured-only is now an independent filter (not a display mode)
+  const effectiveShowConfiguredOnly =
+    showConfiguredOnly && connections.length > 0;
+  const isListProviderDisplay = effectiveProviderDisplayMode === "list";
 
   const oauthProviderEntriesAll = buildStaticProviderEntries("oauth", getProviderStats);
   const oauthProviderEntries = filterConfiguredProviderEntries(
@@ -526,7 +524,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const rawNoAuthEntriesAll = buildStaticProviderEntries("no-auth", getProviderStats);
@@ -543,7 +542,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const apiKeyProviderEntriesAll = buildStaticProviderEntries("apikey", getProviderStats);
@@ -561,7 +561,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
   const aggregatorProviderEntriesAll = apiKeyProviderEntriesAll.filter((entry) =>
     AGGREGATOR_PROVIDER_IDS.has(entry.providerId)
@@ -572,7 +573,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
   const imageProviderEntriesAll = apiKeyProviderEntriesAll.filter((entry) =>
     IMAGE_ONLY_PROVIDER_IDS.has(entry.providerId)
@@ -583,7 +585,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
   const enterpriseProviderEntriesAll = apiKeyProviderEntriesAll.filter((entry) =>
     ENTERPRISE_CLOUD_PROVIDER_IDS.has(entry.providerId)
@@ -594,7 +597,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
   const videoProviderEntriesAll = apiKeyProviderEntriesAll.filter((entry) =>
     VIDEO_PROVIDER_IDS.has(entry.providerId)
@@ -605,7 +609,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
   const embeddingRerankProviderEntriesAll = apiKeyProviderEntriesAll.filter((entry) =>
     EMBEDDING_RERANK_PROVIDER_IDS.has(entry.providerId)
@@ -616,7 +621,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const webCookieProviderEntriesAll = buildStaticProviderEntries("web-cookie", getProviderStats);
@@ -626,7 +632,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const localProviderEntriesAll = buildStaticProviderEntries("local", getProviderStats);
@@ -636,7 +643,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const searchProviderEntriesAll = buildStaticProviderEntries("search", getProviderStats);
@@ -646,7 +654,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const audioProviderEntriesAll = buildStaticProviderEntries("audio", getProviderStats);
@@ -656,7 +665,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const cloudAgentProviderEntriesAll = buildStaticProviderEntries("cloud-agent", getProviderStats);
@@ -666,7 +676,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const upstreamProxyEntriesAll = buildStaticProviderEntries("upstream-proxy", getProviderStats);
@@ -676,7 +687,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const compatibleProviderEntriesAll = [
@@ -708,7 +720,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const staticProviderEntriesAll = dedupeProviderEntries([
@@ -733,7 +746,8 @@ export default function ProvidersPage() {
     searchQuery,
     undefined,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   // IDE providers: subset of oauth/apikey providers that are editors/IDEs with
@@ -748,7 +762,8 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
   const oauthOnlyEntriesAll = oauthProviderEntriesAll
@@ -768,10 +783,11 @@ export default function ProvidersPage() {
     searchQuery,
     showFreeOnly,
     modelSearchQuery,
-    activeServiceKind
+    activeServiceKind,
+    sortMode
   );
 
-  const compactProviderEntries = buildCompactProviderEntriesForPage({
+  const compactProviderEntriesRaw = buildCompactProviderEntriesForPage({
     activeCategory,
     showFreeOnly,
     freeSectionEntries,
@@ -793,6 +809,11 @@ export default function ProvidersPage() {
     localProviderEntries,
     cloudAgentProviderEntries,
   });
+  // List view is a flat surface — re-apply the active sort across all groups.
+  const compactProviderEntries =
+    sortMode === "accounts"
+      ? sortProviderEntriesByAccounts(compactProviderEntriesRaw)
+      : sortProviderEntriesByName(compactProviderEntriesRaw);
 
   const summaryStats = {
     all: countConfigured(dashboardProviderEntriesAll),
@@ -819,41 +840,9 @@ export default function ProvidersPage() {
     );
   }
 
-  const showFirstProviderHint =
-    shouldShowFirstProviderHint(connections.length, searchQuery) && !showAllProviders;
-
   return (
     <div className="flex flex-col gap-6">
-      {showFirstProviderHint && (
-        <Card padding="lg">
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="flex items-center justify-center size-16 rounded-full bg-primary/10 mb-4">
-              <span className="material-symbols-outlined text-[32px] text-primary">dns</span>
-            </div>
-            <h2 className="text-xl font-semibold text-text-main">
-              {t("addFirstProvider") || "Add your first provider"}
-            </h2>
-            <p className="text-sm text-text-muted mt-2 max-w-md">
-              {t("addFirstProviderDesc") ||
-                "Connect an AI provider to start routing requests through OmniRoute. You can use free providers, API keys, or OAuth accounts."}
-            </p>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <Button icon="add" onClick={() => router.push("/dashboard/providers/new")}>
-                {providerText(t, "onboardingWizard", "Provider Onboarding Wizard")}
-              </Button>
-              <a
-                href="https://docs.omniroute.io/providers"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors"
-              >
-                <span className="material-symbols-outlined text-[16px]">help</span>
-                {t("learnMore") || "Learn more"}
-              </a>
-            </div>
-          </div>
-        </Card>
-      )}
+      <ProvidersTopBar t={t} currentPath="/dashboard/providers" />
 
       <ProviderSummaryCard
         activeCategory={activeCategory}
@@ -867,12 +856,16 @@ export default function ProvidersPage() {
           setShowFreeOnly(freeOnly);
           setActiveCategory(freeOnly ? null : category);
         }}
+        onConfiguredOnlyChange={setShowConfiguredOnly}
         onDisplayModeChange={setProviderDisplayMode}
         onNewProvider={() => router.push("/dashboard/providers/new")}
+        onSortModeChange={setSortMode}
         searchQuery={searchQuery}
         setModelSearchQuery={setModelSearchQuery}
         setSearchQuery={setSearchQuery}
+        showConfiguredOnly={showConfiguredOnly}
         showFreeOnly={showFreeOnly}
+        sortMode={sortMode}
         summaryStats={summaryStats}
         t={t}
         tc={tc}
@@ -915,15 +908,12 @@ export default function ProvidersPage() {
           </div>
         )}
 
-      {isCompactProviderDisplay ? (
+      {isListProviderDisplay ? (
         compactProviderEntries.length > 0 ? (
-          <div
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3"
-            data-testid="provider-compact-grid"
-          >
+          <div className="flex flex-col gap-1.5" data-testid="provider-list-view">
             {compactProviderEntries.map((entry) => (
-              <ProviderCard
-                key={`compact-${entry.providerId}`}
+              <ProviderListRow
+                key={`list-${entry.providerId}`}
                 providerId={entry.providerId}
                 provider={entry.provider}
                 stats={entry.stats}
@@ -937,7 +927,7 @@ export default function ProvidersPage() {
         ) : (
           <div
             className="flex items-center justify-center gap-2 py-8 border border-dashed border-border rounded-xl text-text-muted text-sm"
-            data-testid="provider-compact-empty"
+            data-testid="provider-list-empty"
           >
             <span className="material-symbols-outlined text-[18px]">search_off</span>
             <span>{providerText(t, "noProvidersMatch", "No providers match your search.")}</span>
@@ -1199,55 +1189,6 @@ export default function ProvidersPage() {
                     onToggle={(active) => handleToggleProvider(providerId, toggleAuthType, active)}
                   />
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Free Tier Providers */}
-          {showSection("free") && freeSectionEntries.length > 0 && (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    {t("freeTierProviders")}
-                    <CategoryDot color="bg-green-500" label={t("freeTierLabel")} />
-                    <ProviderCountBadge {...countConfigured(freeSectionEntriesAll)} />
-                  </h2>
-                  <p className="text-sm text-text-muted mt-1">{t("freeAggregated")}</p>
-                </div>
-                <button
-                  onClick={() => handleBatchTest("free")}
-                  disabled={!!testingMode}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    testingMode === "free"
-                      ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                      : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/40"
-                  }`}
-                  title={t("testAll")}
-                >
-                  <span
-                    className={`material-symbols-outlined text-[14px]${testingMode === "free" ? " animate-spin" : ""}`}
-                  >
-                    play_arrow
-                  </span>
-                  {testingMode === "free" ? t("testing") : t("testAll")}
-                </button>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3">
-                {freeSectionEntries.map(
-                  ({ providerId, provider, stats, displayAuthType, toggleAuthType }) => (
-                    <ProviderCard
-                      key={`free-section-${providerId}`}
-                      providerId={providerId}
-                      provider={provider}
-                      stats={stats}
-                      authType={toggleAuthType === "free" ? "free" : displayAuthType}
-                      onToggle={(active) =>
-                        handleToggleProvider(providerId, toggleAuthType, active)
-                      }
-                    />
-                  )
-                )}
               </div>
             </div>
           )}

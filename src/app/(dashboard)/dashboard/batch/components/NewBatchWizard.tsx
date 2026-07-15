@@ -112,7 +112,7 @@ function StepIndicator({ current, t }: { current: 1 | 2 | 3 | 4; t: ReturnType<t
           <div key={s} className="flex items-center gap-1 sm:gap-2">
             <div
               className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium transition-colors
-                ${isDone ? "bg-emerald-500 text-white" : isCurrent ? "bg-[var(--color-accent)] text-white" : "bg-[var(--color-border)] text-[var(--color-text-muted)]"}`}
+                ${isDone ? "bg-emerald-700 text-white" : isCurrent ? "bg-[var(--color-accent)] text-white" : "bg-[var(--color-border)] text-[var(--color-text-muted)]"}`}
             >
               {isDone ? (
                 <span className="material-symbols-outlined text-sm">check</span>

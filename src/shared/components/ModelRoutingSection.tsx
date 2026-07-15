@@ -179,8 +179,8 @@ export default function ModelRoutingSection({ combos: externalCombos }: { combos
                 value={pattern}
                 onChange={(e) => setPattern(e.target.value)}
                 placeholder="claude-sonnet*"
-                className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-black/10 dark:border-white/10
-                           bg-white dark:bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
+className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-white/10
+                            bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <p className="text-[9px] text-text-muted mt-0.5">{t("patternHint")}</p>
             </div>
@@ -191,8 +191,8 @@ export default function ModelRoutingSection({ combos: externalCombos }: { combos
               <select
                 value={comboId}
                 onChange={(e) => setComboId(e.target.value)}
-                className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-black/10 dark:border-white/10
-                           bg-white dark:bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-white/10
+                            bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">{t("selectCombo")}</option>
                 {combos.map((c) => (
@@ -210,8 +210,8 @@ export default function ModelRoutingSection({ combos: externalCombos }: { combos
                 type="number"
                 value={priority}
                 onChange={(e) => setPriority(Number(e.target.value))}
-                className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-black/10 dark:border-white/10
-                           bg-white dark:bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-white/10
+                            bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <p className="text-[9px] text-text-muted mt-0.5">{t("priorityHint")}</p>
             </div>
@@ -223,8 +223,8 @@ export default function ModelRoutingSection({ combos: externalCombos }: { combos
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Route Opus models to frontier combo"
-                className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-black/10 dark:border-white/10
-                           bg-white dark:bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-white/10
+                            bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
           </div>

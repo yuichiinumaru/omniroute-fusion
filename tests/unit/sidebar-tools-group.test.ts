@@ -1,70 +1,66 @@
+/**
+ * Tools inventory under Operations (Task 0059).
+ * Flat chrome no longer mounts an "operations" accordion section; TOOLS_GROUP
+ * remains as conceptual inventory in sidebarVisibility, and the Operations hub
+ * surfaces the same destinations.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { OPERATIONS_HUB_GROUPS } from "../../src/shared/constants/operationsHub";
 
-const sidebarVisibility = await import("../../src/shared/constants/sidebarVisibility.ts");
+const root = join(import.meta.dirname, "../..");
+const sidebarSrc = readFileSync(join(root, "src/shared/constants/sidebarVisibility.ts"), "utf8");
 
-function getToolsGroup() {
-  const operations = sidebarVisibility.SIDEBAR_SECTIONS.find((section) => section.id === "operations");
-  assert.ok(operations, "expected operations section to exist");
-
-  const toolsGroup = operations.children.find(
-    (child): child is (typeof sidebarVisibility.SIDEBAR_SECTIONS)[number]["children"][number] & {
-      type: "group";
-    } =>
-      "type" in child &&
-      (child as { type: string }).type === "group" &&
-      (child as { id: string }).id === "tools"
+test("TOOLS_GROUP source keeps plan 14 tool order", () => {
+  // Extract the TOOLS_GROUP items block order by id string sequence
+  const toolsBlock = sidebarSrc.match(
+    /const TOOLS_GROUP: SidebarItemGroup = \{[\s\S]*?items: \[([\s\S]*?)\],\n\s*\};/
   );
-  assert.ok(toolsGroup, "expected tools group to exist in operations section");
-  return toolsGroup as {
-    type: "group";
-    id: string;
-    items: readonly { id: string; href: string; i18nKey: string }[];
-  };
-}
-
-test("TOOLS_GROUP items follow plan 14 order: cli-code → cli-agents → acp-agents → cloud-agents → agent-bridge → traffic-inspector", () => {
-  const toolsGroup = getToolsGroup();
-  const itemIds = toolsGroup.items.map((item) => item.id);
+  assert.ok(toolsBlock, "TOOLS_GROUP block must exist in sidebarVisibility.ts");
+  const ids = [...toolsBlock[1].matchAll(/id:\s*"([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(
-    itemIds,
+    ids,
     ["cli-code", "cli-agents", "acp-agents", "cloud-agents", "agent-bridge", "traffic-inspector"],
     "TOOLS_GROUP items order must be cli-code, cli-agents, acp-agents, cloud-agents, agent-bridge, traffic-inspector"
   );
 });
 
-test("TOOLS_GROUP cli-code item has correct href and i18nKey", () => {
-  const toolsGroup = getToolsGroup();
-  const cliCode = toolsGroup.items.find((item) => item.id === "cli-code");
-  assert.ok(cliCode, "expected cli-code in TOOLS_GROUP");
-  assert.equal(cliCode.href, "/dashboard/cli-code");
-  assert.equal(cliCode.i18nKey, "cliCode");
+test("TOOLS_GROUP cli-code item has correct href in source", () => {
+  assert.ok(sidebarSrc.includes('id: "cli-code"'));
+  assert.ok(sidebarSrc.includes('href: "/dashboard/cli-code"'));
+  assert.ok(sidebarSrc.includes('i18nKey: "cliCode"'));
 });
 
-test("TOOLS_GROUP cli-agents item has correct href and i18nKey", () => {
-  const toolsGroup = getToolsGroup();
-  const cliAgents = toolsGroup.items.find((item) => item.id === "cli-agents");
-  assert.ok(cliAgents, "expected cli-agents in TOOLS_GROUP");
-  assert.equal(cliAgents.href, "/dashboard/cli-agents");
-  assert.equal(cliAgents.i18nKey, "cliAgents");
+test("TOOLS_GROUP cli-agents item has correct href in source", () => {
+  assert.ok(sidebarSrc.includes('id: "cli-agents"'));
+  assert.ok(sidebarSrc.includes('href: "/dashboard/cli-agents"'));
+  assert.ok(sidebarSrc.includes('i18nKey: "cliAgents"'));
 });
 
-test("TOOLS_GROUP acp-agents item has correct href and i18nKey", () => {
-  const toolsGroup = getToolsGroup();
-  const acpAgents = toolsGroup.items.find((item) => item.id === "acp-agents");
-  assert.ok(acpAgents, "expected acp-agents in TOOLS_GROUP");
-  assert.equal(acpAgents.href, "/dashboard/acp-agents");
-  assert.equal(acpAgents.i18nKey, "acpAgents");
+test("TOOLS_GROUP acp-agents item has correct href in source", () => {
+  assert.ok(sidebarSrc.includes('id: "acp-agents"'));
+  assert.ok(sidebarSrc.includes('href: "/dashboard/acp-agents"'));
+  assert.ok(sidebarSrc.includes('i18nKey: "acpAgents"'));
 });
 
 test("TOOLS_GROUP does NOT contain legacy cli-tools or agents entries", () => {
-  const toolsGroup = getToolsGroup();
-  const legacyIds = toolsGroup.items
-    .map((item) => item.id)
-    .filter((id) => id === "cli-tools" || id === "agents");
-  assert.deepEqual(
-    legacyIds,
-    [],
-    "TOOLS_GROUP must not contain legacy 'cli-tools' or 'agents' entries"
+  const toolsBlock = sidebarSrc.match(
+    /const TOOLS_GROUP: SidebarItemGroup = \{[\s\S]*?items: \[([\s\S]*?)\],\n\s*\};/
   );
+  assert.ok(toolsBlock);
+  assert.equal(toolsBlock[1].includes('id: "cli-tools"'), false);
+  assert.equal(toolsBlock[1].includes('id: "agents"'), false);
+});
+
+test("Operations hub agents group covers CLI/agent tool destinations (Task 0059)", () => {
+  const agents = OPERATIONS_HUB_GROUPS.find((g) => g.id === "agents");
+  assert.ok(agents);
+  const hrefs = agents.links.map((l) => l.href);
+  assert.ok(hrefs.includes("/dashboard/cli-code"));
+  assert.ok(hrefs.includes("/dashboard/cli-agents"));
+  assert.ok(hrefs.includes("/dashboard/acp-agents"));
+  assert.ok(hrefs.includes("/dashboard/cloud-agents"));
+  assert.ok(hrefs.includes("/dashboard/tools/agent-bridge"));
 });

@@ -111,7 +111,7 @@ export default function FusionUnitRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-md border border-black/10 dark:border-white/10 overflow-hidden text-xs">
+        <div className="inline-flex rounded-md border border-white/10 overflow-hidden text-xs">
           <button
             type="button"
             className={`px-2.5 py-1.5 ${
@@ -125,7 +125,7 @@ export default function FusionUnitRow({
           </button>
           <button
             type="button"
-            className={`px-2.5 py-1.5 border-l border-black/10 dark:border-white/10 ${
+            className={`px-2.5 py-1.5 border-l border-white/10 ${
               entryKind === "combo-ref"
                 ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300"
                 : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
@@ -161,7 +161,7 @@ export default function FusionUnitRow({
                   : {}),
               });
             }}
-            className="flex-1 text-xs py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+            className="flex-1 text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
           />
           <Button type="button" variant="secondary" size="sm" icon="search" onClick={onPickModel}>
             Pick model
@@ -186,7 +186,7 @@ export default function FusionUnitRow({
               }
               onChange({ kind: "combo-ref", comboName });
             }}
-            className="w-full text-xs py-2 px-2.5 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+            className="w-full text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
           >
             <option value="">Select a combo to reference</option>
             {filteredRefs.map((ref) => {

@@ -26,157 +26,88 @@
   --fd-sidebar-width: 220px;
 }
 
-/* OpenClaw × ClawHub Color Palette */
+/* VR-Aligned Color Palette — Obsidian + Core Cyan, Dark Only
+   Migration from OpenClaw coral/indigo to VR Prism spec (2026-07-12). */
 :root {
   --desktop-safe-top: 0px;
   --desktop-safe-bottom: 0px;
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Primary - Coral Red (OpenClaw) */
-  --color-primary: #e54d5e;
-  --color-primary-hover: #c93d4e;
+  /* Primary - Core Cyan (VR #00FFCC) */
+  --color-primary: #00FFCC;
+  --color-primary-hover: #00cca3;
 
-  /* Accent - Indigo/Violet (buttons, links, gradients) */
-  --color-accent: #6366f1;
-  --color-accent-hover: #8b5cf6;
-  --color-accent-light: #a855f7;
+  /* Accent - Monochrome cyan (no secondary accent — VR spec) */
+  --color-accent: #00FFCC;
+  --color-accent-hover: #00cca3;
+  --color-accent-light: #66ffdd;
 
   /* Semantic */
   --color-error: #ef4444;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
-  /* Info (health / active status chips) — dual light+dark pairs below */
-  --color-info: #3b82f6;
+  /* Info (health / active status chips) — VR cyan */
+  --color-info: #00FFCC;
 
-  /* Soft status glows — opt-in on health/breaker surfaces only (Task 0028).
-     Values are color-mix friendly; consumers use statusGlowClass() utilities. */
-  --status-glow-success: rgba(34, 197, 94, 0.28);
-  --status-glow-warning: rgba(245, 158, 11, 0.32);
-  --status-glow-danger: rgba(239, 68, 68, 0.32);
-  --status-glow-info: rgba(59, 130, 246, 0.28);
+  /* Soft status glows — opt-in on health/breaker surfaces only (Task 0028). */
+  --status-glow-success: rgba(34, 197, 94, 0.36);
+  --status-glow-warning: rgba(245, 158, 11, 0.4);
+  --status-glow-danger: rgba(239, 68, 68, 0.4);
+  --status-glow-info: rgba(0, 255, 204, 0.28);
 
   /* Traffic lights */
   --color-traffic-red: #ff5f56;
   --color-traffic-yellow: #ffbd2e;
   --color-traffic-green: #27c93f;
 
-  /* Light theme */
-  --color-bg: #f9f9fb;
-  --color-bg-alt: #f0f0f5;
-  --color-bg-primary: #f9f9fb;
-  --color-bg-subtle: #f0f0f5;
-  --color-surface: #ffffff;
-  --color-card: #ffffff;
-  --color-sidebar: #f5f5fa;
-  --color-border: rgba(0, 0, 0, 0.08);
-  --color-text-main: #1a1a2e;
-  --color-text-primary: #1a1a2e;
-  --color-text-muted: #71717a;
+  /* Obsidian dark theme — VR spec */
+  --color-bg: #030506;
+  --color-bg-alt: #06080a;
+  --color-bg-primary: #030506;
+  --color-bg-subtle: #06080a;
+  --color-surface: #080c0e;
+  --color-card: #080c0e;
+  --color-sidebar: #080c0e;
+  --color-border: #121d22;
+  --color-text-main: #d6dee7;
+  --color-text-primary: #d6dee7;
+  --color-text-muted: #809098;
 
-  /* Fumadocs light theme */
-  --color-fd-background: #f9f9fb;
-  --color-fd-foreground: #1a1a2e;
-  --color-fd-muted: #f0f0f5;
-  --color-fd-muted-foreground: #71717a;
-  --color-fd-popover: #ffffff;
-  --color-fd-popover-foreground: #1a1a2e;
-  --color-fd-card: #ffffff;
-  --color-fd-card-foreground: #1a1a2e;
-  --color-fd-border: rgba(0, 0, 0, 0.08);
-  --color-fd-primary: #e54d5e;
-  --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: #f0f0f5;
-  --color-fd-secondary-foreground: #1a1a2e;
-  --color-fd-accent: rgba(229, 77, 94, 0.08);
-  --color-fd-accent-foreground: #1a1a2e;
-  --color-fd-ring: #e54d5e;
+  /* Fumadocs theme — VR mapped */
+  --color-fd-background: #030506;
+  --color-fd-foreground: #d6dee7;
+  --color-fd-muted: #06080a;
+  --color-fd-muted-foreground: #809098;
+  --color-fd-popover: #080c0e;
+  --color-fd-popover-foreground: #d6dee7;
+  --color-fd-card: #080c0e;
+  --color-fd-card-foreground: #d6dee7;
+  --color-fd-border: #121d22;
+  --color-fd-primary: #00FFCC;
+  --color-fd-primary-foreground: #030506;
+  --color-fd-secondary: #06080a;
+  --color-fd-secondary-foreground: #d6dee7;
+  --color-fd-accent: rgba(0, 255, 204, 0.08);
+  --color-fd-accent-foreground: #d6dee7;
+  --color-fd-ring: #00FFCC;
 
   /* Shadows */
-  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.015);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 77, 94, 0.12);
-  --shadow-elevated: 0 12px 28px -4px rgba(20, 20, 40, 0.06);
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-warm: 0 2px 12px -2px rgba(0, 255, 204, 0.12);
+  --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.4);
 
-  /* Graph-paper wallpaper grid — shared visual identity with the marketing site
-     (_mono_repo/omnirouteSite/css). Light theme values. Rendered by body::before.
-     Opacity tuned up from the site's 0.045 so the wallpaper is actually visible on
-     the dense dashboard (cards/chrome cover most of the viewport). */
-  --grid-line: rgba(0, 0, 0, 0.07);
-  --grid-size: 32px;
-  --section-alt: rgba(0, 0, 0, 0.022);
-
-  /* Identity tokens mirrored from the site. Definitions only in this phase —
-     components are repointed to them in a later phase. */
-  --surface-2: #f5f5fa;
+  /* Identity tokens */
+  --surface-2: #0e1417;
   --radius: 14px;
   --radius-control: 9px;
   --grad-brand: linear-gradient(135deg, var(--color-primary), var(--color-accent-light));
 
-  /* Data-table surfaces — theme-aware. The DARK values (in .dark below) exactly mirror
-     the previous hardcoded rgba in DataTable.tsx so dark stays byte-identical; these
-     light values are the fix (the old code was always-dark via dead var fallbacks). */
-  --table-header-bg: rgba(249, 249, 251, 0.95);
-  --table-row-zebra: rgba(0, 0, 0, 0.02);
-  --table-row-hover: rgba(0, 0, 0, 0.04);
-  --table-cell-border: rgba(0, 0, 0, 0.04);
-  /* Selected row — an accent tint that reads on both themes (inherited by .dark). */
-  --table-row-selected: rgba(99, 102, 241, 0.1);
-}
-
-.dark {
-  /* Dark theme (ClawHub deep) */
-  color-scheme: dark;
-  --color-bg: #0b0e14;
-  --color-bg-alt: #111520;
-  --color-bg-primary: #0b0e14;
-  --color-bg-subtle: #111520;
-  --color-surface: #161b22;
-  --color-card: #161b22;
-  --color-sidebar: #10141e;
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-text-main: #e6e6ef;
-  --color-text-primary: #e6e6ef;
-  --color-text-muted: #a1a1aa;
-
-  /* Info + status glows — slightly brighter for dark surfaces */
-  --color-info: #60a5fa;
-  --status-glow-success: rgba(34, 197, 94, 0.36);
-  --status-glow-warning: rgba(245, 158, 11, 0.4);
-  --status-glow-danger: rgba(239, 68, 68, 0.4);
-  --status-glow-info: rgba(96, 165, 250, 0.36);
-
-  /* Fumadocs theme mapping */
-  --color-fd-background: #0b0e14;
-  --color-fd-foreground: #e6e6ef;
-  --color-fd-muted: #111520;
-  --color-fd-muted-foreground: #a1a1aa;
-  --color-fd-popover: #161b22;
-  --color-fd-popover-foreground: #e6e6ef;
-  --color-fd-card: #161b22;
-  --color-fd-card-foreground: #e6e6ef;
-  --color-fd-border: rgba(255, 255, 255, 0.08);
-  --color-fd-primary: #e54d5e;
-  --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: #111520;
-  --color-fd-secondary-foreground: #e6e6ef;
-  --color-fd-accent: rgba(229, 77, 94, 0.12);
-  --color-fd-accent-foreground: #e6e6ef;
-  --color-fd-ring: #e54d5e;
-
-  /* Dark shadows */
-  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 77, 94, 0.15);
-  --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.3);
-
-  /* Graph-paper wallpaper grid — dark theme values (tuned up from 0.035 for visibility). */
-  --grid-line: rgba(255, 255, 255, 0.06);
-  --section-alt: rgba(255, 255, 255, 0.018);
-  --surface-2: #1c2230;
-
-  /* Data-table surfaces — dark = the exact old hardcoded values (byte-identical). */
-  --table-header-bg: rgba(15, 15, 25, 0.95);
+  /* Data-table surfaces */
+  --table-header-bg: rgba(8, 12, 14, 0.95);
   --table-row-zebra: rgba(255, 255, 255, 0.02);
   --table-row-hover: rgba(255, 255, 255, 0.04);
   --table-cell-border: rgba(255, 255, 255, 0.04);
+  --table-row-selected: rgba(0, 255, 204, 0.1);
 }
 
 @theme inline {
@@ -207,29 +138,21 @@
   --color-text-primary: var(--color-text-primary);
   --color-text-muted: var(--color-text-muted);
 
-  /* Static colors (for explicit light/dark usage) */
-  --color-bg-light: #f9f9fb;
-  --color-bg-dark: #0b0e14;
-  --color-surface-light: #ffffff;
-  --color-surface-dark: #161b22;
-  --color-sidebar-light: #ededf2;
-  --color-sidebar-dark: #111520;
-  --color-border-light: #e2e2ea;
-  --color-border-dark: #2d333b;
-  --color-text-main-light: #1a1a2e;
-  --color-text-main-dark: #e6e6ef;
-  --color-text-muted-light: #71717a;
-  --color-text-muted-dark: #a1a1aa;
+  /* Static colors (dark-only reference) */
+  --color-bg-dark: #030506;
+  --color-surface-dark: #080c0e;
+  --color-sidebar-dark: #080c0e;
+  --color-border-dark: #121d22;
+  --color-text-main-dark: #d6dee7;
+  --color-text-muted-dark: #809098;
 
   /* Shadows */
   --shadow-soft: var(--shadow-soft);
   --shadow-warm: var(--shadow-warm);
   --shadow-elevated: var(--shadow-elevated);
 
-  /* Font - macOS system fonts */
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
-  /* Monospace stack (parity with the site) — code blocks, IDs, endpoints, terminals */
+  /* Font — Rajdhani (body) + JetBrains Mono (code) — VR spec */
+  --font-sans: var(--font-rajdhani), "Rajdhani", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: ui-monospace, "JetBrains Mono", "Fira Code", "SF Mono", monospace;
 
   /* Nested surface (enables bg-surface-2) */
@@ -274,30 +197,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Graph-paper wallpaper grid — one fixed, full-viewport layer behind every screen
-   (dashboard, auth, error pages). A z-index:-1 ::before paints above body's own
-   background but below all in-flow content, so it shows through any transparent
-   wrapper without lowering text contrast. Mirrors the marketing site exactly. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-  background-size: var(--grid-size) var(--grid-size);
-}
-
 body.electron-macos {
   --desktop-safe-top: 30px;
   --desktop-safe-bottom: 8px;
 }
 
-/* Selection — with fallback for browsers that don't support color-mix() */
+/* Selection — VR cyan accent */
 ::selection {
-  background-color: rgba(229, 77, 94, 0.22);
+  background-color: rgba(0, 255, 204, 0.22);
   background-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
   color: var(--color-primary);
 }
@@ -326,22 +233,9 @@ body.electron-macos {
   background: transparent;
 }
 
-/* Dark theme scrollbar — slightly brighter thumb */
-.dark *::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.08);
-}
-
-.dark *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
 /* Firefox support */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.2) transparent;
-}
-
-.dark * {
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 
@@ -350,13 +244,9 @@ body.electron-macos {
   scrollbar-width: thin;
 }
 
-/* Hero gradient */
+/* Hero gradient — dark only */
 .bg-hero-gradient {
-  background: linear-gradient(180deg, #f0f0f5 0%, #f9f9fb 100%);
-}
-
-.dark .bg-hero-gradient {
-  background: linear-gradient(180deg, #111520 0%, #0b0e14 100%);
+  background: linear-gradient(180deg, #06080a 0%, #030506 100%);
 }
 
 /* Material Symbols */
@@ -429,15 +319,15 @@ button .material-symbols-outlined,
   0%,
   100% {
     box-shadow:
-      0 0 5px rgba(229, 77, 94, 0.3),
-      0 0 10px rgba(229, 77, 94, 0.2);
-    border-color: rgba(229, 77, 94, 0.5);
+      0 0 5px rgba(0, 255, 204, 0.3),
+      0 0 10px rgba(0, 255, 204, 0.2);
+    border-color: rgba(0, 255, 204, 0.5);
   }
   50% {
     box-shadow:
-      0 0 10px rgba(229, 77, 94, 0.5),
-      0 0 20px rgba(229, 77, 94, 0.3);
-    border-color: rgba(229, 77, 94, 0.8);
+      0 0 10px rgba(0, 255, 204, 0.5),
+      0 0 20px rgba(0, 255, 204, 0.3);
+    border-color: rgba(0, 255, 204, 0.8);
   }
 }
 
@@ -445,15 +335,27 @@ button .material-symbols-outlined,
   animation: border-glow 2s ease-in-out infinite;
 }
 
-/* macOS Vibrancy/Blur Effect */
+/* Status glow utilities — soft box-shadow for health/breaker surfaces.
+   Defined as proper CSS classes to avoid Tailwind v4 arbitrary value parsing
+   issues with var() containing hyphens (Task 0052 fix). */
+.status-glow-success {
+  box-shadow: 0 0 8px var(--status-glow-success);
+}
+.status-glow-warning {
+  box-shadow: 0 0 8px var(--status-glow-warning);
+}
+.status-glow-danger {
+  box-shadow: 0 0 8px var(--status-glow-danger);
+}
+.status-glow-info {
+  box-shadow: 0 0 8px var(--status-glow-info);
+}
+
+/* macOS Vibrancy/Blur Effect — dark only */
 .bg-vibrancy {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.dark .bg-vibrancy {
-  background: rgba(16, 20, 30, 0.72);
+  background: rgba(8, 12, 14, 0.72);
 }
 
 /* macOS Traffic Lights */

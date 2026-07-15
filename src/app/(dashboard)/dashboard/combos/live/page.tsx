@@ -3,6 +3,7 @@
 import { ComboLiveStudio } from "./ComboLiveStudio";
 import { useLiveComboStatus } from "@/hooks/useLiveDashboard";
 import { useProviderBreakerHealth } from "@/hooks/useProviderBreakerHealth";
+import RoutingHubSubnav from "@/shared/components/RoutingHubSubnav";
 
 /**
  * Combo/Routing Studio (Tela B) — live combo cascade.
@@ -20,14 +21,17 @@ export default function ComboLiveStudioPage() {
   const { providerHealth, connectionHealth } = useProviderBreakerHealth();
 
   return (
-    <div className="p-4 h-[calc(100dvh-6rem)] min-h-[480px]">
-      <ComboLiveStudio
-        comboEvents={comboEvents}
-        combos={[...activeCombos]}
-        isConnected={isConnected}
-        providerHealth={providerHealth}
-        connectionHealth={connectionHealth}
-      />
+    <div className="flex h-[calc(100dvh-6rem)] min-h-[480px] flex-col gap-3 p-4">
+      <RoutingHubSubnav active="live" />
+      <div className="min-h-0 flex-1">
+        <ComboLiveStudio
+          comboEvents={comboEvents}
+          combos={[...activeCombos]}
+          isConnected={isConnected}
+          providerHealth={providerHealth}
+          connectionHealth={connectionHealth}
+        />
+      </div>
     </div>
   );
 }

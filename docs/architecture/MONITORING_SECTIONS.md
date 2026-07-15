@@ -2,11 +2,17 @@
 title: "Monitoring & Costs — Navigation Structure"
 version: 3.8.40
 lastUpdated: 2026-06-28
+status: historical
 ---
 
 # Monitoring & Costs — Navigation Structure
 
-> Implemented in Group B (plan 16). See `src/shared/constants/sidebarVisibility.ts`.
+> **Historical (pre–Epic 0005).** Do **not** treat this file as the live sidebar map.
+> Live chrome: `PRIMARY_SIDEBAR_ITEMS` in `src/shared/constants/sidebarVisibility.ts`.
+> Observe hub + `?source=` filters: `src/shared/constants/observeHub.ts`.
+> IA rules: [`docs/guides/UI.md`](../guides/UI.md) · target map: [`NAV-TREE-TARGET.md`](./NAV-TREE-TARGET.md).
+>
+> Originally implemented in Group B (plan 16). Kept for archive/provenance only.
 
 ---
 

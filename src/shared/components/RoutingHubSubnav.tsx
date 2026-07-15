@@ -4,12 +4,17 @@ import Link from "next/link";
 import { cn } from "@/shared/utils/cn";
 
 /**
- * In-page Routing hub subnav (Task 0025 F2).
+ * In-page Routing hub subnav (Task 0025 F2 + Task 0058).
  * Flat sidebar keeps a single "Routing" leaf (`combos`); Combos / Fusions /
- * Compression Studio are discovered here (and via command palette), not as
- * peer sidebar leaves.
+ * Live / Compression Settings / Compression Studio are discovered here (and via
+ * command palette), not as peer sidebar leaves.
  */
-export type RoutingHubActive = "combos" | "fusions" | "compression";
+export type RoutingHubActive =
+  | "combos"
+  | "fusions"
+  | "live"
+  | "compression-settings"
+  | "compression-studio";
 
 const LINKS: Array<{
   id: RoutingHubActive;
@@ -19,10 +24,17 @@ const LINKS: Array<{
 }> = [
   { id: "combos", href: "/dashboard/combos", label: "Combos", icon: "layers" },
   { id: "fusions", href: "/dashboard/fusions", label: "Fusions", icon: "hub" },
+  { id: "live", href: "/dashboard/combos/live", label: "Live", icon: "sensors" },
   {
-    id: "compression",
+    id: "compression-settings",
+    href: "/dashboard/context/settings",
+    label: "Compression Settings",
+    icon: "tune",
+  },
+  {
+    id: "compression-studio",
     href: "/dashboard/compression/studio",
-    label: "Compression",
+    label: "Compression Studio",
     icon: "compress",
   },
 ];

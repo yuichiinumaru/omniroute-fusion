@@ -6,5 +6,6 @@ export const metadata = {
 };
 
 export default function CompressionPage() {
-  redirect("/dashboard/context/caveman");
+  // Task 0058: Compression hub entry points at Context Settings (not a mode page).
+  redirect("/dashboard/context/settings");
 }

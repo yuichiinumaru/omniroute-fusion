@@ -168,7 +168,7 @@ Skills/plugins run operator-adjacent code; cloud sync and idempotency without te
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
-- **Notas**:
+- **Reviewer**: reviewers (independent Code Quality Reviewer) — 2026-07-11
+- **Veredito**: PASS WITH NOTES
+- **Score**: 92/100
+- **Notas**: All six P1 exits closed (env scrub, static plugin perms, cloud fail-closed + outbound scrub, checksum hard-fail, principal-scoped idempotency). Fresh tests 65 pass / 0 fail. Residual: F-06-002 is static scan not capability sandbox (documented); binaryManager-0046 test largely source-scan. Report: `docs/reports/reviews/2026-07-11-task-0046-skills-plugins-cloud-review.md`. S≥90 → remain `03-review/`.

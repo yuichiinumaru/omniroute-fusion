@@ -1,6 +1,6 @@
 # Task 0041: Secrets at Rest — JWT/API Secrets, API Keys Hash, PSD Cookies
 
-> **Status**: `[x]` Ready for review
+> **Status**: `[ ]` Returned to doing (review NEEDS FIX)
 > **Priority**: 🔴 P0
 > **Type**: `remediation`
 > **Origin**: Epic 0008 — Adversarial Remediation (S2)
@@ -186,7 +186,7 @@ DB backup / DATA_DIR leak is a common operator failure mode. Root signing secret
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**:
-- **Veredito**:
-- **Score**:
-- **Notas**:
+- **Reviewer**: independent code-quality reviewer (`reviewers` parent)
+- **Veredito**: NEEDS FIX
+- **Score**: 78/100
+- **Notas**: Primary at-rest paths land (secrets encrypt+upsert, api_keys hash storage, PSD write encrypt + response redact; intentional pack 78/78). Blocking: hash-only + `stripStoredApiKeyMaterial` breaks id→secret consumers — `playground-key-policy-3503` fails; CLI `resolveApiKey`/settings by id silent fall-through. Also: no PSD lazy re-encrypt for existing rows; incomplete storageKeys inventory. Report: `docs/reports/reviews/2026-07-11-task-0041-secrets-at-rest-review.md`. Moved `03-review` → `02-doing`.

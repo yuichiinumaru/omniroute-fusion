@@ -1352,7 +1352,7 @@ function ComboUsageGuide({ onHide, onHideForever, onCreateCombo }) {
           return (
             <div
               key={step.step}
-              className="relative rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-2.5"
+              className="relative rounded-lg border border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-2.5"
             >
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
@@ -1393,7 +1393,7 @@ function ComboUsageGuide({ onHide, onHideForever, onCreateCombo }) {
 function StrategyGuidanceCard({ strategy }) {
   const t = useTranslations("combos");
   return (
-    <div className="rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-2.5">
+    <div className="rounded-lg border border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-2.5">
       <div className="text-[11px] text-text-muted">
         {getI18nOrFallback(t, "strategyGuideTitle", "How to use this strategy")}
       </div>
@@ -1429,7 +1429,7 @@ function StrategyRecommendationsPanel({ strategy, onApply, showNudge }) {
   const tips = getStrategyRecommendationText(t, strategy, "tips");
 
   return (
-    <div className="rounded-lg border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/[0.02] p-2.5">
+    <div className="rounded-lg border border-white/10 bg-white/70 dark:bg-white/[0.02] p-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] text-text-muted">
@@ -1759,7 +1759,7 @@ function ComboCard({
                 value={compressionOverride}
                 onChange={(e) => handleCompressionOverrideChange(e.target.value)}
                 disabled={isSavingCompression}
-                className="text-xs py-1 px-2 rounded border border-black/10 dark:border-white/10 bg-surface text-text-main focus:border-primary focus:outline-none transition-colors disabled:opacity-50 max-w-[130px] md:max-w-none"
+                className="text-xs py-1 px-2 rounded border border-white/10 bg-surface text-text-main focus:border-primary focus:outline-none transition-colors disabled:opacity-50 max-w-[130px] md:max-w-none"
                 title={t("compressionOverride")}
               >
                 <option value="" className="bg-surface text-text-main">
@@ -2967,7 +2967,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     "comboDescriptionPlaceholder",
                     "Optional note describing this combo"
                   )}
-                  className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none resize-none"
+                  className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none resize-none"
                 />
               </div>
 
@@ -2995,7 +2995,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         className={`text-left rounded-md border px-3 py-2 transition-all ${
                           template.isFeatured
                             ? "border-emerald-500/50 bg-emerald-500/5 hover:border-emerald-500/80 hover:bg-emerald-500/10 ring-1 ring-emerald-500/20"
-                            : "border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] hover:border-primary/40 hover:bg-primary/5"
+                            : "border-white/10 bg-white/70 dark:bg-white/[0.03] hover:border-primary/40 hover:bg-primary/5"
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -3056,7 +3056,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     }
                     className={`py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
                       strategy === s.value
-                        ? "bg-white dark:bg-white/5 shadow-sm text-primary"
+                        ? "bg-white/5 shadow-sm text-primary"
                         : "text-text-muted hover:text-text-main"
                     }`}
                   >
@@ -3168,7 +3168,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         }}
                         placeholder="provider/model"
                         data-testid="combo-manual-model-input"
-                        className="flex-1 text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none font-mono"
+                        className="flex-1 text-xs py-2 px-2 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none font-mono"
                       />
                       <Button
                         onClick={handleAddManualModel}
@@ -3201,7 +3201,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                       value={builderProviderId}
                       onChange={handleBuilderProviderChange}
                       data-testid="combo-builder-provider"
-                      className="w-full text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+                      className="w-full text-xs py-2 px-2 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
                     >
                       <option value="">
                         {builderLoading
@@ -3226,7 +3226,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                       onChange={handleBuilderModelChange}
                       disabled={!selectedBuilderProvider}
                       data-testid="combo-builder-model"
-                      className="w-full text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none disabled:opacity-50"
+                      className="w-full text-xs py-2 px-2 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none disabled:opacity-50"
                     >
                       <option value="">
                         {selectedBuilderProvider
@@ -3251,7 +3251,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                       onChange={handleBuilderConnectionChange}
                       disabled={!selectedBuilderModel}
                       data-testid="combo-builder-account"
-                      className="w-full text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none disabled:opacity-50"
+                      className="w-full text-xs py-2 px-2 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none disabled:opacity-50"
                     >
                       <option value={COMBO_BUILDER_AUTO_CONNECTION}>
                         {getI18nOrFallback(
@@ -3292,7 +3292,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             className={`text-[11px] px-2 py-1 rounded border transition-colors ${
                               checked
                                 ? "border-primary bg-primary/10 text-primary"
-                                : "border-black/10 dark:border-white/10 text-text-muted hover:border-primary/40"
+                                : "border-white/10 text-text-muted hover:border-primary/40"
                             }`}
                           >
                             {pickDisplayValue([connection.label], emailsVisible, connection.label)}
@@ -3374,7 +3374,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     <select
                       value={builderComboRefName}
                       onChange={(e) => setBuilderComboRefName(e.target.value)}
-                      className="flex-1 text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+                      className="flex-1 text-xs py-2 px-2 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
                     >
                       <option value="">
                         {getI18nOrFallback(
@@ -3409,7 +3409,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
               </div>
 
               {models.length === 0 ? (
-                <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
+                <div className="text-center py-4 border border-dashed border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
                   <span className="material-symbols-outlined text-text-muted text-xl mb-1">
                     layers
                   </span>
@@ -3489,7 +3489,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             max="100"
                             value={entry.weight}
                             onChange={(e) => handleWeightChange(index, e.target.value)}
-                            className="w-10 text-[11px] text-center py-0.5 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                            className="w-10 text-[11px] text-center py-0.5 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                           />
                           <span className="text-[10px] text-text-muted">%</span>
                         </div>
@@ -3536,7 +3536,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
               {strategy === "weighted" && models.length > 0 && <WeightTotalBar models={models} />}
 
               {strategy === "cost-optimized" && models.length > 0 && (
-                <div className="mt-2 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-2 py-1.5">
+                <div className="mt-2 rounded-md border border-white/10 bg-black/[0.02] dark:bg-white/[0.02] px-2 py-1.5">
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="text-text-muted">
                       {getI18nOrFallback(t, "pricingCoverage", "Pricing coverage")}
@@ -3637,7 +3637,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
 
               <button
                 onClick={() => setShowModelSelect(true)}
-                className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-text-muted hover:text-primary hover:border-primary/30 transition-colors flex items-center justify-center gap-1"
+                className="w-full mt-2 py-2 border border-dashed border-white/10 rounded-lg text-xs text-text-muted hover:text-primary hover:border-primary/30 transition-colors flex items-center justify-center gap-1"
                 data-testid="combo-browse-catalog"
               >
                 <span className="material-symbols-outlined text-[16px]">travel_explore</span>
@@ -3686,7 +3686,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             maxRetries: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                       />
                     </div>
                     <div>
@@ -3712,7 +3712,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             retryDelayMs: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                       />
                     </div>
                     <div>
@@ -3740,7 +3740,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             targetTimeoutMs: secondsInputToOptionalMs(e.target.value),
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                       />
                     </div>
                   </div>
@@ -3802,7 +3802,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             maxSetRetries: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                       />
                     </div>
                     <div>
@@ -3828,7 +3828,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             setRetryDelayMs: e.target.value ? Number(e.target.value) : undefined,
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                       />
                     </div>
                   </div>
@@ -3858,7 +3858,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                                 : undefined,
                             })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div>
@@ -3884,7 +3884,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                               queueTimeoutMs: e.target.value ? Number(e.target.value) : undefined,
                             })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div className="col-span-2">
@@ -3911,7 +3911,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                                 : undefined,
                             })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                     </div>
@@ -3946,7 +3946,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                                 : undefined,
                             })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                     </div>
@@ -3970,7 +3970,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             nestedComboMode: e.target.value === "execute" ? "execute" : "flatten",
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-surface-1 focus:border-primary focus:outline-none"
+                        className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-surface-1 focus:border-primary focus:outline-none"
                       >
                         <option value="flatten">Flatten nested combos</option>
                         <option value="execute">Execute nested combos as targets</option>
@@ -4006,7 +4006,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                               handoffThreshold: e.target.value ? Number(e.target.value) : undefined,
                             })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div>
@@ -4037,7 +4037,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                                 : undefined,
                             })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div>
@@ -4060,7 +4060,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                               handoffModel: e.target.value || undefined,
                             })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       {!isExpertMode && (
@@ -4095,7 +4095,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           onChange={(e) =>
                             setConfig({ ...config, judgeModel: e.target.value || undefined })
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div>
@@ -4117,7 +4117,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           onChange={(e) =>
                             setConfig(updateFusionTuning(config, "minPanel", e.target.value))
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div>
@@ -4139,7 +4139,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           onChange={(e) =>
                             setConfig(updateFusionTuning(config, "stragglerGraceMs", e.target.value))
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -4167,7 +4167,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                               updateFusionTuning(config, "panelHardTimeoutMs", e.target.value)
                             )
                           }
-                          className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                         />
                       </div>
                     </div>
@@ -4219,7 +4219,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     "agentFeaturesSystemMessagePlaceholder",
                     "Optional system instructions for this combo"
                   )}
-                  className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none resize-none"
+                  className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none resize-none"
                 />
                 {!isExpertMode && (
                   <p className="text-[10px] text-text-muted mt-0.5">
@@ -4242,7 +4242,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                   value={agentToolFilter}
                   onChange={(e) => setAgentToolFilter(e.target.value)}
                   placeholder="e.g. ^(bash|computer)$"
-                  className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none font-mono"
+                  className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none font-mono"
                 />
                 {!isExpertMode && (
                   <p className="text-[10px] text-text-muted mt-0.5">
@@ -4317,7 +4317,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     "agentFeaturesContextLengthPlaceholder",
                     "e.g. 128000"
                   )}
-                  className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                  className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
                 />
                 {contextLengthError && (
                   <p className="text-[10px] text-red-500 mt-0.5">{contextLengthError}</p>

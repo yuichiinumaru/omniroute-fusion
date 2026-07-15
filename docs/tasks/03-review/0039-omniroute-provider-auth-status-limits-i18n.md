@@ -181,9 +181,9 @@ ProviderLimits is a high-visibility failure surface during quota fetch. Leaving 
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: [APROVADO / REJEITADO]
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based]
-- **Se REJEITADO**: mover para `02-doing/` com motivo no topo
+- **Reviewer**: Code Quality Reviewer (independent task reviewer / parent agentID=reviewers)
+- **Data da review**: 2026-07-11
+- **Veredito**: APROVADO (PASS WITH NOTES)
+- **Score (path to 100)**: 94
+- **Notas**: All exits met. ProviderLimits 401 uses `formatQuotaAuthErrorMessage` + EN/locale keys; 18/18 copy tests, typecheck:core, eslint green. Residual polish (path-to-100): optional CTA/tone on error row; unit-test `__MISSING__` strip; document unused `expired` copy id. Report: `docs/reports/reviews/2026-07-11-task-0039-provider-auth-status-limits-i18n-review.md`. S≥90 → stay `03-review/` (not moved to `02-doing/` or `04-completed/`).
+- **Se REJEITADO**: n/a

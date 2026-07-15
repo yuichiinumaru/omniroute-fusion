@@ -1,59 +1,28 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect } from "react";
 import useThemeStore from "@/store/themeStore";
 
-// Subscribe to system theme changes
-function subscribeToSystemTheme(callback) {
-  if (typeof window === "undefined") return () => {};
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  mediaQuery.addEventListener("change", callback);
-  return () => mediaQuery.removeEventListener("change", callback);
-}
-
-// Get current system theme preference
-function getSystemThemeSnapshot() {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-// Server snapshot always returns false
-function getServerSnapshot() {
-  return false;
-}
-
+/**
+ * useTheme hook — dark-only shim (Task 0053).
+ *
+ * The app is locked to dark mode with the coreCyan accent. This hook is kept
+ * so existing call sites (`DefaultToolCard`) compile, but it now always
+ * reports dark mode. The legacy system-theme subscription and set/toggle
+ * actions were removed when the theme store was stripped to dark-only.
+ *
+ * @returns {{ theme: "dark", isDark: true }} Always dark — UI controls removed.
+ */
 export function useTheme() {
-  const { theme, setTheme, toggleTheme, initTheme } = useThemeStore();
+  const { initTheme } = useThemeStore();
 
-  // Use useSyncExternalStore to safely subscribe to system theme
-  const systemPrefersDark = useSyncExternalStore(
-    subscribeToSystemTheme,
-    getSystemThemeSnapshot,
-    getServerSnapshot
-  );
-
+  // Apply the coreCyan CSS vars once on mount (no-op on the server).
   useEffect(() => {
     initTheme();
   }, [initTheme]);
 
-  // Listen for system theme changes when theme is "system"
-  useEffect(() => {
-    if (theme !== "system") return;
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => initTheme();
-
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [theme, initTheme]);
-
-  // Compute isDark from current state (no effect needed)
-  const isDark = theme === "dark" || (theme === "system" && systemPrefersDark);
-
   return {
-    theme,
-    setTheme,
-    toggleTheme,
-    isDark,
+    theme: "dark" as const,
+    isDark: true,
   };
 }
