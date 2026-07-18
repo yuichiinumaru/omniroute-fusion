@@ -263,7 +263,7 @@ function ResultSummary({
           {connection?.provider && (
             <Link
               href={`/dashboard/providers/${connection.provider}`}
-              className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
             >
               {providerText(t, "onboardingOpenProviderDetails", "Open provider details")}
             </Link>

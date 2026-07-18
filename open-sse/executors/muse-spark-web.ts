@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 
 import {
   BaseExecutor,
-  mergeAbortSignals,
   mergeUpstreamExtraHeaders,
   type ExecuteInput,
 } from "./base.ts";
@@ -13,6 +12,8 @@ import {
   normalizeSessionCookieHeader,
   normalizeSessionCookieHeaders,
 } from "@/lib/providers/webCookieAuth";
+import { fetchWithStartTimeout } from "../utils/fetchStartTimeout.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 
 const META_AI_GRAPHQL_API = "https://www.meta.ai/api/graphql";
 // Meta rebranded the chat product from "Abra" to "Ecto"; the session cookie
@@ -890,10 +891,12 @@ function buildNonStreamingResponse(
 }
 
 function buildErrorResponse(status: number, message: string, code?: string | null) {
+  // Hard Rule #12: sanitize client-facing error bodies.
+  const safeMessage = sanitizeErrorMessage(message);
   return new Response(
     JSON.stringify({
       error: {
-        message,
+        message: safeMessage,
         type: "upstream_error",
         ...(code ? { code } : {}),
       },
@@ -1057,15 +1060,19 @@ function evictContinuationIfNeeded(
 async function postMetaAiRequest(
   headers: Record<string, string>,
   transformedBody: unknown,
-  signal: AbortSignal,
+  signal: AbortSignal | null | undefined,
   log: ExecuteInput["log"]
 ): Promise<{ ok: true; response: Response } | { ok: false; result: MuseSparkExecuteResult }> {
   try {
-    const response = await fetch(META_AI_GRAPHQL_API, {
+    // Start-only timeout (F-02-W2-002 residual N1): do NOT merge
+    // AbortSignal.timeout(FETCH_TIMEOUT_MS) into the body lifetime — long Meta
+    // GraphQL streams would be killed mid-response.
+    const response = await fetchWithStartTimeout(META_AI_GRAPHQL_API, {
       method: "POST",
       headers,
       body: JSON.stringify(transformedBody),
-      signal,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      clientSignal: signal ?? null,
     });
     return { ok: true, response };
   } catch (error) {
@@ -1075,7 +1082,7 @@ async function postMetaAiRequest(
       ok: false,
       result: errorResult(
         502,
-        `Meta AI connection failed: ${message}`,
+        `Meta AI connection failed: ${sanitizeErrorMessage(message)}`,
         "meta_ai_fetch_failed",
         headers,
         transformedBody
@@ -1251,10 +1258,7 @@ export class MuseSparkWebExecutor extends BaseExecutor {
     const headers = buildMetaAiHeaders(cookieHeader);
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
 
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
-
-    const fetchResult = await postMetaAiRequest(headers, transformedBody, combinedSignal, log);
+    const fetchResult = await postMetaAiRequest(headers, transformedBody, signal, log);
     if (!fetchResult.ok) {
       const err = fetchResult as { ok: false; result: MuseSparkExecuteResult };
       return err.result;

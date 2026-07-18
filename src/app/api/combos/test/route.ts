@@ -1,20 +1,52 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { buildComboTestRequestBody, extractComboTestResponseText } from "@/lib/combos/testHealth";
-import { getApiKeys, getComboByName, getCombos } from "@/lib/localDb";
+import {
+  createApiKey,
+  getApiKeys,
+  getComboByName,
+  getCombos,
+  regenerateApiKey,
+} from "@/lib/localDb";
 import { getRuntimePorts } from "@/lib/runtime/ports";
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo.ts";
 import { testComboSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { getConsistentMachineId } from "@/shared/utils/machineId";
 
+const COMBO_TEST_INTERNAL_KEY_NAME = "combo-test-internal";
+
+/**
+ * Obtain a usable bearer for internal combo health probes.
+ * Hash-only storage (F-05-002 / Task 0041) no longer rehydrates secrets from
+ * inventory — only create/regenerate returns plaintext once. Reuses a single
+ * named row via regenerate to avoid polluting api_keys on every probe.
+ */
 async function getInternalApiKey(): Promise<string | null> {
   try {
     const keys = await getApiKeys();
-    const active = (
-      keys as Array<{ key: string; isActive?: boolean; revokedAt?: string | null }>
-    ).find((k) => k.key && k.isActive !== false && !k.revokedAt);
-    return active?.key ?? null;
+    const existing = (
+      keys as Array<{ id?: string; name?: string; isActive?: boolean; revokedAt?: string | null }>
+    ).find(
+      (k) =>
+        k.name === COMBO_TEST_INTERNAL_KEY_NAME &&
+        k.isActive !== false &&
+        !k.revokedAt &&
+        typeof k.id === "string"
+    );
+    if (existing?.id) {
+      const regenerated = await regenerateApiKey(existing.id);
+      if (typeof regenerated?.key === "string" && regenerated.key.trim().length > 0) {
+        return regenerated.key.trim();
+      }
+    }
+    const machineId = await getConsistentMachineId();
+    const created = await createApiKey(COMBO_TEST_INTERNAL_KEY_NAME, machineId);
+    if (typeof created?.key === "string" && created.key.trim().length > 0) {
+      return created.key.trim();
+    }
+    return null;
   } catch {
     return null;
   }

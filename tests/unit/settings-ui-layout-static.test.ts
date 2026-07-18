@@ -38,12 +38,17 @@ test("Appearance page is stripped of theme/branding customization and keeps func
 
 test("Settings layout includes Interface tab for appearance path (Task 0061 Option B)", () => {
   const layout = readSrc("src/app/(dashboard)/dashboard/settings/layout.tsx");
-  assert.match(layout, /value:\s*"appearance"/);
-  assert.match(layout, /label:\s*"Interface"/);
-  assert.doesNotMatch(layout, /label:\s*"Appearance"/);
-  // pathToTabValue must recognize the last path segment against SETTINGS_TABS.
-  assert.match(layout, /function pathToTabValue/);
-  assert.match(layout, /SETTINGS_TABS\.some/);
+  // SSoT moved to settingsHub.ts — layout must consume it (not redefine labels).
+  assert.match(layout, /from "@\/shared\/constants\/settingsHub"/);
+  assert.match(layout, /SETTINGS_TABS/);
+  assert.match(layout, /pathToTabValue/);
+  assert.match(layout, /variant=["']subnav["']/);
+
+  const hub = readSrc("src/shared/constants/settingsHub.ts");
+  assert.match(hub, /value:\s*"appearance"/);
+  assert.match(hub, /label:\s*"Interface"/);
+  assert.doesNotMatch(hub, /label:\s*"Appearance"/);
+  assert.match(hub, /export function pathToTabValue/);
 });
 
 test("Usage Token Buffer lives in AI settings instead of General storage", () => {

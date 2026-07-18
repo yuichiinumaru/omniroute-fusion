@@ -332,7 +332,7 @@ function NamedCombosManager() {
           <button
             onClick={saveCombo}
             disabled={saving}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
             {editingId ? "Save" : "Create combo"}
           </button>

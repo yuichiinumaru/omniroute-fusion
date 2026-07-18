@@ -159,7 +159,8 @@ function ModelPill({ model }: { model: HealthMatrixModel }) {
       className={cn(
         "rounded-lg border px-3 py-2 text-xs",
         model.status === "healthy" && "border-green-500/20 bg-green-500/5",
-        model.status === "degraded" && "border-yellow-500/20 bg-yellow-500/5",
+        // Amber track aligns with statusVocabulary warning/degraded (Badge warning).
+        model.status === "degraded" && "border-amber-500/20 bg-amber-500/5",
         model.status === "locked" && "border-amber-500/20 bg-amber-500/5",
         model.status === "error" && "border-red-500/20 bg-red-500/5",
         model.status === "idle" && "border-border bg-bg-subtle/60"

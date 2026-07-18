@@ -58,7 +58,7 @@ Secondary problems that multiply cost:
 
 | Metric | Target | Closeout evidence (child task) |
 |--------|--------|--------------------------------|
-| Default visible sidebar leaves (minimal/operator view) | **≤ 12** (stretch **≤ 8**) | **met (12)** — Task **0025** `countPresetVisibleLeaves("minimal")` |
+| Default visible sidebar leaves (minimal/operator view) | **≤ 12** (stretch **≤ 8**) | **met (7)** — Task **0025** flat primary; `countPresetVisibleLeaves("minimal")` live **7** (primary chrome **9** after Operations hub 0059) |
 | Top-level sections | **≤ 8** (prefer **7** operational pillars) | **met (7 pillars)** — Task **0025** `OPERATIONAL_PILLAR_SECTION_IDS` |
 | Compression engines as top-level leaves | **0** (rows/cards/tabs inside one Compression surface) | **met** — Task **0022** (S3) |
 | Log/audit surfaces as separate top-level leaves | **1** Observe/Execution Stream + filters (not 5+) | **met** — Task **0023** (S4) `/dashboard/activity?source=` |
@@ -384,7 +384,7 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 | S3 Compression hub | **done** | Task **0022** — engines **0** default leaves |
 | S4 Observe unified stream | **done** | Task **0023** — `/dashboard/activity` + filters |
 | S5 Connect / Registry cleanup | **done** | Task **0024** — exposures SSoT + redirects |
-| S6 Seven-pillar sidebar + role presets | **done** | Task **0025** — 7 pillars; `minimal` ≤ 12 leaves |
+| S6 Seven-pillar sidebar + role presets | **done** (path-to-100 residuals closing) | Task **0025** — 7 conceptual pillars + flat primary chrome; live `minimal` **7** / primary **9** |
 | S7 i18n / naming cleanup | **done / residual** | Task **0026** — naming debt; coord with live `sidebar.*` keys (see task file lane) |
 | S8 CLI ConfigurableToolCard | **done** | Task **0029** — `src/shared/components/cli/ConfigurableToolCard.tsx` |
 | S9 Theme micro VR adoption | **done** | Task **0028** — status vocabulary, StatCard accent, optional cyan |

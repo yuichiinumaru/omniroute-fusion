@@ -203,24 +203,29 @@ export default function HealthPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Full-width Observe chrome first (same structural slot as ObserveHubClient). */}
+      <div className="flex flex-col gap-3">
         <ObserveHubSubnav active="health" />
-        <div className="flex items-center justify-end gap-3 self-end sm:self-auto">
+        <div className="flex items-center justify-end gap-3">
           {lastRefresh && (
             <span className="text-xs text-text-muted">
               {t("updatedAt", { time: lastRefresh.toLocaleTimeString() })}
             </span>
           )}
           <button
+            type="button"
             onClick={() => {
               fetchHealth();
               fetchExtras();
               fetchDbHealth();
             }}
-            className="p-2 rounded-lg bg-surface hover:bg-surface/80 text-text-muted hover:text-text-main transition-colors"
+            className="p-2 rounded-lg bg-surface hover:bg-surface/80 text-text-muted hover:text-text-main transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
             title={tc("refresh")}
+            aria-label={tc("refresh")}
           >
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+              refresh
+            </span>
           </button>
         </div>
       </div>

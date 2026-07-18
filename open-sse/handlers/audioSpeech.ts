@@ -21,7 +21,10 @@ import { getSpeechProvider, parseSpeechModel } from "../config/audioRegistry.ts"
 import { buildAuthHeaders } from "../config/registryUtils.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { vertexGenerateSpeech } from "../executors/vertexMedia.ts";
-import { isValidPathSegment } from "@/shared/network/safePathSegment";
+import {
+  isValidPathSegment,
+  isValidSinglePathSegment,
+} from "@/shared/network/safePathSegment";
 import { buildErrorBody, errorResponse, sanitizeErrorMessage } from "../utils/error.ts";
 import {
   getKieCallbackUrl,
@@ -346,8 +349,9 @@ async function handleDeepgramSpeech(providerConfig, body, modelId, token) {
  */
 async function handleElevenLabsSpeech(providerConfig, body, modelId, token) {
   // ElevenLabs uses voice_id in URL path; default to "21m00Tcm4TlvDq8ikWAM" (Rachel)
+  // Voice ids are single-segment only — multi-segment would extend the TTS path.
   const voiceId = body.voice || "21m00Tcm4TlvDq8ikWAM";
-  if (!isValidPathSegment(voiceId)) {
+  if (!isValidSinglePathSegment(voiceId)) {
     return errorResponse(400, "Invalid voice ID");
   }
   const url = `${providerConfig.baseUrl}/${voiceId}`;

@@ -19,7 +19,8 @@ export default defineConfig({
   testIgnore: [
     "**/analytics-tabs.spec.ts",
     "**/memory-settings.spec.ts",
-    "**/protocol-visibility.spec.ts",
+    // protocol-visibility.spec.ts re-enabled 2026-07-18 (Task 0024 path-to-100):
+    // S5 protocol homes bar + MCP/A2A page mounts are stable.
     "**/resilience-plan-alignment.spec.ts",
     "**/settings-toggles.spec.ts",
     "**/skills-marketplace.spec.ts",

@@ -58,6 +58,44 @@ describe("PageTabBar", () => {
     expect(onChange).toHaveBeenCalledWith("evals");
   });
 
+  it("variant=subnav applies Routing-style active classes (Task 0054)", () => {
+    const onChange = vi.fn();
+    act(() => {
+      root.render(
+        <PageTabBar
+          variant="subnav"
+          options={[
+            { value: "general", label: "Data & Storage" },
+            { value: "appearance", label: "Interface" },
+          ]}
+          value="appearance"
+          onChange={onChange}
+          syncSearchParam={false}
+          aria-label="Settings tabs"
+        />
+      );
+    });
+
+    const tablist = container.querySelector('[role="tablist"]');
+    expect(tablist?.className).toContain("rounded-xl");
+    expect(tablist?.className).toMatch(/bg-(black|white)\/\[0\.02\]/);
+
+    const tabs = container.querySelectorAll('[role="tab"]');
+    expect(tabs).toHaveLength(2);
+    const selected = tabs[1] as HTMLButtonElement;
+    const unselected = tabs[0] as HTMLButtonElement;
+    expect(selected.getAttribute("aria-selected")).toBe("true");
+    expect(selected.className).toContain("border-primary/20");
+    expect(selected.className).toContain("bg-primary/10");
+    expect(selected.className).toContain("text-primary");
+    expect(selected.className).not.toContain("bg-surface");
+    // Full Routing item-base density + focus ring (not default Analytics h-9 chip).
+    expect(selected.className).toMatch(/focus-visible:ring-2/);
+    expect(selected.className).toMatch(/focus-visible:ring-primary\/40/);
+    expect(selected.className).not.toContain("h-9");
+    expect(unselected.className).toContain("border-transparent");
+  });
+
   it("syncs ?tab= via history.replaceState by default", () => {
     const onChange = vi.fn();
     act(() => {

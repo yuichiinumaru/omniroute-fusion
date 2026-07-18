@@ -536,7 +536,7 @@ export function LlmChatCard({
             onClick={() => void handleSend()}
             disabled={!input.trim()}
             title={t("send")}
-            className="size-8 flex items-center justify-center rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-40 transition-opacity shrink-0"
+            className="size-8 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-opacity shrink-0"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
           </button>

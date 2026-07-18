@@ -168,6 +168,50 @@ describe("EngineConfigPage", () => {
     expect(container.textContent).toContain("Headroom");
   });
 
+  it("F2 embedded: hides h1 + panel-pointer notice under settings hub", async () => {
+    setupFetchMock();
+    const { EngineConfigPage } =
+      await import("../../../src/shared/components/compression/EngineConfigPage");
+
+    let container!: HTMLElement;
+    await act(async () => {
+      container = mountInContainer(<EngineConfigPage engineId="headroom" embedded />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector("h1")).toBeNull();
+    expect(container.querySelector('[data-testid="panel-pointer-notice"]')).toBeNull();
+    expect(
+      container.querySelector('[data-engine-config-embedded="true"]')
+    ).toBeTruthy();
+    // Config form still present; section titles are presentational (not h2) to avoid
+    // inverted heading outline under EnabledEngineSections h3 engine headers.
+    expect(container.textContent).toContain("Configuration");
+    expect(container.querySelector('[data-testid="engine-config-section-title"]')).toBeTruthy();
+    expect(container.querySelector("h2")).toBeNull();
+  });
+
+  it("standalone default still shows panel-pointer notice", async () => {
+    setupFetchMock();
+    const { EngineConfigPage } =
+      await import("../../../src/shared/components/compression/EngineConfigPage");
+
+    let container!: HTMLElement;
+    await act(async () => {
+      container = mountInContainer(<EngineConfigPage engineId="headroom" />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="panel-pointer-notice"]')).toBeTruthy();
+    expect(container.querySelector("h1")?.textContent).toContain("Headroom");
+  });
+
   it("does NOT render an engine on/off enable toggle (moved to the panel)", async () => {
     setupFetchMock();
     const { EngineConfigPage } =

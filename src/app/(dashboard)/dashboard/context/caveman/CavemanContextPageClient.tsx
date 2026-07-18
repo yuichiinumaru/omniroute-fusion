@@ -46,7 +46,12 @@ function formatNumber(value: number | undefined): string {
   return new Intl.NumberFormat().format(value ?? 0);
 }
 
-export default function CavemanContextPageClient() {
+export default function CavemanContextPageClient({
+  embedded = false,
+}: {
+  /** Task 0058 F2: suppress standalone chrome + Advanced settings dual-editor when nested. */
+  embedded?: boolean;
+} = {}) {
   const t = useTranslations("contextCaveman");
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [settings, setSettings] = useState<CompressionSettings | null>(null);
@@ -126,26 +131,35 @@ export default function CavemanContextPageClient() {
   const previewPrompt = `[OmniRoute Caveman Output Mode]\n${t(`preview.${outputMode.intensity}`)}`;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[30px] text-primary">compress</span>
-            <div>
-              <h1 className="text-2xl font-bold text-text-main">{t("title")}</h1>
-              <p className="text-sm text-text-muted">{t("description")}</p>
+    <div
+      className={
+        embedded
+          ? "flex flex-col gap-4 p-4"
+          : "mx-auto flex max-w-6xl flex-col gap-6"
+      }
+      data-caveman-embedded={embedded ? "true" : "false"}
+    >
+      {!embedded && (
+        <header className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[30px] text-primary">compress</span>
+              <div>
+                <h1 className="text-2xl font-bold text-text-main">{t("title")}</h1>
+                <p className="text-sm text-text-muted">{t("description")}</p>
+              </div>
             </div>
+            <SegmentedControl
+              value={viewMode}
+              onChange={(v) => setViewMode(v as "simple" | "advanced")}
+              options={[
+                { value: "simple", label: t("simpleMode") || "Simple" },
+                { value: "advanced", label: t("advancedMode") || "Advanced" },
+              ]}
+            />
           </div>
-          <SegmentedControl
-            value={viewMode}
-            onChange={(v) => setViewMode(v as "simple" | "advanced")}
-            options={[
-              { value: "simple", label: t("simpleMode") || "Simple" },
-              { value: "advanced", label: t("advancedMode") || "Advanced" },
-            ]}
-          />
-        </div>
-      </header>
+        </header>
+      )}
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         {statCards.map(([label, value]) => (
@@ -158,7 +172,11 @@ export default function CavemanContextPageClient() {
 
       <section className="rounded-lg border border-border bg-surface p-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold text-text-main">{t("languagePacks")}</h2>
+          {embedded ? (
+            <p className="text-sm font-semibold text-text-main">{t("languagePacks")}</p>
+          ) : (
+            <h2 className="text-sm font-semibold text-text-main">{t("languagePacks")}</h2>
+          )}
           <p className="text-xs text-text-muted">{t("languagePacksDesc")}</p>
         </div>
         <div className="mt-4 flex flex-wrap gap-4 text-sm text-text-main">
@@ -225,7 +243,11 @@ export default function CavemanContextPageClient() {
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="text-sm font-semibold text-text-main">{t("analyticsTitle")}</h2>
+          {embedded ? (
+            <p className="text-sm font-semibold text-text-main">{t("analyticsTitle")}</p>
+          ) : (
+            <h2 className="text-sm font-semibold text-text-main">{t("analyticsTitle")}</h2>
+          )}
           <div className="mt-3 space-y-2 text-sm text-text-main">
             {modeBreakdown.length === 0 ? (
               <p className="text-text-muted">{t("noAnalytics")}</p>
@@ -243,7 +265,11 @@ export default function CavemanContextPageClient() {
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="text-sm font-semibold text-text-main">{t("outputModeTitle")}</h2>
+          {embedded ? (
+            <p className="text-sm font-semibold text-text-main">{t("outputModeTitle")}</p>
+          ) : (
+            <h2 className="text-sm font-semibold text-text-main">{t("outputModeTitle")}</h2>
+          )}
           <p className="mt-1 text-xs text-text-muted">{t("outputModeDesc")}</p>
           {/* On/off + intensity for caveman output mode live in the panel
               (/dashboard/context/settings). This page keeps the detailed knobs only. */}
@@ -267,7 +293,8 @@ export default function CavemanContextPageClient() {
         </div>
       </section>
 
-      {viewMode === "advanced" && <CompressionSettingsTab />}
+      {/* F2: Advanced re-embeds legacy CompressionSettingsTab — suppress when already under settings hub. */}
+      {viewMode === "advanced" && !embedded && <CompressionSettingsTab />}
     </div>
   );
 }

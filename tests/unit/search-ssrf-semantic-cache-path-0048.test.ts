@@ -24,7 +24,7 @@ const {
   clearCache,
 } = await import("../../src/lib/semanticCache.ts");
 const { checkSemanticCache } = await import("../../open-sse/handlers/chatCore/semanticCache.ts");
-const { isValidPathSegment, assertSafePathSegment } = await import(
+const { isValidPathSegment, isValidSinglePathSegment, assertSafePathSegment } = await import(
   "../../src/shared/network/safePathSegment.ts"
 );
 const { storeStreamingSemanticCacheResponse } = await import(
@@ -69,27 +69,52 @@ describe("isValidPathSegment (F-01-006)", () => {
     assert.equal(isValidPathSegment("openai.tts-1"), true);
   });
 
-  it("rejects path separators, traversal, query/fragment, empty", () => {
+  it("accepts legitimate HF multi-segment org/model ids", () => {
+    // Catalog ASR/TTS models use org/model (review F1 regression guard).
+    assert.equal(isValidPathSegment("openai/whisper-large-v3"), true);
+    assert.equal(isValidPathSegment("openai/whisper-large-v3-turbo"), true);
+    assert.equal(isValidPathSegment("facebook/mms-tts-eng"), true);
+    assert.equal(isValidPathSegment("canopylabs/orpheus-3b-0.1-ft"), true);
+    assert.equal(isValidPathSegment("ResembleAI/chatterbox"), true);
+    assert.equal(isValidPathSegment("hexgrad/Kokoro-82M"), true);
+  });
+
+  it("rejects traversal, empty segments, separators, encoding, empty", () => {
     for (const bad of [
-      "a/b",
       "..",
       "../etc",
+      "a/../b",
+      "a/./b",
       "//",
+      "a//b",
+      "/abs",
+      "trail/",
       "a\\b",
       "a?x=1",
       "a#frag",
       "a%2e%2e",
+      "a%2fb",
       "",
       "   ",
-      "evil/path",
+      "evil/../path",
     ]) {
       assert.equal(isValidPathSegment(bad), false, `expected reject: ${JSON.stringify(bad)}`);
     }
   });
 
-  it("assertSafePathSegment throws on injection", () => {
-    assert.throws(() => assertSafePathSegment("a/b"), /Invalid path segment/);
+  it("assertSafePathSegment throws on injection; accepts HF ids", () => {
+    assert.throws(() => assertSafePathSegment("a/../b"), /Invalid path segment/);
+    assert.throws(() => assertSafePathSegment("a%2fb"), /Invalid path segment/);
     assert.equal(assertSafePathSegment("safe-id"), "safe-id");
+    assert.equal(assertSafePathSegment("openai/whisper-large-v3"), "openai/whisper-large-v3");
+  });
+
+  it("isValidSinglePathSegment rejects multi-segment (ElevenLabs voice slots)", () => {
+    assert.equal(isValidSinglePathSegment("21m00Tcm4TlvDq8ikWAM"), true);
+    assert.equal(isValidSinglePathSegment("voice-9"), true);
+    assert.equal(isValidSinglePathSegment("openai/whisper-large-v3"), false);
+    assert.equal(isValidSinglePathSegment("a/b"), false);
+    assert.equal(isValidSinglePathSegment("../x"), false);
   });
 });
 

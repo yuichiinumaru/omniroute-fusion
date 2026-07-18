@@ -558,12 +558,14 @@ export function resolveFusionUnits(
  * Decision D3: combo-ref units reuse handleComboChat for failover — fusion does
  * not reimplement retry. Fusion owns panelHardTimeoutMs via withTimeout only.
  *
- * Degrades: 0 answers → 503, 1 answer → re-dispatch that unit with original body.
- */
 /**
  * After panels produce prose (or a single survivor), optionally hand the review
  * to the acting unit as the final voice (Epic 0004 / A1, A3).
  * When acting is absent, returns the provided finalResponse as-is (legacy).
+ *
+ * Single-survivor path (no acting): re-dispatches the unit with the original client
+ * body rather than synthesizing a Response from already-collected text — intentional
+ * so stream/tools match the client request (Task 0012 F3 residual / not a silent drop).
  */
 async function finalizeWithActing(args: {
   body: Body;

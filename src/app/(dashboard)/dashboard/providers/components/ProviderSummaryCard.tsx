@@ -237,7 +237,9 @@ export default function ProviderSummaryCard({
             return (
               <button
                 key={cat.key ?? "all"}
+                type="button"
                 onClick={() => onCategoryChange(cat.key, cat.key === "free")}
+                aria-pressed={isActive}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
                   isActive
                     ? "border-primary/20 bg-primary/10 text-primary"
@@ -256,8 +258,10 @@ export default function ProviderSummaryCard({
           })}
           {/* Configured-only filter chip (moved from display mode control) */}
           <button
+            type="button"
             onClick={() => onConfiguredOnlyChange(!showConfiguredOnly)}
             disabled={disabledConfigured}
+            aria-pressed={showConfiguredOnly}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               disabledConfigured ? "cursor-not-allowed opacity-50" : ""
             } ${
@@ -280,25 +284,33 @@ export default function ProviderSummaryCard({
             {providerText(t, "sortBy", "Sort")}
           </span>
           <button
+            type="button"
             onClick={() => onSortModeChange("az")}
+            aria-pressed={sortMode === "az"}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               sortMode === "az"
                 ? "border-primary/20 bg-primary/10 text-primary"
                 : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
             }`}
           >
-            <span className="material-symbols-outlined text-[14px]">sort_by_alpha</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+              sort_by_alpha
+            </span>
             <span>{providerText(t, "sortAz", "A-Z")}</span>
           </button>
           <button
+            type="button"
             onClick={() => onSortModeChange("accounts")}
+            aria-pressed={sortMode === "accounts"}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               sortMode === "accounts"
                 ? "border-primary/20 bg-primary/10 text-primary"
                 : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
             }`}
           >
-            <span className="material-symbols-outlined text-[14px]">tag</span>
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+              tag
+            </span>
             <span>{providerText(t, "sortByAccounts", "Accounts")}</span>
           </button>
         </div>

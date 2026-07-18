@@ -36,10 +36,17 @@ import { formatAdaptiveTarget } from "./adaptiveTargetLabel.ts";
 
 type CavemanIntensity = "lite" | "full" | "ultra";
 
-interface EngineToggle {
+/**
+ * Normalized engine toggle row (F1 bridge SSOT).
+ * `enabled` is always a definite boolean after `normalizeEngines`.
+ */
+export type CompressionEngineToggle = {
   enabled: boolean;
   level?: string;
-}
+};
+
+/** @deprecated Prefer CompressionEngineToggle — kept as local alias for panel internals. */
+type EngineToggle = CompressionEngineToggle;
 
 interface CavemanOutputModeConfig {
   enabled: boolean;
@@ -91,7 +98,14 @@ function normalizeEngines(raw: unknown): Record<string, EngineToggle> {
   return engines;
 }
 
-export default function CompressionPanel() {
+export type CompressionPanelEnginesChange = (engines: Record<string, EngineToggle>) => void;
+
+export default function CompressionPanel({
+  onEnginesChange,
+}: {
+  /** Task 0058 F1: notify siblings (EnabledEngineSections) when engines map changes. */
+  onEnginesChange?: CompressionPanelEnginesChange;
+} = {}) {
   const t = useTranslations("settings");
   // D-A6/§7: locale-gated styles (e.g. terse-cjk → zh) are only OFFERED under their locale.
   // Compare the UI language base ("zh-CN" → "zh") against the style's `locale`.
@@ -107,16 +121,22 @@ export default function CompressionPanel() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data: Partial<CompressionConfig> | null) => {
         if (data) {
+          const engines = normalizeEngines(data.engines);
           setConfig({
             ...DEFAULT_CONFIG,
             ...data,
-            engines: normalizeEngines(data.engines),
+            engines,
             cavemanOutputMode: data.cavemanOutputMode ?? DEFAULT_CONFIG.cavemanOutputMode,
             outputStyles: data.outputStyles ?? DEFAULT_CONFIG.outputStyles,
           });
+          onEnginesChange?.(engines);
+        } else {
+          onEnginesChange?.(normalizeEngines({}));
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        onEnginesChange?.(normalizeEngines({}));
+      })
       .finally(() => setLoading(false));
 
     fetch("/api/settings/compression/mcp-accessibility")
@@ -125,13 +145,22 @@ export default function CompressionPanel() {
         if (data && typeof data.enabled === "boolean") setMcpAccessibility(data.enabled);
       })
       .catch(() => {});
+    // Parent should pass a stable callback (useCallback). We intentionally do not
+    // re-fetch when the identity changes — only on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only load
   }, []);
 
   // Persist a merge-patch. The DB persists `engines` as one whole row, so callers that
   // touch an engine pass the full engines map to avoid dropping the other engines.
+  // Optimistic UI for F1: notify siblings immediately, roll back engines on failure so
+  // EnabledEngineSections never stay out of sync with the server map.
   const save = async (updates: Partial<CompressionConfig>) => {
+    const previous = config;
     const next = { ...config, ...updates };
     setConfig(next);
+    if (updates.engines) {
+      onEnginesChange?.(updates.engines);
+    }
     setSaving(true);
     setStatus("");
     try {
@@ -144,9 +173,17 @@ export default function CompressionPanel() {
         setStatus("saved");
         setTimeout(() => setStatus(""), 2000);
       } else {
+        setConfig(previous);
+        if (updates.engines) {
+          onEnginesChange?.(previous.engines);
+        }
         setStatus("error");
       }
     } catch {
+      setConfig(previous);
+      if (updates.engines) {
+        onEnginesChange?.(previous.engines);
+      }
       setStatus("error");
     } finally {
       setSaving(false);
@@ -159,6 +196,7 @@ export default function CompressionPanel() {
       [id]: { ...(config.engines[id] ?? { enabled: false }), ...patch },
     };
     // Send the full engines map — the persistence layer stores it as one JSON row.
+    // onEnginesChange is fired inside save() so sections recompose immediately.
     save({ engines });
   };
 

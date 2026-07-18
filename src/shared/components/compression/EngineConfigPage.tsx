@@ -102,7 +102,14 @@ function renderDiffSegment(segment: PreviewDiffSegment, index: number) {
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function EngineConfigPage({ engineId }: { engineId: string }) {
+export function EngineConfigPage({
+  engineId,
+  embedded = false,
+}: {
+  engineId: string;
+  /** Task 0058 F2: suppress standalone page chrome when nested under settings. */
+  embedded?: boolean;
+}) {
   // ── Data state ──────────────────────────────────────────────────────────
   const [engine, setEngine] = useState<EngineEntry | null>(null);
   const [configState, setConfigState] = useState<Record<string, unknown>>({});
@@ -257,22 +264,31 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
   const persistable = Boolean(SETTINGS_SUBOBJECT[engineId]);
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-3xl">
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          {engine.icon && (
-            <span
-              className="material-symbols-outlined text-[28px] leading-none text-text-muted"
-              aria-hidden="true"
-            >
-              {engine.icon}
-            </span>
-          )}
-          <h1 className="text-2xl font-bold text-text">{engine.name}</h1>
+    <div
+      className={
+        embedded
+          ? "flex flex-col gap-4 p-4"
+          : "flex flex-col gap-6 p-6 max-w-3xl"
+      }
+      data-engine-config-embedded={embedded ? "true" : "false"}
+    >
+      {/* ── Header (standalone only — parent section supplies label when embedded) ── */}
+      {!embedded && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            {engine.icon && (
+              <span
+                className="material-symbols-outlined text-[28px] leading-none text-text-muted"
+                aria-hidden="true"
+              >
+                {engine.icon}
+              </span>
+            )}
+            <h1 className="text-2xl font-bold text-text">{engine.name}</h1>
+          </div>
+          {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}
         </div>
-        {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}
-      </div>
+      )}
 
       {loadError && (
         <p className="text-xs text-destructive border border-destructive/30 rounded px-3 py-2">
@@ -280,20 +296,30 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
         </p>
       )}
 
-      {/* ── Panel pointer (on/off + level live there now) ── */}
-      <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
-        <p className="text-xs text-text-muted" data-testid="panel-pointer-notice">
-          Turn this layer on/off and set its level in{" "}
-          <a href="/dashboard/context/settings" className="underline hover:text-text">
-            Compression Settings
-          </a>
-          . This page edits its detailed configuration only.
-        </p>
-      </div>
+      {/* ── Panel pointer (standalone only — circular when already under settings) ── */}
+      {!embedded && (
+        <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs text-text-muted" data-testid="panel-pointer-notice">
+            Turn this layer on/off and set its level in{" "}
+            <a href="/dashboard/context/settings" className="underline hover:text-text">
+              Compression Settings
+            </a>
+            . This page edits its detailed configuration only.
+          </p>
+        </div>
+      )}
 
-      {/* ── Config form ── */}
+      {/* ── Config form ──
+          When embedded under EnabledEngineSections (h2 → h3 engine section), use
+          presentational titles so the outline is not inverted (h3 → h2). */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-sm font-semibold text-text">Configuration</h2>
+        {embedded ? (
+          <p className="text-sm font-semibold text-text" data-testid="engine-config-section-title">
+            Configuration
+          </p>
+        ) : (
+          <h2 className="text-sm font-semibold text-text">Configuration</h2>
+        )}
         {visibleConfigSchema.length > 0 ? (
           <EngineConfigForm
             schema={visibleConfigSchema}
@@ -306,6 +332,7 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
         <div className="flex items-center gap-3 pt-1">
           {persistable ? (
             <button
+              type="button"
               onClick={handleSave}
               disabled={saving}
               className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
@@ -324,7 +351,11 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
 
       {/* ── Live preview ── */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-sm font-semibold text-text">Preview</h2>
+        {embedded ? (
+          <p className="text-sm font-semibold text-text">Preview</p>
+        ) : (
+          <h2 className="text-sm font-semibold text-text">Preview</h2>
+        )}
         <textarea
           className="border border-border rounded px-3 py-2 text-sm text-text bg-background resize-y min-h-[80px]"
           value={previewText}
@@ -333,6 +364,7 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
         />
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={handlePreview}
             disabled={previewLoading}
             className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
@@ -388,7 +420,11 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
 
       {/* ── Analytics strip ── */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-sm font-semibold text-text">Last 7 days</h2>
+        {embedded ? (
+          <p className="text-sm font-semibold text-text">Last 7 days</p>
+        ) : (
+          <h2 className="text-sm font-semibold text-text">Last 7 days</h2>
+        )}
         {analytics && analytics.runs === 0 ? (
           <p className="text-sm text-text-muted">No data yet</p>
         ) : analytics ? (

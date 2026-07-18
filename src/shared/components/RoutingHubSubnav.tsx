@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { cn } from "@/shared/utils/cn";
+import {
+  HUB_SUBNAV_ACTIVE_CLASS,
+  HUB_SUBNAV_INACTIVE_CLASS,
+  HUB_SUBNAV_ITEM_BASE_CLASS,
+  HUB_SUBNAV_SHELL_CLASS,
+} from "@/shared/constants/hubSubnavStyles";
 
 /**
  * In-page Routing hub subnav (Task 0025 F2 + Task 0058).
@@ -43,7 +49,7 @@ export default function RoutingHubSubnav({ active }: { active: RoutingHubActive 
   return (
     <nav
       aria-label="Routing sections"
-      className="flex flex-wrap items-center gap-1 rounded-xl border border-black/8 dark:border-white/8 bg-black/[0.02] dark:bg-white/[0.02] p-1"
+      className={HUB_SUBNAV_SHELL_CLASS}
       data-routing-hub-subnav={active}
     >
       {LINKS.map((link) => {
@@ -53,15 +59,15 @@ export default function RoutingHubSubnav({ active }: { active: RoutingHubActive 
             key={link.id}
             href={link.href}
             className={cn(
-              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all",
-              isActive
-                ? "border border-primary/20 bg-primary/10 text-primary"
-                : "border border-transparent text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main"
+              HUB_SUBNAV_ITEM_BASE_CLASS,
+              isActive ? HUB_SUBNAV_ACTIVE_CLASS : HUB_SUBNAV_INACTIVE_CLASS
             )}
             aria-current={isActive ? "page" : undefined}
             data-routing-hub-link={link.id}
           >
-            <span className="material-symbols-outlined text-[16px]">{link.icon}</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              {link.icon}
+            </span>
             <span>{link.label}</span>
           </Link>
         );

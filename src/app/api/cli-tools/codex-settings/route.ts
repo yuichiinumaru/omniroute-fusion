@@ -13,7 +13,10 @@ import { createMultiBackup } from "@/shared/services/backupService";
 import { saveCliToolLastConfigured, deleteCliToolLastConfigured } from "@/lib/db/cliToolState";
 import { cliModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { getApiKeyById } from "@/lib/localDb";
+import {
+  ApiKeySecretUnavailableError,
+  resolveApiKey,
+} from "@/shared/services/apiKeyResolver";
 import { normalizeCodexBaseUrl } from "@/shared/utils/codexBaseUrl";
 import { migrateCodexFeatureFlags } from "@/shared/utils/codexConfig";
 
@@ -222,15 +225,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Resolve real key from DB by ID
+    // Hash-only (F-05-002): secrets are not rehydratable by id. Prefer an
+    // explicit apiKey; if only keyId is sent, fail loud rather than writing a
+    // missing/wrong token.
     if (keyId) {
       try {
-        const keyRecord = await getApiKeyById(keyId);
-        if (keyRecord?.key) {
-          apiKey = keyRecord.key as string;
+        apiKey = await resolveApiKey(keyId, apiKey);
+      } catch (error) {
+        if (error instanceof ApiKeySecretUnavailableError) {
+          return NextResponse.json({ error: error.message }, { status: 400 });
         }
-      } catch {
-        // Non-critical: fall back to whatever value was in apiKey
+        throw error;
       }
     }
 

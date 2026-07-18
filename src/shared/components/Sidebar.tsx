@@ -286,6 +286,7 @@ export default function Sidebar({
           rel="noopener noreferrer"
           onClick={onClose}
           className={className}
+          aria-current={active ? "page" : undefined}
           {...sharedProps}
         >
           {content}
@@ -299,6 +300,7 @@ export default function Sidebar({
         href={item.href}
         onClick={onClose}
         className={className}
+        aria-current={active ? "page" : undefined}
         {...sharedProps}
       >
         {content}
@@ -318,7 +320,7 @@ export default function Sidebar({
       >
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-3 focus:bg-primary focus:text-white focus:rounded-md focus:m-2"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-3 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:m-2"
         >
           {t("skipToContent")}
         </a>
@@ -330,18 +332,19 @@ export default function Sidebar({
               isMacElectron ? "pt-3" : "pt-5",
               collapsed ? "px-3 justify-center" : "px-4"
             )}
-            aria-hidden="true"
           >
+            {/* Decorative window dots only — never wrap the collapse control in aria-hidden */}
             {!isMacElectron && (
-              <>
+              <div className="flex items-center gap-2" aria-hidden="true">
                 <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
                 <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
                 <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-              </>
+              </div>
             )}
             {!collapsed && <div className="flex-1" />}
             {onToggleCollapse && (
               <button
+                type="button"
                 onClick={onToggleCollapse}
                 title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
                 aria-expanded={!collapsed}
@@ -410,27 +413,35 @@ export default function Sidebar({
           }}
         >
           <button
+            type="button"
             onClick={() => setShowRestartModal(true)}
             title={t("restart")}
+            aria-label={t("restart")}
             className={cn(
               "flex items-center justify-center gap-2 rounded-lg font-medium transition-all",
               "text-amber-500 hover:bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40",
               collapsed ? "p-2" : "flex-1 min-w-0 px-2 py-1.5 text-xs"
             )}
           >
-            <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              restart_alt
+            </span>
             {!collapsed && <span className="truncate">{t("restart")}</span>}
           </button>
           <button
+            type="button"
             onClick={() => setShowShutdownModal(true)}
             title={t("shutdown")}
+            aria-label={t("shutdown")}
             className={cn(
               "flex items-center justify-center gap-2 rounded-lg font-medium transition-all",
               "text-red-500 hover:bg-red-500/10 border border-red-500/20 hover:border-red-500/40",
               collapsed ? "p-2" : "flex-1 min-w-0 px-2 py-1.5 text-xs"
             )}
           >
-            <span className="material-symbols-outlined text-[16px]">power_settings_new</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              power_settings_new
+            </span>
             {!collapsed && <span className="truncate">{t("shutdown")}</span>}
           </button>
         </div>

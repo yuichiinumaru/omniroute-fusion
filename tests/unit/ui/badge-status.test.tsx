@@ -64,10 +64,12 @@ describe("Badge status + glow (Task 0028)", () => {
     });
     const el = container.querySelector("[data-status='unknown']");
     expect(el).toBeTruthy();
+    // Neutral statuses never receive status-glow-* (or arbitrary shadow utilities).
+    expect(el?.className).not.toMatch(/status-glow-/);
     expect(el?.className).not.toMatch(/shadow-\[/);
   });
 
-  it("glow applies soft shadow for critical breaker states", () => {
+  it("glow applies soft status-glow utility for critical breaker states", () => {
     act(() => {
       root.render(
         <Badge status="OPEN" glow>
@@ -77,7 +79,19 @@ describe("Badge status + glow (Task 0028)", () => {
     });
     const el = container.querySelector("[data-status='circuit_open']");
     expect(el).toBeTruthy();
-    expect(el?.className).toMatch(/shadow-\[/);
+    // Glow is a CSS class (status-glow-danger), not an inline Tailwind shadow-[…].
     expect(el?.className).toMatch(/status-glow-danger/);
+    expect(el?.className).not.toMatch(/shadow-\[/);
+  });
+
+  it("info status uses primary (coreCyan) track, not legacy blue", () => {
+    act(() => {
+      root.render(<Badge status="info">Info</Badge>);
+    });
+    const el = container.querySelector("[data-status='info']");
+    expect(el).toBeTruthy();
+    expect(el?.className).toMatch(/bg-primary\/10/);
+    expect(el?.className).toMatch(/text-primary/);
+    expect(el?.className).not.toMatch(/bg-blue-500/);
   });
 });

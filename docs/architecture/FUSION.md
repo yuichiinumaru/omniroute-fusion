@@ -1,16 +1,19 @@
 ---
 title: "Fusion First-Class"
 version: 3.8.x
-lastUpdated: 2026-07-09
+lastUpdated: 2026-07-18
 ---
 
 # Fusion First-Class
 
-Multi-model **panel + judge** routing for OmniRoute combos. A fusion combo fans the client
-prompt to every panel unit in parallel, then a judge unit synthesizes one final answer.
+Multi-model **panel + judge** routing for OmniRoute combos, with an optional **acting** unit
+(Epic 0004) as the final client-facing voice. A fusion combo fans the client prompt to every
+panel unit in parallel, a judge unit synthesizes a review, and — when configured — the
+**acting** unit receives that review and produces the answer the client sees. Without acting,
+the judge (or single survivor) is the final voice (legacy Epic 0003).
 
-This document is the canonical architecture reference for Epic 0003 (Fusion First-Class).
-It supersedes the historical design sketch
+This document is the canonical architecture reference for Epic 0003 (Fusion First-Class) and
+the acting extension from Epic 0004. It supersedes the historical design sketch
 [`FUSION-TRIGGERS-CONDITIONAL.md`](../../.archive/docs/architecture/FUSION-TRIGGERS-CONDITIONAL.md)
 (archived, not deleted).
 
@@ -100,7 +103,8 @@ When the gate applies and `shouldTriggerFusion` is false:
 
 Panel turns force `stream: false` and `tool_choice: "none"`. **Tools remain on the body**
 for the judge turn / client continuity — they are **not** stripped from the request.
-Built by `resolveFusionUnits(combo, allCombos)`.
+(`panelBody` is built once inside `handleFusionChatV2` before fan-out — not by
+`resolveFusionUnits`, which only maps panels / judge / acting units.)
 
 ### Judge (top-level `judge`)
 
@@ -177,12 +181,15 @@ Client → /api/v1/chat/completions (model = combo/<name>)
   → handleChatCore → handleComboChat (open-sse/services/combo.ts)
     → strategy is fusion | conditional-fusion
       → optional trigger gate (fusionTriggers.ts)
-      → dispatchFusionStrategy()
-           resolveFusionUnits(combo, allCombos)
-           handleFusionChatV2({ panels, judge, handleComboChat, nesting, tuning, ... })
-             → parallel panel fan-out (panelBody)
-             → collectPanel (quorum-grace)
-             → judge synthesis (original body + judge prompt)
+      → HIT  → dispatchFusionStrategy()
+                 resolveFusionUnits → { panels, judge, acting? }
+                 handleFusionChatV2({ panels, judge, acting, handleComboChat, nesting, tuning, ... })
+                   → parallel panel fan-out (panelBody)
+                   → collectPanel (quorum-grace)
+                   → judge synthesis (non-stream + tool_choice:"none" when acting set)
+                   → finalizeWithActing (acting final voice, or judge/survivor as-is)
+      → MISS → dispatchActingOnly() if acting set
+             → else fallbackStrategy (non-fusion) via local strategy override
 ```
 
 ### Dispatch gate (`combo.ts`)
@@ -193,35 +200,47 @@ For `strategy === "fusion" || strategy === "conditional-fusion"`:
    `dispatchFusionStrategy()` immediately.
 2. Else if `shouldTriggerFusion(body, triggers)` → fusion path.
 3. Else **trigger miss** (Epic **0004 / A6**):
-   - If top-level `acting` unit is set → **acting-only** dispatch (no panel fan-out;
+   - If top-level `acting` unit is set → **`dispatchActingOnly()`** (no panel fan-out;
      acting is the final voice with the original client stream/tools).
    - Else → set strategy to `resolveFusionFallbackStrategy(config.fallbackStrategy)` and
      continue normal combo strategy dispatch.
 
 `dispatchFusionStrategy` always calls `resolveFusionUnits` then `handleFusionChatV2` with
-panels, judge, **optional acting**, recursive `handleComboChat`, `allCombos`, and shared
-`nestingContext`.
+panels, judge, **optional acting**, recursive `handleComboChat`, `allCombos`, shared
+`nestingContext`, and `comboChatBase` (parent settings / signal / ACL / availability /
+relay — see Nested combo base options).
 
 ### Units resolved by `resolveFusionUnits`
 
 | Field | Source | Notes |
 |-------|--------|-------|
 | `panels` | combo models list | model strings and/or combo-ref steps |
-| `judge` | `judgeModel` / judge unit | synthesizes panel answers |
+| `judge` | top-level `judge` → `config.judgeModel` → first panel (D1) | synthesizes panel answers |
 | `acting` | top-level `acting` only (A4/A8) | optional final voice after judge review |
 
 ### `handleFusionChatV2` stages
 
 1. Reject empty panels (`400`).
-2. Single panel → dispatch that unit with the **original** client body (nothing to fuse).
+2. **Single panel**:
+   - Without acting → dispatch that unit with the **original** client body (nothing to fuse).
+   - With acting → collect the single panel non-stream (`stream:false`, `tool_choice:"none"`)
+     as review context, then **`finalizeWithActing`** (acting is final voice).
 3. Build `panelBody` once (see Panel body ownership).
 4. Fan out each panel via `dispatchFusionUnit` + `withTimeout(panelHardTimeoutMs)`.
 5. `collectPanel` for quorum-grace collection.
 6. Degrade / synthesize:
    - 0 answers → `503` “All fusion panel models failed”
-   - 1 answer → re-dispatch surviving unit with **original** body (or acting if set)
+   - 1 answer → collect survivor prose; **`finalizeWithActing`** if acting set, else
+     **re-dispatch** that unit with the original client body (intentional second upstream
+     call so stream/tools match the client; collected text is not replayed as a synthetic
+     Response — Task 0012 F3 residual, not a silent drop)
    - 2+ answers → append judge prompt via `appendUserTurn` + `buildJudgePrompt`, dispatch judge
-7. **`finalizeWithActing`** (Epic 0004): when `acting` is set, hand the judge review
+7. **Judge path when acting is set**: judge runs **non-stream** with `tool_choice: "none"`
+   so fusion can extract review text for the handoff (`fusion.ts` judge-for-acting branch).
+   If the judge fails or returns empty text, fusion concatenates panel answers as the review
+   payload for acting (degrade, not hard fail). Without acting, judge uses the original
+   client stream/tools (legacy final voice).
+8. **`finalizeWithActing`** (Epic 0004): when `acting` is set, hand the judge review
    (or surviving prose) to the acting unit as the **final** client-facing response
    (acting owns stream/tools). When acting is absent, return the judge/survivor response
    as-is (legacy).
@@ -231,8 +250,8 @@ panels, judge, **optional acting**, recursive `handleComboChat`, `allCombos`, an
 `dispatchFusionUnit`:
 
 - `kind: "model"` → `handleSingleModel(body, model)`
-- `kind: "combo-ref"` → `handleComboChat` with child nesting (Decision D3 — reuse combo
-  failover; fusion does not reimplement retry)
+- `kind: "combo-ref"` → `handleComboChat` with child nesting + `comboChatBase` spread
+  (Decision D3 — reuse combo failover; fusion does not reimplement retry)
 
 Legacy `handleFusionChat({ models, judgeModel })` maps strings to `ResolvedFusionUnit` and
 delegates to `handleFusionChatV2`.
@@ -271,6 +290,27 @@ Combo-ref units nest through `handleComboChat` with `ComboNestingContext`:
   (`Circular combo reference detected: <name>`).
 - Depth overflow returns `503` (`Max combo nesting depth (N) exceeded`).
 
+### Nested combo base options (`comboChatBase`)
+
+Production `combo.ts` builds a `fusionComboChatBase` and passes it as
+`HandleFusionChatOptionsV2.comboChatBase` into every `handleFusionChatV2` call
+(full fusion + acting-only). `dispatchFusionUnit` spreads that base **first** into
+nested `handleComboChat` so child combo-ref panels / judge / acting inherit the same
+policy surface as `executeComboRefUnit`’s `baseOptions`:
+
+| Field | Why it must thread |
+|-------|--------------------|
+| `settings` | Resilience / timeout cascade (`phaseComboSetup` must not fall back to null defaults) |
+| `isModelAvailable` | Availability probe parity with parent combo |
+| `relayOptions` | Session / context-relay continuity |
+| `signal` | Client abort propagates into nested combo work |
+| `apiKeyAllowedConnections` | API-key ACL for strategies that filter connections |
+
+`body`, `combo`, `nesting`, `handleSingleModel`, `log`, and `allCombos` are always set
+after the spread so they win over any accidental base field. Type:
+`FusionComboChatBase` in `open-sse/services/fusion.ts` (Pick of those five fields from
+`HandleComboChatOptions`).
+
 Fusion owns **panel** hard timeouts at the fusion layer; child combos must not stack an
 extra fusion-level timeout.
 
@@ -286,17 +326,18 @@ const panelBody = { ...rest, stream: false, tool_choice: "none" };
 // tools array is KEPT from the original body
 ```
 
-| Concern | Panel path | Judge / single-survivor path |
-|---------|------------|------------------------------|
-| `stream` | forced `false` | original client value |
-| `tool_choice` | forced `"none"` | original client value |
-| `tools` | **kept** | original |
-| Who transforms | fusion only | fusion does not re-strip for child combo-refs |
+| Concern | Panel path | Judge / single-survivor (no acting) | Judge when **acting** set | Acting final voice |
+|---------|------------|-------------------------------------|---------------------------|--------------------|
+| `stream` | forced `false` | original client value | forced `false` (extract review text) | original client value |
+| `tool_choice` | forced `"none"` | original client value | forced `"none"` | original client value |
+| `tools` | **kept** | original | kept (choice none) | original |
+| Who transforms | fusion only | fusion does not re-strip for child combo-refs | same | same |
 
 Child combo-ref panels receive `panelBody` as-is and **must not** re-strip tools.
 Keeping tools while forcing `tool_choice: "none"` lets panel models understand historical
-`tool_calls` without emitting new tool calls; the judge handles synthesis (and tools) on
-the original client body.
+`tool_calls` without emitting new tool calls. Without acting, the judge uses the original
+client stream/tools as the final voice; with acting, the judge is internal (non-stream) and
+**acting** owns the client-facing stream/tools.
 
 ---
 
@@ -355,29 +396,38 @@ Implementation notes:
 
 1. Open **Dashboard → Fusions** (`/dashboard/fusions`).
 2. Create fusion → set a unique combo name.
-3. Add **≥2 panels** (models and/or combo refs). One panel skips fusion and answers directly.
-4. Optionally set a **Judge** (model or combo). Empty judge uses first panel.
-5. Choose **Triggers**:
+3. Optionally set an **Acting** unit (Epic 0004) — primary executor / final voice. On trigger
+   **miss** it answers alone; on fusion hit it receives the judge review and produces the
+   client-facing answer. Leave empty for legacy panels→judge final voice.
+4. Add **≥2 panels** (models and/or combo refs). One panel has nothing to fuse; with acting set
+   the panel answer still hands off to acting.
+5. Optionally set a **Judge** (model or combo). Empty judge uses first panel.
+6. Choose **Triggers**:
    - **Always** — every request pays panel+judge cost (`strategy: fusion`).
    - **Tool call** — only when an assistant tool name matches globs (default write/edit/create).
    - **Text match** — only when the latest user message contains any keyword/phrase.
-6. For non-always modes, pick a **fallback strategy** (priority, auto, round-robin, … — never fusion).
-7. Optionally open **Tuning** (min panel quorum, straggler grace, hard timeout).
-8. Save. Clients call `model: "combo/<name>"` on `/api/v1/chat/completions`.
+7. For non-always modes, pick a **fallback strategy** (priority, auto, round-robin, … — never fusion).
+   Fallback runs only when triggers miss **and** no acting unit is set.
+8. Optionally open **Tuning** (min panel quorum, straggler grace, hard timeout).
+9. Save. Clients call `model: "combo/<name>"` on `/api/v1/chat/completions`.
 
 ### Choosing panel combos
 
 - Prefer diverse, capable panels; judge should be strong at comparison/synthesis.
 - Combo-ref panels reuse that combo’s failover — good for “provider family with accounts”.
 - Nesting fusion→fusion is allowed but depth-guarded; prefer non-fusion children.
+- Acting is often a strong builder/executor combo-ref; keep it distinct from consultor panels.
 
 ### Troubleshooting
 
 | Symptom | Likely cause | What to check |
 |---------|--------------|---------------|
-| No multi-model latency / single-model behavior | Trigger miss → fallback | `config.triggers`, tool history, text patterns; logs show trigger miss under the conditional-fusion path |
+| No multi-model latency / single-model behavior | Trigger miss → **acting-only** or fallback | `config.triggers`, tool history, text patterns; logs: acting-only (`dispatchActingOnly`) vs fallback strategy under the conditional-fusion path |
+| Always one model even when triggers match | Acting empty + only one panel | Add ≥2 panels; optional acting does not replace panel fan-out on hit |
 | `503 All fusion panel models failed` | 0 panel answers | Panel credentials, circuit breakers, `panelHardTimeoutMs`, provider health |
-| Only one model answers / “no fusion” log | Only one panel succeeded | Quorum path re-dispatches survivor with original body |
+| Only one model answers / “no fusion” log | Only one panel succeeded | Quorum path → survivor; with acting, handoff via `finalizeWithActing` |
+| Judge never streams to client | Acting is set | Expected: judge is non-stream for handoff; acting owns client stream |
+| Acting answer lacks judge synthesis | Judge empty/failed on hit | Runtime concatenates panel texts as review then still calls acting; check judge credentials/logs |
 | `503 Circular combo reference` | Combo-ref cycle | Visited chain in nesting; rename or break cycle |
 | `503 Max combo nesting depth` | Too deep combo-ref tree | Flatten refs or raise `maxComboDepth` carefully (hard cap 10) |
 | Short panel refusals / empty content | Tools stripped incorrectly | Ensure panel path keeps tools + `tool_choice: "none"` (D9) |
@@ -409,11 +459,15 @@ English baseline lives under `src/i18n/messages/en.json`:
 - Sidebar: `sidebar.fusions`, `sidebar.fusionsSubtitle`
 - Strategy labels: `combos.fusion`, `combos.fusionDesc`, `combos.conditionalFusion`,
   `combos.conditionalFusionDesc`
+- Acting unit (Epic 0004): `combos.fusionActingSection`, `combos.fusionActingHelp`,
+  `combos.fusionActingUnit`, `combos.fusionActingEmptyHint`
 - Editor: `combos.fusionPanels*`, `combos.fusionJudge*`, `combos.fusionTrigger*`,
   `combos.fusionToolPatterns*`, `combos.fusionTextPatterns*`,
   `combos.fusionFallbackStrategy*`, `combos.fusionTuning*`, unit-row keys
   (`combos.fusionUnitModel`, `combos.fusionUnitComboRef`, `combos.fusionPickModel`,
-  `combos.fusionSelectComboRef`, …)
+  `combos.fusionSelectComboRef`, `combos.fusionUnitNotSet`, `combos.fusionComboRefHint`,
+  `combos.fusionModelPlaceholder`, `combos.fusionClearUnit`, `combos.fusionComboRefTitle`,
+  `combos.fusionFusionDepthGuarded`, plus shared `combos.moveUp` / `moveDown` / `removeModel`)
 
 Other locales (42 message files) still need translation of these keys; only `en.json` is
 required for the baseline gate of this feature.

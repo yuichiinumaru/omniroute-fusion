@@ -13,7 +13,7 @@ import { createBackup } from "@/shared/services/backupService";
 import { saveCliToolLastConfigured, deleteCliToolLastConfigured } from "@/lib/db/cliToolState";
 import { cliModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { resolveApiKey } from "@/shared/services/apiKeyResolver";
+import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { readJsoncConfig } from "../_lib/jsoncConfig";
 
 const getOpenClawSettingsPath = () => getCliPrimaryConfigPath("openclaw");
@@ -69,6 +69,9 @@ export async function GET(request: Request) {
       settingsPath: getOpenClawSettingsPath(),
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error checking openclaw settings:", error);
     return NextResponse.json({ error: "Failed to check openclaw settings" }, { status: 500 });
   }
@@ -170,6 +173,9 @@ export async function POST(request: Request) {
       settingsPath,
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error updating openclaw settings:", error);
     return NextResponse.json({ error: "Failed to update openclaw settings" }, { status: 500 });
   }
@@ -236,6 +242,9 @@ export async function DELETE(request: Request) {
       message: "OmniRoute settings removed successfully",
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error resetting openclaw settings:", error);
     return NextResponse.json({ error: "Failed to reset openclaw settings" }, { status: 500 });
   }

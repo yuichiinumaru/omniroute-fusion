@@ -218,4 +218,112 @@ describe("CompressionPanel", () => {
     expect(preview?.textContent).toContain("rtk");
     expect(preview?.textContent).not.toContain("caveman");
   });
+
+  it("F1: onEnginesChange fires on load and on engine toggle", async () => {
+    setupFetchMock();
+    const onEnginesChange = vi.fn();
+    const { default: CompressionPanel } = await import(
+      "../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel"
+    );
+
+    let container!: HTMLElement;
+    await act(async () => {
+      container = mount(<CompressionPanel onEnginesChange={onEnginesChange} />);
+    });
+    await flush();
+
+    expect(onEnginesChange.mock.calls.length).toBeGreaterThanOrEqual(1);
+    const afterLoad = onEnginesChange.mock.calls.at(-1)?.[0] as Record<
+      string,
+      { enabled: boolean }
+    >;
+    expect(afterLoad.rtk?.enabled).toBe(true);
+    expect(afterLoad.caveman?.enabled).toBe(false);
+
+    const toggle = container.querySelector(
+      `[data-testid="engine-toggle-caveman"] button`
+    ) as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    await act(async () => {
+      toggle!.click();
+    });
+    await flush();
+
+    const afterToggle = onEnginesChange.mock.calls.at(-1)?.[0] as Record<
+      string,
+      { enabled: boolean }
+    >;
+    expect(afterToggle.caveman?.enabled).toBe(true);
+    expect(afterToggle.rtk?.enabled).toBe(true);
+  });
+
+  it("F1: rolls back engines via onEnginesChange when save fails", async () => {
+    const puts: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input.toString();
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (url.includes("/api/settings/compression/mcp-accessibility")) {
+          return json({ enabled: true });
+        }
+        if (url.includes("/api/settings/compression")) {
+          if (method === "PUT") {
+            puts.push({ url, body: JSON.parse(String(init?.body ?? "{}")) });
+            return json({ error: "fail" }, 500);
+          }
+          return json({
+            enabled: true,
+            engines: {
+              rtk: { enabled: true, level: "standard" },
+              caveman: { enabled: false },
+            },
+          });
+        }
+        return json({}, 404);
+      }
+    );
+
+    const onEnginesChange = vi.fn();
+    const { default: CompressionPanel } = await import(
+      "../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel"
+    );
+
+    let container!: HTMLElement;
+    await act(async () => {
+      container = mount(<CompressionPanel onEnginesChange={onEnginesChange} />);
+    });
+    await flush();
+    onEnginesChange.mockClear();
+
+    const toggle = container.querySelector(
+      `[data-testid="engine-toggle-caveman"] button`
+    ) as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    await act(async () => {
+      toggle!.click();
+    });
+    await flush();
+
+    // Optimistic enable then rollback to previous (caveman still false).
+    expect(onEnginesChange.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const optimistic = onEnginesChange.mock.calls[0]?.[0] as Record<
+      string,
+      { enabled: boolean }
+    >;
+    const rolledBack = onEnginesChange.mock.calls.at(-1)?.[0] as Record<
+      string,
+      { enabled: boolean }
+    >;
+    expect(optimistic.caveman?.enabled).toBe(true);
+    expect(rolledBack.caveman?.enabled).toBe(false);
+    expect(puts.length).toBe(1);
+  });
 });

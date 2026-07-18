@@ -72,8 +72,14 @@ export function isProviderCircuitOpenResult(
  * caller emits with its OWN tag ("COMBO" / "COMBO-RR"); each caller keeps its own control flow
  * (return null vs continue) and its own fallbackCount bookkeeping.
  */
+/** Structural subset used by exhaustion pre-skip (flat target or runtime model unit). */
+export type ExhaustionSkipTarget = Pick<
+  ResolvedComboTarget,
+  "provider" | "modelStr" | "connectionId"
+>;
+
 export function getExhaustedTargetSkipReason(
-  target: ResolvedComboTarget,
+  target: ExhaustionSkipTarget,
   exhaustedProviders: ReadonlySet<string>,
   exhaustedConnections: ReadonlySet<string>
 ): string | null {

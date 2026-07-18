@@ -117,7 +117,7 @@ export default function ImprovePromptButton({ configState, setConfigState }: Imp
               </button>
               <button
                 onClick={() => void handleConfirm()}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-white hover:bg-primary/90 transition-colors"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <span className="text-[12px]">✨</span>
                 Improve

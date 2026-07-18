@@ -3,8 +3,10 @@
 import { cn } from "@/shared/utils/cn";
 
 const variants = {
-  primary: "bg-[image:var(--grad-brand)] text-white shadow-sm hover:brightness-105",
-  accent: "bg-accent text-white shadow-sm hover:bg-accent-hover",
+  // Bright coreCyan (#00FFCC): use on-primary obsidian text, never white-on-cyan.
+  primary:
+    "bg-[image:var(--grad-brand)] text-primary-foreground shadow-sm hover:brightness-105",
+  accent: "bg-accent text-accent-foreground shadow-sm hover:bg-accent-hover",
   secondary:
     // Dark-only defaults (Task 0055): avoid solid bg-white when `.dark` is absent.
     "bg-white/10 border border-white/10 text-text-main hover:bg-white/5",

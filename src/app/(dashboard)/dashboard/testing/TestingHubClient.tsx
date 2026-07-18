@@ -6,17 +6,19 @@ import { cn } from "@/shared/utils/cn";
 
 /**
  * Testing hub landing page (Task 0060 Option A).
- * Discovers playground, translator, search tools, batch, media cache, and
+ * Discovers playground, translator, search tools, batch, media generation lab, and
  * plugins via grouped link cards — does not embed heavy page content.
- * Debug-only sidebar items remain debug-gated in chrome; hub links always work.
+ * Lab routes (playground / translator / search-tools) are not sidebar items;
+ * this hub is their primary in-product discovery surface.
  */
 export default function TestingHubClient() {
   return (
     <div className="flex flex-col gap-8" data-testid="testing-hub">
       <p className="text-sm text-text-muted max-w-3xl">
         Launch experimental and verification surfaces: interactive labs, batch jobs, media
-        cache, and plugins. Deep links to existing pages stay intact. Playground, Translator,
-        and Search Tools are always reachable here even when Dev Tools are hidden.
+        generation, and plugins. Deep links to existing pages stay intact. Playground, Translator,
+        and Search Tools are not listed in the sidebar — open them from this hub, the command
+        palette, or a direct URL.
       </p>
 
       {TESTING_HUB_GROUPS.map((group) => (
@@ -56,7 +58,7 @@ export default function TestingHubClient() {
                   <span className="text-sm font-medium text-text-main group-hover:text-primary">
                     {link.label}
                   </span>
-                  {link.debugSidebarOnly ? (
+                  {link.isLab ? (
                     <span className="rounded-md bg-bg-subtle px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
                       lab
                     </span>

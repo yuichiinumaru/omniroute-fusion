@@ -76,7 +76,8 @@ const HEADER_DESCRIPTIONS: Partial<
   // Protocols
   mcp: "mcpDescription",
   a2a: "a2aDescription",
-  "api-endpoints": "apiEndpointsDescription",
+  // Retired redirect-only id — brand as catalog SSoT, not a competing surface (Task 0024)
+  "api-endpoints": "endpointDescription",
   // Agents & AI sub-pages
   "batch-files": "batchFilesDescription",
   // Analytics sub-pages
@@ -140,11 +141,14 @@ const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<{
     icon: "api",
   },
   {
+    // Redirect-only legacy path (Task 0024). Server sends operators to
+    // `/dashboard/endpoint?tab=catalog`. Defensive Header title must alias
+    // catalog SSoT — never a competing "API Endpoints" discovery brand.
     match: (p) => p === "/dashboard/api-endpoints" || p.startsWith("/dashboard/api-endpoints/"),
-    titleKey: "apiEndpoints",
-    titleFallback: "API Endpoints",
-    descKey: "apiEndpointsDescription",
-    icon: "list_alt",
+    titleKey: "endpoints",
+    titleFallback: "API Catalog",
+    descKey: "endpointDescription",
+    icon: "menu_book",
   },
   {
     match: (p) => p === "/dashboard/mcp" || p.startsWith("/dashboard/mcp/"),
@@ -291,7 +295,7 @@ const TESTING_DEEP_HEADER_META: ReadonlyArray<{
   {
     match: (p) => p === "/dashboard/cache/media" || p.startsWith("/dashboard/cache/media/"),
     titleKey: "media",
-    titleFallback: "Media Cache",
+    titleFallback: "Media",
     descKey: "mediaDescription",
     icon: "perm_media",
   },

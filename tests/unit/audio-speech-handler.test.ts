@@ -114,19 +114,21 @@ test("handleAudioSpeech rejects invalid ElevenLabs voice identifiers", async () 
   };
 
   try {
-    const response = await handleAudioSpeech({
-      body: {
-        model: "elevenlabs/eleven_turbo_v2_5",
-        input: "bad voice",
-        voice: "../secret",
-      },
-      credentials: { apiKey: "xi-key" },
-    });
-    const payload = (await response.json()) as any;
+    for (const voice of ["../secret", "a/b", "voice/extra"]) {
+      const response = await handleAudioSpeech({
+        body: {
+          model: "elevenlabs/eleven_turbo_v2_5",
+          input: "bad voice",
+          voice,
+        },
+        credentials: { apiKey: "xi-key" },
+      });
+      const payload = (await response.json()) as any;
 
-    assert.equal(response.status, 400);
-    assert.equal(payload.error.message, "Invalid voice ID");
-    assert.equal(called, false);
+      assert.equal(response.status, 400, `voice=${voice}`);
+      assert.equal(payload.error.message, "Invalid voice ID");
+      assert.equal(called, false);
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }

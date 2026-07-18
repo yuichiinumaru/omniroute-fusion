@@ -472,7 +472,7 @@ export default function ModelSelectModal({
           onClose();
           setSearchQuery("");
         }}
-        className="w-full px-3 py-2 text-sm font-medium rounded border border-primary bg-primary text-white hover:bg-primary/90 transition-colors"
+        className="w-full px-3 py-2 text-sm font-medium rounded border border-primary bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       >
         {t("done")}
       </button>
@@ -529,7 +529,7 @@ export default function ModelSelectModal({
                       px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer
                       ${
                         isSelected
-                          ? "bg-primary text-white border-primary"
+                          ? "bg-primary text-primary-foreground border-primary"
                           : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
                       }
                     `}
@@ -564,7 +564,7 @@ export default function ModelSelectModal({
                       px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer
                       ${
                         isSelected
-                          ? "bg-primary text-white border-primary"
+                          ? "bg-primary text-primary-foreground border-primary"
                           : isAdded
                             ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
                             : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"

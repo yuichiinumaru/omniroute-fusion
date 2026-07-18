@@ -13,7 +13,7 @@ import { createBackup } from "@/shared/services/backupService";
 import { saveCliToolLastConfigured, deleteCliToolLastConfigured } from "@/lib/db/cliToolState";
 import { cliModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { resolveApiKey } from "@/shared/services/apiKeyResolver";
+import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 
 const TOOL_ID = "forge";
@@ -98,6 +98,9 @@ export async function GET(request: Request) {
       configPath: getForgeConfigPath(),
     });
   } catch (err) {
+    if (isApiKeySecretUnavailableError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: { message: sanitizeErrorMessage(err) } },
       { status: 500 }
@@ -162,6 +165,9 @@ export async function POST(request: Request) {
       configPath,
     });
   } catch (err) {
+    if (isApiKeySecretUnavailableError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: { message: sanitizeErrorMessage(err) } },
       { status: 500 }
@@ -196,6 +202,9 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true, message: "Forge settings removed successfully" });
   } catch (err) {
+    if (isApiKeySecretUnavailableError(err)) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: { message: sanitizeErrorMessage(err) } },
       { status: 500 }

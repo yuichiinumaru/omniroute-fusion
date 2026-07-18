@@ -13,7 +13,7 @@ export type ObserveSource =
   | "mcp"
   | "a2a";
 
-export const OBSERVE_SOURCES: readonly ObserveSource[] = [
+export const OBSERVE_SOURCES = [
   "activity",
   "request",
   "proxy",
@@ -21,7 +21,14 @@ export const OBSERVE_SOURCES: readonly ObserveSource[] = [
   "audit",
   "mcp",
   "a2a",
-] as const;
+] as const satisfies readonly ObserveSource[];
+
+/** O(1) membership for query `source` parse-don't-validate. */
+const OBSERVE_SOURCE_SET: ReadonlySet<string> = new Set(OBSERVE_SOURCES);
+
+export function isObserveSource(value: string): value is ObserveSource {
+  return OBSERVE_SOURCE_SET.has(value);
+}
 
 export const OBSERVE_HUB_PATH = "/dashboard/activity" as const;
 
@@ -46,9 +53,7 @@ export function normalizeObserveSource(raw: string | null | undefined): ObserveS
   if (value === "compliance") return "audit";
   if (value === "audit-mcp" || value === "mcp-audit") return "mcp";
   if (value === "audit-a2a" || value === "a2a-audit") return "a2a";
-  if ((OBSERVE_SOURCES as readonly string[]).includes(value)) {
-    return value as ObserveSource;
-  }
+  if (isObserveSource(value)) return value;
   return "activity";
 }
 

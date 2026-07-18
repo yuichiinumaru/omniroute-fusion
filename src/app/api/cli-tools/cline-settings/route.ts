@@ -10,7 +10,7 @@ import { createBackup } from "@/shared/services/backupService";
 import { saveCliToolLastConfigured, deleteCliToolLastConfigured } from "@/lib/db/cliToolState";
 import { cliModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { resolveApiKey } from "@/shared/services/apiKeyResolver";
+import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { readJsoncConfig } from "../_lib/jsoncConfig";
 
 const CLINE_DATA_DIR = path.join(os.homedir(), ".cline", "data");
@@ -86,6 +86,9 @@ export async function GET(request: Request) {
       secretsPath: SECRETS_PATH,
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error checking cline settings:", error);
     return NextResponse.json({ error: "Failed to check cline settings" }, { status: 500 });
   }
@@ -182,6 +185,9 @@ export async function POST(request: Request) {
       globalStatePath: GLOBAL_STATE_PATH,
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error updating cline settings:", error);
     return NextResponse.json({ error: "Failed to update cline settings" }, { status: 500 });
   }
@@ -250,6 +256,9 @@ export async function DELETE(request: Request) {
       message: "OmniRoute settings removed from Cline",
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error resetting cline settings:", error);
     return NextResponse.json({ error: "Failed to reset cline settings" }, { status: 500 });
   }

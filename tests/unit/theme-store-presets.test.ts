@@ -53,6 +53,14 @@ test("globals.css defines VR dark-only info and status-glow tokens", () => {
   // VR colour: obsidian bg, coreCyan primary
   assert.match(css, /--color-bg:\s*#030506/);
   assert.match(css, /--color-primary:\s*#00FFCC/);
+  // On-primary / on-accent text is obsidian (never white-on-cyan for solid fills).
+  assert.match(css, /--color-primary-foreground:\s*#030506/);
+  assert.match(css, /--color-accent-foreground:\s*#030506/);
+  // @theme inline wires utilities text-primary-foreground / text-accent-foreground.
+  assert.match(css, /@theme inline[\s\S]*--color-primary-foreground:\s*var\(--color-primary-foreground\)/);
+  // Glow utility classes backed by CSS vars (Task 0028 successor path).
+  assert.match(css, /\.status-glow-warning\s*\{/);
+  assert.match(css, /box-shadow:\s*0 0 8px var\(--status-glow-warning\)/);
   // No coral hex left
   assert.doesNotMatch(css, /#e54d5e/);
   // No Orbitron / scanlines as default chrome

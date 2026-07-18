@@ -3,6 +3,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   STATUS_VOCABULARY,
   resolveStatusVocabulary,
@@ -11,6 +14,8 @@ import {
   statusGlowClass,
   STATUS_TONE_ACCENT_CLASS,
 } from "../../src/shared/constants/statusVocabulary.ts";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test("STATUS_VOCABULARY covers core health + circuit states", () => {
   for (const id of [
@@ -57,15 +62,28 @@ test("statusToBadgeVariant aligns with Badge variants", () => {
 test("glow is reserved for degraded/error/circuit open-ish states", () => {
   assert.equal(statusGlowClass("healthy"), "");
   assert.equal(statusGlowClass("unknown"), "");
-  assert.ok(statusGlowClass("degraded").includes("shadow-"));
-  assert.ok(statusGlowClass("error").includes("shadow-"));
-  assert.ok(statusGlowClass("OPEN").includes("shadow-"));
+  // Glow resolves via CSS utility class names; box-shadow lives in globals.css.
+  assert.equal(statusGlowClass("degraded"), "status-glow-warning");
+  assert.equal(statusGlowClass("error"), "status-glow-danger");
+  assert.equal(statusGlowClass("OPEN"), "status-glow-danger");
+  assert.equal(statusGlowClass("active"), "status-glow-info");
   assert.equal(statusGlowClass("degraded", false), "");
-  // Glow utilities must reference dual light/dark CSS tokens (not dead color-mix-only).
-  assert.match(statusGlowClass("degraded"), /var\(--status-glow-warning\)/);
-  assert.match(statusGlowClass("error"), /var\(--status-glow-danger\)/);
-  assert.match(statusGlowClass("OPEN"), /var\(--status-glow-danger\)/);
-  assert.match(statusGlowClass("active"), /var\(--status-glow-info\)/);
+});
+
+test("status-glow utilities are defined in globals.css with --status-glow-* tokens", () => {
+  const css = fs.readFileSync(
+    path.join(__dirname, "../../src/app/globals.css"),
+    "utf8"
+  );
+  for (const name of ["success", "warning", "danger", "info"] as const) {
+    assert.match(css, new RegExp(`--status-glow-${name}:`));
+    assert.match(
+      css,
+      new RegExp(
+        `\\.status-glow-${name}\\s*\\{[\\s\\S]*?box-shadow:\\s*0 0 8px var\\(--status-glow-${name}\\)`
+      )
+    );
+  }
 });
 
 test("statusSurfaceClasses combine bg + border + text utilities", () => {
@@ -75,8 +93,28 @@ test("statusSurfaceClasses combine bg + border + text utilities", () => {
   assert.match(classes, /text-amber/);
 });
 
+test("warning-track statuses use amber chroma (not yellow)", () => {
+  // Badge warning + ModelPill degraded/pending must share the amber track.
+  for (const id of ["degraded", "warning", "pending", "circuit_half_open"] as const) {
+    const surface = statusSurfaceClasses(id);
+    assert.match(surface, /amber/, `${id} must use amber utilities`);
+    assert.doesNotMatch(surface, /yellow/, `${id} must not use yellow utilities`);
+  }
+  assert.equal(STATUS_TONE_ACCENT_CLASS.warning, "bg-amber-500");
+});
+
 test("STATUS_TONE_ACCENT_CLASS covers every StatusTone", () => {
   for (const tone of ["success", "warning", "danger", "neutral", "info"] as const) {
     assert.ok(STATUS_TONE_ACCENT_CLASS[tone], tone);
   }
+});
+
+test("info / active surface classes use primary track (not legacy blue)", () => {
+  for (const id of ["info", "active"] as const) {
+    const surface = statusSurfaceClasses(id);
+    assert.match(surface, /primary/, `${id} surface must use primary utilities`);
+    assert.doesNotMatch(surface, /blue-/, `${id} surface must not use blue-* utilities`);
+    assert.equal(resolveStatusVocabulary(id).badgeVariant, "info");
+  }
+  assert.equal(STATUS_TONE_ACCENT_CLASS.info, "bg-primary");
 });

@@ -3,25 +3,32 @@
 import Link from "next/link";
 import { cn } from "@/shared/utils/cn";
 import { useTranslations } from "next-intl";
+import type { ObserveSource } from "@/shared/constants/observeHub";
 import { HEALTH_NAV_ITEM } from "@/shared/constants/sidebarVisibility";
+import {
+  HUB_SUBNAV_ACTIVE_CLASS,
+  HUB_SUBNAV_INACTIVE_CLASS,
+  HUB_SUBNAV_ITEM_BASE_CLASS,
+  HUB_SUBNAV_SHELL_CLASS,
+} from "@/shared/constants/hubSubnavStyles";
+import { asSidebarTranslator, sidebarText } from "@/shared/utils/sidebarI18n";
 
-export type ObserveHubActive =
-  | "activity"
-  | "request"
-  | "proxy"
-  | "console"
-  | "audit"
-  | "mcp"
-  | "a2a"
-  | "health";
+/**
+ * Observe topbar active slot — stream sources + Health (separate page, not a log stream).
+ * Derived from ObserveSource so chrome cannot drift from observeHub SSoT.
+ * LINKS exhaustiveness is still asserted below.
+ */
+export type ObserveHubActive = ObserveSource | "health";
 
-const LINKS: Array<{
-  id: ObserveHubActive;
-  href: string;
-  labelKey: string;
-  label: string;
-  icon: string;
-}> = [
+type ObserveHubLink = {
+  readonly id: ObserveHubActive;
+  readonly href: string;
+  readonly labelKey: string;
+  readonly label: string;
+  readonly icon: string;
+};
+
+const LINKS = [
   { id: "activity", href: "/dashboard/activity", labelKey: "activity", label: "Activity", icon: "timeline" },
   { id: "request", href: "/dashboard/activity?source=request", labelKey: "logs", label: "Request Logs", icon: "description" },
   { id: "proxy", href: "/dashboard/activity?source=proxy", labelKey: "logsProxy", label: "Outbound Logs", icon: "lan" },
@@ -30,27 +37,25 @@ const LINKS: Array<{
   { id: "mcp", href: "/dashboard/activity?source=mcp", labelKey: "auditMcp", label: "MCP Audit", icon: "security" },
   { id: "a2a", href: "/dashboard/activity?source=a2a", labelKey: "auditA2a", label: "A2A Audit", icon: "device_hub" },
   { id: "health", href: "/dashboard/health", labelKey: "health", label: "Health", icon: "health_and_safety" },
-];
+] as const satisfies readonly ObserveHubLink[];
 
-type SidebarTranslator = ((key: string, values?: Record<string, unknown>) => string) & {
-  has?: (key: string) => boolean;
-};
-
-function sidebarText(t: SidebarTranslator, key: string, fallback: string) {
-  return typeof t.has === "function" && t.has(key) ? t(key) : fallback;
-}
+/** Compile-time: every ObserveHubActive must appear exactly once in LINKS. */
+type ObserveLinkIds = (typeof LINKS)[number]["id"];
+type _AssertObserveLinksCoverActive = Exclude<ObserveHubActive, ObserveLinkIds> extends never
+  ? Exclude<ObserveLinkIds, ObserveHubActive> extends never
+    ? true
+    : never
+  : never;
+const _observeLinksExhaustive: _AssertObserveLinksCoverActive = true;
+void _observeLinksExhaustive;
 
 export default function ObserveHubSubnav({ active }: { active: ObserveHubActive }) {
-  // SAFETY: next-intl's `useTranslations` returns a callable translator for the
-  // requested namespace; current runtime versions also expose optional `.has()`.
-  // `sidebarText` still guards `.has` with `typeof` before calling it, so this
-  // alias only narrows the callable shape used by this component.
-  const t = useTranslations("sidebar") as SidebarTranslator;
+  const t = asSidebarTranslator(useTranslations("sidebar"));
 
   return (
     <nav
       aria-label="Observe sections"
-      className="flex flex-wrap items-center gap-1 rounded-xl border border-black/8 dark:border-white/8 bg-black/[0.02] dark:bg-white/[0.02] p-1"
+      className={HUB_SUBNAV_SHELL_CLASS}
       data-observe-hub-subnav={active}
     >
       {LINKS.map((link) => {
@@ -64,16 +69,16 @@ export default function ObserveHubSubnav({ active }: { active: ObserveHubActive 
             key={link.id}
             href={link.href}
             className={cn(
-              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all",
-              isActive
-                ? "border border-primary/20 bg-primary/10 text-primary"
-                : "border border-transparent text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main"
+              HUB_SUBNAV_ITEM_BASE_CLASS,
+              isActive ? HUB_SUBNAV_ACTIVE_CLASS : HUB_SUBNAV_INACTIVE_CLASS
             )}
             aria-current={isActive ? "page" : undefined}
             data-observe-hub-link={link.id}
             data-observe-health-link={link.id === "health" ? "true" : undefined}
           >
-            <span className="material-symbols-outlined text-[16px]">{link.icon}</span>
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              {link.icon}
+            </span>
             <span>{translatedLabel}</span>
           </Link>
         );

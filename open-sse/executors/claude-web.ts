@@ -19,7 +19,7 @@
  *
  * Response is streamed as server-sent events (SSE format).
  */
-import { BaseExecutor, mergeAbortSignals, type ExecuteInput } from "./base.ts";
+import { BaseExecutor, type ExecuteInput } from "./base.ts";
 import { FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { tlsFetchClaude } from "../services/claudeTlsClient.ts";
 import { getCfClearanceToken } from "../services/claudeTurnstileSolver.ts";
@@ -460,8 +460,9 @@ async function verifyCookieValidity(
   signal?: AbortSignal
 ): Promise<boolean> {
   try {
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
+    // Start-only: tlsFetchClaude applies timeoutMs; do not also attach
+    // AbortSignal.timeout (F-02-W2-002 residual N1) which would kill long waits
+    // after headers if this ever became a streaming call.
     const response = await tlsFetchClaude(CLAUDE_WEB_ORGS_URL, {
       method: "GET",
       headers: {
@@ -469,7 +470,7 @@ async function verifyCookieValidity(
         Cookie: cookieHeader,
       },
       timeoutMs: FETCH_TIMEOUT_MS,
-      signal: combinedSignal,
+      signal,
     });
     return response.status === 200;
   } catch (error) {
@@ -486,9 +487,6 @@ async function getOrganizationId(
   signal?: AbortSignal
 ): Promise<string | null> {
   try {
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
-
     const response = await tlsFetchClaude(CLAUDE_WEB_ORGS_URL, {
       method: "GET",
       headers: {
@@ -496,7 +494,7 @@ async function getOrganizationId(
         Cookie: cookieHeader,
       },
       timeoutMs: FETCH_TIMEOUT_MS,
-      signal: combinedSignal,
+      signal,
     });
     if (response.status !== 200) {
       return null;
@@ -1251,10 +1249,9 @@ export class ClaudeWebExecutor extends BaseExecutor {
           ? `${CLAUDE_WEB_API_BASE}/organizations/${orgId}/chat_conversations/${conversationId}/completion`
           : `${CLAUDE_WEB_API_BASE}/chat_conversations/new/completion`;
 
-      // Prepare request
-      const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-      const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
-
+      // Prepare request — start-only timeout via tlsFetchClaude.timeoutMs.
+      // Do NOT merge AbortSignal.timeout(FETCH_TIMEOUT_MS) into the body lifetime
+      // (F-02-W2-002 residual N1); streaming completions can outlive the start budget.
       log?.debug?.("CLAUDE-WEB", `Making request to ${completionUrl}`);
 
       // cf_clearance is already injected via normalizeClaudeSessionCookieWithAutoRefresh above
@@ -1268,7 +1265,7 @@ export class ClaudeWebExecutor extends BaseExecutor {
         body: JSON.stringify(claudePayload),
         timeoutMs: FETCH_TIMEOUT_MS,
         stream: true,
-        signal: combinedSignal,
+        signal,
       });
 
       // Handle errors

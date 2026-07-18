@@ -71,6 +71,7 @@ import {
   isFetchStartTimeoutError,
 } from "../utils/fetchStartTimeout.ts";
 import { redactUrlSecrets } from "../utils/urlSanitize.ts";
+import { fetchFollowingQwenRedirects } from "../utils/qwenResourceUrl.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -906,12 +907,25 @@ export class BaseExecutor {
         // Timeout only covers response start; stream stalls are handled downstream.
         // See open-sse/utils/fetchStartTimeout.ts for FETCH_TIMEOUT_MS semantics.
         const fetchStartTimeoutMs = this.getTimeoutMs();
-        const fetchWithStartTimeout = async (requestUrl: string, requestOptions: RequestInit) =>
-          fetchWithStartTimeoutHelper(requestUrl, {
+        // Qwen attaches Bearer to resourceUrl hosts — follow 3xx manually and
+        // re-validate each Location against the host allowlist (N8 / F-02-003).
+        const isQwenProvider = this.provider === "qwen";
+        const fetchWithStartTimeout = async (requestUrl: string, requestOptions: RequestInit) => {
+          const options: RequestInit = {
             ...requestOptions,
-            timeoutMs: fetchStartTimeoutMs,
-            clientSignal: signal ?? null,
-          });
+            ...(isQwenProvider ? { redirect: "manual" as RequestRedirect } : {}),
+          };
+          const run = (u: string) =>
+            fetchWithStartTimeoutHelper(u, {
+              ...options,
+              timeoutMs: fetchStartTimeoutMs,
+              clientSignal: signal ?? null,
+            });
+          if (isQwenProvider) {
+            return fetchFollowingQwenRedirects(requestUrl, run);
+          }
+          return run(requestUrl);
+        };
 
         const isClaudeCodeClient =
           clientHeaders?.["x-app"] === "cli" ||

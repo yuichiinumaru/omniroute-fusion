@@ -31,6 +31,7 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { BaseExecutor, type ExecuteInput, type ProviderCredentials } from "./base.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 
 // ─── Binary discovery ────────────────────────────────────────────────────────
 
@@ -165,10 +166,12 @@ export class DevinCliExecutor extends BaseExecutor {
 
         child.on("error", (err) => {
           spawnError = err;
-          const msg =
+          // Hard Rule #12: never put raw err.message / stacks in client SSE bodies.
+          const rawMsg =
             err.message.includes("ENOENT") || err.message.includes("not found")
               ? `Devin CLI not found: ${devinBin}. Install via https://cli.devin.ai or set CLI_DEVIN_BIN env var.`
               : `Devin CLI spawn error: ${err.message}`;
+          const msg = sanitizeErrorMessage(rawMsg);
           emit(
             `data: ${JSON.stringify({ error: { message: msg, type: "devin_cli_error", code: "spawn_failed" } })}\n\n`
           );

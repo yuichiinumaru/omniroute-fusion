@@ -26,6 +26,10 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash } from "crypto";
+import { PSD_SECRET_KEYS } from "@/shared/constants/psdSecretKeys";
+
+// Re-export SSOT so existing `from "./encryption"` / `@/lib/db/encryption` importers keep working.
+export { PSD_SECRET_KEYS };
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
@@ -52,35 +56,6 @@ export interface ConnectionFields {
   providerSpecificData?: unknown;
   [key: string]: unknown;
 }
-
-/**
- * Credential keys inside `provider_specific_data` that must be encrypted at rest
- * (web-session cookies/tokens, cloud console secrets, usage scrapers, etc.).
- * Aligned with `webSessionDedup.PREFERRED_CREDENTIAL_KEYS` + PSD response sanitizer.
- */
-export const PSD_SECRET_KEYS = [
-  "cookie",
-  "token",
-  "sessionToken",
-  "session-token",
-  "sso",
-  "sso-rw",
-  "access_token",
-  "accessToken",
-  "copilotToken",
-  "cf_clearance",
-  "consoleApiKey",
-  "secretAccessKey",
-  "awsSecretAccessKey",
-  "awsSessionToken",
-  "authCookie",
-  "openCodeGoAuthCookie",
-  "opencodeGoAuthCookie",
-  "ollamaUsageCookie",
-  "ollamaCloudUsageCookie",
-  "ollamaCloudCookie",
-  "usageCookie",
-] as const;
 
 /**
  * Derive the PRIMARY encryption key using the static salt.
@@ -134,22 +109,43 @@ export function isEncryptionEnabled(): boolean {
 }
 
 /**
+ * True when the operator configured STORAGE_ENCRYPTION_KEY (even if derivation fails).
+ * Passthrough mode is only for empty/missing env.
+ */
+function isStorageEncryptionKeyConfigured(): boolean {
+  const secret = process.env.STORAGE_ENCRYPTION_KEY;
+  return typeof secret === "string" && secret.trim().length > 0;
+}
+
+/**
  * Encrypt a plaintext string using the STATIC salt key.
- * If encryption is not configured, returns plaintext unchanged.
+ * If encryption is not configured, returns plaintext unchanged (dev passthrough).
+ *
+ * Fail-closed (F-05-007 / N4): when STORAGE_ENCRYPTION_KEY is set, never return
+ * plaintext on key-derivation or cipher failure — throw instead of silently
+ * persisting secrets in the clear.
  */
 export function encrypt(plaintext: string | null | undefined): string | null | undefined {
   if (!plaintext || typeof plaintext !== "string") return plaintext;
 
+  // Already encrypted — don't double-encrypt
+  if (plaintext.startsWith(PREFIX)) return plaintext;
+
+  const keyConfigured = isStorageEncryptionKeyConfigured();
   const key = getStaticKey();
   if (!key) {
+    if (keyConfigured) {
+      // Env present but scrypt derivation failed — refuse plaintext write.
+      throw new Error(
+        "Failed to derive STORAGE_ENCRYPTION_KEY; refusing plaintext credential write. " +
+          "Generate a valid key with: openssl rand -base64 32"
+      );
+    }
     console.warn(
       "[Encryption] STORAGE_ENCRYPTION_KEY not set. Storing plaintext (passthrough mode)."
     );
-    return plaintext; // passthrough mode
+    return plaintext; // passthrough mode (dev only)
   }
-
-  // Already encrypted — don't double-encrypt
-  if (plaintext.startsWith(PREFIX)) return plaintext;
 
   try {
     const iv = randomBytes(IV_LENGTH);
@@ -159,14 +155,20 @@ export function encrypt(plaintext: string | null | undefined): string | null | u
     encrypted += cipher.final("hex");
     const authTag = cipher.getAuthTag().toString("hex");
 
-    return `${PREFIX}${iv.toString("hex")}:${encrypted}:${authTag}`;
+    const out = `${PREFIX}${iv.toString("hex")}:${encrypted}:${authTag}`;
+    if (!out.startsWith(PREFIX)) {
+      // Defensive: never claim success without the wire format marker.
+      throw new Error("Encryption produced non-ciphertext output");
+    }
+    return out;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(
       `[Encryption] Encryption failed: ${message}. ` +
         `Check your STORAGE_ENCRYPTION_KEY — generate one with: openssl rand -base64 32`
     );
-    return plaintext; // fallback to plaintext rather than crashing
+    // Fail closed when a key is configured (N4) — never fall back to plaintext.
+    throw new Error(`Failed to encrypt credential at rest: ${message}`);
   }
 }
 
@@ -282,6 +284,23 @@ export function decryptProviderSpecificData<T>(psd: T): T {
     }
   }
   return out as T;
+}
+
+/**
+ * True when any known PSD secret key is present as a non-empty plaintext string
+ * (i.e. not already `enc:v1:`). Used by lazy re-encrypt migration.
+ */
+export function providerSpecificDataNeedsEncryption(psd: unknown): boolean {
+  if (!isEncryptionEnabled()) return false;
+  if (!psd || typeof psd !== "object" || Array.isArray(psd)) return false;
+  const rec = psd as Record<string, unknown>;
+  for (const key of PSD_SECRET_KEYS) {
+    const value = rec[key];
+    if (typeof value === "string" && value.length > 0 && !value.startsWith(PREFIX)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

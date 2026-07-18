@@ -41,8 +41,8 @@ export type StatusVocabularyEntry = Readonly<{
 }>;
 
 /** Soft glow utility classes — defined as proper CSS in globals.css to avoid
- * Tailwind v4 arbitrary value parsing issues with var() containing hyphens. */
-const GLOW_SOFT_SUCCESS = "status-glow-success";
+ * Tailwind v4 arbitrary value parsing issues with var() containing hyphens.
+ * (`status-glow-success` exists in CSS for completeness; no vocab entry uses it yet.) */
 const GLOW_SOFT_WARNING = "status-glow-warning";
 const GLOW_SOFT_DANGER = "status-glow-danger";
 const GLOW_SOFT_INFO = "status-glow-info";
@@ -50,8 +50,11 @@ const GLOW_SOFT_INFO = "status-glow-info";
 /**
  * Canonical status ids → visual contract.
  * Aliases (ok, down, error, …) are resolved in `resolveStatusVocabulary`.
+ *
+ * Typed with `satisfies` so keys stay nominal (`StatusVocabularyId`) while
+ * each entry still matches `StatusVocabularyEntry` (no property stripping).
  */
-export const STATUS_VOCABULARY: Readonly<Record<string, StatusVocabularyEntry>> = {
+export const STATUS_VOCABULARY = {
   healthy: {
     id: "healthy",
     label: "Healthy",
@@ -179,9 +182,10 @@ export const STATUS_VOCABULARY: Readonly<Record<string, StatusVocabularyEntry>> 
     label: "Pending",
     tone: "warning",
     badgeVariant: "warning",
-    textClass: "text-yellow-600 dark:text-yellow-400",
-    borderClass: "border-yellow-500/20",
-    bgClass: "bg-yellow-500/10",
+    // Amber track (same as Badge `warning` / degraded) — not yellow.
+    textClass: "text-amber-600 dark:text-amber-400",
+    borderClass: "border-amber-500/20",
+    bgClass: "bg-amber-500/10",
     glowClass: "",
     glow: "none",
   },
@@ -196,10 +200,13 @@ export const STATUS_VOCABULARY: Readonly<Record<string, StatusVocabularyEntry>> 
     glowClass: "",
     glow: "none",
   },
-} as const;
+} as const satisfies Readonly<Record<string, StatusVocabularyEntry>>;
+
+/** Nominal key set for STATUS_VOCABULARY (aliases must target these only). */
+export type StatusVocabularyId = keyof typeof STATUS_VOCABULARY;
 
 /** Normalize free-form health / breaker strings onto vocabulary keys. */
-const STATUS_ALIASES: Readonly<Record<string, keyof typeof STATUS_VOCABULARY>> = {
+const STATUS_ALIASES: Readonly<Record<string, StatusVocabularyId>> = {
   ok: "healthy",
   success: "healthy",
   up: "healthy",
@@ -223,6 +230,8 @@ const STATUS_ALIASES: Readonly<Record<string, keyof typeof STATUS_VOCABULARY>> =
 /**
  * Resolve a free-form status string to a vocabulary entry.
  * Unknown ids fall back to `unknown` (neutral) — never throw.
+ * Circuit breaker states often arrive UPPERCASE (`OPEN` / `HALF_OPEN` / `CLOSED`);
+ * they are lowercased then alias-mapped (no separate UPPERCASE branch).
  */
 export function resolveStatusVocabulary(
   status: string | null | undefined
@@ -233,16 +242,12 @@ export function resolveStatusVocabulary(
   const raw = String(status).trim();
   const key = raw.toLowerCase().replace(/\s+/g, "_");
 
-  if (key in STATUS_VOCABULARY) {
-    return STATUS_VOCABULARY[key as keyof typeof STATUS_VOCABULARY];
+  if (Object.prototype.hasOwnProperty.call(STATUS_VOCABULARY, key)) {
+    return STATUS_VOCABULARY[key as StatusVocabularyId];
   }
-  if (key in STATUS_ALIASES) {
+  if (Object.prototype.hasOwnProperty.call(STATUS_ALIASES, key)) {
     return STATUS_VOCABULARY[STATUS_ALIASES[key]];
   }
-
-  // Circuit breaker states often arrive UPPERCASE from runtime.
-  if (key === "open") return STATUS_VOCABULARY.circuit_open;
-  if (key === "closed") return STATUS_VOCABULARY.circuit_closed;
 
   return STATUS_VOCABULARY.unknown;
 }

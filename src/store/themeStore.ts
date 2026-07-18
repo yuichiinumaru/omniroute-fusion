@@ -33,6 +33,11 @@ const useThemeStore = create<ThemeState>()(() => ({
     root.classList.add("dark");
     root.style.setProperty("--color-primary", "#00FFCC");
     root.style.setProperty("--color-primary-hover", "#00cca3");
+    // On-primary / on-accent text: obsidian on bright cyan (WCAG; never white-on-cyan).
+    root.style.setProperty("--color-primary-foreground", "#030506");
+    root.style.setProperty("--color-accent", "#00FFCC");
+    root.style.setProperty("--color-accent-hover", "#00cca3");
+    root.style.setProperty("--color-accent-foreground", "#030506");
   },
 }));
 

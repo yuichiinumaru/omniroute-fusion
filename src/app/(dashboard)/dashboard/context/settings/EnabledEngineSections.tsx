@@ -6,6 +6,10 @@
 // enabled in /api/settings/compression, in stable ENGINE_IDS catalog order.
 // Standalone mode routes remain available; this only embeds their content
 // under /dashboard/context/settings.
+//
+// F1: accepts optional controlled `engines` from CompressionPanel via the
+// settings page so same-page toggles recompose without a full reload.
+// F2: embeds mode clients with `embedded` to suppress standalone chrome.
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -15,11 +19,16 @@ import {
 import { EngineConfigPage } from "@/shared/components/compression/EngineConfigPage";
 import CavemanContextPageClient from "../caveman/CavemanContextPageClient";
 import RtkContextPageClient from "../rtk/RtkContextPageClient";
+import type { CompressionEngineToggle } from "./CompressionPanel";
 
-type EngineToggle = { enabled?: boolean; level?: string };
+/**
+ * Boundary / uncontrolled fetch payload may omit fields.
+ * Filtering uses strict `enabled === true` so missing/false both exclude.
+ */
+type EngineToggleBoundary = Partial<CompressionEngineToggle>;
 
 type CompressionSettingsPayload = {
-  engines?: Record<string, EngineToggle>;
+  engines?: Record<string, EngineToggleBoundary>;
 };
 
 /**
@@ -30,23 +39,42 @@ const CUSTOM_ENGINE_PAGES: ReadonlySet<string> = new Set(["caveman", "rtk"]);
 
 function EngineSectionBody({ engineId }: { engineId: string }) {
   if (engineId === "caveman") {
-    return <CavemanContextPageClient />;
+    return <CavemanContextPageClient embedded />;
   }
   if (engineId === "rtk") {
-    return <RtkContextPageClient />;
+    return <RtkContextPageClient embedded />;
   }
   // Generic config + preview shell works for lite/ccr/headroom/aggressive/
   // llmlingua/session-dedup/ultra/relevance (and any future catalog engine
   // that has no custom client).
-  return <EngineConfigPage engineId={engineId} />;
+  return <EngineConfigPage engineId={engineId} embedded />;
 }
 
-export default function EnabledEngineSections() {
-  const [engines, setEngines] = useState<Record<string, EngineToggle> | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function EnabledEngineSections({
+  engines: enginesProp,
+}: {
+  /**
+   * Controlled engines map from CompressionPanel (via settings page).
+   * - `undefined` → self-fetch (uncontrolled / unit tests)
+   * - `null` → parent still loading
+   * - object → use as source of truth (including empty `{}`)
+   *
+   * Controlled path uses normalized `CompressionEngineToggle` (enabled: boolean).
+   * Uncontrolled fetch may still see partial boundary rows.
+   */
+  engines?: Record<string, CompressionEngineToggle | EngineToggleBoundary> | null;
+} = {}) {
+  const isControlled = enginesProp !== undefined;
+  const [fetchedEngines, setFetchedEngines] = useState<Record<
+    string,
+    EngineToggleBoundary
+  > | null>(null);
+  const [loading, setLoading] = useState(!isControlled);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isControlled) return;
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -60,14 +88,14 @@ export default function EnabledEngineSections() {
       })
       .then((data) => {
         if (cancelled) return;
-        setEngines(
+        setFetchedEngines(
           data?.engines && typeof data.engines === "object" ? data.engines : {}
         );
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load compression settings");
-        setEngines({});
+        setFetchedEngines({});
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -76,14 +104,17 @@ export default function EnabledEngineSections() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isControlled]);
+
+  const engines = isControlled ? enginesProp : fetchedEngines;
+  const effectiveLoading = isControlled ? enginesProp === null : loading;
 
   const enabledIds = useMemo(() => {
     if (!engines) return [] as string[];
     return ENGINE_IDS.filter((id) => engines[id]?.enabled === true);
   }, [engines]);
 
-  if (loading) {
+  if (effectiveLoading) {
     return (
       <div
         data-testid="enabled-engine-sections-loading"

@@ -14,7 +14,10 @@ import { normalizeClaudeBaseUrl } from "@/shared/services/claudeCliConfig";
 import { saveCliToolLastConfigured, deleteCliToolLastConfigured } from "@/lib/db/cliToolState";
 import { cliSettingsEnvSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { getApiKeyById } from "@/lib/localDb";
+import {
+  ApiKeySecretUnavailableError,
+  resolveApiKey,
+} from "@/shared/services/apiKeyResolver";
 import { readJsoncConfig } from "../_lib/jsoncConfig";
 
 // Get claude settings path based on OS
@@ -111,15 +114,19 @@ export async function POST(request: Request) {
     }
     const { env } = validation.data;
 
-    // Resolve the real API key from DB by ID
+    // Hash-only (F-05-002): secrets are not rehydratable by id. Prefer an
+    // explicit secret already present in env; if only keyId is sent, fail loud.
     if (keyId) {
       try {
-        const keyRecord = await getApiKeyById(keyId);
-        if (keyRecord?.key) {
-          env.ANTHROPIC_AUTH_TOKEN = keyRecord.key as string;
+        env.ANTHROPIC_AUTH_TOKEN = await resolveApiKey(
+          keyId,
+          typeof env.ANTHROPIC_AUTH_TOKEN === "string" ? env.ANTHROPIC_AUTH_TOKEN : null
+        );
+      } catch (error) {
+        if (error instanceof ApiKeySecretUnavailableError) {
+          return NextResponse.json({ error: error.message }, { status: 400 });
         }
-      } catch {
-        // Non-critical: fall back to whatever value was already provided in env.
+        throw error;
       }
     }
 

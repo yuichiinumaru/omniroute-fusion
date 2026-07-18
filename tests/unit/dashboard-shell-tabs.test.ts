@@ -67,8 +67,17 @@ test("settings root redirects to section pages instead of rendering a tab shell"
   const pageSource = readSource("src/app/(dashboard)/dashboard/settings/page.tsx");
 
   assert.ok(pageSource.includes('import { redirect } from "next/navigation"'));
-  assert.ok(pageSource.includes('general: "/dashboard/settings/general"'));
-  assert.ok(pageSource.includes('resilience: "/dashboard/settings/resilience"'));
+  // Task 0054 / 0025: paths via buildSettingsPath SSoT (not dual hardcoded literals)
+  assert.ok(
+    /general:\s*buildSettingsPath\(\s*["']general["']\s*\)/.test(pageSource) ||
+      pageSource.includes('general: "/dashboard/settings/general"'),
+    "general route must use buildSettingsPath('general') or literal /dashboard/settings/general"
+  );
+  assert.ok(
+    /resilience:\s*buildSettingsPath\(\s*["']resilience["']\s*\)/.test(pageSource) ||
+      pageSource.includes('resilience: "/dashboard/settings/resilience"'),
+    "resilience route must use buildSettingsPath('resilience') or literal path"
+  );
   assert.ok(pageSource.includes("redirect(resolveSettingsRoute(tab))"));
 });
 

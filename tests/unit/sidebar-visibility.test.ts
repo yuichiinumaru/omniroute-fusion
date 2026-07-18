@@ -80,7 +80,11 @@ test("legacy dashboard routes redirect to their consolidated surfaces", async ()
   assert.match(autoComboPage, /redirect\("\/dashboard\/combos\?filter=intelligent"\)/);
   assert.match(usagePage, /buildObserveHubPath\("request"\)|redirect\(.*activity/);
   assert.match(settingsPage, /redirect\(resolveSettingsRoute\(tab\)\)/);
-  assert.match(settingsPage, /\/dashboard\/settings\/general/);
+  // Settings hub SSoT (Task 0054): default via buildSettingsPath("general") or literal path
+  assert.match(
+    settingsPage,
+    /buildSettingsPath\(["']general["']\)|\/dashboard\/settings\/general/
+  );
 
   const compressionPage = await readFile(
     join(repoRoot, "src/app/(dashboard)/dashboard/compression/page.tsx"),

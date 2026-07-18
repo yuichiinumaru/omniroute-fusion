@@ -226,7 +226,7 @@ export default function UsageStats() {
               onClick={() => setViewMode("tokens")}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                 viewMode === "tokens"
-                  ? "bg-primary text-white shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-text-muted hover:text-text hover:bg-bg-hover"
               }`}
             >
@@ -236,7 +236,7 @@ export default function UsageStats() {
               onClick={() => setViewMode("costs")}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                 viewMode === "costs"
-                  ? "bg-primary text-white shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-text-muted hover:text-text hover:bg-bg-hover"
               }`}
             >
@@ -290,7 +290,7 @@ export default function UsageStats() {
                   <span className="mx-1 text-text-muted">|</span>
                   <span className="text-text font-medium">{req.account}</span>
                   {req.count > 1 && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded bg-primary text-white font-bold">
+                    <span className="ml-2 px-1.5 py-0.5 rounded bg-primary text-primary-foreground font-bold">
                       x{req.count}
                     </span>
                   )}

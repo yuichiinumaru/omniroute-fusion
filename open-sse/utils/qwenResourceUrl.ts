@@ -46,6 +46,22 @@ function hostMatchesAllowlist(host: string): boolean {
 }
 
 /**
+ * True when `raw` is host[:port] (incl. bracketed IPv6) rather than a scheme URL.
+ *
+ * N9: the naive scheme check `/^[a-zA-Z][a-zA-Z0-9+.-]*:/` treats
+ * `portal.qwen.ai:443` as scheme `portal.qwen.ai:` → false deny. Port must be
+ * purely numeric; anything with `://` is never host-only.
+ */
+function isHostPortForm(raw: string): boolean {
+  if (raw.includes("://")) return false;
+  // [IPv6] or [IPv6]:port
+  if (/^\[[0-9a-fA-F:.]+\](?::\d{1,5})?$/.test(raw)) return true;
+  // hostname or hostname:numeric-port (no other colons — excludes schemes)
+  if (/^[A-Za-z0-9._-]+(?::\d{1,5})?$/.test(raw)) return true;
+  return false;
+}
+
+/**
  * Parse a resourceUrl value (host-only or full URL) into a validated hostname.
  * Returns null when the value is empty/absent (caller uses default).
  * Throws when the value is present but unsafe / not allowlisted.
@@ -66,8 +82,10 @@ export function parseQwenResourceHost(resourceUrl: unknown): string | null {
 
   let hostname: string;
   try {
-    // Prefer absolute URL parse when a scheme is present.
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) {
+    // Absolute URL when a real scheme is present (not host:port — see N9).
+    const looksLikeScheme =
+      /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) && !isHostPortForm(raw);
+    if (looksLikeScheme) {
       const url = new URL(raw);
       if (url.protocol !== "https:") {
         throw new Error("Invalid Qwen resourceUrl: https required");
@@ -123,4 +141,71 @@ export function parseQwenResourceHost(resourceUrl: unknown): string | null {
 export function resolveQwenChatCompletionsUrl(resourceUrl: unknown): string {
   const host = parseQwenResourceHost(resourceUrl) ?? DEFAULT_QWEN_HOST;
   return `https://${host}/v1/chat/completions`;
+}
+
+/** Max 3xx hops when following Qwen redirects with per-hop host re-validation (N8). */
+export const QWEN_MAX_REDIRECTS = 3;
+
+/**
+ * Resolve a redirect Location against the current request URL and re-apply the
+ * Qwen host allowlist. Fail closed on non-https, credentials, or non-allowlisted hosts.
+ *
+ * N8: default `fetch` follows redirects without re-checking the hop host, which
+ * would let a compromised allowlisted origin 30x to a private/metadata target
+ * while the Qwen Bearer is still attached.
+ */
+export function resolveQwenRedirectLocation(currentUrl: string, location: string): string {
+  let next: URL;
+  try {
+    next = new URL(location, currentUrl);
+  } catch {
+    throw new Error("Invalid Qwen resourceUrl: redirect Location unparseable");
+  }
+  if (next.protocol !== "https:") {
+    throw new Error("Invalid Qwen resourceUrl: redirect must be https");
+  }
+  if (next.username || next.password) {
+    throw new Error("Invalid Qwen resourceUrl: embedded credentials rejected");
+  }
+  // Re-validate hop host (path on allowlisted host is fine — only host is gated).
+  parseQwenResourceHost(next.origin);
+  return next.toString();
+}
+
+/**
+ * Follow 3xx responses manually, re-validating each Location host.
+ * `doFetch` must use `redirect: "manual"` so hops are not auto-followed.
+ */
+export async function fetchFollowingQwenRedirects(
+  initialUrl: string,
+  doFetch: (url: string) => Promise<Response>,
+  maxHops: number = QWEN_MAX_REDIRECTS
+): Promise<Response> {
+  // Initial URL must also be allowlisted (buildUrl already enforces; defense-in-depth).
+  parseQwenResourceHost(new URL(initialUrl).origin);
+
+  let url = initialUrl;
+  for (let hop = 0; hop <= maxHops; hop++) {
+    const response = await doFetch(url);
+    if (response.status < 300 || response.status >= 400) {
+      return response;
+    }
+    const location = response.headers.get("location");
+    if (!location) {
+      // Consume body to avoid socket leaks on abandoned redirect responses.
+      try {
+        await response.body?.cancel();
+      } catch {
+        /* ignore */
+      }
+      throw new Error("Invalid Qwen resourceUrl: redirect missing Location");
+    }
+    try {
+      await response.body?.cancel();
+    } catch {
+      /* ignore */
+    }
+    url = resolveQwenRedirectLocation(url, location);
+  }
+  throw new Error("Invalid Qwen resourceUrl: too many redirects");
 }

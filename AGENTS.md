@@ -23,7 +23,7 @@ SambaNova, Meta Llama API, Moonshot AI, AI21 Labs, Databricks, Snowflake, and ma
 with **MCP Server** (94 tools), **A2A v0.3 Protocol**, and **Electron desktop app**.
 
 > **Live counts (v3.8.40)**: providers 236 · MCP tools 94 · MCP scopes 30 · A2A skills 6 ·
-> open-sse services 298 · routing strategies 17 · auto-combo scoring factors 12 ·
+> open-sse services 298 · routing strategies 18 · auto-combo scoring factors 12 ·
 > DB modules 94 · DB migrations 106 · base tables 17 · search providers 11 ·
 > i18n locales 42. **Refresh with `npm run check:docs-all`.**
 
@@ -419,8 +419,10 @@ Modular prompt compression that runs proactively before the existing reactive co
   and iterates through targets in order until one succeeds or all fail.
 - **`resolveComboTargets()`**: Expands a combo configuration into an ordered array of
   `ResolvedComboTarget[]`, each specifying provider + model + account + credentials.
-- **Strategies** (15): priority, weighted, fill-first, round-robin, P2C, random, least-used, reset-aware (v3.8),
-  reset-window, cost-optimized, strict-random, auto, lkgp, context-optimized, context-relay. Source: `ROUTING_STRATEGY_VALUES` in `src/shared/constants/routingStrategies.ts`.
+- **Strategies** (18): priority, weighted, round-robin, context-relay, fill-first, P2C, random, least-used,
+  cost-optimized, reset-aware, reset-window, headroom, strict-random, auto, lkgp, context-optimized,
+  fusion, conditional-fusion. Source: `ROUTING_STRATEGY_VALUES` in
+  `src/shared/constants/routingStrategies.ts` (live length must stay **18**).
 - Each target calls **`handleSingleModel()`** which wraps `handleChatCore()` with
   per-target error handling and circuit breaker checks.
 

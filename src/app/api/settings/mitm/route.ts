@@ -5,7 +5,7 @@ import path from "path";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import { resolveApiKey } from "@/shared/services/apiKeyResolver";
+import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { resolveMitmDataDir } from "@/mitm/dataDir";
 import { KIRO_MITM_PROFILE } from "@/mitm/targets/kiro";
 import { ANTIGRAVITY_MITM_PROFILE } from "@/mitm/targets/antigravity";
@@ -180,6 +180,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(await buildMitmResponse());
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     const message = error instanceof Error ? error.message : "Failed to load MITM settings";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -236,6 +239,9 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(await buildMitmResponse());
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     const message = error instanceof Error ? error.message : "Failed to update MITM settings";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -274,6 +280,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(await buildMitmResponse());
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     const message =
       error instanceof Error ? error.message : "Failed to regenerate MITM certificate";
     return NextResponse.json({ error: message }, { status: 500 });

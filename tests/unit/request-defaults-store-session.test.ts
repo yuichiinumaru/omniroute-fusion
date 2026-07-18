@@ -8,6 +8,7 @@ const {
   normalizeProviderSpecificData,
   sanitizeProviderSpecificDataForResponse,
 } = await import("../../src/lib/providers/requestDefaults.ts");
+const { PSD_SECRET_KEYS } = await import("../../src/shared/constants/psdSecretKeys.ts");
 
 test("buildOpenAIStoreSessionId normalizes external and generated session ids", () => {
   assert.equal(
@@ -142,6 +143,10 @@ test("sanitizeProviderSpecificDataForResponse strips web-session credential keys
     accessToken: "atCamel",
     copilotToken: "gh-copilot",
     cf_clearance: "cf-clearance-cookie",
+    ssxmod_itna: "qwen-mod",
+    "__Secure-1PSID": "gemini-psid",
+    abra_sess: "muse-sess",
+    "arena-auth-prod-v1.0": "lmarena-chunk",
     workspaceId: "ws-keep",
     tag: "primary",
   });
@@ -153,4 +158,19 @@ test("sanitizeProviderSpecificDataForResponse strips web-session credential keys
   assert.equal("cookie" in (sanitized ?? {}), false);
   assert.equal("sso" in (sanitized ?? {}), false);
   assert.equal("token" in (sanitized ?? {}), false);
+  assert.equal("ssxmod_itna" in (sanitized ?? {}), false);
+  assert.equal("__Secure-1PSID" in (sanitized ?? {}), false);
+  assert.equal("abra_sess" in (sanitized ?? {}), false);
+});
+
+test("sanitizeProviderSpecificDataForResponse strips every PSD_SECRET_KEYS entry (SSOT)", () => {
+  const payload: Record<string, string> = { workspaceId: "ws-keep", tag: "primary" };
+  for (const key of PSD_SECRET_KEYS) {
+    payload[key] = `secret-for-${key}`;
+  }
+  const sanitized = sanitizeProviderSpecificDataForResponse(payload);
+  assert.deepEqual(sanitized, { workspaceId: "ws-keep", tag: "primary" });
+  for (const key of PSD_SECRET_KEYS) {
+    assert.equal(key in (sanitized ?? {}), false, `expected redaction of ${key}`);
+  }
 });

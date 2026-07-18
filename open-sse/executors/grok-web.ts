@@ -15,7 +15,6 @@
 import {
   BaseExecutor,
   mergeUpstreamExtraHeaders,
-  mergeAbortSignals,
   type ExecuteInput,
 } from "./base.ts";
 import { FETCH_TIMEOUT_MS } from "../config/constants.ts";
@@ -1763,10 +1762,9 @@ export class GrokWebExecutor extends BaseExecutor {
 
     log?.info?.("GROK-WEB", `Query to ${model} (modeId=${modeId}), len=${message.length}`);
 
-    // Apply fetch timeout
-    const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-    const combinedSignal = signal ? mergeAbortSignals(signal, timeoutSignal) : timeoutSignal;
-
+    // Start-only timeout via tlsFetchGrok.timeoutMs — do NOT merge
+    // AbortSignal.timeout(FETCH_TIMEOUT_MS) into the body lifetime
+    // (F-02-W2-002 residual N1); Grok SSE can outlive the start budget.
     // Fetch from Grok via TLS-impersonating client (#3180).
     // Grok sits behind Cloudflare Enterprise which rejects Node's native TLS
     // fingerprint even with valid sso+sso-rw cookies. We use tls-client-node
@@ -1778,7 +1776,7 @@ export class GrokWebExecutor extends BaseExecutor {
         headers,
         body: JSON.stringify(grokPayload),
         timeoutMs: FETCH_TIMEOUT_MS,
-        signal: combinedSignal,
+        signal,
         stream: true,
         streamEofSymbol: "[DONE]",
       });

@@ -17,8 +17,10 @@ import {
   isFetchStartTimeoutError,
 } from "../../open-sse/utils/fetchStartTimeout.ts";
 import {
+  fetchFollowingQwenRedirects,
   parseQwenResourceHost,
   resolveQwenChatCompletionsUrl,
+  resolveQwenRedirectLocation,
 } from "../../open-sse/utils/qwenResourceUrl.ts";
 import { sanitizeErrorMessage } from "../../open-sse/utils/error.ts";
 import { createRequestLogger } from "../../open-sse/utils/requestLogger.ts";
@@ -26,18 +28,31 @@ import { PROVIDER_MODELS } from "../../open-sse/config/providerModels.ts";
 
 // ─── safePath (shared with 0048) ────────────────────────────────────────────
 
-test("assertSafePathSegment accepts plain segments", () => {
+test("assertSafePathSegment accepts plain and HF multi-segment ids", () => {
   assert.equal(assertSafePathSegment("tts-1"), "tts-1");
   assert.equal(assertSafePathSegment("whisper-1"), "whisper-1");
+  // SSoT with 0048: legitimate HF org/model ids are multi-segment-safe.
+  assert.equal(assertSafePathSegment("openai/whisper-large-v3"), "openai/whisper-large-v3");
 });
 
 test("assertSafePathSegment rejects traversal and separators", () => {
-  for (const bad of ["a/b", "..", "x\\y", "a?q=1", "a#frag", "", "a%2fb", "a%2Fb"]) {
+  for (const bad of [
+    "a/../b",
+    "..",
+    "x\\y",
+    "a?q=1",
+    "a#frag",
+    "",
+    "a%2fb",
+    "a%2Fb",
+    "a//b",
+    "//evil",
+  ]) {
     assert.throws(() => assertSafePathSegment(bad), /Invalid path segment/);
   }
 });
 
-test("isSafeChatPath / resolveSafeChatPath reject injection", () => {
+test("isSafeChatPath / resolveSafeChatPath reject injection (N6)", () => {
   assert.equal(isSafeChatPath("/custom/chat"), true);
   assert.equal(resolveSafeChatPath("/custom/chat"), "/custom/chat");
   assert.equal(resolveSafeChatPath("../evil"), null);
@@ -45,6 +60,19 @@ test("isSafeChatPath / resolveSafeChatPath reject injection", () => {
   assert.equal(resolveSafeChatPath("no-leading-slash"), null);
   assert.equal(resolveSafeChatPath("/x?inject=1"), null);
   assert.equal(resolveSafeChatPath("/x#frag"), null);
+  // N6: protocol-relative, encoded traversal, backslash, empty segments.
+  assert.equal(isSafeChatPath("//evil.com"), false);
+  assert.equal(resolveSafeChatPath("//evil.com"), null);
+  assert.equal(isSafeChatPath("/v1/%2e%2e/admin"), false);
+  assert.equal(resolveSafeChatPath("/v1/%2e%2e/admin"), null);
+  assert.equal(isSafeChatPath("/v1\\chat"), false);
+  assert.equal(resolveSafeChatPath("/v1//chat"), null);
+  assert.equal(resolveSafeChatPath("/ok/../evil"), null);
+  // Path-to-100: raw path must not pass via segment.trim() while retaining WS.
+  assert.equal(isSafeChatPath("/v1/chat\t"), false);
+  assert.equal(isSafeChatPath("/v1/chat "), false);
+  assert.equal(resolveSafeChatPath("/v1/chat\n"), null);
+  assert.equal(resolveSafeChatPath("/v1/chat\r"), null);
 });
 
 // ─── F-02-001: DefaultExecutor chatPath sanitize ────────────────────────────
@@ -79,6 +107,20 @@ test("DefaultExecutor openai-compatible rejects unsafe chatPath (production path
   assert.equal(
     executor.buildUrl("gpt-4.1", true, 0, {
       providerSpecificData: { ...base, chatPath: "/x?q=1" },
+    }),
+    "https://proxy.example/v1/chat/completions"
+  );
+
+  // N6 production wire: protocol-relative + encoded traversal fall back to default.
+  assert.equal(
+    executor.buildUrl("gpt-4.1", true, 0, {
+      providerSpecificData: { ...base, chatPath: "//evil.com" },
+    }),
+    "https://proxy.example/v1/chat/completions"
+  );
+  assert.equal(
+    executor.buildUrl("gpt-4.1", true, 0, {
+      providerSpecificData: { ...base, chatPath: "/v1/%2e%2e/admin" },
     }),
     "https://proxy.example/v1/chat/completions"
   );
@@ -136,6 +178,13 @@ test("resolveQwenChatCompletionsUrl defaults and accepts allowlisted hosts", () 
     "https://custom.qwen.ai/v1/chat/completions"
   );
   assert.equal(parseQwenResourceHost("dashscope.aliyuncs.com"), "dashscope.aliyuncs.com");
+  // N9: host:port must not be misclassified as a non-https scheme.
+  assert.equal(parseQwenResourceHost("portal.qwen.ai:443"), "portal.qwen.ai");
+  assert.equal(
+    resolveQwenChatCompletionsUrl("portal.qwen.ai:443"),
+    "https://portal.qwen.ai/v1/chat/completions"
+  );
+  assert.equal(parseQwenResourceHost("dashscope.aliyuncs.com:443"), "dashscope.aliyuncs.com");
 });
 
 test("Qwen resourceUrl rejects private / non-allowlisted hosts", () => {
@@ -148,6 +197,10 @@ test("Qwen resourceUrl rejects private / non-allowlisted hosts", () => {
     "portal.qwen.ai/../evil",
     "http://portal.qwen.ai",
     "//evil.com",
+    // host:port still rejects non-allowlisted / IP forms
+    "evil.com:443",
+    "127.0.0.1:443",
+    "169.254.169.254:80",
   ]) {
     assert.throws(() => parseQwenResourceHost(bad), /Invalid Qwen resourceUrl/);
   }
@@ -387,4 +440,140 @@ test("OpencodeExecutor concurrent claude + openai models do not cross-contaminat
     globalThis.fetch = originalFetch;
     PROVIDER_MODELS["opencode-go"] = originalGo;
   }
+});
+
+// ─── N7: Qoder customApiBase / resourceUrl metadata block ───────────────────
+
+test("QoderExecutor rejects cloud-metadata customApiBase (N7)", async () => {
+  const { QoderExecutor } = await import("../../open-sse/executors/qoder.ts");
+  const executor = new QoderExecutor();
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  globalThis.fetch = (async () => {
+    fetchCalled = true;
+    return new Response("should-not-run", { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const result = await executor.execute({
+      model: "qwen3-coder-plus",
+      stream: false,
+      credentials: {
+        apiKey: "qoder-bearer-secret",
+        customApiBase: "http://169.254.169.254/",
+      },
+      body: {
+        model: "qwen3-coder-plus",
+        messages: [{ role: "user", content: "hi" }],
+      },
+    });
+    assert.equal(result.response.status, 400);
+    const payload = (await result.response.json()) as {
+      error?: { message?: string; code?: string };
+    };
+    assert.equal(payload.error?.code, "qoder_invalid_api_base");
+    assert.ok(payload.error?.message);
+    assert.equal(fetchCalled, false, "must not fetch metadata with Bearer attached");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// ─── N2: chatgpt-web errorResponse sanitizes (Hard Rule #12) ────────────────
+
+test("sanitizeErrorMessage strips stack frames used by chatgpt-web errorResponse", () => {
+  // errorResponse() now routes all client messages through sanitizeErrorMessage.
+  const raw = "ChatGPT connection failed: Error: boom\n    at /home/sephiroth/app/src/x.ts:10:5";
+  const safe = sanitizeErrorMessage(raw);
+  assert.ok(!safe.includes("at /home/"), `leaked stack frame: ${safe}`);
+  assert.ok(!safe.includes("/home/sephiroth"), `leaked abs path: ${safe}`);
+});
+
+// ─── N8: Qwen redirect re-validation ────────────────────────────────────────
+
+test("resolveQwenRedirectLocation re-allows allowlisted hops and rejects private", () => {
+  assert.equal(
+    resolveQwenRedirectLocation(
+      "https://portal.qwen.ai/v1/chat/completions",
+      "https://custom.qwen.ai/v1/chat/completions"
+    ),
+    "https://custom.qwen.ai/v1/chat/completions"
+  );
+  assert.throws(
+    () =>
+      resolveQwenRedirectLocation(
+        "https://portal.qwen.ai/v1/chat/completions",
+        "http://169.254.169.254/latest/meta-data/"
+      ),
+    /Invalid Qwen resourceUrl/
+  );
+  assert.throws(
+    () =>
+      resolveQwenRedirectLocation(
+        "https://portal.qwen.ai/v1/chat/completions",
+        "https://evil.com/steal"
+      ),
+    /Invalid Qwen resourceUrl/
+  );
+  assert.throws(
+    () =>
+      resolveQwenRedirectLocation(
+        "https://portal.qwen.ai/v1/chat/completions",
+        "https://user:pass@portal.qwen.ai/v1"
+      ),
+    /Invalid Qwen resourceUrl/
+  );
+});
+
+test("fetchFollowingQwenRedirects follows allowlisted 302 then returns final", async () => {
+  const hops: string[] = [];
+  const finalBody = JSON.stringify({ ok: true });
+  const result = await fetchFollowingQwenRedirects(
+    "https://portal.qwen.ai/v1/chat/completions",
+    async (url) => {
+      hops.push(url);
+      if (url.includes("portal.qwen.ai")) {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "https://custom.qwen.ai/v1/chat/completions" },
+        });
+      }
+      return new Response(finalBody, {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  );
+  assert.equal(result.status, 200);
+  assert.deepEqual(hops, [
+    "https://portal.qwen.ai/v1/chat/completions",
+    "https://custom.qwen.ai/v1/chat/completions",
+  ]);
+  assert.equal(await result.text(), finalBody);
+});
+
+test("fetchFollowingQwenRedirects rejects redirect to metadata host", async () => {
+  await assert.rejects(
+    () =>
+      fetchFollowingQwenRedirects("https://portal.qwen.ai/v1/chat/completions", async (url) => {
+        if (url.includes("portal.qwen.ai")) {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: "http://169.254.169.254/latest/meta-data/" },
+          });
+        }
+        return new Response("should-not-reach", { status: 200 });
+      }),
+    /Invalid Qwen resourceUrl/
+  );
+});
+
+// ─── N3: devin-cli spawn message sanitize (Hard Rule #12) ───────────────────
+
+test("sanitizeErrorMessage strips stacks for devin-cli spawn_failed style messages", () => {
+  const raw =
+    "Devin CLI spawn error: Error: boom\n    at ChildProcess.<anonymous> (/home/sephiroth/app/open-sse/executors/devin-cli.ts:166:11)";
+  const safe = sanitizeErrorMessage(raw);
+  assert.ok(!safe.includes("/home/sephiroth"), `leaked abs path: ${safe}`);
+  assert.ok(!safe.includes("at /home/"), `leaked stack frame: ${safe}`);
 });

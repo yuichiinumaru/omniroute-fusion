@@ -61,7 +61,7 @@ test("cliMitmStartSchema accepts null keyId", () => {
   }
 });
 
-// Regression test: null apiKey + unresolvable keyId must yield the sentinel 'sk_omniroute',
+// Regression test: null apiKey + null keyId must yield the sentinel 'sk_omniroute',
 // which the route guard must reject with a 400 rather than letting it pass to startMitm.
 test("resolveApiKey returns sentinel when apiKey is null and keyId is null", async () => {
   const result = await resolveApiKey(null, null);
@@ -70,6 +70,24 @@ test("resolveApiKey returns sentinel when apiKey is null and keyId is null", asy
     "sk_omniroute",
     "resolveApiKey should return the sentinel when no real key is available"
   );
+});
+
+// Hash-only (F-05-002 / Task 0041 R2): selecting by id alone cannot rehydrate
+// the secret — fail loudly instead of silent fall-through to sentinel/wrong key.
+test("resolveApiKey fails loudly when keyId is set without a usable secret", async () => {
+  await assert.rejects(
+    () => resolveApiKey("some-key-id", null),
+    (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.match(err.message, /cannot rehydrate/i);
+      return true;
+    }
+  );
+});
+
+test("resolveApiKey prefers explicit secret even when keyId is present", async () => {
+  const result = await resolveApiKey("some-key-id", "sk-explicit-secret");
+  assert.equal(result, "sk-explicit-secret");
 });
 
 test("sentinel guard condition catches sk_omniroute and null", () => {

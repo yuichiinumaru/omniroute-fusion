@@ -1,9 +1,10 @@
 /**
  * Sidebar IA — Epic 0005 guardrail
  * --------------------------------
- * Live chrome is **flat** (~10 primary leaves): `PRIMARY_SIDEBAR_ITEMS` → `SIDEBAR_SECTIONS`
- * (`main` + optional `devtools`). Conceptual 7 pillars live only in
- * `OPERATIONAL_PILLAR_SECTION_IDS` (docs/mapping) — **not** accordion sections.
+ * Live chrome is **flat** (**9** primary leaves after Task 0059; budget ≤~10):
+ * `PRIMARY_SIDEBAR_ITEMS` → `SIDEBAR_SECTIONS` (`main` + optional `devtools`).
+ * Conceptual 7 pillars live only in `OPERATIONAL_PILLAR_SECTION_IDS` (docs/mapping)
+ * — **not** accordion sections.
  *
  * Nested destinations (fusions, compression, MCP/A2A, logs) = in-page tabs / hubs /
  * command-palette extras — never default peer leaves.
@@ -199,98 +200,31 @@ export function getSectionItems(
   );
 }
 
-// ─── Item arrays ────────────────────────────────────────────────────────────
-
-const CORE_PULSE_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "home",
-    href: "/home",
-    i18nKey: "home",
-    subtitleKey: "homeSubtitle",
-    icon: "home",
-    exact: true,
-  },
-  {
-    id: "health",
-    href: "/dashboard/health",
-    i18nKey: "health",
-    subtitleKey: "healthSubtitle",
-    icon: "health_and_safety",
-  },
-];
+// ─── Hub inventories & retired-id contracts (not mounted as accordion) ───────
+// Pre-flat pillar arrays (CORE_PULSE…HELP) were deleted 2026-07-18 (Task 0025 F4).
+// Archives: `.archive/sidebar/2026-07-10-seven-pillars/`,
+// `.archive/sidebar/2026-07-10-flat-primary-nav/`.
+// Live chrome is PRIMARY_SIDEBAR_ITEMS only. Nested destinations = hubs / tabs /
+// command palette / hideable deep links.
 
 /**
  * Connect / exposure dual-nav retired (Epic 0005 S5).
  * `api-endpoints` → `/dashboard/endpoint?tab=catalog` (SSoT Connect surface).
- * MCP/A2A single homes under Registry exposures.
+ * MCP/A2A single homes under Operations hub / protocol pages.
  * Hideable id retained for stored prefs. Snapshot:
  * `.archive/sidebar/2026-07-10-connect-exposure/SNAPSHOT.md`
  */
 export const CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS = ["api-endpoints"] as const;
 
-const EXPOSURES_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "exposures",
-  titleKey: "exposuresGroup",
-  titleFallback: "Exposures",
-  items: [
-    {
-      id: "endpoints",
-      href: "/dashboard/endpoint",
-      i18nKey: "endpoints",
-      subtitleKey: "endpointsSubtitle",
-      icon: "api",
-    },
-    {
-      id: "mcp",
-      href: "/dashboard/mcp",
-      i18nKey: "mcp",
-      subtitleKey: "mcpSubtitle",
-      icon: "hub",
-    },
-    {
-      id: "a2a",
-      href: "/dashboard/a2a",
-      i18nKey: "a2a",
-      subtitleKey: "a2aSubtitle",
-      icon: "device_hub",
-    },
-    {
-      id: "webhooks",
-      href: "/dashboard/webhooks",
-      i18nKey: "webhooks",
-      subtitleKey: "webhooksSubtitle",
-      icon: "webhook",
-    },
-  ],
-};
+/**
+ * Catalog SSoT (Task 0024). Retired `/dashboard/api-endpoints` redirects here.
+ * Discovery surfaces (Operations hub, palette, Header) must use this href —
+ * never re-list the retired path as a peer destination.
+ */
+export const CONNECT_CATALOG_SSOT_HREF = "/dashboard/endpoint?tab=catalog" as const;
 
-const REGISTRY_ITEMS: readonly SidebarSectionChild[] = [
-  {
-    id: "providers",
-    href: "/dashboard/providers",
-    i18nKey: "providers",
-    subtitleKey: "providersSubtitle",
-    icon: "dns",
-  },
-  {
-    id: "embedded-services",
-    href: "/dashboard/providers/services",
-    i18nKey: "embeddedServices",
-    labelFallback: "Embedded Services",
-    subtitleKey: "embeddedServicesSubtitle",
-    subtitleFallback: "Local process services (not outbound proxy)",
-    icon: "deployed_code",
-  },
-  {
-    id: "media",
-    href: "/dashboard/cache/media",
-    i18nKey: "media",
-    subtitleKey: "mediaSubtitle",
-    icon: "perm_media",
-  },
-  EXPOSURES_GROUP,
-];
+/** Redirect-only legacy path for the catalog surface (not a discovery peer). */
+export const CONNECT_RETIRED_API_ENDPOINTS_HREF = "/dashboard/api-endpoints" as const;
 
 /**
  * Engine strategies are routes + settings rows, NOT sidebar leaves (Epic 0005 S3).
@@ -309,12 +243,15 @@ export const COMPRESSION_ENGINE_SIDEBAR_IDS = [
   "context-ultra",
 ] as const;
 
+/**
+ * Compression hub inventory (settings / combos / studio) — not a sidebar group.
+ * Routing hub subnav + deep links surface these destinations.
+ */
 export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
   type: "group",
   id: "compression-context",
   titleKey: "compressionContextGroup",
   titleFallback: "Compression Context",
-  // Hub only: Settings → Combos → Studio. Engines live inside Settings / deep links.
   items: [
     {
       id: "context-settings",
@@ -342,269 +279,6 @@ export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
   ],
 };
 
-const ROUTING_ITEMS: readonly SidebarSectionChild[] = [
-  {
-    id: "combos",
-    href: "/dashboard/combos",
-    i18nKey: "combos",
-    subtitleKey: "combosSubtitle",
-    icon: "layers",
-  },
-  {
-    id: "combos-live",
-    href: "/dashboard/combos/live",
-    i18nKey: "combosLive",
-    labelFallback: "Combo Studio",
-    subtitleFallback: "Live routing cascade",
-    icon: "account_tree",
-  },
-  {
-    id: "fusions",
-    href: "/dashboard/fusions",
-    i18nKey: "fusions",
-    subtitleKey: "fusionsSubtitle",
-    labelFallback: "Fusions",
-    subtitleFallback: "Panel + judge model combos",
-    icon: "hub",
-  },
-  COMPRESSION_CONTEXT_GROUP,
-  {
-    id: "settings-routing",
-    href: "/dashboard/settings/routing",
-    i18nKey: "globalRouting",
-    subtitleKey: "globalRoutingSubtitle",
-    icon: "route",
-  },
-];
-
-const GOVERNANCE_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "api-manager",
-    href: "/dashboard/api-manager",
-    i18nKey: "apiManager",
-    subtitleKey: "apiManagerSubtitle",
-    icon: "vpn_key",
-  },
-  {
-    id: "settings-access-tokens",
-    href: "/dashboard/settings/access-tokens",
-    i18nKey: "settingsAccessTokens",
-    labelFallback: "Access Tokens",
-    subtitleKey: "settingsAccessTokensSubtitle",
-    icon: "key",
-  },
-  {
-    id: "settings-security",
-    href: "/dashboard/settings/security",
-    i18nKey: "settingsSecurity",
-    subtitleKey: "settingsSecuritySubtitle",
-    icon: "shield",
-  },
-  {
-    id: "quota",
-    href: "/dashboard/quota",
-    i18nKey: "providerQuota",
-    subtitleKey: "providerQuotaSubtitle",
-    icon: "tune",
-  },
-  {
-    id: "costs-quota-share",
-    href: "/dashboard/costs/quota-share",
-    i18nKey: "costsQuotaShare",
-    subtitleKey: "costsQuotaShareSubtitle",
-    icon: "pie_chart",
-  },
-  {
-    id: "costs",
-    href: "/dashboard/costs",
-    i18nKey: "costsOverview",
-    subtitleKey: "costsOverviewSubtitle",
-    icon: "account_balance_wallet",
-  },
-  {
-    id: "costs-pricing",
-    href: "/dashboard/costs/pricing",
-    i18nKey: "costsPricing",
-    subtitleKey: "costsPricingSubtitle",
-    icon: "price_change",
-  },
-  {
-    id: "costs-budget",
-    href: "/dashboard/costs/budget",
-    i18nKey: "costsBudget",
-    subtitleKey: "costsBudgetSubtitle",
-    icon: "savings",
-  },
-  {
-    id: "costs-free-tiers",
-    href: "/dashboard/free-tiers",
-    i18nKey: "costsFreeTiers",
-    subtitleKey: "costsFreeTiersSubtitle",
-    icon: "request_quote",
-  },
-  {
-    id: "free-provider-rankings",
-    href: "/dashboard/free-provider-rankings",
-    i18nKey: "freeProviderRankings",
-    subtitleKey: "freeProviderRankingsSubtitle",
-    icon: "leaderboard",
-  },
-];
-
-const TOOLS_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "tools",
-  titleKey: "toolsGroup",
-  titleFallback: "Tools",
-  items: [
-    {
-      id: "cli-code",
-      href: "/dashboard/cli-code",
-      i18nKey: "cliCode",
-      subtitleKey: "cliCodeSubtitle",
-      icon: "terminal",
-    },
-    {
-      id: "cli-agents",
-      href: "/dashboard/cli-agents",
-      i18nKey: "cliAgents",
-      subtitleKey: "cliAgentsSubtitle",
-      icon: "smart_toy",
-    },
-    {
-      id: "acp-agents",
-      href: "/dashboard/acp-agents",
-      i18nKey: "acpAgents",
-      subtitleKey: "acpAgentsSubtitle",
-      icon: "device_hub",
-    },
-    {
-      id: "cloud-agents",
-      href: "/dashboard/cloud-agents",
-      i18nKey: "cloudAgents",
-      subtitleKey: "cloudAgentsSubtitle",
-      icon: "cloud",
-    },
-    {
-      id: "agent-bridge",
-      href: "/dashboard/tools/agent-bridge",
-      i18nKey: "agentBridge",
-      subtitleKey: "agentBridgeSubtitle",
-      icon: "link",
-    },
-    {
-      id: "traffic-inspector",
-      href: "/dashboard/tools/traffic-inspector",
-      i18nKey: "trafficInspector",
-      subtitleKey: "trafficInspectorSubtitle",
-      icon: "network_check",
-    },
-  ],
-};
-
-const BATCH_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "batch",
-  titleKey: "batchGroup",
-  titleFallback: "Batch",
-  items: [
-    {
-      id: "batch",
-      href: "/dashboard/batch",
-      i18nKey: "batch",
-      subtitleKey: "batchSubtitle",
-      icon: "view_list",
-    },
-    {
-      id: "batch-files",
-      href: "/dashboard/batch/files",
-      i18nKey: "batchFiles",
-      subtitleKey: "batchFilesSubtitle",
-      icon: "folder",
-    },
-  ],
-};
-
-const AGENTIC_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "agentic",
-  titleKey: "agenticGroup",
-  titleFallback: "Agentic",
-  items: [
-    {
-      id: "memory",
-      href: "/dashboard/memory",
-      i18nKey: "memory",
-      subtitleKey: "memorySubtitle",
-      icon: "psychology",
-    },
-    {
-      id: "agent-skills",
-      href: "/dashboard/agent-skills",
-      i18nKey: "agentSkills",
-      labelFallback: "Agent Skills",
-      subtitleKey: "agentSkillsSubtitle",
-      subtitleFallback: "Outbound SKILL.md for external agents",
-      icon: "share",
-    },
-    {
-      id: "skills",
-      href: "/dashboard/omni-skills",
-      i18nKey: "omniSkills",
-      labelFallback: "Omni Skills",
-      subtitleKey: "omniSkillsSubtitle",
-      subtitleFallback: "Inbound sandbox tools for model requests",
-      icon: "auto_fix_high",
-    },
-    {
-      id: "plugins",
-      href: "/dashboard/plugins",
-      i18nKey: "plugins",
-      labelFallback: "Plugins",
-      subtitleKey: "pluginsSubtitle",
-      subtitleFallback: "Installable dashboard plugins (not MCP tools)",
-      icon: "extension",
-    },
-  ],
-};
-
-const GAMIFICATION_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "gamification",
-  titleKey: "gamificationGroup",
-  titleFallback: "Gamification",
-  items: [
-    {
-      id: "leaderboard",
-      href: "/dashboard/leaderboard",
-      i18nKey: "leaderboard",
-      subtitleKey: "leaderboardSubtitle",
-      icon: "emoji_events",
-    },
-    {
-      id: "profile",
-      href: "/dashboard/profile",
-      i18nKey: "profile",
-      subtitleKey: "profileSubtitle",
-      icon: "person",
-    },
-    {
-      id: "tokens",
-      href: "/dashboard/tokens",
-      i18nKey: "tokens",
-      subtitleKey: "tokensSubtitle",
-      icon: "toll",
-    },
-  ],
-};
-
-const OPERATIONS_ITEMS: readonly SidebarSectionChild[] = [
-  TOOLS_GROUP,
-  BATCH_GROUP,
-  AGENTIC_GROUP,
-  GAMIFICATION_GROUP,
-];
-
 /**
  * Analytics dual-nav leaves retired (Epic 0005 S2). Nested routes redirect to
  * `/dashboard/analytics?tab=…`. Hideable ids retained for stored prefs.
@@ -626,6 +300,7 @@ export const ANALYTICS_DUAL_NAV_SIDEBAR_IDS = [
  * Snapshot: `.archive/sidebar/2026-07-10-observe-stream/SNAPSHOT.md`
  * @see OBSERVE_STREAM_SIDEBAR_IDS in `./observeHub.ts`
  */
+
 /**
  * Health dashboard nav target (Task 0061).
  * Keep `/dashboard/health` + hideable id `health`. Not a primary sidebar leaf and
@@ -642,144 +317,21 @@ export const HEALTH_NAV_ITEM: SidebarItemDefinition = {
 };
 
 /**
- * Observability destinations (conceptual pillar inventory).
- * Flat primary chrome only exposes the Observe hub leaf (`activity`).
+ * Costs hub deep destinations (hideable only — not primary peers).
+ * Primary chrome exposes a single `costs` leaf → `/dashboard/costs`.
+ * Plans screen (`costs-quota-plans`) was retired into PoolWizard Step 2.
  */
-const OBSERVABILITY_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "activity",
-    href: "/dashboard/activity",
-    i18nKey: "activity",
-    subtitleKey: "activitySubtitle",
-    subtitleFallback: "Unified event stream — activity, logs, and audit",
-    icon: "timeline",
-  },
-  HEALTH_NAV_ITEM,
-  {
-    id: "analytics",
-    href: "/dashboard/analytics",
-    i18nKey: "analytics",
-    subtitleKey: "analyticsSubtitle",
-    labelFallback: "Analytics",
-    subtitleFallback: "Charts, trends, evals, and utilization",
-    icon: "analytics",
-  },
-  {
-    id: "cache",
-    href: "/dashboard/cache",
-    i18nKey: "cache",
-    subtitleKey: "cacheSubtitle",
-    icon: "cached",
-  },
-  {
-    id: "provider-stats",
-    href: "/dashboard/provider-stats",
-    i18nKey: "providerStats",
-    subtitleKey: "providerStatsSubtitle",
-    icon: "speed",
-  },
-  {
-    id: "runtime",
-    href: "/dashboard/runtime",
-    i18nKey: "runtime",
-    subtitleKey: "runtimeSubtitle",
-    icon: "bolt",
-  },
-];
+export const COSTS_HUB_DEEP_LINK_IDS = [
+  "quota",
+  "costs-quota-share",
+  "costs-pricing",
+  "costs-budget",
+  "costs-free-tiers",
+  "free-provider-rankings",
+] as const;
 
-const SYSTEM_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "settings-general",
-    href: "/dashboard/settings/general",
-    i18nKey: "settingsGeneral",
-    labelFallback: "Data & Storage",
-    subtitleKey: "settingsGeneralSubtitle",
-    subtitleFallback: "Database, backups, and retention",
-    icon: "tune",
-  },
-  {
-    id: "settings-appearance",
-    href: "/dashboard/settings/appearance",
-    i18nKey: "settingsAppearance",
-    // Task 0061 Option B: functional prefs only (theme/branding removed in 0053).
-    labelFallback: "Interface",
-    subtitleKey: "settingsAppearanceSubtitle",
-    subtitleFallback: "Tunnels, home pins, and display prefs",
-    icon: "display_settings",
-  },
-  {
-    id: "settings-ai",
-    href: "/dashboard/settings/ai",
-    i18nKey: "settingsAi",
-    subtitleKey: "settingsAiSubtitle",
-    icon: "auto_awesome",
-  },
-  {
-    id: "settings-resilience",
-    href: "/dashboard/settings/resilience",
-    i18nKey: "settingsResilience",
-    subtitleKey: "settingsResilienceSubtitle",
-    icon: "health_and_safety",
-  },
-  {
-    id: "settings-advanced",
-    href: "/dashboard/settings/advanced",
-    i18nKey: "settingsAdvanced",
-    subtitleKey: "settingsAdvancedSubtitle",
-    icon: "engineering",
-  },
-  {
-    id: "settings-feature-flags",
-    href: "/dashboard/settings/feature-flags",
-    i18nKey: "settingsFeatureFlags",
-    subtitleKey: "settingsFeatureFlagsSubtitle",
-    icon: "flag",
-  },
-  {
-    id: "settings-sidebar",
-    href: "/dashboard/settings/sidebar",
-    i18nKey: "settingsSidebar",
-    subtitleKey: "settingsSidebarSubtitle",
-    icon: "view_sidebar",
-  },
-  {
-    id: "proxy",
-    href: "/dashboard/system/proxy",
-    i18nKey: "proxy",
-    labelFallback: "Network",
-    subtitleKey: "proxySubtitle",
-    subtitleFallback: "Outbound proxy for provider traffic",
-    icon: "dns",
-  },
-];
-
+/** Debug tools section remains empty unless debug mode mounts extras later. */
 const DEVTOOLS_ITEMS: readonly SidebarItemDefinition[] = [];
-
-const HELP_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "docs",
-    href: "/docs",
-    i18nKey: "docs",
-    subtitleKey: "docsSubtitle",
-    icon: "menu_book",
-    external: true,
-  },
-  {
-    id: "issues",
-    href: "https://github.com/diegosouzapw/OmniRoute/issues",
-    i18nKey: "issues",
-    subtitleKey: "issuesSubtitle",
-    icon: "bug_report",
-    external: true,
-  },
-  {
-    id: "changelog",
-    href: "/dashboard/changelog",
-    i18nKey: "changelog",
-    subtitleKey: "changelogSubtitle",
-    icon: "campaign",
-  },
-];
 
 // ─── Flat primary nav (~10 leaves; no accordion groups) ──────────────────────
 // Nested destinations live as in-page tabs/subnav, not sidebar collapsibles.
@@ -922,7 +474,11 @@ const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "docs",
 ]);
 
-/** Developer: ops-focused primary hubs (hide marketing Docs) + debug tools when debugMode. */
+/**
+ * Developer: ops-focused primary hubs (hide marketing Docs).
+ * Lab destinations (translator / playground / search-tools) are NOT sidebar items
+ * (Task 0060 reopen) — discover via Testing hub / command palette / direct routes.
+ */
 const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
   "providers",
@@ -933,9 +489,6 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "costs",
   "settings-general",
   // docs intentionally omitted — differentiates vs all/admin primary sets
-  "translator",
-  "playground",
-  "search-tools",
 ]);
 
 /** Admin: full primary chrome (includes Docs). Off-tree settings ids remain hideable prefs only. */

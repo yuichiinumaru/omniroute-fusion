@@ -11,6 +11,7 @@ import {
 import { errorResponse } from "../../utils/error.ts";
 import { recordComboRequest } from "../comboMetrics.ts";
 import {
+  getExhaustedTargetSkipReason,
   isProviderCircuitBlocking,
   isStreamReadinessFailureErrorBody,
   isTokenLimitBreachErrorBody,
@@ -116,13 +117,14 @@ function getRuntimeModelSkipReason(args: {
     return `Skipping ${unit.modelStr} — provider ${provider} in global cooldown`;
   }
 
-  if (provider && exhaustedProviders.has(provider)) {
-    return `Skipping ${unit.modelStr} — provider ${provider} exhausted this request`;
-  }
-
-  if (unit.connectionId && exhaustedConnections.has(unit.connectionId)) {
-    return `Skipping ${unit.modelStr} — connection exhausted this request`;
-  }
+  // F-03-002: exhaustion keys are `provider:connectionId` (writers in targetExhaustion
+  // + priority/RR getExhaustedTargetSkipReason). Never match bare connectionId.
+  const exhaustedSkip = getExhaustedTargetSkipReason(
+    unit,
+    exhaustedProviders,
+    exhaustedConnections
+  );
+  if (exhaustedSkip) return exhaustedSkip;
 
   if (provider && rawModel && isModelLocked(provider, unit.connectionId || "", rawModel)) {
     return `Skipping ${unit.modelStr} — model locked by resilience (cooldown active)`;

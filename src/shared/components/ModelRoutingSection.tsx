@@ -232,7 +232,7 @@ className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-white/10
             <button
               onClick={handleSave}
               disabled={!pattern.trim() || !comboId}
-              className="px-3 py-1 text-xs font-medium rounded-lg bg-primary text-white
+              className="px-3 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground
                          hover:bg-primary/90 disabled:opacity-40 transition-colors"
             >
               {editingId ? t("update") : t("save")}
@@ -264,12 +264,12 @@ className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-white/10
               className={`flex items-center justify-between px-3 py-2 rounded-lg border transition-colors
                 ${
                   m.enabled
-                    ? "border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/[0.02]"
-                    : "border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.01] opacity-50"
+                    ? "border-white/10 bg-white/[0.02]"
+                    : "border-white/5 bg-white/[0.01] opacity-50"
                 }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <code className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono shrink-0">
+                <code className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 font-mono shrink-0">
                   {m.pattern}
                 </code>
                 <span className="text-text-muted text-[10px]">→</span>

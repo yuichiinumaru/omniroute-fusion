@@ -60,7 +60,12 @@ function formatNumber(value: number | undefined): string {
   return new Intl.NumberFormat().format(value ?? 0);
 }
 
-export default function RtkContextPageClient() {
+export default function RtkContextPageClient({
+  embedded = false,
+}: {
+  /** Task 0058 F2: suppress standalone page chrome when nested under settings. */
+  embedded?: boolean;
+} = {}) {
   const t = useTranslations("contextRtk");
   const [filters, setFilters] = useState<RtkFilter[]>([]);
   const [config, setConfig] = useState<RtkConfig | null>(null);
@@ -149,16 +154,33 @@ export default function RtkContextPageClient() {
   ];
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+    <div
+      className={
+        embedded
+          ? "flex flex-col gap-4 p-4"
+          : "mx-auto flex max-w-6xl flex-col gap-6"
+      }
+      data-rtk-embedded={embedded ? "true" : "false"}
+    >
       <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[30px] text-primary">filter_alt</span>
-            <div>
-              <h1 className="text-2xl font-bold text-text-main">{t("title")}</h1>
-              <p className="text-sm text-text-muted">{t("description")}</p>
+        <div
+          className={
+            embedded
+              ? "flex items-center justify-end gap-3"
+              : "flex items-center justify-between gap-3"
+          }
+        >
+          {!embedded && (
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[30px] text-primary" aria-hidden="true">
+                filter_alt
+              </span>
+              <div>
+                <h1 className="text-2xl font-bold text-text-main">{t("title")}</h1>
+                <p className="text-sm text-text-muted">{t("description")}</p>
+              </div>
             </div>
-          </div>
+          )}
           <SegmentedControl
             value={viewMode}
             onChange={(v) => setViewMode(v as "simple" | "advanced")}
@@ -288,10 +310,15 @@ export default function RtkContextPageClient() {
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1fr]">
           <div className="rounded-lg border border-border bg-surface p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text-main">{t("filterTesting")}</h2>
+              {embedded ? (
+                <p className="text-sm font-semibold text-text-main">{t("filterTesting")}</p>
+              ) : (
+                <h2 className="text-sm font-semibold text-text-main">{t("filterTesting")}</h2>
+              )}
               <button
+                type="button"
                 onClick={runPreview}
-                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white"
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
               >
                 {t("run")}
               </button>
@@ -301,10 +328,15 @@ export default function RtkContextPageClient() {
               onChange={(event) => setSample(event.target.value)}
               placeholder={t("pasteOutput")}
               className="h-72 w-full rounded-lg border border-border bg-bg p-3 font-mono text-xs text-text-main"
+              aria-label={t("pasteOutput")}
             />
           </div>
           <div className="rounded-lg border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold text-text-main">{t("result")}</h2>
+            {embedded ? (
+              <p className="mb-3 text-sm font-semibold text-text-main">{t("result")}</p>
+            ) : (
+              <h2 className="mb-3 text-sm font-semibold text-text-main">{t("result")}</h2>
+            )}
             {preview?.detection && (
               <p className="mb-2 text-xs text-text-muted">
                 {t("detected")}: {preview.detection.type} (

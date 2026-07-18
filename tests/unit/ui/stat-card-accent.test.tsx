@@ -64,4 +64,14 @@ describe("StatCard accent bar (Task 0028)", () => {
     expect(bar).toBeTruthy();
     expect(bar?.className).toMatch(/bg-green-500/);
   });
+
+  it("info accent uses primary track (aligned with STATUS_TONE_ACCENT_CLASS)", () => {
+    act(() => {
+      root.render(<StatCard label="Active" value="3" accent="info" />);
+    });
+    const bar = container.querySelector("[data-statcard-accent='info']");
+    expect(bar).toBeTruthy();
+    expect(bar?.className).toMatch(/bg-primary/);
+    expect(bar?.className).not.toMatch(/bg-blue-500/);
+  });
 });

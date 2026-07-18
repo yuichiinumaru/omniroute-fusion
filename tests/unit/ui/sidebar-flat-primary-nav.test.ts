@@ -40,10 +40,13 @@ describe("flat primary sidebar nav", () => {
     assert.equal(countPresetVisibleLeaves("all"), 9);
   });
 
-  it("minimal is a short role view ≤ 10", () => {
+  it("minimal is a short role view ≤ 12 (task contract; stretch ≤ 10)", () => {
     const n = countPresetVisibleLeaves("minimal");
-    assert.ok(n <= 10);
+    // Epic 0005 / Task 0025: default visible leaves on minimal ≤ 12 (stretch ≤ 8–10)
+    assert.ok(n <= 12, `minimal=${n} exceeds contract ≤12`);
+    assert.ok(n <= 10, `minimal=${n} exceeds stretch ≤10`);
     assert.ok(n >= 5);
+    assert.equal(n, 7);
   });
 
   it("icons are neutral (currentColor) — no carnival accents", () => {
@@ -74,5 +77,26 @@ describe("flat primary sidebar nav", () => {
     assert.equal(ops.href, "/dashboard/operations");
     assert.equal(ops.i18nKey, "operationsNav");
     assert.equal(ops.labelFallback, "Operations");
+  });
+});
+
+describe("sidebar chrome a11y contracts (Task 0025 path-to-100)", () => {
+  it("collapse control is not wrapped in aria-hidden; nav exposes aria-current", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const src = readFileSync(
+      join(import.meta.dirname, "../../../src/shared/components/Sidebar.tsx"),
+      "utf8"
+    );
+    assert.ok(src.includes('aria-label={collapsed ? t("expandSidebar") : t("collapseSidebar")}'));
+    // Outer chrome row must not use aria-hidden (would hide the collapse control from AT)
+    assert.equal(
+      /onToggleCollapse \|\| !isMacElectron\) && \(\s*<div[^>]*aria-hidden="true"/s.test(src),
+      false,
+      "collapse chrome row must not use aria-hidden=\"true\" on the parent"
+    );
+    assert.ok(src.includes('aria-current={active ? "page" : undefined}'));
+    assert.ok(src.includes('aria-label={t("restart")}'));
+    assert.ok(src.includes('aria-label={t("shutdown")}'));
   });
 });

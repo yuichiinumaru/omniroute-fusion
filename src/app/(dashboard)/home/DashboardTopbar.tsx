@@ -4,6 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
+import { asSidebarTranslator, sidebarText } from "@/shared/utils/sidebarI18n";
+import {
+  HUB_SUBNAV_ACTIVE_CLASS,
+  HUB_SUBNAV_INACTIVE_CLASS,
+  HUB_SUBNAV_ITEM_BASE_CLASS,
+  HUB_SUBNAV_SHELL_CLASS,
+} from "@/shared/constants/hubSubnavStyles";
 
 interface TopbarLinkItem {
   href: string;
@@ -12,7 +19,7 @@ interface TopbarLinkItem {
   icon: string;
 }
 
-const DASHBOARD_LINKS: readonly TopbarLinkItem[] = [
+const DASHBOARD_LINKS = [
   {
     href: "/home",
     labelKey: "dashboard",
@@ -55,23 +62,17 @@ const DASHBOARD_LINKS: readonly TopbarLinkItem[] = [
     labelFallback: "Profile",
     icon: "person",
   },
-] as const;
-
-type SidebarTranslator = ((key: string) => string) & {
-  has?: (key: string) => boolean;
-};
+] as const satisfies readonly TopbarLinkItem[];
 
 export default function DashboardTopbar() {
   const pathname = usePathname();
-  const t = useTranslations("sidebar") as SidebarTranslator;
-
-  const getLabel = (item: TopbarLinkItem): string =>
-    typeof t.has === "function" && t.has(item.labelKey) ? t(item.labelKey) : item.labelFallback;
+  const t = asSidebarTranslator(useTranslations("sidebar"));
 
   return (
     <nav
       aria-label="Dashboard navigation"
-      className="mb-6 flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1"
+      className={cn("mb-6", HUB_SUBNAV_SHELL_CLASS)}
+      data-dashboard-topbar=""
     >
       {DASHBOARD_LINKS.map((item) => {
         const isActive =
@@ -82,17 +83,17 @@ export default function DashboardTopbar() {
             key={item.href}
             href={item.href}
             className={cn(
-              "focus-ring inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors",
-              isActive
-                ? "bg-surface text-text-main shadow-sm"
-                : "text-text-muted hover:bg-surface/70 hover:text-text-main"
+              "focus-ring",
+              HUB_SUBNAV_ITEM_BASE_CLASS,
+              isActive ? HUB_SUBNAV_ACTIVE_CLASS : HUB_SUBNAV_INACTIVE_CLASS
             )}
             aria-current={isActive ? "page" : undefined}
+            data-dashboard-topbar-link={item.href}
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
               {item.icon}
             </span>
-            {getLabel(item)}
+            {sidebarText(t, item.labelKey, item.labelFallback)}
           </Link>
         );
       })}

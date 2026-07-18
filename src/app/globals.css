@@ -36,11 +36,14 @@
   /* Primary - Core Cyan (VR #00FFCC) */
   --color-primary: #00FFCC;
   --color-primary-hover: #00cca3;
+  /* On-primary text: obsidian on bright cyan (WCAG; never white-on-cyan). */
+  --color-primary-foreground: #030506;
 
   /* Accent - Monochrome cyan (no secondary accent — VR spec) */
   --color-accent: #00FFCC;
   --color-accent-hover: #00cca3;
   --color-accent-light: #66ffdd;
+  --color-accent-foreground: #030506;
 
   /* Semantic */
   --color-error: #ef4444;
@@ -114,11 +117,13 @@
   /* Primary */
   --color-primary: var(--color-primary);
   --color-primary-hover: var(--color-primary-hover);
+  --color-primary-foreground: var(--color-primary-foreground);
 
   /* Accent */
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent-hover);
   --color-accent-light: var(--color-accent-light);
+  --color-accent-foreground: var(--color-accent-foreground);
 
   /* Semantic */
   --color-error: var(--color-error);

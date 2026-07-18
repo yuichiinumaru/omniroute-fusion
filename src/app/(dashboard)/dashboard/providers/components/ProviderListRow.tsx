@@ -1,6 +1,5 @@
 "use client";
 
-import type { MouseEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -142,12 +141,6 @@ export default function ProviderListRow({
     return null;
   })();
 
-  const handleToggle = (event: MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onToggle(allDisabled);
-  };
-
   const statusStrings = getStatusDisplay(connected, error, warning, t);
   const serviceKinds = provider.serviceKinds ?? [];
   const dotLabels: Record<string, string> = {
@@ -164,21 +157,22 @@ export default function ProviderListRow({
     "cloud-agent": t("cloudAgentProviders"),
   };
 
-  const isLlmProvider =
-    serviceKinds.includes("llm") ||
-    (serviceKinds.length === 0 &&
-      authType !== "search" &&
-      authType !== "audio" &&
-      authType !== "cloud-agent" &&
-      authType !== "upstream-proxy" &&
-      authType !== "no-auth");
+  const accountsLabel =
+    total > 0
+      ? t("accountsCount", { count: total })
+      : t("noConnections");
 
+  // Row shell keeps the enable toggle *outside* the primary Link so we never
+  // nest interactive controls (invalid HTML + screen-reader trap).
   return (
-    <Link
-      href={`/dashboard/providers/${providerId}`}
-      className={`block group rounded-lg border border-border bg-bg-primary hover:bg-black/[0.02] dark:hover:bg-white/[0.02] hover:border-primary/40 transition-colors ${allDisabled ? "opacity-50" : ""} ${provider.deprecated ? "opacity-60" : ""}`}
+    <div
+      className={`group flex items-stretch rounded-lg border border-border bg-bg-primary hover:bg-black/[0.02] dark:hover:bg-white/[0.02] hover:border-primary/40 transition-colors ${allDisabled ? "opacity-50" : ""} ${provider.deprecated ? "opacity-60" : ""}`}
+      data-testid="provider-list-row"
     >
-      <div className="flex items-center gap-3 px-3 py-2.5 min-w-0">
+      <Link
+        href={`/dashboard/providers/${providerId}`}
+        className="flex flex-1 items-center gap-3 px-3 py-2.5 min-w-0"
+      >
         {/* Provider icon */}
         <div
           className="size-8 rounded-lg flex items-center justify-center shrink-0"
@@ -260,7 +254,11 @@ export default function ProviderListRow({
         </div>
 
         {/* Accounts count */}
-        <span className="text-xs text-text-muted tabular-nums shrink-0 min-w-[3ch] text-right">
+        <span
+          className="text-xs text-text-muted tabular-nums shrink-0 min-w-[3ch] text-right"
+          aria-label={accountsLabel}
+          title={accountsLabel}
+        >
           {total > 0 ? total : "—"}
         </span>
 
@@ -315,30 +313,27 @@ export default function ProviderListRow({
           )}
         </div>
 
-        {/* Toggle + Test */}
-        <div className="flex items-center gap-2 shrink-0">
-          {total > 0 && (
-            <div onClick={handleToggle}>
-              <Toggle
-                size="xs"
-                checked={!allDisabled}
-                onChange={() => {}}
-                title={allDisabled ? t("enableProvider") : t("disableProvider")}
-              />
-            </div>
-          )}
-          {isLlmProvider && (
-            <span className="material-symbols-outlined text-text-muted text-[18px] opacity-0 group-hover:opacity-100 transition-opacity">
-              play_arrow
-            </span>
-          )}
-          {!isLlmProvider && (
-            <span className="material-symbols-outlined text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
-              chevron_right
-            </span>
-          )}
+        {/* Primary nav affordance (row is the link; no fake play control) */}
+        <span
+          className="material-symbols-outlined text-text-muted text-[18px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          aria-hidden="true"
+        >
+          chevron_right
+        </span>
+      </Link>
+
+      {/* Enable/disable — sibling of Link, not nested */}
+      {total > 0 && (
+        <div className="flex items-center pr-3 shrink-0">
+          <Toggle
+            size="xs"
+            checked={!allDisabled}
+            onChange={(checked) => onToggle(checked)}
+            title={allDisabled ? t("enableProvider") : t("disableProvider")}
+            ariaLabel={allDisabled ? t("enableProvider") : t("disableProvider")}
+          />
         </div>
-      </div>
-    </Link>
+      )}
+    </div>
   );
 }

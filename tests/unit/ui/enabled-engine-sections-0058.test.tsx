@@ -28,22 +28,41 @@ vi.mock("next/link", () => ({
 }));
 
 // Keep EngineConfigPage / custom clients light so this test only asserts
-// composition + enable filtering.
+// composition + enable filtering (+ embedded prop wiring for F2).
 vi.mock("@/shared/components/compression/EngineConfigPage", () => ({
-  EngineConfigPage: ({ engineId }: { engineId: string }) => (
-    <div data-testid={`mock-engine-config-${engineId}`}>engine:{engineId}</div>
+  EngineConfigPage: ({
+    engineId,
+    embedded,
+  }: {
+    engineId: string;
+    embedded?: boolean;
+  }) => (
+    <div
+      data-testid={`mock-engine-config-${engineId}`}
+      data-embedded={embedded ? "true" : "false"}
+    >
+      engine:{engineId}
+    </div>
   ),
 }));
 
 vi.mock(
   "../../../src/app/(dashboard)/dashboard/context/caveman/CavemanContextPageClient",
   () => ({
-    default: () => <div data-testid="mock-caveman">caveman</div>,
+    default: ({ embedded }: { embedded?: boolean } = {}) => (
+      <div data-testid="mock-caveman" data-embedded={embedded ? "true" : "false"}>
+        caveman
+      </div>
+    ),
   })
 );
 
 vi.mock("../../../src/app/(dashboard)/dashboard/context/rtk/RtkContextPageClient", () => ({
-  default: () => <div data-testid="mock-rtk">rtk</div>,
+  default: ({ embedded }: { embedded?: boolean } = {}) => (
+    <div data-testid="mock-rtk" data-embedded={embedded ? "true" : "false"}>
+      rtk
+    </div>
+  ),
 }));
 
 const containers: HTMLElement[] = [];
@@ -173,5 +192,94 @@ describe("EnabledEngineSections (Task 0058)", () => {
     await flush();
 
     expect(container.querySelector('[data-testid="enabled-engine-sections-error"]')).toBeTruthy();
+  });
+
+  it("F1: recomposes enabled sections when controlled engines prop changes (no remount fetch)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      throw new Error("controlled mode must not fetch");
+    });
+
+    const { default: EnabledEngineSections } = await import(
+      "../../../src/app/(dashboard)/dashboard/context/settings/EnabledEngineSections"
+    );
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    containers.push(container);
+    const root = createRoot(container);
+    roots.push(root);
+
+    // Start with no engines enabled → null sections.
+    await act(async () => {
+      root.render(
+        <EnabledEngineSections
+          engines={{ lite: { enabled: false }, caveman: { enabled: false } }}
+        />
+      );
+    });
+    await flush();
+    expect(container.querySelector('[data-testid="enabled-engine-sections"]')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // Toggle caveman on via controlled prop (same-page panel toggle path).
+    await act(async () => {
+      root.render(
+        <EnabledEngineSections
+          engines={{ lite: { enabled: false }, caveman: { enabled: true } }}
+        />
+      );
+    });
+    await flush();
+
+    const sections = Array.from(
+      container.querySelectorAll("[data-testid^='enabled-engine-section-']")
+    );
+    expect(sections.map((el) => el.getAttribute("data-engine-id"))).toEqual(["caveman"]);
+    expect(container.querySelector('[data-testid="mock-caveman"]')).toBeTruthy();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // Toggle caveman off + lite on → only lite remains.
+    await act(async () => {
+      root.render(
+        <EnabledEngineSections
+          engines={{ lite: { enabled: true }, caveman: { enabled: false } }}
+        />
+      );
+    });
+    await flush();
+
+    expect(
+      Array.from(container.querySelectorAll("[data-testid^='enabled-engine-section-']")).map(
+        (el) => el.getAttribute("data-engine-id")
+      )
+    ).toEqual(["lite"]);
+  });
+
+  it("F2: embeds mode clients with embedded=true (chrome variant)", async () => {
+    mockCompressionFetch({
+      lite: { enabled: true },
+      caveman: { enabled: true },
+      rtk: { enabled: true },
+    });
+
+    const { default: EnabledEngineSections } = await import(
+      "../../../src/app/(dashboard)/dashboard/context/settings/EnabledEngineSections"
+    );
+
+    let container!: HTMLElement;
+    await act(async () => {
+      container = mountInContainer(<EnabledEngineSections />);
+    });
+    await flush();
+
+    expect(
+      container.querySelector('[data-testid="mock-engine-config-lite"]')?.getAttribute("data-embedded")
+    ).toBe("true");
+    expect(
+      container.querySelector('[data-testid="mock-caveman"]')?.getAttribute("data-embedded")
+    ).toBe("true");
+    expect(container.querySelector('[data-testid="mock-rtk"]')?.getAttribute("data-embedded")).toBe(
+      "true"
+    );
   });
 });

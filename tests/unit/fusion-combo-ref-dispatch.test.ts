@@ -635,6 +635,64 @@ test("V2: comboChatBase settings/signal/acl forward into nested handleComboChat"
   assert.equal((received[0].nesting as { depth: number }).depth, 1);
 });
 
+test("V2: comboChatBase also forwards into combo-ref judge handleComboChat", async () => {
+  const received: Array<Record<string, unknown>> = [];
+  const signal = new AbortController().signal;
+  const settings = { maxComboDepth: 5, judgeProbe: true };
+  const apiKeyAllowedConnections = ["conn-j"];
+
+  const handleSingleModel = async (_body: Body, model: string) => {
+    return okResponse(`ans-${model}`);
+  };
+  const handleComboChat = async (opts: Record<string, unknown>) => {
+    received.push(opts);
+    return okResponse("judge-final");
+  };
+
+  const res = await handleFusionChatV2({
+    body: {
+      messages: [{ role: "user", content: "Q" }],
+      stream: true,
+      tools: [{ name: "t" }],
+    },
+    panels: [
+      { kind: "model", model: "p/a" },
+      { kind: "model", model: "p/b" },
+    ],
+    judge: { kind: "combo-ref", comboName: "judge-pool" },
+    handleSingleModel,
+    handleComboChat,
+    allCombos: [{ name: "judge-pool", models: ["p/j"] }],
+    nesting: {
+      depth: 0,
+      maxDepth: 3,
+      visitedComboNames: ["root"],
+      rootComboName: "root",
+      attemptBudget: { count: 0, limit: 400 },
+    },
+    comboChatBase: {
+      settings,
+      signal,
+      apiKeyAllowedConnections,
+      relayOptions: { sessionId: "judge-s" },
+    },
+    log,
+    comboName: "root",
+    tuning: fastTuning,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(received.length, 1, "judge is the only combo-ref");
+  assert.equal(received[0].settings, settings);
+  assert.equal(received[0].signal, signal);
+  assert.deepEqual(received[0].apiKeyAllowedConnections, apiKeyAllowedConnections);
+  assert.deepEqual(received[0].relayOptions, { sessionId: "judge-s" });
+  assert.equal((received[0].combo as { name: string }).name, "judge-pool");
+  // Judge body must not force stream:false / tool_choice when acting absent
+  const judgeBody = received[0].body as Record<string, unknown>;
+  assert.notEqual(judgeBody.tool_choice, "none");
+});
+
 // ─── helpers ───────────────────────────────────────────────────────────────
 
 function extractText(json: unknown): string {

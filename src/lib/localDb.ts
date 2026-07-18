@@ -102,9 +102,11 @@ export {
   deleteApiKey,
   validateApiKey,
   getApiKeyMetadata,
+  getApiKeyMetadataById,
   updateApiKeyPermissions,
   regenerateApiKey,
   isModelAllowedForKey,
+  isModelAllowedForMetadata,
   clearApiKeyCaches,
   resetApiKeyState,
 } from "./db/apiKeys";

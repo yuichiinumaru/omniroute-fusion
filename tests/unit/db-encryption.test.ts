@@ -55,6 +55,52 @@ test("encrypt/decrypt round-trip uses the expected serialized format", async () 
   assert.equal(encryption.encrypt(encrypted), encrypted);
 });
 
+test("encrypt never returns plaintext when STORAGE_ENCRYPTION_KEY is configured (N4 fail-closed)", async () => {
+  process.env.STORAGE_ENCRYPTION_KEY = "task-0041-n4-fail-closed";
+  const encryption = await importFresh("src/lib/db/encryption.ts");
+
+  const samples = ["must-not-be-plaintext", "sk-live-abc", "cookie=session"];
+  for (const plain of samples) {
+    const out = encryption.encrypt(plain);
+    assert.notEqual(out, plain, `encrypt must not pass through plaintext for ${plain}`);
+    assert.match(out, /^enc:v1:/);
+  }
+
+  const psd = encryption.encryptProviderSpecificData({
+    cookie: "session=abc",
+    token: "tok",
+    workspaceId: "ws-ok",
+  });
+  assert.match(psd.cookie, /^enc:v1:/);
+  assert.match(psd.token, /^enc:v1:/);
+  assert.equal(psd.workspaceId, "ws-ok");
+
+  const conn = encryption.encryptConnectionFields({
+    apiKey: "sk-conn",
+    accessToken: "at",
+    refreshToken: "rt",
+    idToken: "idt",
+  });
+  assert.match(conn.apiKey, /^enc:v1:/);
+  assert.match(conn.accessToken, /^enc:v1:/);
+  assert.match(conn.refreshToken, /^enc:v1:/);
+  assert.match(conn.idToken, /^enc:v1:/);
+});
+
+test("PSD_SECRET_KEYS is the SSOT shared with response redaction inventory", async () => {
+  process.env.STORAGE_ENCRYPTION_KEY = "task-0041-ssot";
+  const encryption = await importFresh("src/lib/db/encryption.ts");
+  const { PSD_SECRET_KEYS: sharedKeys } = await import(
+    "../../src/shared/constants/psdSecretKeys.ts"
+  );
+
+  assert.deepEqual(
+    [...encryption.PSD_SECRET_KEYS],
+    [...sharedKeys],
+    "encryption.PSD_SECRET_KEYS must re-export shared SSOT"
+  );
+});
+
 test("decrypt rejects a truncated GCM authentication tag (authTagLength pinned to 16 bytes)", async () => {
   process.env.STORAGE_ENCRYPTION_KEY = "task-304-secret-authtag";
   const encryption = await importFresh("src/lib/db/encryption.ts");
@@ -101,6 +147,9 @@ test("PSD credential keys encrypt on write and decrypt on read (F-05-003)", asyn
     cookie: "session=abc; path=/",
     token: "web-session-token",
     sso: "sso-secret",
+    ssxmod_itna: "qwen-mod-token",
+    "__Secure-1PSID": "gemini-psid",
+    abra_sess: "muse-session",
     workspaceId: "ws-123",
     tag: "primary",
   };
@@ -109,6 +158,9 @@ test("PSD credential keys encrypt on write and decrypt on read (F-05-003)", asyn
   assert.match(encrypted.cookie, /^enc:v1:/);
   assert.match(encrypted.token, /^enc:v1:/);
   assert.match(encrypted.sso, /^enc:v1:/);
+  assert.match(encrypted.ssxmod_itna, /^enc:v1:/);
+  assert.match(encrypted["__Secure-1PSID"], /^enc:v1:/);
+  assert.match(encrypted.abra_sess, /^enc:v1:/);
   // Non-secret metadata stays plaintext (json_extract-safe)
   assert.equal(encrypted.workspaceId, "ws-123");
   assert.equal(encrypted.tag, "primary");
@@ -125,6 +177,39 @@ test("PSD credential keys encrypt on write and decrypt on read (F-05-003)", asyn
   assert.match(encConn.providerSpecificData.cookie, /^enc:v1:/);
   const decConn = encryption.decryptConnectionFields(encConn);
   assert.equal(decConn.providerSpecificData.cookie, psd.cookie);
+});
+
+test("PSD_SECRET_KEYS covers every web-session storageKey (N3 inventory)", async () => {
+  process.env.STORAGE_ENCRYPTION_KEY = "task-0041-psd-inventory";
+  const encryption = await importFresh("src/lib/db/encryption.ts");
+  const { WEB_SESSION_CREDENTIAL_REQUIREMENTS } = await import(
+    "../../src/shared/providers/webSessionCredentials.ts"
+  );
+
+  const secretSet = new Set(encryption.PSD_SECRET_KEYS as readonly string[]);
+  const missing: string[] = [];
+  for (const req of Object.values(WEB_SESSION_CREDENTIAL_REQUIREMENTS)) {
+    for (const key of req.storageKeys) {
+      if (key && !secretSet.has(key)) missing.push(key);
+    }
+  }
+  assert.deepEqual(
+    missing,
+    [],
+    `PSD_SECRET_KEYS missing web-session storageKeys: ${missing.join(", ")}`
+  );
+});
+
+test("providerSpecificDataNeedsEncryption detects plaintext secret keys", async () => {
+  process.env.STORAGE_ENCRYPTION_KEY = "task-0041-psd-needs";
+  const encryption = await importFresh("src/lib/db/encryption.ts");
+
+  assert.equal(encryption.providerSpecificDataNeedsEncryption({ cookie: "plain" }), true);
+  assert.equal(
+    encryption.providerSpecificDataNeedsEncryption({ cookie: encryption.encrypt("plain") }),
+    false
+  );
+  assert.equal(encryption.providerSpecificDataNeedsEncryption({ workspaceId: "ws" }), false);
 });
 
 test("decrypt returns null when the value is malformed or the key is wrong", async () => {

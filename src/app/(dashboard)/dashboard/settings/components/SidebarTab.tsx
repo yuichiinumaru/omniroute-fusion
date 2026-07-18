@@ -477,10 +477,17 @@ export default function SidebarTab() {
   };
 
   const presetDescriptions: Record<SidebarPresetId, string> = {
-    all: getSettingsLabel("presetAllDesc", "Show everything"),
-    minimal: getSettingsLabel("presetMinimalDesc", "Core pages only"),
-    developer: getSettingsLabel("presetDeveloperDesc", "Dev & proxy tools"),
-    admin: getSettingsLabel("presetAdminDesc", "Monitoring & audit"),
+    // Flat primary role views (Task 0025) — not accordion-era persona trees
+    all: getSettingsLabel("presetAllDesc", "All primary hubs"),
+    minimal: getSettingsLabel(
+      "presetMinimalDesc",
+      "Daily operator view (pulse · routing · ops · observe)"
+    ),
+    developer: getSettingsLabel(
+      "presetDeveloperDesc",
+      "Ops hubs + analytics + costs (hides Docs)"
+    ),
+    admin: getSettingsLabel("presetAdminDesc", "Full primary chrome"),
   };
 
   return (
@@ -605,7 +612,7 @@ export default function SidebarTab() {
                 </button>
                 <button
                   onClick={() => applyPreset(confirmPreset)}
-                  className="px-3 py-1.5 text-sm rounded-md bg-primary text-white hover:bg-primary/90 transition-colors"
+                  className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
                   {getSettingsLabel("applyLabel", "Apply")}
                 </button>

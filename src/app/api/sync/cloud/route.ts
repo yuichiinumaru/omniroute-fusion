@@ -22,35 +22,18 @@ export async function GET() {
       return NextResponse.json({ enabled: false });
     }
 
-    // Cloud is enabled — try to verify connection
-    const machineId = await getConsistentMachineId();
-    const keys = await getApiKeys();
-    const apiKey = keys[0]?.key;
-
-    if (!apiKey || !CLOUD_URL) {
+    // Cloud is enabled. Hash-only storage (F-05-002) cannot rehydrate inventory
+    // secrets for a live verify ping — do NOT mint keys on GET (status polls).
+    // Connectivity is confirmed at enable-time; GET reports enabled + unknown probe.
+    if (!CLOUD_URL) {
       return NextResponse.json({ enabled: true, connected: false });
     }
-
-    try {
-      const pingRes = await fetchWithTimeout(
-        `${CLOUD_URL}/${machineId}/v1/verify`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-        },
-        5000
-      );
-      return NextResponse.json({
-        enabled: true,
-        connected: pingRes.ok,
-        lastSync: new Date().toISOString(),
-      });
-    } catch {
-      return NextResponse.json({ enabled: true, connected: false });
-    }
+    return NextResponse.json({
+      enabled: true,
+      // null = probe unavailable without rehydratable secret (not a hard disconnect)
+      connected: null,
+      lastSync: null,
+    });
   } catch (error: unknown) {
     return NextResponse.json({ enabled: false, error: sanitizeErrorMessage(error) }, { status: 500 });
   }
@@ -83,12 +66,13 @@ export async function POST(request: any) {
 
     switch (action) {
       case "enable": {
-        // Auto create key if none exists (before sync, so it's included in sync data)
+        // Hash-only (F-05-002): existing rows cannot rehydrate secrets. Always
+        // mint a fresh key for enable+verify so cloud sync receives a real bearer.
         const keys = await getApiKeys();
-        let createdKey = null;
-        if (keys.length === 0) {
-          createdKey = await createApiKey("Default Key", machineId);
-        }
+        const createdKey =
+          keys.length === 0
+            ? await createApiKey("Default Key", machineId)
+            : await createApiKey("Cloud Sync Key", machineId);
         // Sync first — only enable if sync succeeds
         const enableResult = await syncAndVerify(machineId, createdKey?.key, keys);
         const enableBody = await enableResult.clone().json().catch(() => ({}));
@@ -133,14 +117,17 @@ async function syncAndVerify(machineId: string, createdKey: any, existingKeys: a
   // Build the cloud URL for the frontend to use
   const cloudUrl = CLOUD_URL ? `${CLOUD_URL}/${machineId}` : null;
 
-  // Step 2: Verify connection by pinging the cloud (with retry)
-  const apiKey = createdKey || existingKeys[0]?.key;
+  // Step 2: Verify connection by pinging the cloud (with retry).
+  // Prefer the just-created secret; inventory keys are hash-only (no rehydrate).
+  const apiKey =
+    typeof createdKey === "string" && createdKey.trim().length > 0 ? createdKey.trim() : null;
   if (!apiKey) {
     return NextResponse.json({
       ...syncResult,
       cloudUrl,
       verified: false,
-      verifyError: "No API key available",
+      verifyError:
+        "No API key secret available after hash-only storage — create/regenerate a key and retry enable",
     });
   }
 

@@ -1883,7 +1883,7 @@ const PermissionsModal = memo(function PermissionsModal({
             onClick={handleSelectAll}
             className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
               allowAll
-                ? "bg-primary text-white"
+                ? "bg-primary text-primary-foreground"
                 : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
             }`}
           >
@@ -1894,7 +1894,7 @@ const PermissionsModal = memo(function PermissionsModal({
             onClick={handleRestrictMode}
             className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
               !allowAll
-                ? "bg-primary text-white"
+                ? "bg-primary text-primary-foreground"
                 : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
             }`}
           >
@@ -2109,7 +2109,7 @@ const PermissionsModal = memo(function PermissionsModal({
                         }
                         className={`px-2 py-1 text-[11px] font-medium rounded transition-all ${
                           selected
-                            ? "bg-primary text-white"
+                            ? "bg-primary text-primary-foreground"
                             : "bg-surface border border-border text-text-muted hover:border-primary/50"
                         }`}
                       >
@@ -2164,7 +2164,7 @@ const PermissionsModal = memo(function PermissionsModal({
               onClick={() => setStreamDefaultMode("legacy")}
               className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold transition-all ${
                 streamDefaultMode === "legacy"
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-primary-foreground"
                   : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
@@ -2176,7 +2176,7 @@ const PermissionsModal = memo(function PermissionsModal({
               onClick={() => setStreamDefaultMode("json")}
               className={`inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-semibold transition-all ${
                 streamDefaultMode === "json"
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-primary-foreground"
                   : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
@@ -2473,7 +2473,7 @@ const PermissionsModal = memo(function PermissionsModal({
                               }`}
                             >
                               {allSelected && (
-                                <span className="material-symbols-outlined text-white text-[12px]">
+                                <span className="material-symbols-outlined text-primary-foreground text-[12px]">
                                   check
                                 </span>
                               )}
@@ -2510,7 +2510,7 @@ const PermissionsModal = memo(function PermissionsModal({
                                   onClick={() => handleToggleModel(model.id)}
                                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-mono transition-all ${
                                     isSelected
-                                      ? "bg-primary text-white"
+                                      ? "bg-primary text-primary-foreground"
                                       : "bg-surface border border-border text-text-muted hover:border-primary/50 hover:text-text-main"
                                   }`}
                                   title={model.id}
@@ -2543,7 +2543,7 @@ const PermissionsModal = memo(function PermissionsModal({
                   }}
                   className={`px-2 py-1 rounded text-xs font-medium transition-all ${
                     allowAllConnections
-                      ? "bg-primary text-white"
+                      ? "bg-primary text-primary-foreground"
                       : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
@@ -2553,7 +2553,7 @@ const PermissionsModal = memo(function PermissionsModal({
                   onClick={() => setAllowAllConnections(false)}
                   className={`px-2 py-1 rounded text-xs font-medium transition-all ${
                     !allowAllConnections
-                      ? "bg-primary text-white"
+                      ? "bg-primary text-primary-foreground"
                       : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
@@ -2600,7 +2600,7 @@ const PermissionsModal = memo(function PermissionsModal({
                               }`}
                             >
                               {isSelected && (
-                                <span className="material-symbols-outlined text-white text-[10px]">
+                                <span className="material-symbols-outlined text-primary-foreground text-[10px]">
                                   check
                                 </span>
                               )}
@@ -2634,7 +2634,7 @@ const PermissionsModal = memo(function PermissionsModal({
                   }}
                   className={`px-2 py-1 rounded text-xs font-medium transition-all ${
                     allowAllCombos
-                      ? "bg-primary text-white"
+                      ? "bg-primary text-primary-foreground"
                       : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
@@ -2644,7 +2644,7 @@ const PermissionsModal = memo(function PermissionsModal({
                   onClick={() => setAllowAllCombos(false)}
                   className={`px-2 py-1 rounded text-xs font-medium transition-all ${
                     !allowAllCombos
-                      ? "bg-primary text-white"
+                      ? "bg-primary text-primary-foreground"
                       : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
@@ -2680,7 +2680,7 @@ const PermissionsModal = memo(function PermissionsModal({
                           }`}
                         >
                           {isSelected && (
-                            <span className="material-symbols-outlined text-white text-[10px]">
+                            <span className="material-symbols-outlined text-primary-foreground text-[10px]">
                               check
                             </span>
                           )}
@@ -2720,7 +2720,7 @@ const PermissionsModal = memo(function PermissionsModal({
                 }}
                 className={`px-2 py-1 rounded text-xs font-medium transition-all ${
                   allowAllEndpoints
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-primary-foreground"
                     : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
@@ -2730,7 +2730,7 @@ const PermissionsModal = memo(function PermissionsModal({
                 onClick={() => setAllowAllEndpoints(false)}
                 className={`px-2 py-1 rounded text-xs font-medium transition-all ${
                   !allowAllEndpoints
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-primary-foreground"
                     : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
@@ -2758,7 +2758,7 @@ const PermissionsModal = memo(function PermissionsModal({
                       }`}
                     >
                       {isSelected && (
-                        <span className="material-symbols-outlined text-white text-[10px]">
+                        <span className="material-symbols-outlined text-primary-foreground text-[10px]">
                           check
                         </span>
                       )}

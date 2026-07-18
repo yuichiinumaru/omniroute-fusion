@@ -11,9 +11,10 @@
 import { extractApiKey } from "@/sse/services/auth";
 import {
   getApiKeyMetadata,
+  getApiKeyMetadataById,
   getComboByName,
   isModelAllowedForKey,
-  getApiKeyById,
+  isModelAllowedForMetadata,
 } from "@/lib/localDb";
 import { isDashboardSessionAuthenticated } from "./apiAuth";
 import { resolveComboForModel } from "@/lib/db/modelComboMappings";
@@ -284,25 +285,38 @@ export interface ApiKeyPolicyResult {
 const PLAYGROUND_KEY_ID_HEADER = "x-omniroute-playground-key-id";
 
 /**
- * Dashboard playground support. An authenticated admin session may test a
- * specific API key's policy (allowed_models, budget, …) WITHOUT putting the key
- * secret on the wire: the browser sends only the key id via
- * `x-omniroute-playground-key-id` and we resolve the secret server-side.
+ * Dashboard playground support (hash-only F-05-002).
+ *
+ * An authenticated admin session may test a specific API key's policy
+ * (allowed_models, budget, …) WITHOUT putting the key secret on the wire and
+ * WITHOUT reconstituting it from the DB (secrets are hash-only after create).
+ * The browser sends only the key id via `x-omniroute-playground-key-id`; we
+ * load **metadata by id** and apply that policy.
  *
  * Security: honored ONLY for authenticated dashboard sessions, and only as a
  * fallback when no bearer key was presented — so it can never bypass auth or
- * escalate privileges, it only applies (narrows to) the selected key's policy.
+ * escalate privileges; it only applies (narrows to) the selected key's policy.
  */
-export async function resolvePlaygroundTestKey(request: Request): Promise<string | null> {
+export async function resolvePlaygroundKeyMetadata(
+  request: Request
+): Promise<ApiKeyMetadata | null> {
   const keyId = request.headers.get(PLAYGROUND_KEY_ID_HEADER);
   if (!keyId) return null;
   if (!(await isDashboardSessionAuthenticated(request))) return null;
   try {
-    const row = await getApiKeyById(keyId);
-    return typeof row?.key === "string" ? row.key : null;
+    return await getApiKeyMetadataById(keyId);
   } catch {
     return null;
   }
+}
+
+/**
+ * @deprecated Hash-only storage (F-05-002) no longer reconstitutes secrets by id.
+ * Use `resolvePlaygroundKeyMetadata` / `enforceApiKeyPolicy` instead.
+ * Always returns null — retained so older imports fail closed rather than leak.
+ */
+export async function resolvePlaygroundTestKey(_request: Request): Promise<string | null> {
+  return null;
 }
 
 export async function enforceApiKeyPolicy(
@@ -310,69 +324,85 @@ export async function enforceApiKeyPolicy(
   modelStr: string | null
 ): Promise<ApiKeyPolicyResult> {
   // A real bearer key wins; otherwise an authenticated dashboard playground may
-  // test a specific key's policy by id (resolved server-side, secret never sent).
-  const apiKey = extractApiKey(request) || (await resolvePlaygroundTestKey(request));
+  // apply a specific key's policy by id (metadata only — secret never reconstituted).
+  const apiKey = extractApiKey(request);
 
-  // No API key = local/session mode, skip policy checks
-  if (!apiKey) {
-    return { apiKey: null, apiKeyInfo: null, rejection: null };
-  }
-
-  // Fetch key metadata (includes allowedModels)
   let apiKeyInfo: ApiKeyMetadata | null = null;
-  try {
-    apiKeyInfo = await getApiKeyMetadata(apiKey);
-  } catch (error) {
-    // Fail-closed: if policy backend fails, reject the request
-    log.error("API_POLICY", "Failed to fetch API key metadata. Request blocked.", { error });
-    return {
-      apiKey,
-      apiKeyInfo: null,
-      rejection: errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "API key policy unavailable"),
-    };
-  }
 
-  // Registered keys (ork_) live outside api_keys — validate budget windows and
-  // increment usage when the request is accepted (Task 0050 production wire).
-  if (!apiKeyInfo && apiKey.startsWith("ork_")) {
+  if (apiKey) {
     try {
-      const { validateRegisteredKey, incrementRegisteredKeyUsage } =
-        await import("@/lib/db/registeredKeys");
-      const registered = validateRegisteredKey(apiKey);
-      if (!registered) {
-        return {
-          apiKey,
-          apiKeyInfo: null,
-          rejection: errorResponse(
-            HTTP_STATUS.RATE_LIMITED,
-            "Registered key budget exceeded or key is invalid/revoked"
-          ),
-        };
-      }
-      incrementRegisteredKeyUsage(registered.id);
-      return {
-        apiKey,
-        apiKeyInfo: {
-          id: registered.id,
-          name: registered.name,
-          isActive: registered.isActive !== false,
-          expiresAt: registered.expiresAt,
-        },
-        rejection: null,
-      };
+      apiKeyInfo = await getApiKeyMetadata(apiKey);
     } catch (error) {
-      log.error("API_POLICY", "Registered key policy failed. Request blocked.", { error });
+      // Fail-closed: if policy backend fails, reject the request
+      log.error("API_POLICY", "Failed to fetch API key metadata. Request blocked.", { error });
       return {
         apiKey,
         apiKeyInfo: null,
         rejection: errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "API key policy unavailable"),
       };
     }
-  }
 
-  // Key not found in DB — skip policy (auth layer handles validation)
-  if (!apiKeyInfo) {
-    return { apiKey, apiKeyInfo: null, rejection: null };
+    // Registered keys (ork_) live outside api_keys — validate budget windows and
+    // increment usage when the request is accepted (Task 0050 production wire).
+    if (!apiKeyInfo && apiKey.startsWith("ork_")) {
+      try {
+        const { validateRegisteredKey, incrementRegisteredKeyUsage } =
+          await import("@/lib/db/registeredKeys");
+        const registered = validateRegisteredKey(apiKey);
+        if (!registered) {
+          return {
+            apiKey,
+            apiKeyInfo: null,
+            rejection: errorResponse(
+              HTTP_STATUS.RATE_LIMITED,
+              "Registered key budget exceeded or key is invalid/revoked"
+            ),
+          };
+        }
+        incrementRegisteredKeyUsage(registered.id);
+        return {
+          apiKey,
+          apiKeyInfo: {
+            id: registered.id,
+            name: registered.name,
+            isActive: registered.isActive !== false,
+            expiresAt: registered.expiresAt,
+          },
+          rejection: null,
+        };
+      } catch (error) {
+        log.error("API_POLICY", "Registered key policy failed. Request blocked.", { error });
+        return {
+          apiKey,
+          apiKeyInfo: null,
+          rejection: errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "API key policy unavailable"),
+        };
+      }
+    }
+
+    // Key not found in DB — skip policy (auth layer handles validation)
+    if (!apiKeyInfo) {
+      return { apiKey, apiKeyInfo: null, rejection: null };
+    }
+  } else {
+    // No bearer: try playground policy-by-id (dashboard session required).
+    try {
+      apiKeyInfo = await resolvePlaygroundKeyMetadata(request);
+    } catch (error) {
+      log.error("API_POLICY", "Failed to fetch playground key metadata. Request blocked.", {
+        error,
+      });
+      return {
+        apiKey: null,
+        apiKeyInfo: null,
+        rejection: errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "API key policy unavailable"),
+      };
+    }
+
+    // No API key and no playground metadata = local/session mode, skip policy checks
+    if (!apiKeyInfo) {
+      return { apiKey: null, apiKeyInfo: null, rejection: null };
+    }
   }
 
   // ── Check 1: is_active / is_banned ──
@@ -603,7 +633,11 @@ export async function enforceApiKeyPolicy(
   }
 
   if (modelStr && !requestedComboName && hasModelRestrictions) {
-    const allowed = await isModelAllowedForKey(apiKey, modelStr);
+    // Bearer path uses secret→metadata lookup; playground uses already-loaded
+    // metadata (hash-only storage cannot reconstitute secrets by id).
+    const allowed = apiKey
+      ? await isModelAllowedForKey(apiKey, modelStr)
+      : await isModelAllowedForMetadata(apiKeyInfo, modelStr);
     if (!allowed) {
       return {
         apiKey,

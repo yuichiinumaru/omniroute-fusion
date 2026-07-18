@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Button from "@/shared/components/Button";
 import type { ComboRefOption, FusionUnit } from "./fusionEditorTypes";
 import { unitDisplayLabel } from "./fusionEditorTypes";
@@ -21,8 +22,21 @@ type FusionUnitRowProps = {
   testId?: string;
 };
 
+function tx(
+  t: { (key: string): string; has?: (key: string) => boolean },
+  key: string,
+  fallback: string
+): string {
+  try {
+    if (typeof t.has === "function" && !t.has(key)) return fallback;
+    return t(key);
+  } catch {
+    return fallback;
+  }
+}
+
 /**
- * Single panel/judge row: switch between model picker and combo-ref dropdown.
+ * Single panel/judge/acting row: switch between model picker and combo-ref dropdown.
  * Does not embed ComboEditor (Decision D6).
  */
 export default function FusionUnitRow({
@@ -41,6 +55,7 @@ export default function FusionUnitRow({
   canMoveDown = false,
   testId,
 }: FusionUnitRowProps) {
+  const t = useTranslations("combos");
   const entryKind: "model" | "combo-ref" | "empty" = unit
     ? unit.kind
     : allowEmpty
@@ -60,6 +75,28 @@ export default function FusionUnitRow({
     onChange({ kind: "combo-ref", comboName: first?.name || "" });
   };
 
+  const notSetLabel = emptyHint || tx(t, "fusionUnitNotSet", "Not set");
+  const modelKindLabel = tx(t, "fusionUnitModel", "Model");
+  const comboRefKindLabel = tx(t, "fusionUnitComboRef", "Combo ref");
+  const pickModelLabel = tx(t, "fusionPickModel", "Pick model");
+  const selectComboRefLabel = tx(t, "fusionSelectComboRef", "Select a combo to reference");
+  const comboRefHint = tx(
+    t,
+    "fusionComboRefHint",
+    "Non-fusion combos are recommended. Fusion refs are allowed; runtime depth guards apply."
+  );
+  const moveUpLabel = tx(t, "moveUp", "Move up");
+  const moveDownLabel = tx(t, "moveDown", "Move down");
+  const removeLabel = tx(t, "removeModel", "Remove");
+  const clearLabel = tx(t, "fusionClearUnit", "Clear");
+  const modelPlaceholder = tx(t, "fusionModelPlaceholder", "provider/model (or pick)");
+  const comboRefTitle = tx(
+    t,
+    "fusionComboRefTitle",
+    "Combo refs may nest; fusion→fusion depth is guarded at runtime"
+  );
+  const fusionDepthGuardedLabel = tx(t, "fusionFusionDepthGuarded", "(fusion — depth guarded)");
+
   return (
     <div
       data-testid={testId}
@@ -71,7 +108,7 @@ export default function FusionUnitRow({
           {unit ? (
             <span className="text-[11px] text-text-muted truncate">{unitDisplayLabel(unit)}</span>
           ) : (
-            <span className="text-[11px] text-text-muted">{emptyHint || "Not set"}</span>
+            <span className="text-[11px] text-text-muted">{notSetLabel}</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -83,7 +120,7 @@ export default function FusionUnitRow({
               icon="arrow_upward"
               disabled={!canMoveUp}
               onClick={onMoveUp}
-              aria-label="Move up"
+              aria-label={moveUpLabel}
             />
           ) : null}
           {onMoveDown ? (
@@ -94,7 +131,7 @@ export default function FusionUnitRow({
               icon="arrow_downward"
               disabled={!canMoveDown}
               onClick={onMoveDown}
-              aria-label="Move down"
+              aria-label={moveDownLabel}
             />
           ) : null}
           {onRemove ? (
@@ -104,7 +141,7 @@ export default function FusionUnitRow({
               size="sm"
               icon="delete"
               onClick={onRemove}
-              aria-label="Remove"
+              aria-label={removeLabel}
             />
           ) : null}
         </div>
@@ -121,7 +158,7 @@ export default function FusionUnitRow({
             }`}
             onClick={() => setKind("model")}
           >
-            Model
+            {modelKindLabel}
           </button>
           <button
             type="button"
@@ -131,9 +168,9 @@ export default function FusionUnitRow({
                 : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
             }`}
             onClick={() => setKind("combo-ref")}
-            title="Combo refs may nest; fusion→fusion depth is guarded at runtime"
+            title={comboRefTitle}
           >
-            Combo ref
+            {comboRefKindLabel}
           </button>
         </div>
       </div>
@@ -143,7 +180,7 @@ export default function FusionUnitRow({
           <input
             type="text"
             value={unit?.kind === "model" ? unit.model : ""}
-            placeholder="provider/model (or pick)"
+            placeholder={modelPlaceholder}
             onChange={(e) => {
               const model = e.target.value;
               if (!model.trim() && allowEmpty) {
@@ -164,11 +201,11 @@ export default function FusionUnitRow({
             className="flex-1 text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
           />
           <Button type="button" variant="secondary" size="sm" icon="search" onClick={onPickModel}>
-            Pick model
+            {pickModelLabel}
           </Button>
           {allowEmpty && unit ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-              Clear
+              {clearLabel}
             </Button>
           ) : null}
         </div>
@@ -188,7 +225,7 @@ export default function FusionUnitRow({
             }}
             className="w-full text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
           >
-            <option value="">Select a combo to reference</option>
+            <option value="">{selectComboRefLabel}</option>
             {filteredRefs.map((ref) => {
               const isFusion =
                 ref.strategy === "fusion" || ref.strategy === "conditional-fusion";
@@ -197,14 +234,12 @@ export default function FusionUnitRow({
                   {ref.name}
                   {ref.strategy ? ` · ${ref.strategy}` : ""}
                   {typeof ref.stepCount === "number" ? ` · ${ref.stepCount} steps` : ""}
-                  {isFusion ? " (fusion — depth guarded)" : ""}
+                  {isFusion ? ` ${fusionDepthGuardedLabel}` : ""}
                 </option>
               );
             })}
           </select>
-          <p className="text-[10px] text-text-muted">
-            Non-fusion combos are recommended. Fusion refs are allowed; runtime depth guards apply.
-          </p>
+          <p className="text-[10px] text-text-muted">{comboRefHint}</p>
         </div>
       )}
     </div>

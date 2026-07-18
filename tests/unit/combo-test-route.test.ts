@@ -411,7 +411,16 @@ test("combo test route rejects empty combos and ignores forwarded origins for in
   assert.equal(forwardedResponse.status, 200);
   assert.equal(fetchCalls.length, 1);
   assert.equal(fetchCalls[0].url, expectedInternalUrl("/v1/chat/completions"));
-  assert.equal(fetchCalls[0].init.headers.Authorization, `Bearer ${internalKey.key}`);
+  // Hash-only: route mints a one-shot secret (cannot rehydrate internalKey from DB).
+  assert.match(
+    String(fetchCalls[0].init.headers.Authorization || ""),
+    /^Bearer\s+\S+/
+  );
+  assert.notEqual(
+    fetchCalls[0].init.headers.Authorization,
+    `Bearer ${internalKey.key}`,
+    "must not rehydrate the pre-existing hash-only key secret"
+  );
   assert.equal(new URL(fetchCalls[0].url).hostname, "127.0.0.1");
   assert.notEqual(new URL(fetchCalls[0].url).hostname, "attacker.example.com");
 });

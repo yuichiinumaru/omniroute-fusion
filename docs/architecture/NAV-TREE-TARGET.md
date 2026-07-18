@@ -1,7 +1,7 @@
 ---
 title: "Navigation Tree Target (OmniRoute Fusion)"
 version: 3.8.42+
-lastUpdated: 2026-07-11
+lastUpdated: 2026-07-18
 status: living
 sources:
   - .agents/user/chatgpt/ccdesign.md (operator map ~L465–601; GPT 5-pillar sketch ~L382–426)
@@ -9,6 +9,7 @@ sources:
   - docs/tasks/00-planning/0005-omniroute-frontend-ia-design-system-epic.md
   - src/shared/constants/sidebarVisibility.ts (PRIMARY_SIDEBAR_ITEMS — live chrome)
   - Epic 0003 Fusion First-Class (fusions UI + runtime)
+  - Task 0059 Operations hub (api-manager / cli-code absorbed from primary)
 ---
 
 # Navigation Tree Target — OmniRoute Fusion
@@ -23,12 +24,12 @@ This is **not** a dump of every `page.tsx` (≈105 dashboard routes). It is the 
 
 | # | Rule |
 |---|------|
-| 1 | **Sidebar ≤ ~10 primary items** — flat list, **no accordion / collapsible sections** in the rail |
+| 1 | **Sidebar ≤ ~10 primary items** (live **9** after Task 0059) — flat list, **no accordion / collapsible sections** in the rail |
 | 2 | **Nested destinations = in-page only** — top **Tabs** (sub-menus) and **collapsible sections inside the page** (sub-sub), never more sidebar groups |
 | 3 | **Do not delete capabilities** (except intentional demotions: gamification peers, noob marketing chrome) — re-home + redirect |
 | 4 | **Strategies / engines / presets are not menus** — rows, tabs, or cards inside a hub |
 | 5 | **Events are one stream** — Observe hub + filters (`?source=`), not 5–8 log leaves |
-| 6 | **Icons neutral** — `currentColor`; active = primary; no rainbow accents |
+| 6 | **Icons neutral** — `currentColor`; active = primary (coreCyan); no rainbow accents |
 | 7 | **Archive-not-delete** for removed chrome — `.archive/` + provenance |
 
 **Intent model (operator enters for):** Configure · Investigate · Audit (cost/access) — from `ccdesign.md` / CyberCore sketch.
@@ -37,20 +38,26 @@ This is **not** a dump of every `page.tsx` (≈105 dashboard routes). It is the 
 
 ## 2. Live chrome (implemented)
 
-**SSoT:** `PRIMARY_SIDEBAR_ITEMS` in `src/shared/constants/sidebarVisibility.ts`.
+**SSoT:** `PRIMARY_SIDEBAR_ITEMS` in `src/shared/constants/sidebarVisibility.ts` (**9** leaves).
 
 | # | id | Label (EN) | Hub route | Role |
 |---|-----|------------|-----------|------|
 | 1 | `home` | Home | `/home` | Cockpit / overview |
 | 2 | `providers` | Providers | `/dashboard/providers` | Registry of upstreams |
 | 3 | `combos` | Routing | `/dashboard/combos` | Combos + **fusions** + compression entry |
-| 4 | `api-manager` | API Keys | `/dashboard/api-manager` | Credentials into OmniRoute |
-| 5 | `activity` | Observe | `/dashboard/activity` | Execution stream (`?source=`) |
-| 6 | `analytics` | Analytics | `/dashboard/analytics` | Charts / evals / utilization |
-| 7 | `costs` | Costs | `/dashboard/costs` | Money / budget / pricing |
-| 8 | `cli-code` | Operations | `/dashboard/cli-code` | CLI / agents / inspector entry |
-| 9 | `settings-general` | Settings | `/dashboard/settings/general` | System residual |
-| 10 | `docs` | Docs | `/docs` | Help surface |
+| 4 | `activity` | Observe | `/dashboard/activity` | Execution stream (`?source=`) |
+| 5 | `analytics` | Analytics | `/dashboard/analytics` | Charts / evals / utilization |
+| 6 | `costs` | Costs | `/dashboard/costs` | Money / budget / pricing |
+| 7 | `operations` | Operations | `/dashboard/operations` | Hub: API keys, CLI, agents, integrations (Task 0059) |
+| 8 | `settings-general` | Settings | `/dashboard/settings/general` | System residual / Interface prefs |
+| 9 | `docs` | Docs | `/docs` | Help surface |
+
+**Deep links (not primary after 0059):**
+
+| Hideable / deep id | Route | Notes |
+|--------------------|-------|-------|
+| `api-manager` | `/dashboard/api-manager` | Linked from Operations hub; hideable id retained |
+| `cli-code` | `/dashboard/cli-code` | CLI tools under Operations; route remains |
 
 **Debug-only (not primary):** translator, playground, search-tools when `debugMode`.
 
@@ -112,16 +119,7 @@ Legend:
 | L2 | Fusion panels / judge / **acting** / triggers / tuning | Fusion editor | Live |
 | L2 | Auto-combo / intelligent filters | combos UI | Live |
 
-### L0 · 4 · API Keys (Credentials & Access)
-
-| Level | Item | Route / note | Status |
-|-------|------|--------------|--------|
-| L0 | API Keys | `/dashboard/api-manager` | Live |
-| L1 | Access tokens | `/dashboard/settings/access-tokens` | Deep |
-| L1 | Security / control | `/dashboard/settings/security` | Deep |
-| L2 | Per-key scopes, usage limits, self-service visibility | api-manager | Live |
-
-### L0 · 5 · Observe (Evidence stream)
+### L0 · 4 · Observe (Evidence stream)
 
 | Level | Item | Route / note | Status |
 |-------|------|--------------|--------|
@@ -130,7 +128,7 @@ Legend:
 | L2 | Entity dossier / detail drawer | traffic inspector patterns | Partial |
 | Redirects | `/dashboard/logs*`, `/dashboard/audit*` | → Observe | Live |
 
-### L0 · 6 · Analytics
+### L0 · 5 · Analytics
 
 | Level | Item | Route / note | Status |
 |-------|------|--------------|--------|
@@ -140,7 +138,7 @@ Legend:
 | L1 | Provider stats | `/dashboard/provider-stats` | Deep |
 | L1 | Runtime detail | `/dashboard/runtime` | Deep |
 
-### L0 · 7 · Costs (Economics)
+### L0 · 6 · Costs (Economics)
 
 | Level | Item | Route / note | Status |
 |-------|------|--------------|--------|
@@ -153,11 +151,12 @@ Legend:
 | L1 | Quota share | `/dashboard/costs/quota-share` | Deep |
 | Demote | Free provider rankings as peer product | hide / L2 under costs | Policy |
 
-### L0 · 8 · Operations (Clients / Agents / Tools entry)
+### L0 · 7 · Operations (API · Agents · Integrations hub)
 
 | Level | Item | Route / note | Status |
 |-------|------|--------------|--------|
-| L0 | Operations | `/dashboard/cli-code` (entry; target: true ops hub) | Partial hub |
+| L0 | Operations | `/dashboard/operations` | **Live hub** (Task 0059) |
+| L1 | API Keys | `/dashboard/api-manager` (deep; hideable id `api-manager`) | Live |
 | L1 | CLI tools / Clients | `/dashboard/cli-code`, `/dashboard/cli-code/[id]` | Live |
 | L1 | CLI agents | `/dashboard/cli-agents` | Deep |
 | L1 | ACP agents | `/dashboard/acp-agents` | Deep |
@@ -171,12 +170,12 @@ Legend:
 | Demote | Gamification leaderboard/tokens as peers | out of L0 | Policy |
 | Future CC | Harness assets / MCP marketplace | not OmniRoute primary | Out of fork scope unless ported |
 
-### L0 · 9 · Settings (residual system)
+### L0 · 8 · Settings (residual system)
 
 | Level | Item | Route / note | Status |
 |-------|------|--------------|--------|
 | L0 | Settings | `/dashboard/settings/general` | Live |
-| L1 | Appearance | `…/appearance` | Deep |
+| L1 | Interface | `…/appearance` route kept as **Interface** (functional prefs only; brand/theme stripped 0052–0053) | Live |
 | L1 | AI | `…/ai` (memory/skills/vision — re-home over time) | Deep |
 | L1 | Resilience | `…/resilience` | Deep |
 | L1 | Advanced | `…/advanced` | Deep |
@@ -185,7 +184,7 @@ Legend:
 | L1 | Network / Proxy | `/dashboard/system/proxy` | Deep |
 | Policy | Prefer re-homing “settings of X” into hub X | ccdesign rule | Ongoing |
 
-### L0 · 10 · Docs / Help
+### L0 · 9 · Docs / Help
 
 | Level | Item | Route / note | Status |
 |-------|------|--------------|--------|
@@ -224,7 +223,7 @@ Legend:
 
 ### From ccdesign operator map we adopt
 
-- Flat / short primary nav (now **10** fixed hubs).  
+- Flat / short primary nav (live **9** fixed hubs after Task 0059).  
 - L1 = tabs, L2 = page collapsibles.  
 - Kill gamification peers; unify logs; question “everything is Settings”.  
 - Clients / Providers / Dashboard as hubs rather than 40 leaves.
@@ -234,9 +233,9 @@ Legend:
 - Flat primary rail + neutral icons.  
 - Observe stream + analytics dual-nav collapse.  
 - Compression engines off rail.  
-- Seven conceptual pillars → then **flattened** to 10 hubs (no accordion).  
-- Fusions UI + runtime (Epic 0003).  
-- Status vocabulary / selective VR micro (not full Prism).
+- Seven conceptual pillars → then **flattened** to primary hubs (no accordion); Operations hub lands as L0 `operations` (0059).  
+- Fusions UI + runtime (Epic 0003) + optional acting (Epic 0004).  
+- Status vocabulary / selective VR micro (not full Prism); brand **coreCyan dark-only** (0052–0053).
 
 ### Still missing for “map complete” (implementation)
 
@@ -244,10 +243,9 @@ Legend:
 |-----|------------|
 | In-page tab shells on each L0 hub | `PageTabBar` already exists (Task 0030) — wire Providers / Routing / Operations / Settings / Dashboard |
 | True **Dashboard** cockpit | Merge health/costs pulse into `/home` tabs |
-| True **Operations** hub page | `/dashboard/operations` or shell on `cli-code` with L1 links |
-| **Clients** label vs “API Keys” + “Operations” | Optional rename pass when hub pages exist |
+| Operations hub polish | `/dashboard/operations` is **live** (0059); deepen L1 cards / discoverability |
 | Feature flags → Governance/Policies | Gradual re-home |
-| Residual blue / dense tables | Visual pass (ops skin) |
+| Residual dense tables | Visual pass (ops skin) |
 | Upstream 3.8+ features not in ccdesign | Catalog in §6; assign L0/L1/L2 |
 
 ---
@@ -261,7 +259,7 @@ Surfaces that exist under `src/app/(dashboard)/dashboard/**` and must keep a hom
 | Providers | providers, services, media-providers | Providers |
 | Routing | combos, live, playground, **fusions**, context/*, compression/* | Routing |
 | Connect | endpoint, api-endpoints→catalog, mcp, a2a, webhooks | Providers L1 |
-| Authz | api-manager, access-tokens, security | API Keys / Settings |
+| Authz | api-manager, access-tokens, security | Operations (api-manager) / Settings |
 | Observe | activity, logs*, audit* | Observe |
 | Analytics | analytics?tab=*, provider-stats, runtime, health | Analytics / Dashboard pulse |
 | Costs | costs*, free-tiers, quota, quota-share | Costs |
@@ -277,7 +275,7 @@ Surfaces that exist under `src/app/(dashboard)/dashboard/**` and must keep a hom
 
 The GPT **5-pillar** sketch (Overview / Registry / Routing / Governance / Observability + System footer) and MetaMCP / Harness / Warp Prism Flutter ADS are **target identities for Cybernetics Core**, not a forced rewrite of this Next dashboard in one PR.
 
-OmniRoute-fusion **absorbs the IA lessons** (short rail, intent hubs, stream, kill dump) while remaining a Next.js operator console. Visual full Prism port is **opt-in / later**, not SSoT (`design.md` coral + this map).
+OmniRoute-fusion **absorbs the IA lessons** (short rail, intent hubs, stream, kill dump) while remaining a Next.js operator console. Visual full Prism port is **opt-in / later**, not SSoT (`design.md` + coreCyan dark tokens in `globals.css` + this map / `docs/guides/UI.md`).
 
 ---
 
@@ -310,11 +308,12 @@ OmniRoute-fusion **absorbs the IA lessons** (short rail, intent hubs, stream, ki
 | [`docs/reports/builders/2026-07-11-nav-tree-gap-routing-registry.md`](../reports/builders/2026-07-11-nav-tree-gap-routing-registry.md) | Routing, Registry, **Fusions**, compression, exposures |
 | [`docs/reports/builders/2026-07-11-nav-tree-gap-ops-observe-settings.md`](../reports/builders/2026-07-11-nav-tree-gap-ops-observe-settings.md) | Observe, Analytics, Costs, Operations, Settings, Help, demotions |
 
-**Shared conclusion:** L0 flat-10 is the right chrome; main debt is **L1 hub shells** (PageTabBar on Providers / Routing / Operations / Settings / Dashboard) so Fusions and other deep pages are discoverable without re-growing the rail. Orphans to assign: `relay`, dual Media, `compression/live`, onboarding, free-provider-rankings.
+**Shared conclusion:** L0 flat-**9** is the right live chrome (Task 0059 Operations hub; budget still ≤~10); main debt is **L1 hub shells** (PageTabBar on Providers / Routing / Operations / Settings / Dashboard) so Fusions and other deep pages are discoverable without re-growing the rail. Orphans to assign: `relay`, dual Media, `compression/live`, onboarding, free-provider-rankings.
 
 ## 11. Change log (map itself)
 
 | Date | Change |
 |------|--------|
+| 2026-07-18 | §2 live chrome + §10 conclusion: **9** primary leaves (`operations` hub); api-manager/cli-code deep-only; coreCyan brand note |
 | 2026-07-11 | Initial versioned map: flat 10 L0 + L1/L2 rules + Fusions under Routing + post-3.8 inventory + ccdesign synthesis |
 | 2026-07-11 | Linked dual gap-assessment reports (routing/registry + ops/observe/settings) |

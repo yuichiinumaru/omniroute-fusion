@@ -588,7 +588,7 @@ export default function RouteExplainabilityTab({
             <button
               type="button"
               onClick={() => fetchLogs()}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
             >
               <span className="material-symbols-outlined text-[18px]">refresh</span>
               Retry

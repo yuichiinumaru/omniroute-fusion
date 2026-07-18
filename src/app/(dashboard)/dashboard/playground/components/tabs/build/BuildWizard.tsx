@@ -49,7 +49,7 @@ function Stepper({ currentStep }: StepperProps) {
             <span
               className={`flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-semibold transition-colors ${
                 currentStep === step.num
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-primary-foreground"
                   : currentStep > step.num
                     ? "bg-primary/20 text-primary"
                     : "bg-border text-text-muted"
@@ -172,7 +172,7 @@ export default function BuildWizard({
           <div className="flex justify-end pt-2">
             <button
               onClick={goToStep2}
-              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               {tb("nextButton")}
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -217,7 +217,7 @@ export default function BuildWizard({
             </button>
             <button
               onClick={goToStep3}
-              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               {tb("nextButton")}
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -244,7 +244,7 @@ export default function BuildWizard({
             <button
               onClick={onRun}
               disabled={running || (!prompt.trim())}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[14px]">play_arrow</span>
               {running ? t("running") : tb("runButton")}

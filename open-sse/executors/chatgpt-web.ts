@@ -2201,8 +2201,12 @@ async function buildNonStreamingResponse(
 // ─── Error response helpers ─────────────────────────────────────────────────
 
 function errorResponse(status: number, message: string, code?: string): Response {
+  // Hard Rule #12: never put raw err.message / stacks in HTTP JSON bodies.
+  const safeMessage = sanitizeErrorMessage(message);
   return new Response(
-    JSON.stringify({ error: { message, type: "upstream_error", ...(code ? { code } : {}) } }),
+    JSON.stringify({
+      error: { message: safeMessage, type: "upstream_error", ...(code ? { code } : {}) },
+    }),
     { status, headers: { "Content-Type": "application/json" } }
   );
 }

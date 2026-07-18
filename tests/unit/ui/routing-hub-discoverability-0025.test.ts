@@ -65,6 +65,10 @@ test("context settings composes enabled engine sections (Task 0058)", () => {
   const page = read("src/app/(dashboard)/dashboard/context/settings/page.tsx");
   assert.ok(page.includes("EnabledEngineSections"));
   assert.ok(page.includes('active="compression-settings"'));
+  // F1: settings page bridges panel → sections via onEnginesChange / engines prop.
+  assert.ok(page.includes("onEnginesChange"));
+  assert.ok(page.includes("handleEnginesChange") || page.includes("setEngines"));
+  assert.ok(page.includes("engines={engines}") || page.includes("engines={"));
   const sections = read(
     "src/app/(dashboard)/dashboard/context/settings/EnabledEngineSections.tsx"
   );
@@ -73,6 +77,34 @@ test("context settings composes enabled engine sections (Task 0058)", () => {
   assert.ok(sections.includes("EngineConfigPage"));
   assert.ok(sections.includes("CavemanContextPageClient"));
   assert.ok(sections.includes("RtkContextPageClient"));
+  // F2: embedded chrome variant on all three embed paths.
+  assert.ok(sections.includes("embedded"));
+  assert.ok(sections.includes("<CavemanContextPageClient embedded"));
+  assert.ok(sections.includes("<RtkContextPageClient embedded"));
+  assert.ok(sections.includes("embedded />") || sections.includes("embedded={true}") || sections.includes("embedded "));
+});
+
+test("CompressionPanel notifies onEnginesChange (Task 0058 F1)", () => {
+  const panel = read("src/app/(dashboard)/dashboard/context/settings/CompressionPanel.tsx");
+  assert.ok(panel.includes("onEnginesChange"));
+  assert.ok(panel.includes("onEnginesChange?.(") || panel.includes("onEnginesChange?."));
+  // F1 type SSOT: normalized engine toggle exported for settings page bridge.
+  assert.ok(panel.includes("export type CompressionEngineToggle"));
+  const page = read("src/app/(dashboard)/dashboard/context/settings/page.tsx");
+  assert.ok(page.includes("CompressionEngineToggle"));
+  const sections = read(
+    "src/app/(dashboard)/dashboard/context/settings/EnabledEngineSections.tsx"
+  );
+  assert.ok(sections.includes("CompressionEngineToggle"));
+});
+
+test("caveman suppresses CompressionSettingsTab when embedded (Task 0058 F2)", () => {
+  const src = read(
+    "src/app/(dashboard)/dashboard/context/caveman/CavemanContextPageClient.tsx"
+  );
+  assert.ok(src.includes("embedded"));
+  assert.ok(src.includes("!embedded") && src.includes("CompressionSettingsTab"));
+  assert.match(src, /viewMode === "advanced" && !embedded && <CompressionSettingsTab/);
 });
 
 test("every catalog compression engine has a standalone context route", () => {
@@ -94,10 +126,23 @@ test("live and studio pages mount RoutingHubSubnav (Task 0058)", () => {
   assert.ok(studio.includes('active="compression-studio"'));
 });
 
-test("CommandPalette includes fusions hub destination", () => {
+test("hub subnav links expose keyboard focus-visible ring (Task 0058 a11y)", () => {
+  const src = read("src/shared/constants/hubSubnavStyles.ts");
+  assert.ok(src.includes("focus-visible:ring-2"));
+  assert.ok(src.includes("HUB_SUBNAV_ITEM_BASE_CLASS"));
+});
+
+test("CommandPalette includes Routing hub destinations (Task 0025 + 0058 N1)", () => {
   const src = read("src/shared/components/CommandPalette.tsx");
   assert.ok(src.includes('href: "/dashboard/fusions"'));
   assert.ok(src.includes('id: "fusions"'));
+  // Task 0058 N1: Live + Compression Settings discoverable via palette (not only topbar).
+  assert.ok(src.includes('href: "/dashboard/combos/live"'));
+  assert.ok(src.includes('id: "combos-live"'));
+  assert.ok(src.includes('href: "/dashboard/context/settings"'));
+  assert.ok(src.includes('id: "compression-settings"'));
+  assert.ok(src.includes('href: "/dashboard/compression/studio"'));
+  assert.ok(src.includes('id: "compression-studio"'));
 });
 
 test("role presets: minimal < developer primary chrome < admin", () => {

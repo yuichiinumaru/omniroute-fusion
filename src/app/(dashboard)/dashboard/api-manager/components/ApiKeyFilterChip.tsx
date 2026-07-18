@@ -23,7 +23,7 @@ export default function ApiKeyFilterChip({
       className={cn(
         "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
         isActive
-          ? "bg-primary text-white border-primary"
+          ? "bg-primary text-primary-foreground border-primary"
           : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
       )}
     >

@@ -1,54 +1,54 @@
 /**
- * Path-segment and chat-path guards for URL construction.
+ * Chat-path guards for URL construction (BaseExecutor / DefaultExecutor).
  *
- * Shared by DefaultExecutor / BaseExecutor (chatPath) and intended for Task 0048
- * audio path builders (path segments that must not reshape URLs).
+ * Path-segment validation is SSoT in `@/shared/network/safePathSegment`
+ * (shared with audio handlers — Task 0048). This module re-exports that SSoT
+ * and owns chatPath-specific rules for custom provider chat paths.
  */
 
-/**
- * Validate a single URL path segment (no separators / traversal / query fragments).
- * Returns the segment on success; throws on invalid input.
- */
-export function assertSafePathSegment(segment: string, label = "path segment"): string {
-  if (typeof segment !== "string" || segment.length === 0) {
-    throw new Error(`Invalid ${label}: empty`);
-  }
-  if (segment.length > 256) {
-    throw new Error(`Invalid ${label}: too long`);
-  }
-  // Reject separators, traversal, query/fragment, null bytes, and encoded slash.
-  if (
-    segment.includes("/") ||
-    segment.includes("\\") ||
-    segment.includes("..") ||
-    segment === "." ||
-    segment.includes("?") ||
-    segment.includes("#") ||
-    segment.includes("\0") ||
-    segment.includes("%2f") ||
-    segment.includes("%2F") ||
-    segment.includes("%5c") ||
-    segment.includes("%5C")
-  ) {
-    throw new Error(`Invalid ${label}: contains forbidden characters`);
-  }
-  return segment;
-}
+export {
+  isValidPathSegment,
+  isValidSinglePathSegment,
+  assertSafePathSegment,
+} from "@/shared/network/safePathSegment";
+
+import { isValidPathSegment } from "@/shared/network/safePathSegment";
 
 /**
  * True when a custom chatPath is safe to append to a provider base URL.
- * Valid paths start with `/`, have no `..` / null bytes / query-fragment separators,
- * and stay within a sane length. Used by BaseExecutor + DefaultExecutor production paths.
+ *
+ * Rules:
+ * - Must start with a single `/` (absolute path on the same origin)
+ * - Must NOT be protocol-relative (`//evil.com` — `new URL(path, base)` would switch host)
+ * - No empty segments (`//`), backslash, query/fragment, null bytes, or percent-encoding
+ * - Each path segment must pass the shared allowlist (no `..` traversal)
+ * - Length capped at 512
+ *
+ * Used by BaseExecutor + DefaultExecutor production paths (F-02-001 / N6).
  */
 export function isSafeChatPath(path: string): boolean {
   if (typeof path !== "string") return false;
   if (!path.startsWith("/")) return false;
+  // Protocol-relative / authority-like forms must never be treated as a path.
+  if (path.startsWith("//")) return false;
   if (path.includes("\0")) return false;
-  if (path.includes("..")) return false;
   // Query/fragment separators would reshape the fetch target beyond a pure path.
   if (path.includes("?") || path.includes("#")) return false;
+  // Backslash can be normalized to `/` by some URL stacks.
+  if (path.includes("\\")) return false;
+  // Percent-encoding smuggles `..` / `/` / `\` past denylist checks (`%2e%2e`, `%2f`).
+  if (path.includes("%")) return false;
+  // Whitespace / controls: `isValidPathSegment` trims before the allowlist, but
+  // callers return the raw path — reject so `/v1/chat\t` cannot slip past.
+  if (/[\s\r\n\t\v\f\u0000-\u001f\u007f]/.test(path)) return false;
   if (path.length > 512) return false;
-  return true;
+  // Empty path segment (`/v1//chat`) — authority-adjacent and ambiguous.
+  if (path.includes("//")) return false;
+
+  // Drop leading `/` and validate the remainder via shared multi-segment allowlist.
+  const rest = path.slice(1);
+  if (rest.length === 0) return false; // bare `/` is not a usable chat path
+  return isValidPathSegment(rest);
 }
 
 /**

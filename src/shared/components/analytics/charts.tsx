@@ -67,7 +67,8 @@ const STAT_CARD_ACCENT_BAR: Readonly<Record<Exclude<StatCardAccent, "none">, str
   success: "bg-green-500",
   warning: "bg-amber-500",
   danger: "bg-red-500",
-  info: "bg-blue-500",
+  // Same track as STATUS_TONE_ACCENT_CLASS.info (coreCyan primary, not legacy blue).
+  info: "bg-primary",
   neutral: "bg-gray-400 dark:bg-gray-600",
 };
 

@@ -4,6 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
+import { asSidebarTranslator, sidebarText } from "@/shared/utils/sidebarI18n";
+import {
+  HUB_SUBNAV_ACTIVE_CLASS,
+  HUB_SUBNAV_INACTIVE_CLASS,
+  HUB_SUBNAV_ITEM_BASE_CLASS,
+  HUB_SUBNAV_SHELL_CLASS,
+} from "@/shared/constants/hubSubnavStyles";
 
 interface CostsTabLink {
   href: string;
@@ -13,7 +20,7 @@ interface CostsTabLink {
   icon: string;
 }
 
-const COSTS_LINKS: readonly CostsTabLink[] = [
+const COSTS_LINKS = [
   {
     href: "/dashboard/costs",
     labelKey: "costsOverview",
@@ -38,25 +45,20 @@ const COSTS_LINKS: readonly CostsTabLink[] = [
     labelFallback: "Quota Share",
     icon: "pie_chart",
   },
-] as const;
-
-type SidebarTranslator = ((key: string) => string) & {
-  has?: (key: string) => boolean;
-};
+] as const satisfies readonly CostsTabLink[];
 
 export default function CostsSubnav() {
   const pathname = usePathname();
-  const t = useTranslations("sidebar") as SidebarTranslator;
-
-  const getLabel = (item: CostsTabLink): string =>
-    typeof t.has === "function" && t.has(item.labelKey) ? t(item.labelKey) : item.labelFallback;
+  const t = asSidebarTranslator(useTranslations("sidebar"));
 
   return (
     <nav
       aria-label="Costs sections"
-      className="mb-6 flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1"
+      className={cn("mb-6", HUB_SUBNAV_SHELL_CLASS)}
+      data-costs-subnav=""
     >
       {COSTS_LINKS.map((item) => {
+        // Overview is exact-match so /dashboard/costs/budget does not light Overview.
         const isActive =
           item.href === "/dashboard/costs"
             ? pathname === "/dashboard/costs"
@@ -67,17 +69,17 @@ export default function CostsSubnav() {
             key={item.href}
             href={item.href}
             className={cn(
-              "focus-ring inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors",
-              isActive
-                ? "bg-surface text-text-main shadow-sm"
-                : "text-text-muted hover:bg-surface/70 hover:text-text-main"
+              "focus-ring",
+              HUB_SUBNAV_ITEM_BASE_CLASS,
+              isActive ? HUB_SUBNAV_ACTIVE_CLASS : HUB_SUBNAV_INACTIVE_CLASS
             )}
             aria-current={isActive ? "page" : undefined}
+            data-costs-subnav-link={item.href}
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
               {item.icon}
             </span>
-            {getLabel(item)}
+            {sidebarText(t, item.labelKey, item.labelFallback)}
           </Link>
         );
       })}

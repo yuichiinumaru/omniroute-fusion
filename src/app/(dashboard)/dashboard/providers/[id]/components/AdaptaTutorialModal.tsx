@@ -21,7 +21,7 @@ export function AdaptaTutorialModal({ isOpen, onClose }: AdaptaTutorialModalProp
 
         <ol className="flex flex-col gap-4 list-none">
           <li className="flex gap-3">
-            <span className="flex-none w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="flex-none w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
               1
             </span>
             <div>
@@ -42,7 +42,7 @@ export function AdaptaTutorialModal({ isOpen, onClose }: AdaptaTutorialModalProp
           </li>
 
           <li className="flex gap-3">
-            <span className="flex-none w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="flex-none w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
               2
             </span>
             <div>
@@ -60,7 +60,7 @@ export function AdaptaTutorialModal({ isOpen, onClose }: AdaptaTutorialModalProp
           </li>
 
           <li className="flex gap-3">
-            <span className="flex-none w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="flex-none w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
               3
             </span>
             <div>
@@ -78,7 +78,7 @@ export function AdaptaTutorialModal({ isOpen, onClose }: AdaptaTutorialModalProp
           </li>
 
           <li className="flex gap-3">
-            <span className="flex-none w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="flex-none w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
               4
             </span>
             <div>
@@ -96,7 +96,7 @@ export function AdaptaTutorialModal({ isOpen, onClose }: AdaptaTutorialModalProp
           </li>
 
           <li className="flex gap-3">
-            <span className="flex-none w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="flex-none w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
               5
             </span>
             <div>

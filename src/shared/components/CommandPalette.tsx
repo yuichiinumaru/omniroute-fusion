@@ -143,7 +143,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
     ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
 
-    // Flat chrome: Routing hub destinations not primary leaves (Task 0025 F2).
+    // Flat chrome: Routing hub destinations not primary leaves (Task 0025 F2 + 0058 N1).
     const routingHubExtras: PaletteItem[] = [
       {
         id: "fusions",
@@ -151,6 +151,29 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
         icon: "hub",
         label: safeTranslate("fusions", "Fusions"),
         subtitle: safeTranslate("fusionsSubtitle", "Panel + judge model combos"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "combos-live",
+        href: "/dashboard/combos/live",
+        icon: "sensors",
+        label: safeTranslate("combosLive", "Live"),
+        subtitle: safeTranslate("combosLiveSubtitle", "Live combo routing visualization"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "compression-settings",
+        href: "/dashboard/context/settings",
+        icon: "tune",
+        label: safeTranslate("compressionSettings", "Compression Settings"),
+        subtitle: safeTranslate(
+          "compressionSettingsSubtitle",
+          "Engine toggles and compression hub"
+        ),
         external: false,
         sectionId: "main",
         sectionLabel: safeTranslate("mainNav", "Main"),
@@ -298,8 +321,8 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
         id: "media",
         href: "/dashboard/cache/media",
         icon: "perm_media",
-        label: safeTranslate("media", "Media Cache"),
-        subtitle: safeTranslate("mediaSubtitle", "Cached media assets"),
+        label: safeTranslate("media", "Media"),
+        subtitle: safeTranslate("mediaSubtitle", "Image · video · music · speech lab"),
         external: false,
         sectionId: "main",
         sectionLabel: safeTranslate("mainNav", "Main"),

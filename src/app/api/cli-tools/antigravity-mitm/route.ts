@@ -7,7 +7,7 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { requireCliToolsAuth } from "@/lib/api/requireCliToolsAuth";
 import { cliMitmStartSchema, cliMitmStopSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { resolveApiKey } from "@/shared/services/apiKeyResolver";
+import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { isRoot } from "@/mitm/systemCommands";
 import { isSudoPasswordRequired } from "@/mitm/dns/dnsConfig";
 
@@ -36,6 +36,9 @@ export async function GET(request) {
       needsSudoPassword,
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error getting MITM status:", sanitizeErrorMessage(error));
     return NextResponse.json({ error: "Failed to get MITM status" }, { status: 500 });
   }
@@ -97,6 +100,9 @@ export async function POST(request) {
       pid: result.pid,
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error starting MITM:", sanitizeErrorMessage(error));
     return NextResponse.json(
       { error: sanitizeErrorMessage(error) || "Failed to start MITM proxy" },
@@ -149,6 +155,9 @@ export async function DELETE(request) {
 
     return NextResponse.json({ success: true, running: false });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error stopping MITM:", sanitizeErrorMessage(error));
     return NextResponse.json(
       { error: sanitizeErrorMessage(error) || "Failed to stop MITM proxy" },

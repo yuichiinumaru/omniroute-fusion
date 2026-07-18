@@ -1380,6 +1380,43 @@ export async function getApiKeyMetadata(
 
   if (!row) return null;
 
+  const metadata = buildApiKeyMetadataFromRow(row as ApiKeyRow);
+  if (!metadata) return null;
+
+  setNoLog(metadata.id, metadata.noLog === true);
+
+  // Cache the result
+  evictIfNeeded(_keyMetadataCache);
+  _keyMetadataCache.set(hashedKey, { value: metadata, timestamp: now });
+
+  return metadata;
+}
+
+/**
+ * Load API key policy metadata by row id without reconstituting the secret.
+ * Used by dashboard playground (F-05-002 hash-only): secrets are never stored
+ * in a recoverable form after create/regenerate.
+ */
+export async function getApiKeyMetadataById(id: string): Promise<ApiKeyMetadata | null> {
+  if (!id || typeof id !== "string") return null;
+
+  await ensureApiKeysHashOnlyMigrated();
+  const db = getDbInstance() as ApiKeysDbLike;
+  const stmt = getPreparedStatements(db);
+  const row = stmt.getKeyById.get(id) as ApiKeyRow | undefined;
+  if (!row) return null;
+
+  const metadata = buildApiKeyMetadataFromRow(row);
+  if (!metadata) return null;
+
+  setNoLog(metadata.id, metadata.noLog === true);
+  return metadata;
+}
+
+/**
+ * Map a raw api_keys row into the public metadata shape (no secret fields).
+ */
+function buildApiKeyMetadataFromRow(row: ApiKeyRow): ApiKeyMetadata | null {
   const record = toRecord(row) as ApiKeyRow;
   const metadataId = typeof record.id === "string" ? record.id : "";
   const metadataName = typeof record.name === "string" ? record.name : "";
@@ -1389,7 +1426,6 @@ export async function getApiKeyMetadata(
   const rawMaxRPD = record.max_requests_per_day ?? record.maxRequestsPerDay;
   const rawMaxRPM = record.max_requests_per_minute ?? record.maxRequestsPerMinute;
   const rawThrottleDelayMs = record.throttle_delay_ms ?? (record as JsonRecord).throttleDelayMs;
-
   const rawMaxSessions = record.max_sessions ?? record.maxSessions;
 
   const metadata: ApiKeyMetadata = {
@@ -1440,48 +1476,21 @@ export async function getApiKeyMetadata(
     ...parseApiKeyUsageLimitFields(record as JsonRecord),
   };
 
-  if (!metadata.id) {
-    return null;
-  }
-
-  setNoLog(metadata.id, metadata.noLog === true);
-
-  // Cache the result
-  evictIfNeeded(_keyMetadataCache);
-  _keyMetadataCache.set(hashedKey, { value: metadata, timestamp: now });
-
+  if (!metadata.id) return null;
   return metadata;
 }
 
 /**
- * Check if a model is allowed for a given API key
- * @param {string} key - The API key
- * @param {string} modelId - The model ID to check
- * @returns {boolean} - true if allowed, false if not
+ * Evaluate model permission against already-loaded key metadata (no secret needed).
+ * Used by playground policy-by-id after hash-only storage (F-05-002).
  */
-export async function isModelAllowedForKey(
-  key: string | null | undefined,
+export async function isModelAllowedForMetadata(
+  metadata: ApiKeyMetadata | null | undefined,
   modelId: string | null | undefined
-) {
-  // If no key provided, allow (request may be using different auth method like JWT)
-  // If no modelId provided, deny (invalid request)
-  if (!key) return true;
-  if (!modelId) return false;
-
-  // Create cache key
-  const cacheKey = `${key}:${modelId}`;
-  const now = Date.now();
-  const usesSettingDependentClaudeRouting = isPotentialUnprefixedClaudeCodeModel(modelId);
-
-  // Check permission cache
-  const cached = _modelPermissionCache.get(cacheKey);
-  if (!usesSettingDependentClaudeRouting && cached && now - cached.timestamp < CACHE_TTL) {
-    return cached.allowed;
-  }
-
-  const metadata = await getApiKeyMetadata(key);
-  // SECURITY: Key not found in database = deny access (invalid/non-existent key)
+): Promise<boolean> {
+  // SECURITY: missing metadata = deny; missing modelId = deny
   if (!metadata) return false;
+  if (!modelId) return false;
 
   const { allowedModels, blockedModels, disableNonPublicModels } = metadata;
   const modelPermissionCandidates = await getModelPermissionCandidates(modelId);
@@ -1541,6 +1550,40 @@ export async function isModelAllowedForKey(
       allowed = false;
     }
   }
+
+  return allowed;
+}
+
+/**
+ * Check if a model is allowed for a given API key
+ * @param {string} key - The API key
+ * @param {string} modelId - The model ID to check
+ * @returns {boolean} - true if allowed, false if not
+ */
+export async function isModelAllowedForKey(
+  key: string | null | undefined,
+  modelId: string | null | undefined
+) {
+  // If no key provided, allow (request may be using different auth method like JWT)
+  // If no modelId provided, deny (invalid request)
+  if (!key) return true;
+  if (!modelId) return false;
+
+  // Create cache key
+  const cacheKey = `${key}:${modelId}`;
+  const now = Date.now();
+  const usesSettingDependentClaudeRouting = isPotentialUnprefixedClaudeCodeModel(modelId);
+
+  // Check permission cache
+  const cached = _modelPermissionCache.get(cacheKey);
+  if (!usesSettingDependentClaudeRouting && cached && now - cached.timestamp < CACHE_TTL) {
+    return cached.allowed;
+  }
+
+  const metadata = await getApiKeyMetadata(key);
+  // SECURITY: Key not found in database = deny access (invalid/non-existent key)
+  const allowed = await isModelAllowedForMetadata(metadata, modelId);
+
   // Cache the result
   if (!usesSettingDependentClaudeRouting) {
     evictIfNeeded(_modelPermissionCache);

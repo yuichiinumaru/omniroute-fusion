@@ -1,88 +1,82 @@
+/**
+ * Costs IA under flat primary chrome (Epic 0005 S6 / Task 0025 path-to-100).
+ * Single `costs` primary leaf; deep cost routes are hideable-only (in-page tabs).
+ * Pre-flat "governance" accordion section no longer exists.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 
 const sidebarVisibility = await import("../../src/shared/constants/sidebarVisibility.ts");
 
-function findSection(id: string) {
-  return sidebarVisibility.SIDEBAR_SECTIONS.find((s) => s.id === id);
+const {
+  PRIMARY_SIDEBAR_ITEMS,
+  PRIMARY_SIDEBAR_ITEM_IDS,
+  HIDEABLE_SIDEBAR_ITEM_IDS,
+  COSTS_HUB_DEEP_LINK_IDS,
+  SIDEBAR_SECTIONS,
+  getSectionItems,
+  OPERATIONAL_PILLAR_SECTION_IDS,
+} = sidebarVisibility;
+
+function defaultLeafIds(): string[] {
+  return SIDEBAR_SECTIONS.filter((s) => s.visibility !== "debug").flatMap((section) =>
+    getSectionItems(section).map((i) => i.id)
+  );
 }
 
-test("governance section exists and hosts cost economics (S6)", () => {
-  const section = findSection("governance");
-  assert.ok(section, "governance section must exist");
+test("costs is a primary flat leaf (not a governance accordion section)", () => {
+  assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("costs"));
+  assert.ok(defaultLeafIds().includes("costs"));
+  // Flat chrome: no accordion sections named governance / observability
+  assert.equal(
+    SIDEBAR_SECTIONS.some((s) => s.id === "governance"),
+    false
+  );
+  assert.equal(
+    SIDEBAR_SECTIONS.some((s) => s.id === "observability"),
+    false
+  );
 });
 
-test("governance cost items keep order costs → pricing → budget → free-tiers → rankings", () => {
-  const section = findSection("governance");
-  assert.ok(section, "governance section must exist");
+test("costs primary leaf points at costs hub", () => {
+  const costs = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "costs");
+  assert.ok(costs, "costs primary item must exist");
+  assert.equal(costs.href, "/dashboard/costs");
+  assert.equal(costs.i18nKey, "costsNav");
+});
 
-  const items = sidebarVisibility.getSectionItems(section);
-  const costish = items
-    .map((i) => i.id)
-    .filter((id) =>
-      ["costs", "costs-pricing", "costs-budget", "costs-free-tiers", "free-provider-rankings"].includes(
-        id
-      )
+test("deep cost destinations stay hideable, not primary peers", () => {
+  const leaves = defaultLeafIds();
+  for (const id of COSTS_HUB_DEEP_LINK_IDS) {
+    assert.ok(
+      (HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes(id),
+      `expected hideable id "${id}"`
     );
-  assert.deepEqual(costish, [
-    "costs",
+    assert.equal(leaves.includes(id), false, `"${id}" must not be a primary leaf`);
+  }
+});
+
+test("cost deep-link ids cover pricing, budget, free-tiers, rankings, quota share", () => {
+  for (const id of [
     "costs-pricing",
     "costs-budget",
     "costs-free-tiers",
     "free-provider-rankings",
-  ]);
+    "costs-quota-share",
+  ] as const) {
+    assert.ok(
+      (COSTS_HUB_DEEP_LINK_IDS as readonly string[]).includes(id),
+      `COSTS_HUB_DEEP_LINK_IDS must include "${id}"`
+    );
+  }
 });
 
-test("governance cost items have correct hrefs", () => {
-  const section = findSection("governance");
-  assert.ok(section, "governance section must exist");
-
-  const byId = new Map(sidebarVisibility.getSectionItems(section).map((i) => [i.id, i.href]));
-  assert.equal(byId.get("costs"), "/dashboard/costs");
-  assert.equal(byId.get("costs-pricing"), "/dashboard/costs/pricing");
-  assert.equal(byId.get("costs-budget"), "/dashboard/costs/budget");
-  assert.equal(byId.get("costs-free-tiers"), "/dashboard/free-tiers");
-  assert.equal(byId.get("free-provider-rankings"), "/dashboard/free-provider-rankings");
-});
-
-test("costs item uses costsOverview i18nKey (not costs)", () => {
-  const section = findSection("governance");
-  assert.ok(section, "governance section must exist");
-
-  const costsItem = sidebarVisibility.getSectionItems(section).find((i) => i.id === "costs");
-  assert.ok(costsItem, "costs item must exist in governance section");
-  assert.equal(costsItem.i18nKey, "costsOverview");
-  assert.equal(costsItem.subtitleKey, "costsOverviewSubtitle");
-});
-
-test("costs item was removed from observability analytics cluster", () => {
-  const observability = findSection("observability");
-  assert.ok(observability, "observability section must exist");
-
-  const itemIds = sidebarVisibility.getSectionItems(observability).map((i) => i.id);
-  assert.equal(
-    itemIds.includes("costs" as sidebarVisibility.HideableSidebarItemId),
-    false,
-    "costs item must not be in observability section"
-  );
-});
-
-test("governance sits between routing and operations in pillar order", () => {
-  const sectionIds = sidebarVisibility.SIDEBAR_SECTIONS.map((s) => s.id);
-  const routingIdx = sectionIds.indexOf("routing");
-  const governanceIdx = sectionIds.indexOf("governance");
-  const operationsIdx = sectionIds.indexOf("operations");
-
-  assert.ok(routingIdx !== -1);
-  assert.ok(governanceIdx !== -1);
-  assert.ok(operationsIdx !== -1);
-  assert.ok(routingIdx < governanceIdx);
-  assert.ok(governanceIdx < operationsIdx);
-});
-
-test("governance section titleKey is governanceSection", () => {
-  const section = findSection("governance");
-  assert.ok(section, "governance section must exist");
-  assert.equal(section.titleKey, "governanceSection");
-  assert.equal(section.titleFallback, "Governance");
+test("governance remains a conceptual pillar id (not a chrome section)", () => {
+  assert.ok((OPERATIONAL_PILLAR_SECTION_IDS as readonly string[]).includes("governance"));
+  assert.ok((OPERATIONAL_PILLAR_SECTION_IDS as readonly string[]).includes("routing"));
+  assert.ok((OPERATIONAL_PILLAR_SECTION_IDS as readonly string[]).includes("operations"));
+  const gIdx = OPERATIONAL_PILLAR_SECTION_IDS.indexOf("governance");
+  const rIdx = OPERATIONAL_PILLAR_SECTION_IDS.indexOf("routing");
+  const oIdx = OPERATIONAL_PILLAR_SECTION_IDS.indexOf("operations");
+  assert.ok(rIdx < gIdx && gIdx < oIdx, "conceptual order: routing < governance < operations");
 });

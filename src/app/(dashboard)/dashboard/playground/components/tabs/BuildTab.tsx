@@ -232,7 +232,7 @@ export default function BuildTab({ configState }: BuildTabProps) {
           <div
             className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
               msg.role === "user"
-                ? "bg-primary text-white"
+                ? "bg-primary text-primary-foreground"
                 : msg.role === "tool"
                   ? "bg-yellow-500/10 border border-yellow-500/30 text-text-main"
                   : "bg-bg-alt border border-border text-text-main"
@@ -287,7 +287,7 @@ export default function BuildTab({ configState }: BuildTabProps) {
                   />
                   <button
                     onClick={() => void sendToolResult(tc.id)}
-                    className="text-xs px-2.5 py-1 rounded bg-primary text-white hover:bg-primary/90 transition-colors self-start"
+                    className="text-xs px-2.5 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors self-start"
                   >
                     Send tool result
                   </button>

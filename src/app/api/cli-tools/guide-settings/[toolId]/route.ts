@@ -9,7 +9,7 @@ import { getCliPrimaryConfigPath, getOpenCodeConfigPath } from "@/shared/service
 import { mergeOpenCodeConfigText } from "@/shared/services/opencodeConfig";
 import { guideSettingsSaveSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { resolveApiKey, getOrCreateApiKey } from "@/shared/services/apiKeyResolver";
+import { resolveApiKey, getOrCreateApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 /**
@@ -78,6 +78,9 @@ export async function POST(request, { params }) {
         );
     }
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: sanitizeErrorMessage(error instanceof Error ? error.message : String(error)) },
       { status: 500 }

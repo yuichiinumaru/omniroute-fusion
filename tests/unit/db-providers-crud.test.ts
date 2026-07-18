@@ -325,3 +325,61 @@ test("quota helpers zero stale windows and format countdowns", () => {
   assert.match(providersDb.formatResetCountdown(future), /1m \d+s/);
   assert.equal(providersDb.formatResetCountdown(past), null);
 });
+
+test("migratePlaintextPsdSecretsToEncrypted rewrites legacy PSD cookie rows (F-05-003 N2)", async () => {
+  const originalKey = process.env.STORAGE_ENCRYPTION_KEY;
+  delete process.env.STORAGE_ENCRYPTION_KEY;
+
+  try {
+    // Write a connection while encryption is off so PSD is stored as plaintext.
+    const created = await providersDb.createProviderConnection({
+      provider: "chatgpt-web",
+      authType: "web-session",
+      name: "Legacy PSD",
+      providerSpecificData: {
+        cookie: "session=legacy-plain",
+        ssxmod_itna: "plain-mod-token",
+        workspaceId: "ws-keep",
+      },
+    });
+
+    const rawBefore = core
+      .getDbInstance()
+      .prepare("SELECT provider_specific_data FROM provider_connections WHERE id = ?")
+      .get((created as { id: string }).id) as { provider_specific_data: string };
+    assert.ok(rawBefore.provider_specific_data.includes("session=legacy-plain"));
+    assert.equal(rawBefore.provider_specific_data.includes("enc:v1:"), false);
+
+    process.env.STORAGE_ENCRYPTION_KEY = "task-0041-psd-migrate";
+    const migrated = providersDb.migratePlaintextPsdSecretsToEncrypted();
+    assert.ok(migrated >= 1, "expected at least one PSD row rewritten");
+
+    const rawAfter = core
+      .getDbInstance()
+      .prepare("SELECT provider_specific_data FROM provider_connections WHERE id = ?")
+      .get((created as { id: string }).id) as { provider_specific_data: string };
+    assert.ok(rawAfter.provider_specific_data.includes("enc:v1:"));
+    assert.equal(rawAfter.provider_specific_data.includes("session=legacy-plain"), false);
+    assert.ok(
+      rawAfter.provider_specific_data.includes("workspaceId") ||
+        rawAfter.provider_specific_data.includes("ws-keep"),
+      "non-secret metadata should remain"
+    );
+
+    // Second pass is idempotent.
+    assert.equal(providersDb.migratePlaintextPsdSecretsToEncrypted(), 0);
+
+    // Read path decrypts for callers.
+    const loaded = await providersDb.getProviderConnectionById((created as { id: string }).id);
+    assert.equal(
+      (loaded as { providerSpecificData?: { cookie?: string } })?.providerSpecificData?.cookie,
+      "session=legacy-plain"
+    );
+  } finally {
+    if (originalKey === undefined) {
+      delete process.env.STORAGE_ENCRYPTION_KEY;
+    } else {
+      process.env.STORAGE_ENCRYPTION_KEY = originalKey;
+    }
+  }
+});

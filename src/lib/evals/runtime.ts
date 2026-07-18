@@ -266,12 +266,21 @@ export async function runEvalSuiteAgainstTarget(input: {
 
   let resolvedApiKey: string | null = null;
   if (typeof input.apiKeyId === "string" && input.apiKeyId.trim().length > 0) {
+    // Hash-only (F-05-002 / Task 0041): secrets cannot be rehydrated by id.
+    // Reject explicitly so operators paste a create/regenerate-time secret or
+    // omit apiKeyId when REQUIRE_API_KEY is false — never silent null auth.
     const keyRecord = await getApiKeyById(input.apiKeyId);
-    if (!keyRecord || typeof keyRecord.key !== "string" || keyRecord.key.trim().length === 0) {
+    if (!keyRecord) {
       throw new Error("Selected API key was not found");
     }
     if (keyRecord.isActive === false) {
       throw new Error("Selected API key is inactive");
+    }
+    if (typeof keyRecord.key !== "string" || keyRecord.key.trim().length === 0) {
+      throw new Error(
+        `API key id "${input.apiKeyId.trim()}" cannot rehydrate its secret after hash-only storage. ` +
+          "Omit apiKeyId (when API key is not required) or create/regenerate a key and supply the secret at run time."
+      );
     }
     resolvedApiKey = keyRecord.key;
   }

@@ -10,7 +10,10 @@ import {
   encryptConnectionFields,
   decryptConnectionFields,
   decryptProviderSpecificData,
+  encryptProviderSpecificData,
   migrateLegacyEncryptedString,
+  providerSpecificDataNeedsEncryption,
+  isEncryptionEnabled,
 } from "./encryption";
 import { invalidateDbCache } from "./readCache";
 import { normalizeProviderSpecificData } from "@/lib/providers/requestDefaults";
@@ -141,7 +144,69 @@ function toNumberOrZero(value: unknown): number {
 
 // ──────────────── Provider Connections ────────────────
 
+let _psdSecretsMigrated = false;
+
+function ensurePsdSecretsEncryptedMigration(): void {
+  if (_psdSecretsMigrated) return;
+  _psdSecretsMigrated = true;
+  try {
+    migratePlaintextPsdSecretsToEncrypted();
+  } catch {
+    // Non-fatal — dual-read decrypt still serves legacy plaintext until next write.
+  }
+}
+
+/**
+ * Lazy/idempotent migration: re-encrypt plaintext credential keys inside
+ * `provider_connections.provider_specific_data` when STORAGE_ENCRYPTION_KEY is set.
+ * Returns the number of rows rewritten (F-05-003 path-to-100 N2).
+ */
+export function migratePlaintextPsdSecretsToEncrypted(): number {
+  if (!isEncryptionEnabled()) return 0;
+
+  try {
+    const db = getDbInstance() as unknown as DbLike;
+    const rows = db
+      .prepare<{ id: string; provider_specific_data: string | null }>(
+        "SELECT id, provider_specific_data FROM provider_connections WHERE provider_specific_data IS NOT NULL AND provider_specific_data != ''"
+      )
+      .all() as Array<{ id: string; provider_specific_data: string | null }>;
+
+    let migrated = 0;
+    const updateStmt = db.prepare(
+      "UPDATE provider_connections SET provider_specific_data = @psd, updated_at = @updatedAt WHERE id = @id"
+    );
+
+    for (const row of rows) {
+      const parsed = parseProviderSpecificData(row.provider_specific_data);
+      if (!parsed) continue;
+      if (!providerSpecificDataNeedsEncryption(parsed)) continue;
+
+      try {
+        const encrypted = encryptProviderSpecificData(parsed);
+        updateStmt.run({
+          id: row.id,
+          psd: JSON.stringify(encrypted),
+          updatedAt: new Date().toISOString(),
+        });
+        migrated += 1;
+      } catch {
+        // Skip individual row failures.
+      }
+    }
+
+    if (migrated > 0) {
+      backupDbFile("pre-write");
+      invalidateDbCache("connections");
+    }
+    return migrated;
+  } catch {
+    return 0;
+  }
+}
+
 export async function getProviderConnections(filter: JsonRecord = {}) {
+  ensurePsdSecretsEncryptedMigration();
   const db = getDbInstance() as unknown as DbLike;
   let sql = "SELECT * FROM provider_connections";
   const conditions: string[] = [];
@@ -185,6 +250,7 @@ export async function getProviderConnections(filter: JsonRecord = {}) {
 }
 
 export async function getProviderConnectionById(id: string) {
+  ensurePsdSecretsEncryptedMigration();
   const db = getDbInstance() as unknown as DbLike;
   const row = db.prepare("SELECT * FROM provider_connections WHERE id = ?").get(id);
   if (!row) return null;

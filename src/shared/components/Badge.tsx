@@ -13,7 +13,8 @@ const variants = {
   // Amber aligns with statusVocabulary warning surfaces (Task 0028 chroma track).
   warning: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   error: "bg-red-500/10 text-red-600 dark:text-red-400",
-  info: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  // Align with --color-info / statusVocabulary info track (coreCyan primary, Task 0052).
+  info: "bg-primary/10 text-primary",
 };
 
 const sizes = {
@@ -86,7 +87,7 @@ export default function Badge({
             resolved === "success" && "bg-green-500",
             resolved === "warning" && "bg-amber-500",
             resolved === "error" && "bg-red-500",
-            resolved === "info" && "bg-blue-500",
+            resolved === "info" && "bg-primary",
             resolved === "primary" && "bg-primary",
             resolved === "default" && "bg-gray-500"
           )}

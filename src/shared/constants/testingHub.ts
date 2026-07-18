@@ -2,9 +2,9 @@
  * Testing hub destinations (Task 0060).
  * Hub route: `/dashboard/testing` — discoverability only; no primary sidebar leaf
  * (primary-nav budget stays ~9 leaves after Task 0059).
- * Existing routes remain deep-linkable. Debug-gated sidebar items (playground,
- * translator, search-tools) stay debug-only in chrome; the Testing hub always
- * links them so they are reachable without debug mode.
+ * Existing routes remain deep-linkable. Playground / Translator / Search Tools are
+ * intentionally NOT listed in any sidebar section (including debug DEVTOOLS);
+ * the Testing hub, command palette, and direct URLs are the discovery paths.
  */
 
 export type TestingHubGroupId = "interactive" | "batch-media" | "extensions";
@@ -15,8 +15,12 @@ export interface TestingHubLink {
   label: string;
   description: string;
   icon: string;
-  /** True when the same destination is also listed under Dev Tools (debug chrome). */
-  debugSidebarOnly?: boolean;
+  /**
+   * When true, the hub card shows a small "lab" badge.
+   * Lab destinations are intentionally absent from all sidebar chrome
+   * (including debug DEVTOOLS); discovery is hub / palette / direct URL only.
+   */
+  isLab?: boolean;
 }
 
 export interface TestingHubGroup {
@@ -41,7 +45,7 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
         label: "Playground",
         description: "Interactive chat / completions lab against routed models",
         icon: "science",
-        debugSidebarOnly: true,
+        isLab: true,
       },
       {
         id: "translator",
@@ -49,7 +53,7 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
         label: "Translator",
         description: "Inspect request/response format translation between APIs",
         icon: "translate",
-        debugSidebarOnly: true,
+        isLab: true,
       },
       {
         id: "search-tools",
@@ -57,14 +61,14 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
         label: "Search Tools",
         description: "Exercise web-search tool providers and payloads",
         icon: "manage_search",
-        debugSidebarOnly: true,
+        isLab: true,
       },
     ],
   },
   {
     id: "batch-media",
     title: "Batch & media",
-    description: "Async batch jobs, file uploads, and media cache inspection",
+    description: "Async batch jobs, file uploads, and media generation labs",
     icon: "view_list",
     links: [
       {
@@ -84,8 +88,9 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
       {
         id: "media",
         href: "/dashboard/cache/media",
-        label: "Media Cache",
-        description: "Inspect cached media assets from proxy traffic",
+        label: "Media",
+        // Route path is legacy (`/cache/media`); page is generation playground (image/video/music/speech).
+        description: "Generate and test image, video, music, speech, and transcription models",
         icon: "perm_media",
       },
     ],
@@ -111,15 +116,3 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
 export const TESTING_HUB_HREFS: readonly string[] = TESTING_HUB_GROUPS.flatMap((group) =>
   group.links.map((link) => link.href)
 );
-
-/** Pathnames that belong under the Testing product area (header title fallback). */
-export const TESTING_AREA_PATH_PREFIXES: readonly string[] = [
-  "/dashboard/testing",
-  "/dashboard/playground",
-  "/dashboard/translator",
-  "/dashboard/search-tools",
-  "/dashboard/batch",
-  "/dashboard/batch/files",
-  "/dashboard/cache/media",
-  "/dashboard/plugins",
-] as const;

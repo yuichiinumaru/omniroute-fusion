@@ -2,7 +2,12 @@
  * Operations hub destinations (Task 0059).
  * Primary sidebar leaf → `/dashboard/operations`.
  * Existing routes remain deep-linkable; the hub is discoverability only.
+ *
+ * Catalog SSoT (Task 0024): only `CONNECT_CATALOG_SSOT_HREF` — never re-list
+ * retired `/dashboard/api-endpoints` as a hub discovery peer.
  */
+
+import { CONNECT_CATALOG_SSOT_HREF } from "./sidebarVisibility";
 
 export type OperationsHubGroupId = "api-endpoints" | "agents" | "integrations";
 
@@ -44,16 +49,11 @@ export const OPERATIONS_HUB_GROUPS: readonly OperationsHubGroup[] = [
         description: "Proxy endpoints and context sources",
         icon: "api",
       },
-      {
-        id: "api-endpoints",
-        href: "/dashboard/api-endpoints",
-        label: "API Endpoints",
-        description: "Legacy API endpoints surface (redirects to catalog)",
-        icon: "list_alt",
-      },
+      // Task 0024 S5: single catalog SSoT — do NOT re-list retired
+      // `/dashboard/api-endpoints` (redirect-only) as a hub discovery peer.
       {
         id: "api-catalog",
-        href: "/dashboard/endpoint?tab=catalog",
+        href: CONNECT_CATALOG_SSOT_HREF,
         label: "API Catalog",
         description: "OpenAPI-style endpoint catalog",
         icon: "menu_book",
@@ -162,7 +162,7 @@ export const OPERATIONS_HUB_GROUPS: readonly OperationsHubGroup[] = [
         id: "testing",
         href: "/dashboard/testing",
         label: "Testing",
-        description: "Playground, translator, batch, media cache, plugins",
+        description: "Playground, translator, batch, media lab, plugins",
         icon: "science",
       },
     ],

@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  CONNECT_CATALOG_SSOT_HREF,
+  CONNECT_RETIRED_API_ENDPOINTS_HREF,
   HIDEABLE_SIDEBAR_ITEM_IDS,
   PRIMARY_SIDEBAR_ITEM_IDS,
   PRIMARY_SIDEBAR_ITEMS,
@@ -46,8 +48,8 @@ test("Operations hub exposes all Task 0059 target routes", () => {
   const required = [
     "/dashboard/api-manager",
     "/dashboard/endpoint",
-    "/dashboard/api-endpoints",
-    "/dashboard/endpoint?tab=catalog",
+    // Single catalog SSoT (Task 0024) — retired path is NOT a hub peer
+    CONNECT_CATALOG_SSOT_HREF,
     "/dashboard/mcp",
     "/dashboard/a2a",
     "/dashboard/cli-agents",
@@ -67,6 +69,12 @@ test("Operations hub exposes all Task 0059 target routes", () => {
       `Operations hub missing href: ${href}`
     );
   }
+  // S5 guard: legacy redirect path must not reappear as a discovery peer
+  assert.equal(
+    OPERATIONS_HUB_HREFS.includes(CONNECT_RETIRED_API_ENDPOINTS_HREF),
+    false,
+    "Operations hub must not dual-home catalog via retired /dashboard/api-endpoints"
+  );
   assert.equal(OPERATIONS_HUB_GROUPS.length, 3);
   assert.deepEqual(
     OPERATIONS_HUB_GROUPS.map((g) => g.id),

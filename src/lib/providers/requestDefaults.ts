@@ -4,6 +4,7 @@ const CLAUDE_CODE_COMPATIBLE_PROVIDER_PREFIX = "anthropic-compatible-cc-";
 import { normalizeExcludedModelPatterns } from "@/domain/connectionModelRules";
 import { normalizeRoutingTags } from "@/domain/tagRouter";
 import { normalizeOpenRouterPreset } from "@/shared/constants/openRouterPreset";
+import { PSD_SECRET_KEYS } from "@/shared/constants/psdSecretKeys";
 
 export const CODEX_REASONING_EFFORT_VALUES = ["none", "low", "medium", "high", "xhigh"] as const;
 
@@ -214,33 +215,9 @@ export function normalizeProviderSpecificData(
 
 /**
  * Credential keys that must never appear in management API responses.
- * Includes AWS/console scrapers, web-session cookies/tokens (F-05-W2-001),
- * and the preferred keys from `webSessionDedup.PREFERRED_CREDENTIAL_KEYS`.
+ * SSOT: shared `PSD_SECRET_KEYS` (encrypt-at-rest + response redact inventory).
  */
-const PSD_RESPONSE_REDACT_KEYS = [
-  "consoleApiKey",
-  "secretAccessKey",
-  "awsSecretAccessKey",
-  "sessionToken",
-  "session-token",
-  "awsSessionToken",
-  "openCodeGoAuthCookie",
-  "opencodeGoAuthCookie",
-  "authCookie",
-  "ollamaUsageCookie",
-  "ollamaCloudUsageCookie",
-  "ollamaCloudCookie",
-  "usageCookie",
-  // Web-session credentials (F-05-W2-001)
-  "cookie",
-  "token",
-  "sso",
-  "sso-rw",
-  "access_token",
-  "accessToken",
-  "copilotToken",
-  "cf_clearance",
-] as const;
+const PSD_RESPONSE_REDACT_KEYS = PSD_SECRET_KEYS;
 
 export function sanitizeProviderSpecificDataForResponse(value: unknown): JsonRecord | undefined {
   const record = asRecord(value);

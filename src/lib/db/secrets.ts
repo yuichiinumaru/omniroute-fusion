@@ -85,17 +85,22 @@ export function getPersistedSecret(key: string): string | null {
 /**
  * Persist (or rotate) a secret. Upserts so a second write replaces the prior value.
  * When STORAGE_ENCRYPTION_KEY is set the value is stored as `enc:v1:` ciphertext only.
+ *
+ * Fail-loud: encryption/encoding failures propagate (never silently drop a rotation
+ * while claiming success). Only SQLite I/O failures are soft-swallowed so process-local
+ * env secrets still boot when the DB is unavailable.
  */
 export function persistSecret(key: string, value: string): void {
+  // Encode outside the DB try so cipher/key failures are not masked as "DB offline".
+  const stored = encodeSecretForStorage(value);
   try {
     const db = getDbInstance();
-    const stored = encodeSecretForStorage(value);
     // PRIMARY KEY (namespace, key) — INSERT OR REPLACE enables rotation + encrypt migration.
     db.prepare(
       "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('secrets', ?, ?)"
     ).run(key, stored);
   } catch {
-    // Non-fatal: secrets still work for the current process if persistence fails.
+    // Non-fatal DB I/O only: secrets still work for the current process if persistence fails.
   }
 }
 

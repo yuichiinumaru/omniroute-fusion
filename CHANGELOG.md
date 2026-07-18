@@ -3,13 +3,33 @@
 ## [Unreleased]
 
 ### Fixed
+- **Connect + seven-pillar return-review path-to-100 (Tasks 0024 / 0025)** — `api-endpoints` server redirect uses `CONNECT_CATALOG_SSOT_HREF` (no dual hardcoded catalog string); connect-exposure unit locks constant import; `dashboard-shell-tabs` settings-root assert accepts `buildSettingsPath("general"|"resilience")` SSoT (0054).
+  **Author**: reviewers (independent full re-review + path-to-100)
+- **Theme micro-adoption path-to-100 (Task 0028)** — glow regression guards assert `status-glow-*` + `globals.css` tokens (not inline `shadow-[…]`); ModelPill/warning track stays **amber**; Badge `info` + StatCard `info` accent align to **primary/coreCyan** (not legacy blue); brand narrative = dark-only coreCyan (0052/0053 supersedes coral optional-preset wording in the original 0028 Added bullet).
+  **Author**: builders (gt-frontend-quality-reviewer independent re-review)
+- **Sidebar chrome a11y + role-preset copy (Task 0025 path-to-100 ACCEPT)** — collapse control no longer under parent `aria-hidden`; primary nav sets `aria-current`; restart/shutdown get `aria-label`; SidebarTab preset blurbs match flat role views; minimal ≤12 + a11y regression unit.
+  **Author**: builders (gt-frontend-quality-reviewer)
+- **Connect exposure SSoT hardening (Task 0024 path-to-100)** — export `CONNECT_CATALOG_SSOT_HREF` / `CONNECT_RETIRED_API_ENDPOINTS_HREF`; Operations hub catalog card uses SSoT constant; Header brands retired `/dashboard/api-endpoints` as catalog alias (not competing "API Endpoints" title); palette + Header discovery guards in `connect-exposure-sidebar`; re-enable `protocol-visibility.spec.ts` (was `testIgnore` after nav restructure).
+  **Author**: builders (gt-ts-expert + gt-frontend-quality-reviewer)
+
+- **Sidebar visibility settings redirect assert (Task 0025 path-to-100)** — accept `buildSettingsPath("general")` SSoT after Settings hub (0054); expanded sidebar cluster residual.
+  **Author**: builders (gt-ts-expert)
+- **Fusion docs + i18n path-to-100 (Tasks 0012 / 0017)** — FUSION.md documents nested `comboChatBase` option inheritance + single-survivor re-dispatch semantics; finish `FusionUnitRow` i18n (a11y move/remove, clear, model placeholder, combo-ref title/depth label); judge combo-ref `comboChatBase` regression unit.
+  **Author**: builders (gt-ts-expert)
+- **Fusion docs + i18n path-to-100 (Task 0017)** — AGENTS live strategy count **18** (incl. `fusion` / `conditional-fusion` / `headroom`); FUSION.md acting overview/diagram/operator/troubleshooting + D9 wording; wire `FusionUnitRow` to `combos.fusionUnit*` / pick keys; `fusionsSubtitle` + `fusionDesc` mention optional acting.
+  **Author**: builders (gt-ts-engineer)
+- **Frontend IA docs guardrail SSoT (Task 0031)** — `docs/guides/UI.md` §2.1 primary chrome = live **9** leaves (`operations` hub; `api-manager`/`cli-code` deep links only); brand/theme claims = coreCyan dark-only (0052–0053); sync `NAV-TREE-TARGET.md` §2 live chrome.
+  **Author**: builders (gt-ts-engineer)
+- **Combo resilience path-to-100 (Task 0043)** — runtime-unit connection exhaustion pre-skip uses `provider:connectionId` via `getExhaustedTargetSkipReason` (F-03-002 key parity with priority/RR); `classifySoftChatBreakerOutcome` SSoT for soft 502 HALF_OPEN re-open (F-04-001); HALF_OPEN soft non-provider (429) also re-opens so burned probe budget cannot stick; regression coverage for soft-502 `executeChatWithBreaker`, RR `recordProviderFailure`, and OPEN/model-lock pre-skip.
+  **Author**: builders (gt-ts-expert path-to-100) + gt-ts-code-reviewer path-to-100
 - **Fusion First-Class path-to-100 residuals (Tasks 0010–0016 / 0018)** — close re-review blockers without behavior regressions.
   - **0010 / 0011 contracts+resolve**: Task 0010/0011 Unreleased bullets; schema→`resolveFusionUnits` round-trip; `EMPTY_FUSION_JUDGE` sentinel
+  - **0012 runtime dispatch**: dedicated multi-unit fan-out (`handleFusionChatV2`); nested `comboChatBase` option parity verified + regression unit
   - **0013 wire**: `comboChatBase` (settings/signal/ACL/isModelAvailable/relayOptions) threaded into V2 nested combo-ref
   - **0014 / 0018 triggers+tests**: extra D8 wire shapes; immutability miss→hit; `validateComboDAG` walks fusion `judge`/`acting`
   - **0015 shell**: shared `filterFusionCombos`; keyboard card (`role="link"` + Enter/Space)
   - **0016 editor**: extract Basics/Units/Triggers/Tuning/PatternTagInput; D8 options unit; text-match save + Zod couple; chrome i18n; connectionId plumb when picker allows
-  **Author**: independent re-reviewer (path-to-100 final)
+  **Author**: independent re-reviewer (path-to-100 final) + builder (0012 re-verify)
 
 ### Added
 - **Fusion contracts (Epic 0003 / Task 0010)** — Zod combo schemas accept `triggers.mode` ∈ {always, tool-call, text-match}, optional `triggers.textPatterns`, top-level `judge` as `comboModelEntry`, and reject `fallbackStrategy` of `fusion` / `conditional-fusion` (D8). Exported `ResolvedFusionUnit` + `HandleFusionChatOptionsV2` from `open-sse/services/fusion.ts`. Legacy `config.judgeModel` remains valid.
@@ -18,6 +38,19 @@
   **Author**: builder (Task 0011) + path-to-100 final review
 
 ### Security
+- **Executor SSRF final polish (Task 0045 path-to-100)** — Qwen 3xx hops use `redirect: "manual"` + per-hop host re-validation (`fetchFollowingQwenRedirects` / `resolveQwenRedirectLocation` on BaseExecutor qwen path); devin-cli spawn SSE uses `sanitizeErrorMessage` (Hard Rule #12 / N3). Tests cover metadata-redirect deny + allowlisted hop follow.
+  **Author**: gt-security-reviewer (path-to-100)
+- **Executor + path SSoT path-to-100 (Tasks 0045 / 0048)** — close reaudit residuals and HF audio regression.
+  - **0048 F1**: `isValidPathSegment` allows multi-segment HF `org/model` ids (per-segment allowlist) while rejecting `..` / `//` / `%` / `\` / query-fragment; audio speech+transcription HF happy paths re-green
+  - **0048 voice**: `isValidSinglePathSegment` for ElevenLabs voice ids (no multi-segment path extension); HF keeps multi-segment API
+  - **0045 N6**: `isSafeChatPath` rejects `//evil.com`, `%` encodings, `\`, empty segments; DefaultExecutor falls back to default path
+  - **0045 N2**: chatgpt-web `errorResponse` sanitizes via `sanitizeErrorMessage` (Hard Rule #12)
+  - **0045 N1**: muse-spark uses `fetchWithStartTimeout`; claude-web / grok-web drop body-lifetime `AbortSignal.timeout(FETCH_TIMEOUT_MS)`
+  - **0045 N7**: Qoder `customApiBase`/`resourceUrl` rejects cloud-metadata / link-local via `parseAndValidateNonMetadataUrl`
+  - **0045 N9**: Qwen `parseQwenResourceHost` accepts allowlisted `host:port` (no longer misclassifies as scheme); still rejects IP/non-allowlisted `:port`
+  - **SSoT**: `open-sse/utils/safePath.ts` re-exports path-segment helpers from `src/shared/network/safePathSegment.ts`; `isValidPathSegment` is a type predicate (no `as string` in assert)
+  - Tests: `executor-harden-0045`, `search-ssrf-semantic-cache-path-0048`, `audio-speech-handler`, `audio-transcription-handler`
+  **Author**: builder + gt-ts-expert + gt-security-reviewer (Tasks 0045 + 0048 path-to-100)
 - **Path-to-100 dual-mode final polish (Tasks 0032–0035)** — reject array/non-plain shells in `connectionAuthMode` (typeof-array OAuth false-positive); typed heal via `ConnectionAuthShape` + SAFETY bridge; token-health API catch uses `sanitizeErrorMessage(err)` (Hard Rule #12).
   **Author**: independent re-reviewer (path-to-100 → 100)
 - **Path-to-100 authz + dual-mode polish (Tasks 0035 / 0040)** — sanitize manual token-refresh error responses (Hard Rule #12); align Windsurf `import`/`imported` long-lived no-op; classify `/api/providers/{id}/login` as SPAWN_CAPABLE pattern (F-04-005 always-auth on LAN+auth-disabled); dual-layer `{ always: true }` on export/import/restart/hooks handlers.
@@ -44,8 +77,8 @@
   **Author**: builders + reviewer (Task 0061)
 - **Theme migration — VR Prism compliance (Task 0052)** — full visual identity shift from OpenClaw coral/indigo to obsidian + core cyan. Dark-only: removed light theme, `.dark` block, grid wallpaper, sidebar icon accents, and all `#e54d5e` references. New tokens: obsidian `#030506` bg, `#080c0e` panels, `#121d22` borders, `#00FFCC` primary cyan. Fonts: Rajdhani (body via next/font/google) + JetBrains Mono (code). Info/active status states now use cyan via `text-primary`. 8 hardcoded coral references removed from 3 files (~1162 auto-updating refs follow CSS variable). Theme toggle/`applyTheme()` simplified to no-op. Persist removed from themeStore.
   **Author**: architect (S2)
-- **Settings hub PageTabBar (Task 0054)** — added shared `settings/layout.tsx` with 9-tab PageTabBar (Data & Storage, AI, Routing, Resilience, Security, Access Tokens, Feature Flags, Advanced, Sidebar) so all 10 orphaned settings sub-pages are now navigable from any settings page. Tabs use direct route navigation; Appearance and Pricing omitted (deprecated/redirect). Hub `/dashboard/settings` legacy `?tab=` redirects preserved.
-  **Author**: architect (S2)
+- **Settings hub PageTabBar (Task 0054)** — shared `settings/layout.tsx` with 10-tab PageTabBar (Data & Storage, Interface, AI, Routing, Resilience, Security, Access Tokens, Feature Flags, Advanced, Sidebar) via `settingsHub` SSoT + `hubSubnavStyles` (Routing active/shell/item-base). Direct route navigation; Pricing remains a costs redirect. Hub `/dashboard/settings` legacy `?tab=` (incl. access-tokens) redirects preserved. Appearance route labeled **Interface** (theme UI still stripped — Task 0053 / 0061).
+  **Author**: builders + frontend-quality reviewer (Task 0054)
 
 ### Fixed
 - **Fusion docs path-to-100 (Task 0017)** — align strategy inventory to live **18** `ROUTING_STRATEGY_VALUES` (include `conditional-fusion`); document acting unit + A6 trigger-miss path in `FUSION.md`.
@@ -93,7 +126,7 @@
 - **Search SSRF + semantic cache signature + path segments (Task 0048 / Epic 0008 S9)** — close client-influenced search SSRF, cache poisoning/mismatch, and path injection.
   - **F-01-W2-001**: commercial search ignores client `provider_options.baseUrl`; self-hosted (`searxng-search`, `ollama-search`) allow LAN override with cloud-metadata block; all search HTTP via `safeOutboundFetch` (public-only / block-metadata)
   - **F-01-W2-002**: semantic cache signature includes tools / tool_choice / response_format / client format / stream / seed / stop / max_tokens; stream hits/stores only for OpenAI client format
-  - **F-01-006**: shared `isValidPathSegment` / `assertSafePathSegment` (`src/shared/network/safePathSegment.ts`) — reject `/`, `\`, `?`, `#`, `%`, `..`; wired into audio speech + transcription (0045 may reuse)
+  - **F-01-006**: shared `isValidPathSegment` / `assertSafePathSegment` (`src/shared/network/safePathSegment.ts`) — multi-segment-safe (HF `org/model` allowed per-segment allowlist); reject `..`, `//`, `\`, `?`, `#`, `%`; wired into audio speech + transcription (0045 re-exports SSoT)
   - **F-01-W2-004**: search cache key includes `provider_options` + `content`
   - Tests: `tests/unit/search-ssrf-semantic-cache-path-0048.test.ts`
   **Author**: builder (Task 0048)
@@ -132,9 +165,11 @@
 - **Secrets at rest — JWT/API secrets encrypt + rotate, API key hash, PSD cookies (Task 0041 / Epic 0008 S2)** — close F-05-001 / F-05-W2-003 / F-05-002 / F-05-003 class plaintext storage.
   - `secrets.ts`: encrypt at rest when `STORAGE_ENCRYPTION_KEY` present; **INSERT OR REPLACE** (rotatable, not forever INSERT OR IGNORE); lazy re-encrypt plaintext rows
   - `apiKeys.ts`: hash-only validation path hardened; no bulk plaintext reveal regression
-  - `encryption.ts` + `providers.ts`: encrypt/decrypt PSD web-session cookie fields; cookie dedup decrypts before compare
-  - Tests: `db-secrets`, `db-encryption`, `db-apiKeys-crud`
-  **Author**: builder (Task 0041; resumed after quota interrupt)
+  - `encryption.ts` + `providers.ts`: encrypt/decrypt PSD web-session cookie fields; cookie dedup decrypts before compare; lazy PSD re-encrypt migrate; `encrypt()` fail-closed when key configured
+  - Playground policy-by-id metadata (no secret rehydrate); CLI `ApiKeySecretUnavailableError` → HTTP 400 across settings routes
+  - Hash-only consumer adaptations: combo-test mints one-shot probe key; evals fail-loud by id; cloud enable mints verify key (GET does not mint on poll)
+  - Tests: `db-secrets`, `db-encryption`, `db-apiKeys-crud`, `playground-key-policy-3503`, `cli-mitm-schema`, `db-providers-crud`, `combo-test-route`
+  **Author**: builder (Task 0041; residual close + security re-review path-to-100)
 
 - **Chat pipeline envelope + Hard Rule #12 sanitize (Task 0042 / Epic 0008 S3)** — restore contract-correct, sanitized failures on open-sse chat/media/stream paths.
   - **F-01-001 (P0)**: quota-share `block` returns `{ success, status, error, response }` via `createErrorResult` (never bare `Response`); clears pending marker; preserves `Retry-After`
@@ -270,15 +305,14 @@
   - Epic 0005 success metrics + child table closed out to S0–S10; index via `docs/guides/meta.json` + `docs/README.md`
   **Author**: builder (Task 0031)
 
-- **Frontend IA theme micro-adoption (Task 0028 / Epic 0005 S9)** — selective visual-reference patterns without a full Prism/CyberCore port. Coral brand SSoT unchanged; cyan is optional Appearance only.
+- **Frontend IA theme micro-adoption (Task 0028 / Epic 0005 S9)** — selective visual-reference patterns without a full Prism/CyberCore port (status vocabulary, StatCard accent, health-only soft glow). **Brand note (superseded by 0052/0053):** product is now dark-only **coreCyan** (`#00FFCC`); the original optional Appearance `coreCyan` preset / coral default is historical only — see Unreleased Fixed path-to-100 for 0028.
   - `src/shared/constants/statusVocabulary.ts`: status → Badge/health tone map (`healthy`/`degraded`/`offline`/`OPEN`/…); soft glow helpers limited to health/breaker surfaces
-  - `Badge`: optional `status` + `glow` props (backward-compatible `variant`)
+  - `Badge`: optional `status` + `glow` props (backward-compatible `variant`); `info` track = primary/coreCyan
   - Shared `StatCard`: optional `accent` top bar (`none` default); adopted on UsageAnalytics KPIs
-  - `themeStore` + Appearance: optional `coreCyan` (`#00FFCC`) preset; existing `cyan` (`#06b6d4`) kept; default remains `coral`
-  - `globals.css`: dual light+dark `--color-info` + `--status-glow-*` tokens
+  - `globals.css`: `--status-glow-*` tokens + `.status-glow-*` utilities (health/breaker only)
   - Health adoption: TokenHealthBadge, DegradationBadge, ProviderHealthMatrix circuit-breaker badges
-  - Tests: `tests/unit/status-vocabulary.test.ts`, `tests/unit/theme-store-presets.test.ts`, `tests/unit/ui/stat-card-accent.test.tsx`
-  **Author**: builder (Task 0028)
+  - Tests: `tests/unit/status-vocabulary.test.ts`, `tests/unit/theme-store-presets.test.ts`, `tests/unit/ui/stat-card-accent.test.tsx`, `tests/unit/ui/badge-status.test.tsx`
+  **Author**: builder (Task 0028) + independent re-review path-to-100
 
 - **Fusion tests + regression hardening (Task 0018)** — comprehensive unit coverage for Fusion First-Class (resolution, multi-unit dispatch, triggers, panel body invariants, edge cases). No production changes.
   - `tests/unit/fusion-panel-tools-none.test.ts`: panel `stream:false` + `tool_choice:"none"` + tools kept (incl. legacy + combo-ref)

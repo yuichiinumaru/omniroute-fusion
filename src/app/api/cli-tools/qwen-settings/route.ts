@@ -14,7 +14,10 @@ import { createBackup } from "@/shared/services/backupService";
 import { saveCliToolLastConfigured, deleteCliToolLastConfigured } from "@/lib/db/cliToolState";
 import { cliModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { getApiKeyById } from "@/lib/localDb";
+import {
+  ApiKeySecretUnavailableError,
+  resolveApiKey,
+} from "@/shared/services/apiKeyResolver";
 
 const getQwenSettingsPath = () => getCliPrimaryConfigPath("qwen");
 const getQwenDir = () => path.dirname(getQwenSettingsPath());
@@ -143,13 +146,16 @@ export async function POST(request: Request) {
     }
     let { baseUrl, apiKey, model } = validation.data;
 
-    // Resolve real key from DB by ID
+    // Hash-only (F-05-002): secrets are not rehydratable by id. Prefer an
+    // explicit apiKey; if only keyId is sent, fail loud.
     if (keyId) {
       try {
-        const keyRecord = await getApiKeyById(keyId);
-        if (keyRecord?.key) apiKey = keyRecord.key as string;
-      } catch {
-        /* non-critical */
+        apiKey = await resolveApiKey(keyId, apiKey);
+      } catch (error) {
+        if (error instanceof ApiKeySecretUnavailableError) {
+          return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+        throw error;
       }
     }
 

@@ -10,7 +10,7 @@ import { createBackup } from "@/shared/services/backupService";
 import { saveCliToolLastConfigured, deleteCliToolLastConfigured } from "@/lib/db/cliToolState";
 import { cliModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { resolveApiKey } from "@/shared/services/apiKeyResolver";
+import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { readJsoncConfig } from "../_lib/jsoncConfig";
 
 const KILO_DATA_DIR = path.join(os.homedir(), ".local", "share", "kilo");
@@ -102,6 +102,9 @@ export async function GET(request: Request) {
       authPath: AUTH_PATH,
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error checking kilo settings:", error);
     return NextResponse.json({ error: "Failed to check kilo settings" }, { status: 500 });
   }
@@ -214,6 +217,9 @@ export async function POST(request) {
       authPath: AUTH_PATH,
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error updating kilo settings:", error);
     return NextResponse.json({ error: "Failed to update kilo settings" }, { status: 500 });
   }
@@ -281,6 +287,9 @@ export async function DELETE(request: Request) {
       message: "OmniRoute settings removed from Kilo Code",
     });
   } catch (error) {
+    if (isApiKeySecretUnavailableError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error resetting kilo settings:", error);
     return NextResponse.json({ error: "Failed to reset kilo settings" }, { status: 500 });
   }

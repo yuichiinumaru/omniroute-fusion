@@ -82,6 +82,10 @@ import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotat
 import { classify429FromError, type FailureKind } from "@/shared/utils/classify429";
 import { resolveUseUpstream429BreakerHints } from "@/shared/utils/providerHints";
 import { getCircuitBreaker, isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
+import {
+  classifySoftChatBreakerOutcome,
+  PROVIDER_BREAKER_FAILURE_STATUSES,
+} from "../../shared/utils/softChatBreakerOutcome";
 import { markAccountExhaustedFrom429 } from "../../domain/quotaCache";
 import { RequestTelemetry, recordTelemetry } from "../../shared/utils/requestTelemetry";
 import { generateRequestId } from "../../shared/utils/requestId";
@@ -197,7 +201,6 @@ function intersectAllowedConnectionIds(primary: unknown, secondary: unknown): st
   return first || second || null;
 }
 
-const PROVIDER_BREAKER_FAILURE_STATUSES = new Set([408, 500, 502, 503, 504]);
 const comboPromoteDeps = { updateCombo, info: log.info, warn: log.warn };
 
 /**
@@ -1288,7 +1291,16 @@ async function handleSingleModelChat(
 
       if (result.success) {
         clearModelLock(provider, credentials.connectionId, model);
-        if (!forceLiveComboTest) {
+        // F-04-001: success is the only path that may heal HALF_OPEN / OPEN.
+        const softOutcome = classifySoftChatBreakerOutcome({
+          success: true,
+          status: Number(result.status) || 200,
+          breakerState: breaker.getStatus().state,
+          isCombo,
+          willRetryAnotherAccount: false,
+          forceLiveComboTest,
+        });
+        if (softOutcome === "success") {
           breaker._onSuccess();
         }
         if (injectedHandoff && runtimeOptions.sessionId && comboName) {
@@ -1607,13 +1619,17 @@ async function handleSingleModelChat(
           );
 
       if (shouldFallback) {
-        // F-04-001: a HALF_OPEN probe that soft-fails is a failed probe even when
-        // another connection remains — re-open before rotating accounts.
-        if (
-          !forceLiveComboTest &&
-          PROVIDER_BREAKER_FAILURE_STATUSES.has(Number(result.status)) &&
-          breaker.getStatus().state === "HALF_OPEN"
-        ) {
+        // F-04-001: HALF_OPEN soft-fail is a failed probe even when another
+        // connection remains — re-open before rotating accounts.
+        const softOutcome = classifySoftChatBreakerOutcome({
+          success: false,
+          status: Number(result.status),
+          breakerState: breaker.getStatus().state,
+          isCombo,
+          willRetryAnotherAccount: true,
+          forceLiveComboTest,
+        });
+        if (softOutcome === "failure") {
           breaker._onFailure();
         }
         if (Number.isFinite(cooldownMs) && cooldownMs > 0) {
@@ -1634,14 +1650,16 @@ async function handleSingleModelChat(
       // F-04-001: also re-open on HALF_OPEN probe soft-fail so a 502 cannot leave
       // the breaker stuck in HALF_OPEN with zero probe budget (and never "succeeds"
       // a probe — success is only recorded on result.success above).
-      if (
-        !forceLiveComboTest &&
-        PROVIDER_BREAKER_FAILURE_STATUSES.has(Number(result.status))
-      ) {
-        const breakerState = breaker.getStatus().state;
-        if (!isCombo || breakerState === "HALF_OPEN") {
-          breaker._onFailure();
-        }
+      const terminalSoftOutcome = classifySoftChatBreakerOutcome({
+        success: false,
+        status: Number(result.status),
+        breakerState: breaker.getStatus().state,
+        isCombo,
+        willRetryAnotherAccount: false,
+        forceLiveComboTest,
+      });
+      if (terminalSoftOutcome === "failure") {
+        breaker._onFailure();
       }
 
       return withSelectedConnectionHeader(result.response, credentials?.connectionId);

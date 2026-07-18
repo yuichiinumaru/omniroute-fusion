@@ -2,6 +2,12 @@
 
 import { useCallback, useRef, type KeyboardEvent } from "react";
 import { cn } from "@/shared/utils/cn";
+import {
+  HUB_SUBNAV_ACTIVE_CLASS,
+  HUB_SUBNAV_INACTIVE_CLASS,
+  HUB_SUBNAV_ITEM_BASE_CLASS,
+  HUB_SUBNAV_SHELL_CLASS,
+} from "@/shared/constants/hubSubnavStyles";
 
 export interface PageTabBarOption {
   value: string;
@@ -12,7 +18,8 @@ export interface PageTabBarOption {
 }
 
 export interface PageTabBarProps {
-  options: PageTabBarOption[];
+  /** Tab descriptors; readonly so hub SSoT arrays can pass through without spread. */
+  options: readonly PageTabBarOption[];
   value: string;
   onChange: (value: string) => void;
   /**
@@ -143,7 +150,7 @@ export default function PageTabBar({
       onKeyDown={onKeyDown}
       className={cn(
         variant === "subnav"
-          ? "flex flex-wrap items-center gap-1 rounded-xl border border-black/8 dark:border-white/8 bg-black/[0.02] dark:bg-white/[0.02] p-1"
+          ? HUB_SUBNAV_SHELL_CLASS
           : "flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1",
         className
       )}
@@ -163,14 +170,16 @@ export default function PageTabBar({
             tabIndex={selected ? 0 : -1}
             onClick={() => handleSelect(tab.value)}
             className={cn(
-              "focus-ring inline-flex h-9 items-center gap-1.5 px-3 text-sm font-medium transition-all",
-              variant === "subnav" ? "rounded-lg" : "rounded-md",
+              // subnav: full Routing hub item base (focus ring + density); default: Analytics gray chip.
+              variant === "subnav"
+                ? HUB_SUBNAV_ITEM_BASE_CLASS
+                : "focus-ring inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-all",
               selected
                 ? variant === "subnav"
-                  ? "border border-primary/20 bg-primary/10 text-primary"
+                  ? HUB_SUBNAV_ACTIVE_CLASS
                   : "bg-surface text-text-main shadow-sm"
                 : variant === "subnav"
-                  ? "border border-transparent text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main"
+                  ? HUB_SUBNAV_INACTIVE_CLASS
                   : "text-text-muted hover:bg-surface/70 hover:text-text-main"
             )}
           >

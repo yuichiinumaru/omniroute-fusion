@@ -1,14 +1,14 @@
 ---
 title: "OmniRoute — UI / Information Architecture Guide"
 version: 3.8.42
-lastUpdated: 2026-07-10
+lastUpdated: 2026-07-18
 ---
 
 # OmniRoute — UI / Information Architecture Guide
 
 > **Authority**: IA + mid-layer adoption rules for the dashboard.  
 > **Token / visual SSoT**: root [`design.md`](../../design.md) + `src/app/globals.css` (not this file).  
-> **Live tree SSoT**: `src/shared/constants/sidebarVisibility.ts` (`SIDEBAR_SECTIONS`, `OPERATIONAL_PILLAR_SECTION_IDS`).  
+> **Live tree SSoT**: `src/shared/constants/sidebarVisibility.ts` (`PRIMARY_SIDEBAR_ITEMS`, `SIDEBAR_SECTIONS`, `OPERATIONAL_PILLAR_SECTION_IDS`).  
 > **Epic**: [0005 — Frontend IA Reform](../tasks/00-planning/0005-omniroute-frontend-ia-design-system-epic.md) · [dependency tree](../dependency-tree.md)  
 > **Target nav map (L0/L1/L2)**: [`docs/architecture/NAV-TREE-TARGET.md`](../architecture/NAV-TREE-TARGET.md)  
 > **Archive policy**: [`.archive/README.md`](../../.archive/README.md)
@@ -33,30 +33,46 @@ Code mirror of these rules: file header on `src/shared/constants/sidebarVisibili
 
 ---
 
-## 2. Flat primary sidebar (~10 leaves) + conceptual pillars
+## 2. Flat primary sidebar (9 leaves) + conceptual pillars
 
 ### 2.1 What the chrome shows (SSoT)
 
-**Default sidebar is a flat list of ≤ 10 primary hubs** — `PRIMARY_SIDEBAR_ITEMS` in
-`sidebarVisibility.ts`. Sections: `main` + optional `devtools` (debug only).
+**Default sidebar is a flat list of 9 primary hubs** — `PRIMARY_SIDEBAR_ITEMS` in
+`sidebarVisibility.ts` (Task **0059** Operations hub). Sections: `main` + optional
+`devtools` (debug only). Re-dump before editing this table:
 
-| # | id | Hub |
-|---|-----|-----|
-| 1 | `home` | Home |
-| 2 | `providers` | Providers (services / exposures → **on page**) |
-| 3 | `combos` | Routing (fusions / compression / studio → **on page**) |
-| 4 | `api-manager` | API Keys |
-| 5 | `activity` | Observe (logs/audit filters → **on page**) |
-| 6 | `analytics` | Analytics |
-| 7 | `costs` | Costs |
-| 8 | `cli-code` | Operations (CLI / agents / inspector → **on page**) |
-| 9 | `settings-general` | Settings |
-| 10 | `docs` | Docs |
+```bash
+node --import tsx/esm -e "
+import { PRIMARY_SIDEBAR_ITEMS } from './src/shared/constants/sidebarVisibility.ts';
+for (const i of PRIMARY_SIDEBAR_ITEMS) console.log(i.id, i.href);
+"
+```
+
+| # | id | Hub route | Role |
+|---|-----|-----------|------|
+| 1 | `home` | `/home` | Home / cockpit |
+| 2 | `providers` | `/dashboard/providers` | Providers (services / exposures → **on page**) |
+| 3 | `combos` | `/dashboard/combos` | Routing (fusions / compression / studio → **on page**) |
+| 4 | `activity` | `/dashboard/activity` | Observe (logs/audit filters → **on page**) |
+| 5 | `analytics` | `/dashboard/analytics` | Analytics |
+| 6 | `costs` | `/dashboard/costs` | Costs |
+| 7 | `operations` | `/dashboard/operations` | Operations hub (API keys, CLI, agents, integrations → **on page**) |
+| 8 | `settings-general` | `/dashboard/settings/general` | Settings (Interface = functional prefs only) |
+| 9 | `docs` | `/docs` | Docs |
+
+**Deep links (not primary leaves after Task 0059):**
+
+| Former primary id | Route | Status |
+|-------------------|-------|--------|
+| `api-manager` | `/dashboard/api-manager` | Deep link from Operations hub; **hideable** id retained for prefs |
+| `cli-code` | `/dashboard/cli-code` | Deep link under Operations; route remains |
+
+Do **not** re-list `api-manager` or `cli-code` as default-visible primary chrome.
 
 **No collapsible accordion sections in the sidebar.** Nested destinations use in-page
 tabs / subnav / drawers only. Collapsibles in the rail are banned (government-site UX).
 
-Icons use **neutral** `currentColor` (active = primary). No rainbow icon accents.
+Icons use **neutral** `currentColor` (active = primary / coreCyan). No rainbow icon accents.
 
 ### 2.2 Conceptual pillars (docs / mapping only)
 
@@ -69,7 +85,7 @@ they are **not** accordion sidebar sections (chrome is §2.1):
 | 2 | `registry` | Providers, services, exposures |
 | 3 | `routing` | Combos, fusions, compression |
 | 4 | `governance` | Keys, tokens, security, quota, costs policy |
-| 5 | `operations` | CLI, agents, tools, batch, gamification |
+| 5 | `operations` | CLI, agents, tools, batch, gamification, API manager |
 | 6 | `observability` | Observe stream, analytics, cache, runtime |
 | 7 | `system` | Settings residual + proxy |
 
@@ -96,6 +112,7 @@ Pre-S6 snapshot: `.archive/sidebar/2026-07-10-seven-pillars/`.
 | Treat sidebar preset as a new product architecture | Rebuild `SIDEBAR_PRESETS` only as role views after IA is fixed |
 | Silent `rm` of a surface | Move to `.archive/…` + `PROVENANCE.md` / index row |
 | Full port of `visual-reference/` neon / Orbitron / Prism shell | Tokens + selective status/metric micro-patterns only (dark-only coreCyan / `#00FFCC`) |
+| Re-add multi-accent / light theme / Appearance brand swatches | Fixed coreCyan dark-only (Tasks 0052–0053); Settings **Interface** = functional prefs only |
 | Competing design docs (`DESING.md` typo vs `design.md`) | **`design.md` only** for tokens; IA rules live here |
 
 ---
@@ -119,7 +136,7 @@ Import from `src/shared/components/` (verified paths). Prefer these over hand-ro
 
 **Status vocabulary:** `src/shared/constants/statusVocabulary.ts` — map domain status → Badge/health tone; do not invent ad-hoc color maps per page.
 
-**Theme / tokens:** `src/app/globals.css` + `src/store/themeStore.ts`. Brand is **dark-only coreCyan** (`#00FFCC` / `#030506` / `#080c0e`). Appearance / light-mode / multi-accent presets were stripped (Tasks 0052–0053); do not reintroduce ThemeToggle or `COLOR_THEMES`.
+**Theme / tokens:** `src/app/globals.css` + `src/store/themeStore.ts`. Product brand is **dark-only coreCyan** (`colorTheme: "coreCyan"`, primary `#00FFCC`, bg `#030506` / panels `#080c0e`). Coral identity and Appearance color-theme presets were removed (Tasks **0052–0053**). Settings **Interface** tab holds functional prefs only — do not reintroduce ThemeToggle, light mode, or `COLOR_THEMES` swatches.
 
 ---
 

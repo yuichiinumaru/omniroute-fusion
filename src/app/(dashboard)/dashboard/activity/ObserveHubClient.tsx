@@ -36,18 +36,34 @@ function ObserveHubContent() {
       <ObserveHubSubnav active={activeSource} />
 
       <Suspense fallback={<CardSkeleton />}>
-        {activeSource === "activity" ? <ActivityFeedClient /> : null}
-        {activeSource === "request" ? (
-          <RequestLogsPanel initialSelectedId={initialRequestId || null} />
-        ) : null}
-        {activeSource === "proxy" ? <ProxyLogger /> : null}
-        {activeSource === "console" ? <ConsoleLogViewer /> : null}
-        {activeSource === "audit" ? <ComplianceTab /> : null}
-        {activeSource === "mcp" ? <McpAuditTab /> : null}
-        {activeSource === "a2a" ? <A2aAuditTab /> : null}
+        {renderObserveSourcePanel(activeSource, initialRequestId)}
       </Suspense>
     </div>
   );
+}
+
+/** Exhaustive panel dispatch — adding an ObserveSource without a panel fails typecheck. */
+function renderObserveSourcePanel(source: ObserveSource, initialRequestId: string) {
+  switch (source) {
+    case "activity":
+      return <ActivityFeedClient />;
+    case "request":
+      return <RequestLogsPanel initialSelectedId={initialRequestId || null} />;
+    case "proxy":
+      return <ProxyLogger />;
+    case "console":
+      return <ConsoleLogViewer />;
+    case "audit":
+      return <ComplianceTab />;
+    case "mcp":
+      return <McpAuditTab />;
+    case "a2a":
+      return <A2aAuditTab />;
+    default: {
+      const _exhaustive: never = source;
+      return _exhaustive;
+    }
+  }
 }
 
 export default function ObserveHubClient() {

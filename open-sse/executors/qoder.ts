@@ -13,6 +13,10 @@ import {
 import { sanitizeQwenThinkingToolChoice } from "../services/qwenThinking.ts";
 import { buildCosyHeadersForValidation, resolveQoderJobToken } from "../services/qoderCli.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import {
+  OutboundUrlGuardError,
+  parseAndValidateNonMetadataUrl,
+} from "@/shared/network/outboundUrlGuard";
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
@@ -191,7 +195,11 @@ export class QoderExecutor extends BaseExecutor {
       endpointUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
     }
 
-    // Check for custom API base via credentials (overrides the default)
+    // Check for custom API base via credentials (overrides the default).
+    // N7 / sibling SSRF: customApiBase/resourceUrl is operator config (not
+    // OAuth-written like Qwen resource_url), but Bearer is attached — reject
+    // cloud-metadata / link-local pivots unconditionally. Private/LAN bases
+    // remain allowed for self-hosted Qoder-compatible endpoints.
     let credentialsApiBase: unknown;
     if (typeof credentials === "object" && credentials !== null) {
       const credsObj = credentials as Record<string, unknown>;
@@ -200,6 +208,29 @@ export class QoderExecutor extends BaseExecutor {
     if (typeof credentialsApiBase === "string" && credentialsApiBase.trim()) {
       let base = credentialsApiBase.trim();
       if (!base.startsWith("http")) base = `https://${base}`;
+      try {
+        parseAndValidateNonMetadataUrl(base);
+      } catch (err) {
+        const msg =
+          err instanceof OutboundUrlGuardError
+            ? err.message
+            : "Invalid Qoder custom API base URL";
+        return {
+          response: new Response(
+            JSON.stringify({
+              error: {
+                message: sanitizeErrorMessage(msg),
+                type: "invalid_request_error",
+                code: "qoder_invalid_api_base",
+              },
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          ),
+          url: base,
+          headers: { "Content-Type": "application/json" },
+          transformedBody: body,
+        };
+      }
       if (!base.endsWith("/v1")) base = base.endsWith("/") ? `${base}v1` : `${base}/v1`;
       endpointUrl = `${base}/chat/completions`;
     }
