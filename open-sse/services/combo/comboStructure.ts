@@ -307,7 +307,25 @@ export function getComboModelsFromData(
 }
 
 /**
- * Validate combo DAG — detect circular references and enforce max depth
+ * Collect nested combo names referenced from a single step/unit entry.
+ * Handles legacy string names, model steps, and explicit combo-ref steps.
+ * Fusion top-level `judge` / `acting` share the same entry shapes as models.
+ */
+function nestedComboNamesFromEntry(
+  entry: unknown,
+  combos: ComboLike[]
+): string[] {
+  const modelName = normalizeModelEntry(entry).model;
+  if (!modelName) return [];
+  // Only recurse when the resolved target names a real combo (not provider/model).
+  return combos.some((c) => c.name === modelName) ? [modelName] : [];
+}
+
+/**
+ * Validate combo DAG — detect circular references and enforce max depth.
+ * Walks `models` plus top-level fusion `judge` / `acting` combo-refs
+ * (Task 0010 residual / Task 0018 hardening — create-time cycle guard).
+ *
  * @param {string} comboName - Name of the combo to validate
  * @param {Array} allCombos - All combos in the system
  * @param {Set} [visited] - Set of already visited combo names (for cycle detection)
@@ -331,15 +349,25 @@ export function validateComboDAG(
 
   const combos = getCombosArray(allCombos);
   const combo = combos.find((c) => c.name === comboName);
-  if (!combo?.models) return;
+  if (!combo) return;
 
-  for (const entry of combo.models) {
-    const modelName = normalizeModelEntry(entry).model;
-    // Check if this model name is itself a combo (not a provider/model pattern)
-    const nestedCombo = combos.find((c) => c.name === modelName);
-    if (nestedCombo) {
-      validateComboDAG(modelName, combos, new Set(visited), depth + 1, maxDepth);
+  const nestedNames = new Set<string>();
+  for (const entry of combo.models || []) {
+    for (const name of nestedComboNamesFromEntry(entry, combos)) {
+      nestedNames.add(name);
     }
+  }
+  // Fusion fields are outside `models` but still nest via handleComboChat.
+  const fusionExtras = [combo.judge, combo.acting];
+  for (const entry of fusionExtras) {
+    if (entry == null) continue;
+    for (const name of nestedComboNamesFromEntry(entry, combos)) {
+      nestedNames.add(name);
+    }
+  }
+
+  for (const nestedName of nestedNames) {
+    validateComboDAG(nestedName, combos, new Set(visited), depth + 1, maxDepth);
   }
 }
 

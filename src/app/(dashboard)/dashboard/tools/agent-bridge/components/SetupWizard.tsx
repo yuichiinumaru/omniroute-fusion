@@ -268,7 +268,7 @@ export function SetupWizard({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors"
+                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 transition-colors"
               >
                 {t("done") || "Done"}
               </button>

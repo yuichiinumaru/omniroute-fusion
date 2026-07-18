@@ -7,7 +7,10 @@
  */
 
 import type { McpToolExtraLike } from "./scopeEnforcement.ts";
-import { getMcpPrincipalFromStore } from "./httpAuthContext.ts";
+import {
+  getMcpPrincipalFromStore,
+  isMcpHttpAuthContextActive,
+} from "./httpAuthContext.ts";
 
 export type PrincipalRole = "tenant" | "admin" | "none";
 
@@ -96,7 +99,17 @@ export function bindApiKeyIdToPrincipal(
     return requestedId ?? principal.clientId ?? undefined;
   }
 
-  // No principal (stdio / unauthenticated path)
+  // No principal (role "none")
+  // HTTP transport residual (0044 N6): never honor caller-chosen apiKeyId without
+  // an authenticated principal — that is cross-tenant IDOR under open-install LAN.
+  // Stdio operators (no HTTP ALS) may still pass apiKeyId explicitly.
+  if (isMcpHttpAuthContextActive()) {
+    if (options.optional) return undefined;
+    throw new Error(
+      "Authentication required: tenant-scoped MCP tools cannot bind apiKeyId without a principal"
+    );
+  }
+
   if (requestedId) return requestedId;
   if (options.optional) return undefined;
   throw new Error("apiKeyId is required when no authenticated principal is bound");

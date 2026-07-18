@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import ProvidersTopBar from "../providers/components/ProvidersTopBar";
 
 interface ProviderModelScore {
   modelId: string;
@@ -88,6 +89,7 @@ export default function FreeProviderRankingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <ProvidersTopBar currentPath="/dashboard/free-provider-rankings" />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -66,10 +66,12 @@ test("cloudCredentialUpdateSchema accepts optional connectionId", () => {
 
 // ─── Route guard membership (F-07-007 / W2-004 / W2-005) ────────────────────
 
-test("ALWAYS_PROTECTED: relay tokens, translator/send, cloud credentials, keys (0049)", () => {
+test("ALWAYS_PROTECTED: relay tokens, translator/send/history, sessions, cloud credentials, keys (0049)", () => {
   assert.equal(isAlwaysProtectedPath("/api/relay/tokens"), true);
   assert.equal(isAlwaysProtectedPath("/api/relay/tokens/abc"), true);
   assert.equal(isAlwaysProtectedPath("/api/translator/send"), true);
+  assert.equal(isAlwaysProtectedPath("/api/translator/history"), true);
+  assert.equal(isAlwaysProtectedPath("/api/sessions"), true);
   assert.equal(isAlwaysProtectedPath("/api/cloud/credentials"), true);
   assert.equal(isAlwaysProtectedPath("/api/cloud/credentials/update"), true);
   assert.equal(isAlwaysProtectedPath("/api/cli-tools/keys"), true);
@@ -244,17 +246,140 @@ test("cli-tools/keys never returns rawKey or full plaintext after 0041", async (
   }
 });
 
-// ─── sessions stretch (F-07-W2-006) ─────────────────────────────────────────
+// ─── translator/history (0049 R1) ───────────────────────────────────────────
 
-test("sessions GET without management auth is rejected when login required", async () => {
-  // requireManagementAuth without always may allow when requireLogin=false;
-  // with a forced session check we only assert the import/handler path accepts Request.
+test("translator/history without management auth → 401 (always)", async () => {
+  const route = await import("../../src/app/api/translator/history/route.ts");
+  const response = await route.GET(new Request("http://localhost/api/translator/history"));
+  assert.equal(response.status, 401);
+});
+
+// ─── sessions stretch (F-07-W2-006 + N3) ────────────────────────────────────
+
+test("sessions GET without management auth → 401 (always / open-install safe)", async () => {
   const route = await import("../../src/app/api/sessions/route.ts");
   const response = await route.GET(new Request("http://localhost/api/sessions"));
-  // Either 401 (auth required) or 200 (auth-disabled install) — must not throw.
-  assert.ok(response.status === 401 || response.status === 200);
-  if (response.status === 200) {
-    const body = await response.json();
-    assert.ok("count" in body || "sessions" in body || "error" in body);
+  assert.equal(response.status, 401);
+});
+
+// ─── open-install matrix (N2): always:true handlers still 401 unauth ────────
+
+test("open-install matrix: primary privileged handlers 401 without credentials", async () => {
+  const cloud = await import("../../src/app/api/cloud/credentials/update/route.ts");
+  const relay = await import("../../src/app/api/relay/tokens/route.ts");
+  const send = await import("../../src/app/api/translator/send/route.ts");
+  const history = await import("../../src/app/api/translator/history/route.ts");
+  const keys = await import("../../src/app/api/cli-tools/keys/route.ts");
+  const sessions = await import("../../src/app/api/sessions/route.ts");
+
+  const unauth = (url: string, method = "GET", body?: string) =>
+    new Request(url, {
+      method,
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body,
+    });
+
+  assert.equal(
+    (
+      await cloud.PUT(
+        unauth(
+          "http://localhost/api/cloud/credentials/update",
+          "PUT",
+          JSON.stringify({ provider: "openai", credentials: { accessToken: "x" } })
+        )
+      )
+    ).status,
+    401
+  );
+  assert.equal((await relay.GET(unauth("http://localhost/api/relay/tokens"))).status, 401);
+  assert.equal(
+    (
+      await send.POST(
+        unauth(
+          "http://localhost/api/translator/send",
+          "POST",
+          JSON.stringify({ provider: "openai", body: { model: "m", messages: [] } })
+        )
+      )
+    ).status,
+    401
+  );
+  assert.equal(
+    (await history.GET(unauth("http://localhost/api/translator/history"))).status,
+    401
+  );
+  assert.equal((await keys.GET(unauth("http://localhost/api/cli-tools/keys"))).status, 401);
+  assert.equal((await sessions.GET(unauth("http://localhost/api/sessions"))).status, 401);
+});
+
+// ─── multi-conn connectionId binding (N1) ───────────────────────────────────
+
+test("cloud credentials multi-conn without connectionId → 400; wrong id → 404", async () => {
+  const providersDb = await import("../../src/lib/db/providers.ts");
+  const cookie = await createAuthCookie();
+  const provider = `openai-0049-multiconn-${Date.now()}`;
+
+  const a = await providersDb.createProviderConnection({
+    provider,
+    authType: "apikey",
+    name: "conn-a",
+    isActive: true,
+    apiKey: "sk-a",
+  });
+  const b = await providersDb.createProviderConnection({
+    provider,
+    authType: "apikey",
+    name: "conn-b",
+    isActive: true,
+    apiKey: "sk-b",
+  });
+
+  try {
+    const route = await import("../../src/app/api/cloud/credentials/update/route.ts");
+
+    const ambiguous = await route.PUT(
+      new Request("http://localhost/api/cloud/credentials/update", {
+        method: "PUT",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify({
+          provider,
+          credentials: { accessToken: "tok" },
+        }),
+      })
+    );
+    assert.equal(ambiguous.status, 400);
+    const ambBody = await ambiguous.json();
+    assert.match(String(ambBody?.error ?? ""), /connectionId|Multiple/i);
+
+    const wrong = await route.PUT(
+      new Request("http://localhost/api/cloud/credentials/update", {
+        method: "PUT",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify({
+          provider,
+          connectionId: "does-not-exist-0049",
+          credentials: { accessToken: "tok" },
+        }),
+      })
+    );
+    assert.equal(wrong.status, 404);
+
+    const ok = await route.PUT(
+      new Request("http://localhost/api/cloud/credentials/update", {
+        method: "PUT",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify({
+          provider,
+          connectionId: a.id,
+          credentials: { accessToken: "tok-ok" },
+        }),
+      })
+    );
+    assert.equal(ok.status, 200);
+    const okBody = await ok.json();
+    assert.equal(okBody.success, true);
+    assert.equal(okBody.connectionId, a.id);
+  } finally {
+    await providersDb.deleteProviderConnectionsByProvider(provider);
   }
 });

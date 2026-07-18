@@ -241,3 +241,88 @@ test("heal mixed: apikey false-positive healed, oauth kept", async () => {
   assert.equal(oauthAfter?.testStatus, "expired");
   assert.equal(oauthAfter?.errorCode, "no_refresh_token");
 });
+
+test("heal restores cookie authType false-positive no_refresh_token", async () => {
+  await resetStorage();
+  const created = (await providersDb.createProviderConnection({
+    provider: "chatgpt-web",
+    authType: "cookie",
+    name: "Heal Cookie Session",
+    refreshToken: null,
+    testStatus: "active",
+    isActive: true,
+    providerSpecificData: { cookie: "session=heal-cookie" },
+  })) as { id: string };
+
+  await providersDb.updateProviderConnection(created.id, {
+    testStatus: "expired",
+    lastError: "No refresh token available — re-authenticate this account.",
+    lastErrorAt: new Date().toISOString(),
+    lastErrorType: "no_refresh_token",
+    lastErrorSource: "oauth",
+    errorCode: "no_refresh_token",
+  });
+
+  const result = await healMod.healFalsePositiveNoRefreshConnections();
+  assert.equal(result.healed, 1);
+
+  const after = await providersDb.getProviderConnectionById(created.id);
+  assert.equal(after?.testStatus, "active");
+  assert.equal(after?.errorCode ?? null, null);
+});
+
+test("heal restores blank authType + apiKey false-positive", async () => {
+  await resetStorage();
+  const created = (await providersDb.createProviderConnection({
+    provider: "gemini",
+    authType: "apikey",
+    name: "Heal Blank AuthType",
+    apiKey: "AQ.heal-blank-auth",
+    refreshToken: null,
+    testStatus: "active",
+    isActive: true,
+  })) as { id: string };
+
+  await providersDb.updateProviderConnection(created.id, {
+    authType: "",
+    testStatus: "expired",
+    lastError: "No refresh token available — re-authenticate this account.",
+    lastErrorAt: new Date().toISOString(),
+    lastErrorType: "no_refresh_token",
+    lastErrorSource: "oauth",
+    errorCode: "no_refresh_token",
+  });
+
+  const result = await healMod.healFalsePositiveNoRefreshConnections();
+  assert.equal(result.healed, 1);
+
+  const after = await providersDb.getProviderConnectionById(created.id);
+  assert.equal(after?.testStatus, "active");
+  assert.notEqual(after?.errorCode, "no_refresh_token");
+});
+
+test("heal does NOT reset banned + no_refresh_token hybrid status", async () => {
+  await resetStorage();
+  const created = (await providersDb.createProviderConnection({
+    provider: "gemini",
+    authType: "apikey",
+    name: "Banned Hybrid",
+    apiKey: "AQ.banned-hybrid",
+    testStatus: "active",
+    isActive: true,
+  })) as { id: string };
+
+  await providersDb.updateProviderConnection(created.id, {
+    testStatus: "banned",
+    errorCode: "no_refresh_token",
+    lastErrorType: "no_refresh_token",
+    lastError: "No refresh token available — re-authenticate this account.",
+  });
+
+  const result = await healMod.healFalsePositiveNoRefreshConnections();
+  assert.equal(result.healed, 0);
+
+  const after = await providersDb.getProviderConnectionById(created.id);
+  assert.equal(after?.testStatus, "banned");
+  assert.equal(after?.errorCode, "no_refresh_token");
+});

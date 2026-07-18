@@ -11,7 +11,7 @@ import {
   countImportedRows,
   unlinkFileWithRetry,
 } from "@/lib/db/backup";
-import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { getSettings } from "@/lib/db/settings";
 import { setSystemPromptConfig } from "@omniroute/open-sse/services/systemPrompt.ts";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
@@ -50,14 +50,12 @@ const REQUIRED_TABLES = ["provider_connections", "provider_nodes", "combos", "ap
  * Accepts multipart/form-data with a single "file" field containing the .sqlite backup.
  * Validates integrity, schema, and required tables before replacing the active database.
  *
- * 🔒 Auth-guarded: requires JWT cookie or Bearer API key (finding #258-3).
+ * 🔒 ALWAYS_PROTECTED dual-layer: requireManagementAuth({ always: true }) so
+ * open installs cannot replace the DB anonymously (Task 0040 N2 / F-07-004).
  */
 export async function POST(request: Request) {
-  if (await isAuthRequired(request)) {
-    if (!(await isAuthenticated(request))) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
   let tmpPath: string | null = null;
 
   try {

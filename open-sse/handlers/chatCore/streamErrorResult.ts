@@ -35,10 +35,12 @@ export function createStreamingErrorResult(
 
   const body = `data: ${JSON.stringify(errorBody)}\n\ndata: [DONE]\n\n`;
 
+  // Mirror createErrorResult: envelope `.error` must be the sanitized message
+  // (Hard Rule #12) — callers that surface result.error must not see raw stacks.
   return {
     success: false as const,
     status: statusCode,
-    error: message,
+    error: errorBody.error.message,
     response: new Response(body, {
       status: statusCode,
       headers: {

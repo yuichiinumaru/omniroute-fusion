@@ -135,4 +135,37 @@ test("ProviderLimits source no longer hard-codes OAuth re-auth suffix", () => {
     "hard-coded OAuth suffix must be removed from ProviderLimits"
   );
   assert.match(src, /formatQuotaAuthErrorMessage/, "must use auth-mode-aware helper");
+  // Task 0039 N1: surface translated CTA next-action on 401 row.
+  assert.match(src, /copy\.keys\.cta/);
+});
+
+test("translateUsageOrFallback strips __MISSING__ and falls back on key miss (Task 0039 N2)", async () => {
+  const { translateUsageOrFallback } = await import(
+    "../../src/app/(dashboard)/dashboard/usage/components/ProviderLimits/i18nFallback.ts"
+  );
+
+  // Hit
+  const hit = translateUsageOrFallback(
+    ((key: string) => (key === "ok" ? "OK" : key)) as never,
+    "ok",
+    "fallback"
+  );
+  assert.equal(hit, "OK");
+
+  // Miss via .has()
+  const missHas = translateUsageOrFallback(
+    Object.assign((key: string) => key, { has: () => false }) as never,
+    "missing.key",
+    "fallback-en"
+  );
+  assert.equal(missHas, "fallback-en");
+
+  // __MISSING__: sentinel → stripped EN body (never show sentinel)
+  const stripped = translateUsageOrFallback(
+    ((key: string) => `__MISSING__:English body for ${key}`) as never,
+    "connectionStatus.apikey_invalid_key.detail",
+    "fallback-en"
+  );
+  assert.equal(stripped, "English body for connectionStatus.apikey_invalid_key.detail");
+  assert.doesNotMatch(stripped, /__MISSING__/);
 });

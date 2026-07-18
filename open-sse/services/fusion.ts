@@ -256,6 +256,21 @@ export type ResolvedFusionUnit =
   | { kind: "combo-ref"; comboName: string; label?: string };
 
 /**
+ * Parent combo options that nested combo-ref panels/judge/acting must inherit
+ * (settings, availability probe, relay, abort signal, API-key connection ACL).
+ * Mirrors runtimeUnits.executeComboRefUnit baseOptions spread for nested
+ * handleComboChat (Task 0012 F1 / Task 0013 F1 path-to-100).
+ */
+export type FusionComboChatBase = Pick<
+  HandleComboChatOptions,
+  | "settings"
+  | "isModelAvailable"
+  | "relayOptions"
+  | "signal"
+  | "apiKeyAllowedConnections"
+>;
+
+/**
  * V2 fusion options: panels + judge as ResolvedFusionUnit (model | combo-ref).
  * Live runtime API for multi-unit dispatch (Task 0012). Legacy string callers
  * continue through handleFusionChat → handleFusionChatV2.
@@ -277,10 +292,23 @@ export type HandleFusionChatOptionsV2 = {
   handleComboChat?: (opts: HandleComboChatOptions) => Promise<Response>;
   allCombos?: ComboCollectionLike;
   nesting?: ComboNestingContext | null;
+  /**
+   * Optional nested combo base options. When a panel/judge/acting unit is a
+   * combo-ref, these fields are spread into handleComboChat so child combos
+   * keep the parent's policy/ACL/abort context (parity with executeComboRefUnit).
+   */
+  comboChatBase?: FusionComboChatBase | null;
   log: ComboLogger;
   comboName?: string;
   tuning?: FusionTuning;
 };
+
+/**
+ * Sentinel judge when panels are empty and no explicit judge is configured.
+ * Dispatch rejects empty panels with 400 before using this unit; raw resolve
+ * callers should treat model:"" as "no usable judge".
+ */
+export const EMPTY_FUSION_JUDGE: ResolvedFusionUnit = { kind: "model", model: "" };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -357,8 +385,18 @@ async function dispatchFusionUnit(args: {
   allCombos?: ComboCollectionLike;
   nesting: ComboNestingContext;
   log: ComboLogger;
+  comboChatBase?: FusionComboChatBase | null;
 }): Promise<Response> {
-  const { body, unit, handleSingleModel, handleComboChat, allCombos, nesting, log } = args;
+  const {
+    body,
+    unit,
+    handleSingleModel,
+    handleComboChat,
+    allCombos,
+    nesting,
+    log,
+    comboChatBase,
+  } = args;
 
   if (unit.kind === "model") {
     return handleSingleModel(body, unit.model);
@@ -386,7 +424,9 @@ async function dispatchFusionUnit(args: {
     `Dispatching combo-ref unit combo:${unit.comboName} depth=${childNesting.depth}`
   );
 
+  // Spread parent base options first so body/combo/nesting below always win.
   return handleComboChat({
+    ...(comboChatBase ?? {}),
     body,
     combo: childCombo,
     handleSingleModel,
@@ -446,7 +486,7 @@ function resolveJudgeUnit(
 
   if (panels.length > 0) return panels[0];
   // Empty panel + no explicit judge: typed placeholder; dispatch rejects empty panels.
-  return { kind: "model", model: "" };
+  return EMPTY_FUSION_JUDGE;
 }
 
 /**
@@ -535,6 +575,7 @@ async function finalizeWithActing(args: {
   allCombos?: ComboCollectionLike;
   nesting: ComboNestingContext;
   log: ComboLogger;
+  comboChatBase?: FusionComboChatBase | null;
 }): Promise<Response> {
   if (!args.acting) {
     return args.finalWithoutActing();
@@ -555,6 +596,7 @@ async function finalizeWithActing(args: {
     allCombos: args.allCombos,
     nesting: args.nesting,
     log: args.log,
+    comboChatBase: args.comboChatBase,
   });
 }
 
@@ -567,6 +609,7 @@ export async function handleFusionChatV2({
   handleComboChat,
   allCombos,
   nesting,
+  comboChatBase = null,
   log,
   comboName,
   tuning,
@@ -601,6 +644,7 @@ export async function handleFusionChatV2({
         allCombos,
         nesting: nestingCtx,
         log,
+        comboChatBase,
       });
     }
     // Collect the single panel answer as review context, then hand to acting.
@@ -612,6 +656,7 @@ export async function handleFusionChatV2({
       allCombos,
       nesting: nestingCtx,
       log,
+      comboChatBase,
     });
     let reviewText = "";
     if (singleRes.ok) {
@@ -635,12 +680,14 @@ export async function handleFusionChatV2({
           allCombos,
           nesting: nestingCtx,
           log,
+          comboChatBase,
         }),
       handleSingleModel,
       handleComboChat,
       allCombos,
       nesting: nestingCtx,
       log,
+      comboChatBase,
     });
   }
 
@@ -682,6 +729,7 @@ export async function handleFusionChatV2({
         allCombos,
         nesting: nestingCtx,
         log,
+        comboChatBase,
       }),
       cfg.panelHardTimeoutMs
     )
@@ -754,12 +802,14 @@ export async function handleFusionChatV2({
           allCombos,
           nesting: nestingCtx,
           log,
+          comboChatBase,
         }),
       handleSingleModel,
       handleComboChat,
       allCombos,
       nesting: nestingCtx,
       log,
+      comboChatBase,
     });
   }
 
@@ -781,6 +831,7 @@ export async function handleFusionChatV2({
       allCombos,
       nesting: nestingCtx,
       log,
+      comboChatBase,
     });
     let reviewText = "";
     if (judgeRes.ok) {
@@ -809,6 +860,7 @@ export async function handleFusionChatV2({
       allCombos,
       nesting: nestingCtx,
       log,
+      comboChatBase,
     });
   }
 
@@ -823,6 +875,7 @@ export async function handleFusionChatV2({
     allCombos,
     nesting: nestingCtx,
     log,
+    comboChatBase,
   });
 }
 

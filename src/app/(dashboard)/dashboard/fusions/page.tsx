@@ -2,7 +2,7 @@
 
 // Fusions list shell (Task 0015). Full editor is Task 0016.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@/shared/components/Button";
@@ -11,8 +11,7 @@ import EmptyState from "@/shared/components/EmptyState";
 import { CardSkeleton } from "@/shared/components/Loading";
 import { useNotificationStore } from "@/store/notificationStore";
 import RoutingHubSubnav from "@/shared/components/RoutingHubSubnav";
-
-const FUSION_STRATEGIES = new Set(["fusion", "conditional-fusion"]);
+import { filterFusionCombos } from "./fusionEditorTypes";
 
 type FusionCombo = {
   id: string;
@@ -24,10 +23,6 @@ type FusionCombo = {
 };
 
 type FeedbackState = { type: "success" | "error"; message: string } | null;
-
-function isFusionStrategy(strategy: unknown): boolean {
-  return typeof strategy === "string" && FUSION_STRATEGIES.has(strategy);
-}
 
 function panelCount(combo: FusionCombo): number {
   return Array.isArray(combo.models) ? combo.models.length : 0;
@@ -69,7 +64,7 @@ export default function FusionsPage() {
         );
       }
       const all = Array.isArray(data.combos) ? (data.combos as FusionCombo[]) : [];
-      setCombos(all.filter((c) => !c.isHidden && isFusionStrategy(c.strategy)));
+      setCombos(filterFusionCombos(all));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load fusions";
       setFeedback({ type: "error", message });
@@ -90,6 +85,17 @@ export default function FusionsPage() {
 
   const handleCreate = () => {
     router.push("/dashboard/fusions/new");
+  };
+
+  const openFusion = (id: string) => {
+    router.push(`/dashboard/fusions/${id}`);
+  };
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, id: string) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openFusion(id);
+    }
   };
 
   const handleDelete = async (combo: FusionCombo) => {
@@ -171,7 +177,11 @@ export default function FusionsPage() {
                 hover
                 padding="md"
                 className="flex flex-col gap-4"
-                onClick={() => router.push(`/dashboard/fusions/${combo.id}`)}
+                role="link"
+                tabIndex={0}
+                aria-label={`Edit fusion ${combo.name}`}
+                onClick={() => openFusion(combo.id)}
+                onKeyDown={(event) => handleCardKeyDown(event, combo.id)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

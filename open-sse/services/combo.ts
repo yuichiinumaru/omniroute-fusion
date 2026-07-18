@@ -896,6 +896,16 @@ export async function handleComboChat({
    * and hands off to handleFusionChatV2 with the recursive handleComboChat entry
    * point so nested combos reuse normal combo failover.
    */
+  // Nested combo-ref panels/judge/acting inherit parent policy/ACL/abort.
+  // Spread into handleFusionChatV2 so dispatchFusionUnit matches executeComboRefUnit.
+  const fusionComboChatBase = {
+    settings,
+    isModelAvailable,
+    relayOptions,
+    signal,
+    apiKeyAllowedConnections,
+  };
+
   const dispatchFusionStrategy = (): Promise<Response> => {
     const { panels, judge, acting } = resolveFusionUnits(combo, allCombos);
     const cfg = config as Record<string, unknown>;
@@ -912,6 +922,7 @@ export async function handleComboChat({
       handleComboChat,
       allCombos,
       nesting: nestingContext,
+      comboChatBase: fusionComboChatBase,
       log,
       comboName: combo.name,
       tuning,
@@ -943,6 +954,7 @@ export async function handleComboChat({
       handleComboChat,
       allCombos,
       nesting: nestingContext,
+      comboChatBase: fusionComboChatBase,
       log,
       comboName: combo.name,
     });

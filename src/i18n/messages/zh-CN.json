@@ -1487,7 +1487,8 @@
     "settingsAdvancedDescription": "高级负载规则、请求限制和代理 API 设置",
     "mitmProxyDescription": "配置 MITM 代理设置以进行流量检查和调试",
     "oneProxyDescription": "配置 1Proxy 设置以实现高级代理链",
-    "omniSkillsDescription": "安装和管理用于自动提示和工具执行的沙箱技能"
+    "omniSkillsDescription": "安装和管理用于自动提示和工具执行的沙箱技能",
+    "operationsDescription": "API keys, endpoints, agents, webhooks, memory, and skills"
   },
   "home": {
     "quickStart": "快速入门",
@@ -1828,7 +1829,12 @@
     "normalKeysSection": "普通键",
     "quotaKeysSection": "配额密钥",
     "quotaPill": "配额",
-    "quotaModeOnly": "仅配额"
+    "quotaModeOnly": "仅配额",
+    "usdUsageQuota": "USD usage quota",
+    "usdUsageQuotaDesc": "Blocks this key with a 400 API error after its local USD spend reaches the configured daily or weekly quota.",
+    "dailyQuotaUsd": "Daily quota (USD)",
+    "weeklyQuotaUsd": "Weekly quota (USD)",
+    "usageQuotaWindowHint": "Weekly quota follows the cached Claude weekly reset when available; otherwise it falls back to a rolling 7 day window. Daily quota uses the Fortaleza calendar day."
   },
   "auditLog": {
     "title": "审核日志",

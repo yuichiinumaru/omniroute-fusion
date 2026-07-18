@@ -4,11 +4,18 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PageTabBar, { writeTabSearchParam } from "@/shared/components/PageTabBar";
 
+(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
 describe("PageTabBar", () => {
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -102,6 +109,118 @@ describe("PageTabBar", () => {
 
     expect(onChange).toHaveBeenCalledWith("overview");
     expect(new URL(window.location.href).searchParams.has("tab")).toBe(false);
+  });
+
+  it("drops deleteParams extras in the same replaceState as tab write", () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/dashboard/analytics?tab=route-trace&id=req-1"
+    );
+    const onChange = vi.fn();
+    act(() => {
+      root.render(
+        <PageTabBar
+          options={[
+            { value: "overview", label: "Overview" },
+            { value: "route-trace", label: "Route Trace" },
+            { value: "evals", label: "Evals" },
+          ]}
+          value="route-trace"
+          onChange={onChange}
+          syncSearchParam="tab"
+          defaultValue="overview"
+          deleteParams={(next) => (next === "route-trace" ? [] : ["id"])}
+        />
+      );
+    });
+
+    const tabs = container.querySelectorAll('[role="tab"]');
+    act(() => {
+      (tabs[2] as HTMLButtonElement).click();
+    });
+
+    expect(onChange).toHaveBeenCalledWith("evals");
+    const url = new URL(window.location.href);
+    expect(url.searchParams.get("tab")).toBe("evals");
+    expect(url.searchParams.has("id")).toBe(false);
+  });
+
+  it("moves selection with ArrowRight / Home / End on the tablist", () => {
+    const onChange = vi.fn();
+    act(() => {
+      root.render(
+        <PageTabBar
+          options={[
+            { value: "overview", label: "Overview" },
+            { value: "evals", label: "Evals" },
+            { value: "search", label: "Search" },
+          ]}
+          value="overview"
+          onChange={onChange}
+          syncSearchParam={false}
+          aria-label="Analytics sections"
+        />
+      );
+    });
+
+    const tablist = container.querySelector('[role="tablist"]') as HTMLElement;
+    const tabs = container.querySelectorAll('[role="tab"]');
+    expect(tabs[0]?.getAttribute("tabindex")).toBe("0");
+
+    act(() => {
+      tablist.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })
+      );
+    });
+    expect(onChange).toHaveBeenCalledWith("evals");
+
+    onChange.mockClear();
+    // Re-render selected=evals for further nav (controlled)
+    act(() => {
+      root.render(
+        <PageTabBar
+          options={[
+            { value: "overview", label: "Overview" },
+            { value: "evals", label: "Evals" },
+            { value: "search", label: "Search" },
+          ]}
+          value="evals"
+          onChange={onChange}
+          syncSearchParam={false}
+        />
+      );
+    });
+
+    act(() => {
+      (container.querySelector('[role="tablist"]') as HTMLElement).dispatchEvent(
+        new KeyboardEvent("keydown", { key: "End", bubbles: true })
+      );
+    });
+    expect(onChange).toHaveBeenCalledWith("search");
+
+    onChange.mockClear();
+    act(() => {
+      root.render(
+        <PageTabBar
+          options={[
+            { value: "overview", label: "Overview" },
+            { value: "evals", label: "Evals" },
+            { value: "search", label: "Search" },
+          ]}
+          value="search"
+          onChange={onChange}
+          syncSearchParam={false}
+        />
+      );
+    });
+
+    act(() => {
+      (container.querySelector('[role="tablist"]') as HTMLElement).dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Home", bubbles: true })
+      );
+    });
+    expect(onChange).toHaveBeenCalledWith("overview");
   });
 });
 

@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import { getDbInstance, SQLITE_FILE } from "@/lib/db/core";
-import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 /**
@@ -12,14 +12,12 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
  * Uses SQLite's native backup API to create a consistent snapshot,
  * then streams it as a downloadable attachment.
  *
- * 🔒 Auth-guarded: requires JWT cookie or Bearer API key (finding #258-2).
+ * 🔒 ALWAYS_PROTECTED dual-layer: requireManagementAuth({ always: true }) so
+ * open installs (requireLogin=false) cannot dump credentials (Task 0040 N2 / F-07-004).
  */
 export async function GET(request: Request) {
-  if (await isAuthRequired(request)) {
-    if (!(await isAuthenticated(request))) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
   try {
     if (!SQLITE_FILE || !fs.existsSync(SQLITE_FILE)) {
       return NextResponse.json({ error: "Database file not found" }, { status: 404 });

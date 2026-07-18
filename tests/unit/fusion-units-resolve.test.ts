@@ -5,7 +5,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { resolveFusionUnits } = await import("../../open-sse/services/fusion.ts");
+const { resolveFusionUnits, EMPTY_FUSION_JUDGE } = await import(
+  "../../open-sse/services/fusion.ts"
+);
 
 // ─── Legacy string panels ──────────────────────────────────────────────────
 
@@ -217,4 +219,37 @@ test("resolveFusionUnits: labels on model and combo-ref are preserved", () => {
     label: "Pool X",
   });
   assert.deepEqual(judge, { kind: "model", model: "j/m", label: "Judge L" });
+});
+
+// ─── Path-to-100: EMPTY_FUSION_JUDGE + invalid judge fallthrough ───────────
+
+test("resolveFusionUnits: empty panels use EMPTY_FUSION_JUDGE sentinel", () => {
+  const { panels, judge } = resolveFusionUnits({
+    name: "empty-sentinel",
+    models: [],
+  });
+  assert.deepEqual(panels, []);
+  assert.deepEqual(judge, EMPTY_FUSION_JUDGE);
+  assert.equal(EMPTY_FUSION_JUDGE.kind, "model");
+  assert.equal(EMPTY_FUSION_JUDGE.kind === "model" ? EMPTY_FUSION_JUDGE.model : "x", "");
+});
+
+test("resolveFusionUnits: invalid data.judge falls through to judgeModel then first panel", () => {
+  // Unnormalizable judge object is skipped → config.judgeModel wins.
+  const viaJudgeModel = resolveFusionUnits({
+    name: "invalid-judge-to-model",
+    models: ["panel/a", "panel/b"],
+    judge: { kind: "combo-ref" }, // missing comboName → normalizeComboStep fails
+    config: { judgeModel: "cfg/judge" },
+  });
+  assert.deepEqual(viaJudgeModel.judge, { kind: "model", model: "cfg/judge" });
+
+  // Invalid judge + blank judgeModel → first panel.
+  const viaFirstPanel = resolveFusionUnits({
+    name: "invalid-judge-to-panel",
+    models: ["panel/first", "panel/second"],
+    judge: { foo: "bar" },
+    config: { judgeModel: "   " },
+  });
+  assert.deepEqual(viaFirstPanel.judge, { kind: "model", model: "panel/first" });
 });

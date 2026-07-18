@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import { getTranslationEvents } from "@/lib/translatorEvents";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 
 /**
  * GET /api/translator/history
  * Returns recent translation events for the Live Monitor.
+ *
+ * Security (Task 0049 path-to-100 / R1): always require management auth.
+ * Events carry routing recon (provider, model, connectionId, comboName,
+ * endpoint) — must not be public on open-install (`requireLogin=false`).
  */
+export async function GET(request: Request) {
+  const authError = await requireManagementAuth(request, { always: true });
+  if (authError) return authError;
 
-export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get("limit");

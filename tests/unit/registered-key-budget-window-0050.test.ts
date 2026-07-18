@@ -147,3 +147,49 @@ test("F-05-004: still-exhausted same day remains denied", () => {
   registeredKeys.incrementRegisteredKeyUsage(issued.id);
   assert.equal(registeredKeys.validateRegisteredKey(issued.rawKey), null);
 });
+
+// ── Path-to-100 R1: production wiring (auth + policy) ───────────────────────
+
+test("R1: isValidApiKey accepts live registered key and rejects exhausted", async () => {
+  const { isValidApiKey } = await import("../../src/sse/services/auth.ts");
+  const issued = registeredKeys.issueRegisteredKey({
+    name: "Auth wire",
+    dailyBudget: 1,
+    hourlyBudget: 100,
+  });
+  assert.ok("rawKey" in issued && !("idempotencyConflict" in issued));
+
+  assert.equal(await isValidApiKey(issued.rawKey), true);
+
+  registeredKeys.incrementRegisteredKeyUsage(issued.id);
+  assert.equal(await isValidApiKey(issued.rawKey), false);
+});
+
+test("R1: enforceApiKeyPolicy validates budget and increments registered key usage", async () => {
+  const policy = await import("../../src/shared/utils/apiKeyPolicy.ts");
+  const issued = registeredKeys.issueRegisteredKey({
+    name: "Policy wire",
+    dailyBudget: 2,
+    hourlyBudget: 100,
+  });
+  assert.ok("rawKey" in issued && !("idempotencyConflict" in issued));
+
+  const makeRequest = (rawKey: string) =>
+    new Request("http://localhost/v1/chat/completions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${rawKey}`, "content-type": "application/json" },
+    });
+
+  const first = await policy.enforceApiKeyPolicy(makeRequest(issued.rawKey), "gpt-4o");
+  assert.equal(first.rejection, null);
+  assert.ok(first.apiKeyInfo?.id === issued.id);
+  assert.equal(registeredKeys.getRegisteredKey(issued.id)?.dailyUsed, 1);
+
+  const second = await policy.enforceApiKeyPolicy(makeRequest(issued.rawKey), "gpt-4o");
+  assert.equal(second.rejection, null);
+  assert.equal(registeredKeys.getRegisteredKey(issued.id)?.dailyUsed, 2);
+
+  const third = await policy.enforceApiKeyPolicy(makeRequest(issued.rawKey), "gpt-4o");
+  assert.ok(third.rejection, "budget exhausted must reject");
+  assert.equal(third.rejection?.status, 429);
+});

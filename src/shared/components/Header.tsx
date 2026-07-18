@@ -193,7 +193,7 @@ const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<{
       p === "/dashboard/tools/agent-bridge" || p.startsWith("/dashboard/tools/agent-bridge/"),
     titleKey: "agentBridge",
     titleFallback: "Agent Bridge",
-    descKey: "agentsDescription",
+    descKey: "agentBridgeDescription",
     icon: "link",
   },
   {
@@ -209,7 +209,7 @@ const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<{
       p.startsWith("/dashboard/tools/traffic-inspector/"),
     titleKey: "trafficInspector",
     titleFallback: "Traffic Inspector",
-    descKey: "cliToolsDescription",
+    descKey: "trafficInspectorDescription",
     icon: "network_check",
   },
   {

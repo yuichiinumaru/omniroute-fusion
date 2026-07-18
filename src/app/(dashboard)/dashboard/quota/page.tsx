@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { CardSkeleton } from "@/shared/components";
 import ProviderLimits from "../usage/components/ProviderLimits";
+import ProvidersTopBar from "../providers/components/ProvidersTopBar";
 
 export default function QuotaPage() {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
@@ -11,7 +12,7 @@ export default function QuotaPage() {
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : {}))
-      .then((data) => {
+      .then((data: any) => {
         if (typeof data.autoRefreshProviderQuota === "boolean") {
           setAutoRefreshEnabled(data.autoRefreshProviderQuota);
         }
@@ -26,6 +27,7 @@ export default function QuotaPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <ProvidersTopBar currentPath="/dashboard/quota" />
       <Suspense fallback={<CardSkeleton />}>
         <ProviderLimits autoRefreshInterval={autoRefreshEnabled ? autoRefreshInterval : 0} />
       </Suspense>

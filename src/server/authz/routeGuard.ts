@@ -65,10 +65,20 @@ export const LOCAL_ONLY_API_PREFIXES: ReadonlyArray<string> = [
  *     (a child process) to drive a web-cookie login. Loopback enforcement must
  *     happen unconditionally before any auth check (Hard Rules #15 + #17), so a
  *     leaked JWT via tunnel cannot trigger a browser spawn.
+ *
+ * Also listed in `SPAWN_CAPABLE_PATTERNS` so F-04-005 always-auth applies under
+ * LAN + `requireLogin=false` (Task 0040 path-to-100 N1).
  */
-export const LOCAL_ONLY_API_PATTERNS: ReadonlyArray<RegExp> = [
-  /^\/api\/providers\/[^/]+\/login\/?$/,
-];
+const PROVIDER_LOGIN_SPAWN_PATTERN = /^\/api\/providers\/[^/]+\/login\/?$/;
+
+export const LOCAL_ONLY_API_PATTERNS: ReadonlyArray<RegExp> = [PROVIDER_LOGIN_SPAWN_PATTERN];
+
+/**
+ * Spawn-capable paths that cannot be expressed as flat prefixes without
+ * over-broadening a legitimate remote CRUD tree. Matched by `isSpawnCapablePath`.
+ * Hard Rules #15 + #17 / F-04-005.
+ */
+export const SPAWN_CAPABLE_PATTERNS: ReadonlyArray<RegExp> = [PROVIDER_LOGIN_SPAWN_PATTERN];
 
 // `SPAWN_CAPABLE_PREFIXES` (the spawn-capable deny-list) now lives in the
 // server-free leaf module `@/shared/constants/spawnCapablePrefixes` so that
@@ -101,8 +111,10 @@ export const ALWAYS_PROTECTED_API_PATHS: ReadonlyArray<string> = [
   // Task 0049 — privileged mutators / secret mint must never honor requireLogin=false.
   "/api/relay/tokens", // mint + list relay secrets (F-07-007)
   "/api/translator/send", // spends operator provider credentials (F-07-W2-004)
+  "/api/translator/history", // routing recon (provider/model/connectionId) — dual-auth R1
   "/api/cloud/credentials", // overwrite provider OAuth tokens (F-07-006)
   "/api/cli-tools/keys", // key inventory / residual reveal surface (F-07-W2-005)
+  "/api/sessions", // live session map recon — open-install dual-auth (F-07-W2-006 stretch)
 ];
 
 export function isLoopbackHost(hostHeader: string | null): boolean {
@@ -235,6 +247,9 @@ export function isLocalOnlyPath(path: string, method?: string): boolean {
 export function isLocalOnlyBypassableByManageScope(path: string): boolean {
   const snapshot = getAuthzBypassSnapshot();
   if (!snapshot.enabled) return false;
+  // Spawn-capable destinations (prefix + regex) are never manage-scope bypassable,
+  // even when a parent prefix like `/api/providers/` is opted into the bypass list.
+  if (isSpawnCapablePath(path)) return false;
   return snapshot.prefixes.some((p) => {
     // Defence-in-depth: reject a bypass prefix that is the same as, child of,
     // OR PARENT of any spawn-capable prefix. The parent case catches e.g.
@@ -269,12 +284,15 @@ export function isAlwaysProtectedPath(path: string): boolean {
 }
 
 /**
- * True when `path` matches a spawn-capable / process-RCE prefix.
+ * True when `path` matches a spawn-capable / process-RCE prefix or pattern.
  * Used by:
  *   - manage-scope bypass deny-list (via isLocalOnlyBypassableByManageScope)
  *   - F-04-005: always require auth even when requireLogin=false
  *   - openapi/try proxy denylist (loopback re-entry prevention)
  */
 export function isSpawnCapablePath(path: string): boolean {
-  return SPAWN_CAPABLE_PREFIXES.some((p) => pathMatchesGuardPrefix(path, p));
+  return (
+    SPAWN_CAPABLE_PREFIXES.some((p) => pathMatchesGuardPrefix(path, p)) ||
+    SPAWN_CAPABLE_PATTERNS.some((re) => re.test(path))
+  );
 }

@@ -66,4 +66,46 @@ describe("provider connections UI regression", () => {
       /\{perKeyProxyEnabled \? t\("perKeyProxyOn"\) : t\("perKeyProxyOff"\)\}/
     );
   });
+
+  it("fails if Providers selected controls/topbar use 'bg-primary text-white' for active states", () => {
+    const parentDir = path.resolve(__dirname, "../../");
+    const topBarSrc = readFileSync(
+      path.join(parentDir, "src/app/(dashboard)/dashboard/providers/components/ProvidersTopBar.tsx"),
+      "utf-8"
+    );
+    const summaryCardSrc = readFileSync(
+      path.join(parentDir, "src/app/(dashboard)/dashboard/providers/components/ProviderSummaryCard.tsx"),
+      "utf-8"
+    );
+    const connectionsPanelSrc = readFileSync(
+      path.join(parentDir, "src/app/(dashboard)/dashboard/providers/[id]/components/ConnectionsListPanel.tsx"),
+      "utf-8"
+    );
+
+    // Active state model should not be bg-primary text-white
+    assert.doesNotMatch(topBarSrc, /bg-primary text-white/);
+    assert.doesNotMatch(summaryCardSrc, /bg-primary text-white/);
+    assert.doesNotMatch(connectionsPanelSrc, /bg-primary text-white/);
+  });
+
+  it("asserts peer provider pages mount or import/use the ProvidersTopBar contract", () => {
+    const parentDir = path.resolve(__dirname, "../../");
+    const peerPagePaths = [
+      "src/app/(dashboard)/dashboard/providers/page.tsx",
+      "src/app/(dashboard)/dashboard/providers/services/page.tsx",
+      "src/app/(dashboard)/dashboard/provider-stats/page.tsx",
+      "src/app/(dashboard)/dashboard/quota/page.tsx",
+      "src/app/(dashboard)/dashboard/free-provider-rankings/page.tsx",
+      "src/app/(dashboard)/dashboard/free-tiers/page.tsx",
+      "src/app/(dashboard)/dashboard/runtime/RuntimePageClient.tsx",
+    ];
+
+    for (const relPath of peerPagePaths) {
+      const content = readFileSync(path.join(parentDir, relPath), "utf-8");
+      assert.ok(
+        content.includes("ProvidersTopBar"),
+        `Expected ${relPath} to import or use ProvidersTopBar`
+      );
+    }
+  });
 });

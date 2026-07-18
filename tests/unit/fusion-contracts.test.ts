@@ -291,7 +291,68 @@ test("fusion.ts exports ResolvedFusionUnit and HandleFusionChatOptionsV2 types",
     },
     comboName: "fusion-demo",
     tuning: { minPanel: 2 },
+    comboChatBase: {
+      settings: { maxComboDepth: 3 },
+      signal: null,
+      apiKeyAllowedConnections: ["c1"],
+    },
   };
   assert.equal(optsV2.panels.length, 2);
   assert.equal(optsV2.judge.kind, "model");
+  assert.deepEqual(optsV2.comboChatBase?.apiKeyAllowedConnections, ["c1"]);
+});
+
+// ─── schema → resolveFusionUnits round-trip (path-to-100) ──────────────────
+
+test("createComboSchema.safeParse → resolveFusionUnits preserves judge/panels/triggers", () => {
+  const parsed = createComboSchema.safeParse({
+    name: "round-trip-fusion",
+    strategy: "conditional-fusion",
+    models: [
+      "p/a",
+      { kind: "model", model: "p/b", label: "B" },
+      { kind: "combo-ref", comboName: "pool-1", label: "Pool" },
+    ],
+    judge: { kind: "combo-ref", comboName: "judge-pool", label: "J" },
+    config: {
+      fallbackStrategy: "priority",
+      triggers: {
+        mode: "text-match",
+        textPatterns: ["security"],
+      },
+      fusionTuning: { minPanel: 2 },
+    },
+  });
+  assert.equal(parsed.success, true, JSON.stringify(parsed));
+  if (!parsed.success) return;
+
+  const allCombos = [
+    { name: "pool-1", models: ["inner/a"] },
+    { name: "judge-pool", models: ["j/1"] },
+  ];
+  const { panels, judge } = fusionMod.resolveFusionUnits(
+    {
+      name: parsed.data.name,
+      models: parsed.data.models,
+      judge: parsed.data.judge,
+      config: parsed.data.config,
+    },
+    allCombos
+  );
+
+  assert.equal(panels.length, 3);
+  assert.deepEqual(panels[0], { kind: "model", model: "p/a" });
+  assert.deepEqual(panels[1], { kind: "model", model: "p/b", label: "B" });
+  assert.deepEqual(panels[2], {
+    kind: "combo-ref",
+    comboName: "pool-1",
+    label: "Pool",
+  });
+  assert.deepEqual(judge, {
+    kind: "combo-ref",
+    comboName: "judge-pool",
+    label: "J",
+  });
+  assert.equal(parsed.data.config?.triggers?.mode, "text-match");
+  assert.deepEqual(parsed.data.config?.triggers?.textPatterns, ["security"]);
 });

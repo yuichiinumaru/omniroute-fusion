@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/db/providers";
 import { getAccessToken, updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { rotationGroupFor } from "@omniroute/open-sse/services/refreshSerializer.ts";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import {
   connectionUsesOAuthRefresh,
   isLongLivedImportCredential,
@@ -157,9 +158,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     });
   } catch (error) {
     console.error("[T12] Token refresh failed:", error);
-    return NextResponse.json(
-      { error: "Token refresh failed", details: (error as Error).message },
-      { status: 500 }
-    );
+    // Hard Rule #12: never return raw err.message / stacks to clients.
+    const safe = sanitizeErrorMessage(error) || "Token refresh failed";
+    return NextResponse.json({ error: safe }, { status: 500 });
   }
 }

@@ -32,7 +32,7 @@ const updateHookSchema = z
  * GET /api/middleware/hooks/[name] — Get a single hook details
  */
 export async function GET(request: Request, { params }: RouteParams) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
 
   try {
@@ -64,7 +64,7 @@ export async function GET(request: Request, { params }: RouteParams) {
  * Body: { description?, priority?, scope?, enabled?, code? }
  */
 export async function PUT(request: Request, { params }: RouteParams) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
 
   try {
@@ -113,7 +113,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
  * DELETE /api/middleware/hooks/[name] — Delete a hook
  */
 export async function DELETE(request: Request, { params }: RouteParams) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
 
   try {

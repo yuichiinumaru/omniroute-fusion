@@ -281,8 +281,10 @@ describe("API Routes — dashboard and tool consumers", () => {
 
     assert.ok(requestLogger, "RequestLoggerV2 should exist");
     assert.ok(globals, "globals.css should exist");
-    assert.match(globals, /--color-card:\s+#ffffff/);
-    assert.match(globals, /--color-card:\s+#161b22/);
+    // Task 0052 — dark-only VR tokens (obsidian panel card); no light dual-theme card.
+    assert.match(globals, /--color-card:\s+#080c0e/);
+    assert.doesNotMatch(globals, /--color-card:\s+#ffffff/);
+    assert.doesNotMatch(globals, /--color-card:\s+#161b22/);
     assert.match(globals, /--color-card:\s+var\(--color-card\)/);
     // #4233 ("opaque tables D9") replaced the bg-black/5 tint — which lost to
     // bg-surface via tailwind-merge — with the opaque bg-surface theme color.

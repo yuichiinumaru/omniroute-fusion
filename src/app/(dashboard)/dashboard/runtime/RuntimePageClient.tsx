@@ -7,6 +7,7 @@ import Card from "@/shared/components/Card";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import ModelCooldownsCard from "./components/ModelCooldownsCard";
 import { useProviderNodeMap, resolveProviderName } from "@/lib/display/useProviderNodeMap";
+import ProvidersTopBar from "../providers/components/ProvidersTopBar";
 
 type KnownBreakerState = "CLOSED" | "OPEN" | "HALF_OPEN" | "DEGRADED";
 type BreakerState = KnownBreakerState | (string & {});
@@ -521,6 +522,7 @@ export default function RuntimePageClient() {
 
   return (
     <div className="flex flex-col gap-4">
+      <ProvidersTopBar currentPath="/dashboard/runtime" />
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -1154,6 +1156,7 @@ function QuotaGroup({
   items: QuotaMonitor[];
 }) {
   const t = useTranslations("runtime");
+  const nodeMap = useProviderNodeMap();
   const toneMap = {
     red: { text: "#ef4444", bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.20)" },
     amber: { text: "#eab308", bg: "rgba(234,179,8,0.08)", border: "rgba(234,179,8,0.20)" },

@@ -132,7 +132,7 @@ test("buildPublicHealthPayload only exposes allowlisted fields", () => {
 });
 
 test("unauthenticated GET /api/monitoring/health returns public allowlist only", async () => {
-  // Force requireLogin so verifyAuth does not open-install bypass.
+  // Force requireLogin so open-install bypass is off.
   await settingsDb.updateSettings({ requireLogin: true, password: "hashed-test-password" });
 
   const response = await healthRoute.GET(
@@ -150,6 +150,56 @@ test("unauthenticated GET /api/monitoring/health returns public allowlist only",
   assert.equal(body.lockouts, undefined);
   assert.equal(body.rateLimitStatus, undefined);
   assert.equal(body.activeSessions, undefined);
+});
+
+test("N1: non-manage client API key gets public health shape only", async () => {
+  await settingsDb.updateSettings({ requireLogin: true, password: "hashed-test-password" });
+  const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
+  // Unscoped client key — valid for CLIENT_API but not management.
+  const clientKey = await apiKeysDb.createApiKey("client-health", "machine-health-0051", []);
+
+  const response = await healthRoute.GET(
+    new Request("http://localhost/api/monitoring/health", {
+      method: "GET",
+      headers: { authorization: `Bearer ${clientKey.key}` },
+    })
+  );
+  const body = (await response.json()) as Record<string, unknown>;
+
+  assert.equal(response.status, 200);
+  assert.equal(body.status, "healthy");
+  assert.equal(body.providerBreakers, undefined);
+  assert.equal(body.sessions, undefined);
+  assert.equal(body.credentialHealth, undefined);
+  assert.equal(body.lockouts, undefined);
+  assert.equal(body.rateLimitStatus, undefined);
+});
+
+test("N1: manage-scope API key may receive full health snapshot fields", async () => {
+  await settingsDb.updateSettings({ requireLogin: true, password: "hashed-test-password" });
+  const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
+  const manageKey = await apiKeysDb.createApiKey("manage-health", "machine-health-0051", [
+    "manage",
+  ]);
+
+  const response = await healthRoute.GET(
+    new Request("http://localhost/api/monitoring/health", {
+      method: "GET",
+      headers: { authorization: `Bearer ${manageKey.key}` },
+    })
+  );
+  const body = (await response.json()) as Record<string, unknown>;
+
+  assert.equal(response.status, 200);
+  // Full snapshot includes recon fields that public allowlist must not expose.
+  // At least one of these keys is present on the authenticated full payload.
+  const hasFullField =
+    "providerBreakers" in body ||
+    "rateLimitStatus" in body ||
+    "sessions" in body ||
+    "activeSessions" in body ||
+    "system" in body;
+  assert.ok(hasFullField, "manage key should unlock full health payload shape");
 });
 
 // ── F-04-W2-004: MCP sanitize helpers ───────────────────────────────────────

@@ -59,4 +59,31 @@ describe("skill sandbox env scrub (F-06-001)", () => {
     assert.ok(source.includes("buildDockerCliEnv"), "must use buildDockerCliEnv for docker CLI");
     assert.ok(source.includes("buildContainerEnv"), "must use buildContainerEnv for -e flags");
   });
+
+  it("docker kill / killAll use buildDockerCliEnv (0046 N7)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const source = readFileSync(resolve("src/lib/skills/sandbox.ts"), "utf8");
+    // Isolate kill methods: each docker kill spawn must pass scrubbed env
+    const killIdx = source.indexOf("kill(sandboxId: string)");
+    const killAllIdx = source.indexOf("killAll(): void");
+    assert.ok(killIdx > 0 && killAllIdx > killIdx);
+    const killRegion = source.slice(killIdx, killAllIdx);
+    const killAllRegion = source.slice(killAllIdx, killAllIdx + 500);
+    assert.match(
+      killRegion,
+      /spawn\(\s*"docker"\s*,\s*\[\s*"kill"/,
+      "kill() must spawn docker kill"
+    );
+    assert.match(
+      killRegion,
+      /env:\s*buildDockerCliEnv\s*\(/,
+      "kill() docker kill must scrub env via buildDockerCliEnv"
+    );
+    assert.match(
+      killAllRegion,
+      /env:\s*buildDockerCliEnv\s*\(/,
+      "killAll() docker kill must scrub env via buildDockerCliEnv"
+    );
+  });
 });

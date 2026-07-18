@@ -145,15 +145,27 @@ describe("LOCAL_ONLY_API_PREFIXES constant integrity", () => {
     );
   });
 
-  it("has exactly 5 entries (no silent regressions adding or removing prefixes)", () => {
-    // 4 baseline entries (/api/mcp/, /api/cli-tools/runtime/, /api/services/,
-    // /dashboard/providers/services/) + /api/copilot/ added in the v3.8.4
-    // semgrep MCP hardening pass (commit 21f8dc4b3).
-    assert.equal(
-      LOCAL_ONLY_API_PREFIXES.length,
-      5,
-      `Expected 5 LOCAL_ONLY_API_PREFIXES, got ${LOCAL_ONLY_API_PREFIXES.length}: ${JSON.stringify(LOCAL_ONLY_API_PREFIXES)}`
+  it("keeps membership invariants (length is not frozen — Task 0040 expanded inventory)", () => {
+    // Inventory grew beyond the original 5 prefixes (Task 0040 LOCAL_ONLY expansion).
+    // Assert membership of hard-rule surfaces only — do not freeze length.
+    assert.ok(
+      LOCAL_ONLY_API_PREFIXES.length >= 5,
+      `Expected LOCAL_ONLY_API_PREFIXES length >= 5, got ${LOCAL_ONLY_API_PREFIXES.length}`
     );
+    for (const required of [
+      "/api/mcp/",
+      "/api/cli-tools/runtime/",
+      "/api/services/",
+      "/dashboard/providers/services/",
+      "/api/copilot/",
+      "/api/version-manager/",
+      "/api/middleware/hooks",
+    ]) {
+      assert.ok(
+        LOCAL_ONLY_API_PREFIXES.includes(required),
+        `Expected ${required} in LOCAL_ONLY_API_PREFIXES`
+      );
+    }
   });
 });
 
@@ -172,12 +184,16 @@ describe("SPAWN_CAPABLE_PREFIXES constant integrity", () => {
     );
   });
 
-  it("has exactly 2 entries (no silent regressions)", () => {
-    assert.equal(
-      SPAWN_CAPABLE_PREFIXES.length,
-      2,
-      `Expected 2 SPAWN_CAPABLE_PREFIXES, got ${SPAWN_CAPABLE_PREFIXES.length}: ${JSON.stringify(SPAWN_CAPABLE_PREFIXES)}`
+  it("keeps membership invariants (length is not frozen — Task 0040 expanded inventory)", () => {
+    // Inventory grew beyond the original 2 prefixes; assert membership only so
+    // legitimate SPAWN expansion does not break this suite (Task 0040 N3).
+    assert.ok(
+      SPAWN_CAPABLE_PREFIXES.length >= 2,
+      `Expected SPAWN_CAPABLE_PREFIXES length >= 2, got ${SPAWN_CAPABLE_PREFIXES.length}`
     );
+    assert.ok(SPAWN_CAPABLE_PREFIXES.includes("/api/services/"));
+    assert.ok(SPAWN_CAPABLE_PREFIXES.includes("/api/cli-tools/runtime/"));
+    assert.ok(SPAWN_CAPABLE_PREFIXES.includes("/api/middleware/hooks"));
   });
 
   it("does NOT include /api/mcp/ (bypassable, not spawn-capable)", () => {

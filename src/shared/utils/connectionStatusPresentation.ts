@@ -155,6 +155,22 @@ export function resolveProviderCardAuthStatusCopy(
 }
 
 /**
+ * Translate helper `keys.*` via a providers/usage namespace translator with
+ * English fallbacks (Task 0038 N3 / 0039 catalog). Pure — no next-intl import.
+ */
+export function translateConnectionStatusCopy(
+  copy: ConnectionStatusCopy,
+  translate: (key: string, fallback: string) => string
+): Readonly<{ badge: string; title: string; detail: string; cta: string }> {
+  return {
+    badge: translate(copy.keys.badge, copy.badge),
+    title: translate(copy.keys.title, copy.title),
+    detail: translate(copy.keys.detail, copy.detail),
+    cta: translate(copy.keys.cta, copy.cta),
+  };
+}
+
+/**
  * Connection-row lastError presentation: for apikey/cookie false OAuth
  * lastError strings, surface helper detail instead of "re-authenticate this account."
  * OAuth rows keep re-auth-capable copy (detail from helper when taxonomy hits,
@@ -168,7 +184,9 @@ export function resolveConnectionErrorDisplay(
   if (!raw) return null;
 
   const copy = formatConnectionStatusMessage({
-    authType: input?.authType,
+    // Same category→mode map as ProviderCard so compatible/local labels never
+    // fall through to unknown→oauth re-auth (Task 0038 N2).
+    authType: mapProviderCardAuthTypeToCredentialMode(input?.authType),
     testStatus: input?.testStatus,
     errorCode: input?.errorCode != null ? String(input.errorCode) : null,
     lastErrorType: input?.lastErrorType,

@@ -92,17 +92,8 @@ function AnalyticsPageContent() {
   );
 
   const handleTabChange = (tab: string) => {
-    const next = tab as AnalyticsTab;
-    setActiveTab(next);
-    // PageTabBar already syncs ?tab= (deletes for overview). Drop route-trace id when leaving.
-    if (typeof window === "undefined") return;
-    if (next !== "route-trace") {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has("id")) {
-        url.searchParams.delete("id");
-        window.history.replaceState(null, "", url.toString());
-      }
-    }
+    // Normalize aliases (route-explain → route-trace) and unknown values → overview
+    setActiveTab(normalizeTab(tab));
   };
 
   return (
@@ -113,6 +104,8 @@ function AnalyticsPageContent() {
         onChange={handleTabChange}
         syncSearchParam="tab"
         defaultValue="overview"
+        // Single replaceState: drop route-trace deep-link id when leaving that tab
+        deleteParams={(next) => (next === "route-trace" ? [] : ["id"])}
         aria-label="Analytics sections"
       />
 

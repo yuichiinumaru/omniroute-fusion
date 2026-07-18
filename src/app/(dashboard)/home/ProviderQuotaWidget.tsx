@@ -293,7 +293,7 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
         )}
 
         <div className="mt-3 text-[11px] text-right text-text-muted">
-          <a href="/dashboard/usage?tab=limits" className="hover:text-primary hover:underline">
+          <a href="/dashboard/quota" className="hover:text-primary hover:underline">
             {tr("viewDetails", "View details")}
             <span aria-hidden="true"> &rarr;</span>
           </a>

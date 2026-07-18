@@ -3,20 +3,25 @@ import { getProviderConnections, getSettings } from "@/lib/localDb";
 import { buildHealthPayload, buildPublicHealthPayload } from "@/lib/monitoring/observability";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
-import { isAuthenticated, verifyAuth } from "@/shared/utils/apiAuth";
+import { isManagementCredentialAuthenticated } from "@/shared/utils/apiAuth";
 
 /**
  * GET /api/monitoring/health — System health overview
  *
  * Public (no real credentials): minimal liveness — status, version, uptime (F-07-009).
- * Credentialed (dashboard session or manage-scope API key): full observability snapshot.
+ * Full observability snapshot requires a **dashboard session** or a
+ * **management-scoped** API key (`manage` / `admin`). A plain client API key is
+ * not enough — this path is PUBLIC_READONLY so `verifyAuth` would otherwise
+ * accept any valid Bearer key (Task 0051 N1).
  *
- * Uses `verifyAuth` (not `isAuthenticated`) so open-install `requireLogin=false`
- * does not broadcast breakers/sessions/credentials to anonymous network clients.
+ * Uses `isManagementCredentialAuthenticated` (not `isAuthenticated` /
+ * `verifyAuth`) so open-install `requireLogin=false` and client-only keys do
+ * not broadcast breakers/sessions/credentials to network clients.
  */
 export async function GET(request: Request) {
-  // Real credentials only — ignore requireLogin=false open-install bypass.
-  const fullAccess = (await verifyAuth(request)) === null;
+  // Session or manage-scope key only — ignore requireLogin=false open-install bypass
+  // and non-management client keys.
+  const fullAccess = await isManagementCredentialAuthenticated(request);
 
   if (!fullAccess) {
     return NextResponse.json(buildPublicHealthPayload(APP_CONFIG.version));
@@ -194,7 +199,9 @@ export async function GET(request: Request) {
  * clearing failure counts and persisted state.
  */
 export async function DELETE(request: Request) {
-  if (!(await isAuthenticated(request))) {
+  // Circuit-breaker reset is management-only (same bar as full health snapshot).
+  // Do not use bare `isAuthenticated` — that accepts any client key / open-install bypass.
+  if (!(await isManagementCredentialAuthenticated(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -209,8 +209,7 @@ export function formatConnectionStatusMessage(
       return pack(CONNECTION_STATUS_COPY_IDS.apikeyNoRefreshToken, {
         badge: "Retest",
         title: "Needs re-test",
-        detail:
-          "API-key credential flagged by a health glitch. Retest or rotate the key — no OAuth refresh token is required.",
+        detail: "API-key credential flagged by a health glitch. Retest or rotate the key.",
         cta: "Retest connection",
         tone: "warning",
       });
@@ -225,8 +224,8 @@ export function formatConnectionStatusMessage(
       });
     }
     if (signal === "expired") {
-      return pack(CONNECTION_STATUS_COPY_IDS.apikeyInvalidKey, {
-        badge: "Key issue",
+      return pack(CONNECTION_STATUS_COPY_IDS.expired, {
+        badge: "Expired",
         title: "API key needs attention",
         detail: "This API-key connection is marked expired or unusable. Rotate or retest the key.",
         cta: "Rotate API key",
@@ -242,8 +241,8 @@ export function formatConnectionStatusMessage(
     });
   }
 
-  // ── OAuth (incl. unknown without static key — conservative re-auth) ──────
-  if (auth === "oauth" || auth === "unknown") {
+  // ── OAuth (explicit authType only) ───────────────────────────────────────
+  if (auth === "oauth") {
     if (signal === "no_refresh_token") {
       return pack(CONNECTION_STATUS_COPY_IDS.oauthNoRefreshToken, {
         badge: "Re-auth",
@@ -262,11 +261,20 @@ export function formatConnectionStatusMessage(
         tone: "danger",
       });
     }
-    if (signal === "invalid_key" || signal === "expired") {
+    if (signal === "expired") {
+      return pack(CONNECTION_STATUS_COPY_IDS.expired, {
+        badge: "Expired",
+        title: "Credential expired",
+        detail: "OAuth credential is expired. Re-authenticate this account.",
+        cta: "Re-authenticate",
+        tone: "danger",
+      });
+    }
+    if (signal === "invalid_key") {
       return pack(CONNECTION_STATUS_COPY_IDS.oauthGenericError, {
         badge: "Auth failed",
         title: "Authentication failed",
-        detail: "OAuth credential is invalid or expired. Re-authenticate this account.",
+        detail: "OAuth credential is invalid. Re-authenticate this account.",
         cta: "Re-authenticate",
         tone: "danger",
       });
@@ -275,6 +283,57 @@ export function formatConnectionStatusMessage(
       badge: "Error",
       title: "Connection error",
       detail: "Retest this OAuth connection or re-authenticate if the error persists.",
+      cta: "Retest connection",
+      tone: "warning",
+    });
+  }
+
+  // ── Unknown / blank authType ─────────────────────────────────────────────
+  // Dual-mode false-positives often arrive with blank authType + no_refresh_token.
+  // Never invent OAuth re-auth as the primary CTA; only refresh_failed implies
+  // OAuth token machinery. Call sites that know the mode must pass authType
+  // (ProviderCard maps category labels; ConnectionRow uses DB authType).
+  if (auth === "unknown") {
+    if (signal === "refresh_failed") {
+      return pack(CONNECTION_STATUS_COPY_IDS.oauthRefreshFailed, {
+        badge: "Refresh failed",
+        title: "Token refresh failed",
+        detail: "Refresh token was rejected or consumed. Re-authenticate this account.",
+        cta: "Re-authenticate",
+        tone: "danger",
+      });
+    }
+    if (signal === "no_refresh_token") {
+      return pack(CONNECTION_STATUS_COPY_IDS.apikeyNoRefreshToken, {
+        badge: "Retest",
+        title: "Needs re-test",
+        detail: "Credential mode unknown; health flagged a refresh-token issue. Retest or set auth type.",
+        cta: "Retest connection",
+        tone: "warning",
+      });
+    }
+    if (signal === "invalid_key") {
+      return pack(CONNECTION_STATUS_COPY_IDS.apikeyInvalidKey, {
+        badge: "Invalid key",
+        title: "API key rejected",
+        detail: "Upstream rejected this credential. Rotate or re-enter a valid key.",
+        cta: "Rotate API key",
+        tone: "danger",
+      });
+    }
+    if (signal === "expired") {
+      return pack(CONNECTION_STATUS_COPY_IDS.expired, {
+        badge: "Expired",
+        title: "Credential needs attention",
+        detail: "Connection is marked expired. Retest or update the credential.",
+        cta: "Retest connection",
+        tone: "danger",
+      });
+    }
+    return pack(CONNECTION_STATUS_COPY_IDS.genericError, {
+      badge: "Error",
+      title: "Connection error",
+      detail: "Retest this connection.",
       cta: "Retest connection",
       tone: "warning",
     });

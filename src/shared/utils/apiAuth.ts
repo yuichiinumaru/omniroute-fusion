@@ -205,6 +205,24 @@ export function isManagementApiRequest(request: RequestLike | Request): boolean 
   return !isPublicApiRoute(pathname, getRequestMethod(request));
 }
 
+/**
+ * True when the request presents a dashboard session **or** a management-scoped
+ * Bearer API key — independent of route class (PUBLIC / CLIENT_API / MANAGEMENT).
+ *
+ * Used for sensitive read surfaces that sit on public paths (e.g. full
+ * `/api/monitoring/health` snapshot) where `verifyAuth` would otherwise accept
+ * any valid client key because the route is PUBLIC_READONLY.
+ */
+export async function isManagementCredentialAuthenticated(
+  request?: RequestLike | Request | null
+): Promise<boolean> {
+  if (await isDashboardSessionAuthenticated(request)) {
+    return true;
+  }
+  const apiKey = getRequestApiKey(request, { allowUrl: false });
+  return validateBearerApiKeyForManagement(apiKey);
+}
+
 export async function isDashboardSessionAuthenticated(
   request?: RequestLike | Request | null
 ): Promise<boolean> {

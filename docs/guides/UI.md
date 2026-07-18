@@ -95,7 +95,7 @@ Pre-S6 snapshot: `.archive/sidebar/2026-07-10-seven-pillars/`.
 | Triple exposure of MCP/A2A/API catalog as peer Connect leaves | Registry exposures + SSoT routes; retire duplicates (keep hideable ids) |
 | Treat sidebar preset as a new product architecture | Rebuild `SIDEBAR_PRESETS` only as role views after IA is fixed |
 | Silent `rm` of a surface | Move to `.archive/…` + `PROVENANCE.md` / index row |
-| Full port of `visual-reference/` neon / Orbitron / Prism shell | Tokens + selective status/metric micro-patterns only (`design.md` coral identity) |
+| Full port of `visual-reference/` neon / Orbitron / Prism shell | Tokens + selective status/metric micro-patterns only (dark-only coreCyan / `#00FFCC`) |
 | Competing design docs (`DESING.md` typo vs `design.md`) | **`design.md` only** for tokens; IA rules live here |
 
 ---
@@ -119,7 +119,7 @@ Import from `src/shared/components/` (verified paths). Prefer these over hand-ro
 
 **Status vocabulary:** `src/shared/constants/statusVocabulary.ts` — map domain status → Badge/health tone; do not invent ad-hoc color maps per page.
 
-**Theme / tokens:** `src/app/globals.css` + `src/store/themeStore.ts`. Brand primary remains coral unless the operator picks an Appearance preset.
+**Theme / tokens:** `src/app/globals.css` + `src/store/themeStore.ts`. Brand is **dark-only coreCyan** (`#00FFCC` / `#030506` / `#080c0e`). Appearance / light-mode / multi-accent presets were stripped (Tasks 0052–0053); do not reintroduce ThemeToggle or `COLOR_THEMES`.
 
 ---
 

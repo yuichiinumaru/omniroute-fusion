@@ -202,12 +202,13 @@ test("F-04-W2-001: two SSE initialize sessions get distinct session ids", async 
   const res2 = await mod.handleMcpSSE(makeInit());
   const id1 = res1.headers.get("mcp-session-id");
   const id2 = res2.headers.get("mcp-session-id");
-  if (id1 && id2) {
-    assert.notEqual(id1, id2, "concurrent SSE clients must not share a session id");
-    const counts = mod.getMcpHttpSessionCounts?.();
-    if (counts) {
-      assert.ok(counts.sse >= 2, "two SSE sessions should be tracked");
-    }
+  // Task 0044 path-to-100 N2: hard assert — soft `if (id1 && id2)` hid isolation failures
+  assert.ok(id1, "first SSE initialize must return mcp-session-id");
+  assert.ok(id2, "second SSE initialize must return mcp-session-id");
+  assert.notEqual(id1, id2, "concurrent SSE clients must not share a session id");
+  const counts = mod.getMcpHttpSessionCounts?.();
+  if (counts) {
+    assert.ok(counts.sse >= 2, "two SSE sessions should be tracked");
   }
   mod.shutdownMcpHttp();
 });

@@ -149,7 +149,20 @@ test("ProviderCard.tsx wires resolveProviderCardAuthStatusCopy (not only expired
     "utf8"
   );
   assert.match(src, /resolveProviderCardAuthStatusCopy/);
+  assert.match(src, /translateConnectionStatusCopy/);
   assert.match(src, /connectionStatusPresentation/);
+  assert.doesNotMatch(src, /PRIMARY_SIDEBAR_ITEMS/);
+  // Dead expiredBadge fallback removed (Task 0038 N4).
+  assert.doesNotMatch(src, /!authStatusCopy && stats\.expiryStatus === ["']expired["']/);
+});
+
+test("ProviderListRow.tsx wires resolveProviderCardAuthStatusCopy (Task 0038 N5)", () => {
+  const src = readFileSync(
+    join(ROOT, "src/app/(dashboard)/dashboard/providers/components/ProviderListRow.tsx"),
+    "utf8"
+  );
+  assert.match(src, /resolveProviderCardAuthStatusCopy/);
+  assert.match(src, /translateConnectionStatusCopy/);
   assert.doesNotMatch(src, /PRIMARY_SIDEBAR_ITEMS/);
 });
 

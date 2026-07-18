@@ -3,6 +3,8 @@
  * Keep this free of React so load/save logic is easy to unit-test later.
  */
 
+import { ROUTING_STRATEGIES } from "@/shared/constants/routingStrategies";
+
 export const FUSION_UI_DEFAULTS = {
   minPanel: 2,
   stragglerGraceMs: 8000,
@@ -11,8 +13,19 @@ export const FUSION_UI_DEFAULTS = {
 
 export const FUSION_STRATEGIES = new Set(["fusion", "conditional-fusion"]);
 
+/** Fallback strategies for conditional-fusion miss path — Decision D8 excludes fusion family. */
+export const FALLBACK_STRATEGY_OPTIONS = ROUTING_STRATEGIES.filter(
+  (s) => s.value !== "fusion" && s.value !== "conditional-fusion"
+);
+
 export type TriggerMode = "always" | "tool-call" | "text-match";
 
+/**
+ * Model panel/judge/acting unit.
+ * `connectionId` is optional account pin: load/save round-trip it when set.
+ * ModelSelectModal emits value + providerId; the editor plumbs connectionId when
+ * the pick includes it or when exactly one active connection matches providerId.
+ */
 export type FusionModelUnit = {
   kind: "model";
   model: string;
@@ -95,6 +108,17 @@ export function emptyFusionForm(): FusionEditorForm {
 
 export function isFusionStrategy(strategy: unknown): boolean {
   return typeof strategy === "string" && FUSION_STRATEGIES.has(strategy);
+}
+
+/**
+ * List-shell filter (Task 0015): keep only non-hidden fusion-family combos.
+ * Shared by `/dashboard/fusions` page so the client filter cannot drift from
+ * the editor's isFusionStrategy acceptance set.
+ */
+export function filterFusionCombos<T extends { strategy?: string; isHidden?: boolean }>(
+  combos: readonly T[]
+): T[] {
+  return combos.filter((c) => !c.isHidden && isFusionStrategy(c.strategy));
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

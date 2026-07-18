@@ -24,6 +24,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const tokenHealthCheck = await import("../../src/lib/tokenHealthCheck.ts");
+const tokenRefresh = await import("../../open-sse/services/tokenRefresh.ts");
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -65,6 +66,8 @@ async function assertStaysActiveNotNoRefresh(connection: { id?: string }) {
 
 test("matrix: gemini + apikey + no RT stays active", async () => {
   await resetStorage();
+  // Pin: dual-mode negative is only meaningful while provider supports refresh.
+  assert.equal(tokenRefresh.supportsTokenRefresh("gemini"), true);
   const connection = await providersDb.createProviderConnection({
     provider: "gemini",
     authType: "apikey",
@@ -79,6 +82,7 @@ test("matrix: gemini + apikey + no RT stays active", async () => {
 
 test("matrix: qoder + apikey (PAT) + no RT stays active", async () => {
   await resetStorage();
+  assert.equal(tokenRefresh.supportsTokenRefresh("qoder"), true);
   const connection = await providersDb.createProviderConnection({
     provider: "qoder",
     authType: "apikey",
@@ -93,6 +97,7 @@ test("matrix: qoder + apikey (PAT) + no RT stays active", async () => {
 
 test("matrix: codebuddy-cn + apikey dual-mode + no RT stays active", async () => {
   await resetStorage();
+  assert.equal(tokenRefresh.supportsTokenRefresh("codebuddy-cn"), true);
   const connection = await providersDb.createProviderConnection({
     provider: "codebuddy-cn",
     authType: "apikey",
@@ -107,10 +112,12 @@ test("matrix: codebuddy-cn + apikey dual-mode + no RT stays active", async () =>
 
 test("matrix: cookie auth + no RT stays active", async () => {
   await resetStorage();
+  // Counterfactual: cookie on a refresh-capable dual-mode provider (not chatgpt-web).
+  assert.equal(tokenRefresh.supportsTokenRefresh("gemini"), true);
   const connection = await providersDb.createProviderConnection({
-    provider: "chatgpt-web",
+    provider: "gemini",
     authType: "cookie",
-    name: "Matrix Cookie Session",
+    name: "Matrix Cookie on Refresh-Capable Provider",
     refreshToken: null,
     testStatus: "active",
     isActive: true,
@@ -121,6 +128,7 @@ test("matrix: cookie auth + no RT stays active", async () => {
 
 test("matrix: blank/null authType + non-empty apiKey stays active", async () => {
   await resetStorage();
+  assert.equal(tokenRefresh.supportsTokenRefresh("gemini"), true);
   // createProviderConnection defaults blank authType to "oauth" — inject via update
   // so the sweep sees a legacy blank-ish row with a static key (foot-gun path).
   const connection = (await providersDb.createProviderConnection({
@@ -139,8 +147,35 @@ test("matrix: blank/null authType + non-empty apiKey stays active", async () => 
   });
   const reloaded = await providersDb.getProviderConnectionById(connection.id);
   assert.ok(reloaded);
+  const blankAuth = (reloaded as { authType?: string | null }).authType;
+  assert.ok(
+    blankAuth === "" || blankAuth === null || blankAuth === undefined,
+    `expected blank authType after force-update, got ${JSON.stringify(blankAuth)}`
+  );
   // apiKey must still be present after reload
   assert.ok(typeof (reloaded as { apiKey?: string }).apiKey === "string");
+
+  await assertStaysActiveNotNoRefresh(reloaded as { id?: string });
+});
+
+test("matrix: blank authType + cookie PSD (no apiKey) stays active", async () => {
+  await resetStorage();
+  assert.equal(tokenRefresh.supportsTokenRefresh("gemini"), true);
+  const connection = (await providersDb.createProviderConnection({
+    provider: "gemini",
+    authType: "cookie",
+    name: "Matrix Blank Cookie PSD",
+    refreshToken: null,
+    testStatus: "active",
+    isActive: true,
+    providerSpecificData: { cookie: "session=blank-cookie-psd" },
+  })) as { id: string };
+
+  await providersDb.updateProviderConnection(connection.id, { authType: "" });
+  const reloaded = await providersDb.getProviderConnectionById(connection.id);
+  assert.ok(reloaded);
+  const blankAuth = (reloaded as { authType?: string | null }).authType;
+  assert.ok(blankAuth === "" || blankAuth === null || blankAuth === undefined);
 
   await assertStaysActiveNotNoRefresh(reloaded as { id?: string });
 });

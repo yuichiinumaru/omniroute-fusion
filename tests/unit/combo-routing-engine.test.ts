@@ -244,6 +244,58 @@ test("validateComboDAG enforces maximum nesting depth", () => {
   assert.throws(() => validateComboDAG("c1", combos), /Max combo nesting depth/);
 });
 
+test("validateComboDAG walks top-level fusion judge combo-ref (Task 0018 residual)", () => {
+  // Judge is outside models — create-time DAG must still catch cycles via judge.
+  const combos = [
+    {
+      name: "fusion-root",
+      models: ["openai/gpt-4o-mini"],
+      judge: { kind: "combo-ref", comboName: "judge-pool" },
+    },
+    {
+      name: "judge-pool",
+      models: [{ kind: "combo-ref", comboName: "fusion-root" }],
+    },
+  ];
+  assert.throws(
+    () => validateComboDAG("fusion-root", combos),
+    /Circular combo reference detected/
+  );
+});
+
+test("validateComboDAG walks top-level fusion acting combo-ref", () => {
+  const combos = [
+    {
+      name: "fusion-act",
+      models: ["openai/gpt-4o-mini"],
+      acting: { kind: "combo-ref", comboName: "act-pool" },
+    },
+    {
+      name: "act-pool",
+      models: [{ kind: "combo-ref", comboName: "fusion-act" }],
+    },
+  ];
+  assert.throws(
+    () => validateComboDAG("fusion-act", combos),
+    /Circular combo reference detected/
+  );
+});
+
+test("validateComboDAG allows acyclic judge combo-ref", () => {
+  const combos = [
+    {
+      name: "fusion-ok",
+      models: ["openai/gpt-4o-mini", "claude/sonnet"],
+      judge: { kind: "combo-ref", comboName: "judge-leaf" },
+    },
+    {
+      name: "judge-leaf",
+      models: ["openai/gpt-4o-mini"],
+    },
+  ];
+  assert.doesNotThrow(() => validateComboDAG("fusion-ok", combos));
+});
+
 test("handleComboChat priority strategy defaults to first model and records success metrics", async () => {
   const calls: any[] = [];
   const combo = {

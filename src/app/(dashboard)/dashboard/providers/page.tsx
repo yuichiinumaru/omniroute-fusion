@@ -362,9 +362,18 @@ export default function ProvidersPage() {
     const errorCode = latestError ? getConnectionErrorTag(latestError) : null;
     const errorTime = latestError?.lastErrorAt ? getRelativeTime(latestError.lastErrorAt) : null;
 
-    // Check expirations
+    // Check expirations scoped to this auth-mode connection set (Task 0038 N1).
+    // ProviderExpiration rows are per connectionId — do not paint apikey cards
+    // from oauth sibling expirations under the same provider id.
+    const connectionIds = new Set(providerConnections.map((c) => c.id));
     const providerExpirations =
-      expirations?.list?.filter((e: any) => e.provider === providerId) || [];
+      expirations?.list?.filter((e: any) => {
+        if (e.provider !== providerId) return false;
+        if (e.connectionId) return connectionIds.has(e.connectionId);
+        // Legacy rows without connectionId: only apply when this card has no
+        // connections (avoid cross-authType bleed when siblings exist).
+        return providerConnections.length === 0;
+      }) || [];
     const hasExpired = providerExpirations.some((e: any) => e.status === "expired");
     const hasExpiringSoon = providerExpirations.some((e: any) => e.status === "expiring_soon");
     let expiryStatus = null;

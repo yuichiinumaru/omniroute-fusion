@@ -433,6 +433,38 @@ test("conditional-fusion: forbidden fallbackStrategy fusion collapses to priorit
   assert.ok(seen.length <= 2, "must not fan out a full fusion panel");
 });
 
+test("conditional-fusion: forbidden fallbackStrategy conditional-fusion collapses to priority (D8 wire)", async () => {
+  const seen: string[] = [];
+  const handleSingleModel = async (_b: Body, m: string) => {
+    seen.push(m);
+    if (m === "f/judge") return okResponse("SHOULD_NOT_RUN");
+    return okResponse(`ans-${m}`);
+  };
+
+  const res = await handleComboChat({
+    body: { messages: [{ role: "user", content: "no tools" }] },
+    combo: {
+      name: "d8-wire-cf",
+      strategy: "conditional-fusion",
+      models: ["p/first", "p/second"],
+      config: {
+        judgeModel: "f/judge",
+        // Sibling forbidden string — same D8 collapse as "fusion".
+        fallbackStrategy: "conditional-fusion",
+        triggers: { mode: "tool-call", toolPatterns: ["write*"] },
+      },
+    },
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [],
+  });
+  assert.equal(res.status, 200);
+  assert.ok(!seen.includes("f/judge"), "D8: forbidden conditional-fusion fallback must not run judge");
+  assert.ok(seen.includes("p/first") || seen.includes("p/second"));
+  assert.ok(seen.length <= 2, "must not fan out a full fusion panel");
+});
+
 // ─── Task 0014: always / text-match modes via handleComboChat ────────────────
 
 test("conditional-fusion: mode always dispatches fusion regardless of body", async () => {
@@ -558,4 +590,84 @@ test("fusion strategy with tool-call triggers is gated (not unconditional)", asy
   });
   assert.equal(hit.status, 200);
   assert.ok(judgeRuns.length >= 1, "gated fusion strategy must judge on tool match");
+});
+
+// ─── Path-to-100 (Task 0013/0014): gated D8 wire + combo-ref panel path ─────
+
+test("gated strategy fusion: forbidden fallbackStrategy fusion collapses to priority (D8 wire)", async () => {
+  const seen: string[] = [];
+  const handleSingleModel = async (_b: Body, m: string) => {
+    seen.push(m);
+    if (m === "f/judge") return okResponse("SHOULD_NOT_RUN");
+    return okResponse(`ans-${m}`);
+  };
+
+  const res = await handleComboChat({
+    body: { messages: [{ role: "user", content: "no tools" }] },
+    combo: {
+      name: "d8-wire-gated-fusion",
+      strategy: "fusion",
+      models: ["p/first", "p/second"],
+      config: {
+        judgeModel: "f/judge",
+        fallbackStrategy: "fusion",
+        triggers: { mode: "tool-call", toolPatterns: ["write*"] },
+      },
+    },
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [],
+  });
+  assert.equal(res.status, 200);
+  assert.ok(!seen.includes("f/judge"), "D8: gated fusion forbidden fallback must not judge");
+  assert.ok(seen.includes("p/first") || seen.includes("p/second"));
+});
+
+test("fusion strategy: combo-ref panel is not dropped (typed panels + nested handleComboChat)", async () => {
+  const singleModels: string[] = [];
+  const nestedComboNames: string[] = [];
+
+  const handleSingleModel = async (_b: Body, m: string) => {
+    singleModels.push(m);
+    if (m === "f/judge") return okResponse("FINAL");
+    return okResponse(`ans-${m}`);
+  };
+
+  const res = await handleComboChat({
+    body: { messages: [{ role: "user", content: "Q" }] },
+    combo: {
+      name: "ref-panel-fusion",
+      strategy: "fusion",
+      models: [
+        { kind: "model", model: "p/direct" },
+        { kind: "combo-ref", comboName: "inner-pool" },
+      ],
+      config: {
+        judgeModel: "f/judge",
+        fusionTuning: { minPanel: 2, stragglerGraceMs: 50, panelHardTimeoutMs: 5000 },
+      },
+    },
+    handleSingleModel,
+    log,
+    settings: { fusionWire: true },
+    allCombos: [
+      {
+        name: "inner-pool",
+        strategy: "priority",
+        models: ["inner/m1"],
+      },
+    ],
+  });
+
+  assert.equal(res.status, 200);
+  // Nested priority combo runs handleSingleModel for inner/m1 via recursive handleComboChat.
+  assert.ok(
+    singleModels.includes("inner/m1") || singleModels.includes("p/direct"),
+    `expected nested or direct panel leaf; got ${JSON.stringify(singleModels)}`
+  );
+  assert.ok(singleModels.includes("p/direct"), "model panel must still run");
+  assert.ok(singleModels.includes("inner/m1"), "combo-ref panel leaf must execute (not dropped)");
+  assert.ok(singleModels.includes("f/judge"), "judge must still run after panel fan-out");
+  void nestedComboNames;
 });

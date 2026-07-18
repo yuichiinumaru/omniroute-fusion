@@ -129,11 +129,14 @@ test("getAllToolDefinitions catalog size equals MCP_TOOL_COUNT", () => {
   );
 });
 
-test("TOTAL_MCP_TOOL_COUNT is exported from server (heartbeat inventory)", async () => {
+test("TOTAL_MCP_TOOL_COUNT equals unique MCP_TOOL_COUNT (no agentSkill double-count)", async () => {
   const { TOTAL_MCP_TOOL_COUNT } = await import("../../open-sse/mcp-server/server.ts");
   assert.equal(typeof TOTAL_MCP_TOOL_COUNT, "number");
-  assert.ok(TOTAL_MCP_TOOL_COUNT >= MCP_TOOL_COUNT - 5);
-  assert.ok(TOTAL_MCP_TOOL_COUNT <= MCP_TOOL_COUNT + 5);
+  assert.equal(
+    TOTAL_MCP_TOOL_COUNT,
+    MCP_TOOL_COUNT,
+    `TOTAL_MCP_TOOL_COUNT (${TOTAL_MCP_TOOL_COUNT}) must equal MCP_TOOL_COUNT (${MCP_TOOL_COUNT})`
+  );
 });
 
 test("MCP hub page imports live counts — no hardcoded tools:37 / scopes:13", () => {

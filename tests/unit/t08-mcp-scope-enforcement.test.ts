@@ -150,6 +150,27 @@ test("F-04-003: fromApiKeyId is bound for transfers", () => {
   assert.equal(bound.apiKeyId, "key-a");
 });
 
+test("F-04-003 residual N6: HTTP role=none refuses caller apiKeyId (stdio still allows)", async () => {
+  const { withMcpHttpAuthContext } = await import(
+    "../../open-sse/mcp-server/httpAuthContext.ts"
+  );
+
+  // stdio path (no HTTP ALS): operator may pass apiKeyId
+  assert.equal(bindApiKeyIdToPrincipal("tenant-x"), "tenant-x");
+
+  // HTTP ALS with no principal: must not honor caller-chosen tenant ids
+  await withMcpHttpAuthContext(new Request("http://localhost/api/mcp/sse"), async () => {
+    assert.throws(
+      () => bindApiKeyIdToPrincipal("victim-key"),
+      /Authentication required|principal/i
+    );
+    assert.equal(
+      bindApiKeyIdToPrincipal("victim-key", undefined, { optional: true }),
+      undefined
+    );
+  });
+});
+
 // ── F-04-W2-002 host pin ────────────────────────────────────────────────────
 
 test("F-04-W2-002: loopback hosts are credential-safe", () => {

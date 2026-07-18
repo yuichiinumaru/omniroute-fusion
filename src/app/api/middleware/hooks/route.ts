@@ -33,7 +33,8 @@ const createHookSchema = z.object({
  * GET /api/middleware/hooks — List all registered hooks
  */
 export async function GET(request: Request) {
-  const authError = await requireManagementAuth(request);
+  // ALWAYS_PROTECTED dual-layer: never honor requireLogin=false (Task 0040 N2).
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
 
   try {
@@ -79,11 +80,11 @@ export async function GET(request: Request) {
  * Security (Task 0040 / F-07-W2-001): path is LOCAL_ONLY + ALWAYS_PROTECTED +
  * SPAWN_CAPABLE in routeGuard. Compiles caller JS via new Function (Hard Rule #3
  * residual: full sandbox deferred). Pipeline enforces loopback + always-auth
- * before this handler runs; requireManagementAuth is defence-in-depth when
- * requireLogin=true.
+ * before this handler runs; requireManagementAuth({ always: true }) is
+ * defence-in-depth even when requireLogin=false (Task 0040 N2).
  */
 export async function POST(request: Request) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
 
   try {

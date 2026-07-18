@@ -3,7 +3,7 @@ import { getAuditStats } from "@omniroute/open-sse/mcp-server/audit";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 
 export async function GET(request: Request) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
   try {
     const stats = await getAuditStats();

@@ -2388,6 +2388,9 @@ export function extractApiKey(request: AuthRequestLike, opts?: { allowUrl?: bool
  * Feature #1350: Supports OMNIROUTE_API_KEY / ROUTER_API_KEY env vars as
  * persistent passthrough keys that always validate, surviving Docker
  * restarts and backup restores without DB dependency.
+ *
+ * Registered keys (`ork_` prefix, #464 / Task 0050) are validated with
+ * day/hour budget windows via `validateRegisteredKey`.
  */
 export async function isValidApiKey(apiKey: string) {
   if (!apiKey) return false;
@@ -2395,6 +2398,16 @@ export async function isValidApiKey(apiKey: string) {
   // Persistent env-var key — always valid regardless of DB state (#1350)
   const envKey = process.env.OMNIROUTE_API_KEY || process.env.ROUTER_API_KEY;
   if (envKey && apiKey === envKey) return true;
+
+  // Registered-key provisioning path (ork_) — budget-gated; not in api_keys.
+  if (apiKey.startsWith("ork_")) {
+    try {
+      const { validateRegisteredKey } = await import("@/lib/db/registeredKeys");
+      return validateRegisteredKey(apiKey) !== null;
+    } catch {
+      return false;
+    }
+  }
 
   return await validateApiKey(apiKey);
 }

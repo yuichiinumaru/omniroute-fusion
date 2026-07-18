@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
 import { Card } from "@/shared/components";
 import { useProviderNodeMap, resolveProviderName } from "@/lib/display/useProviderNodeMap";
+import ProvidersTopBar from "../providers/components/ProvidersTopBar";
 
 interface ProviderStat {
   provider: string;
@@ -176,6 +177,8 @@ export default function ProviderStatsPage() {
 
   return (
     <div className="space-y-6">
+      <ProvidersTopBar currentPath="/dashboard/provider-stats" />
+
       {/* Header */}
       <div className="flex items-center justify-end gap-3">
         {lastRefresh && (

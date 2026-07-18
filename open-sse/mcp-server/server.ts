@@ -7,6 +7,7 @@ import {
 } from "../../src/lib/combos/steps.ts";
 
 import { registerToolSearchTool } from "./toolSearch/register.ts";
+import { getAllToolDefinitions } from "./toolSearch/catalog.ts";
 
 import {
   MCP_TOOLS,
@@ -112,20 +113,13 @@ const MCP_ALLOWED_SCOPES = new Set(
 );
 /**
  * Live MCP tool inventory count used by heartbeat / diagnostics.
- * Prefer the shared SSoT `MCP_TOOL_COUNT` (`src/shared/constants/mcpScopes.ts`) for
- * dashboard copy — this arithmetic mirrors historical registration modules
- * (agentSkill tools also appear in MCP_TOOLS; unique catalog is MCP_TOOL_COUNT).
+ *
+ * Must equal unique registered tools (`MCP_TOOL_COUNT` / `getAllToolDefinitions`).
+ * Historical arithmetic double-counted `agentSkillTools` already present in
+ * `MCP_TOOLS` (95 vs unique 93). Compute from the deduplicating catalog instead
+ * (Task 0047 path-to-100 N1).
  */
-export const TOTAL_MCP_TOOL_COUNT =
-  MCP_TOOLS.length +
-  Object.keys(memoryTools).length +
-  Object.keys(skillTools).length +
-  Object.keys(agentSkillTools).length +
-  Object.keys(poolTools).length +
-  gamificationTools.length +
-  pluginTools.length +
-  notionTools.length +
-  obsidianTools.length;
+export const TOTAL_MCP_TOOL_COUNT = getAllToolDefinitions().length;
 
 type JsonRecord = Record<string, unknown>;
 

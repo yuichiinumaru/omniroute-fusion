@@ -57,18 +57,39 @@ test("connectionUsesOAuthRefresh is true for oauth", () => {
   assert.equal(connectionUsesOAuthRefresh({ authType: "oauth" }), true);
 });
 
-test("connectionUsesOAuthRefresh blank authType: apiKey false, no apiKey true", () => {
+test("connectionUsesOAuthRefresh blank authType: static credential false, bare true", () => {
   assert.equal(connectionUsesOAuthRefresh({ authType: null, apiKey: "k" }), false);
   assert.equal(connectionUsesOAuthRefresh({ authType: undefined, apiKey: "k" }), false);
   assert.equal(connectionUsesOAuthRefresh({ authType: "", apiKey: "  k  " }), false);
+  // blank + cookie PSD (no apiKey) must not be OAuth-classified (#5326 FP class)
+  assert.equal(
+    connectionUsesOAuthRefresh({
+      authType: null,
+      providerSpecificData: { cookie: "session=abc" },
+    }),
+    false
+  );
+  assert.equal(
+    connectionUsesOAuthRefresh({
+      authType: "",
+      accessToken: "static-tok",
+    }),
+    false
+  );
   assert.equal(connectionUsesOAuthRefresh({ authType: null }), true);
   assert.equal(connectionUsesOAuthRefresh({ authType: undefined, apiKey: "" }), true);
   assert.equal(connectionUsesOAuthRefresh({ authType: null, apiKey: "   " }), true);
 });
 
-test("connectionUsesOAuthRefresh rejects null / non-object", () => {
+test("connectionUsesOAuthRefresh rejects null / non-object / arrays", () => {
   assert.equal(connectionUsesOAuthRefresh(null), false);
   assert.equal(connectionUsesOAuthRefresh(undefined as unknown as null), false);
+  // typeof [] === "object" — must not classify arrays as bare-OAuth (path-to-100).
+  assert.equal(connectionUsesOAuthRefresh([] as unknown as null), false);
+  assert.equal(shouldMarkNoRefreshExpired([] as unknown as null, true), false);
+  assert.equal(isFalsePositiveNoRefreshToken([] as unknown as null), false);
+  assert.equal(hasStaticCredential([] as unknown as null), false);
+  assert.equal(isLongLivedImportCredential([] as unknown as null), false);
 });
 
 // ── shouldMarkNoRefreshExpired (#5326 pure gate) ─────────────────────────────
@@ -305,6 +326,52 @@ test("isFalsePositiveNoRefreshToken heals non-oauth no_refresh_token with creden
       authType: "apikey",
       errorCode: "no_refresh_token",
     }),
+    false
+  );
+});
+
+test("isFalsePositiveNoRefreshToken never heals terminal banned/credits_exhausted hybrids", () => {
+  assert.equal(
+    isFalsePositiveNoRefreshToken({
+      authType: "apikey",
+      apiKey: "k",
+      errorCode: "no_refresh_token",
+      testStatus: "banned",
+    }),
+    false
+  );
+  assert.equal(
+    isFalsePositiveNoRefreshToken({
+      authType: "apikey",
+      apiKey: "k",
+      errorCode: "no_refresh_token",
+      testStatus: "credits_exhausted",
+    }),
+    false
+  );
+  // expired dual-mode FP remains healable
+  assert.equal(
+    isFalsePositiveNoRefreshToken({
+      authType: "apikey",
+      apiKey: "k",
+      errorCode: "no_refresh_token",
+      testStatus: "expired",
+    }),
+    true
+  );
+});
+
+test("shouldMarkNoRefreshExpired is false for blank authType + cookie PSD", () => {
+  assert.equal(
+    shouldMarkNoRefreshExpired(
+      {
+        authType: null,
+        refreshToken: null,
+        testStatus: "active",
+        providerSpecificData: { cookie: "sess=1" },
+      },
+      true
+    ),
     false
   );
 });

@@ -230,24 +230,26 @@ export default function ConsoleLogViewer() {
       {/* Console output */}
       <div
         ref={scrollRef}
-        className="rounded-xl border border-[var(--color-border)] bg-[#0d1117] overflow-auto font-mono text-xs leading-relaxed"
+        className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card,#080c0e)] overflow-auto font-mono text-xs leading-relaxed"
         style={{ maxHeight: "calc(100vh - 340px)", minHeight: "400px" }}
         role="log"
         aria-label="Application console logs"
         aria-live="polite"
       >
-        {/* Header bar */}
-        <div className="sticky top-0 z-10 px-4 py-2 bg-[#161b22] border-b border-[#30363d] flex items-center gap-2">
+        {/* Header bar — traffic-light dots stay decorative; surfaces use theme tokens (Task 0052). */}
+        <div className="sticky top-0 z-10 px-4 py-2 bg-[var(--color-surface,#030506)] border-b border-[var(--color-border)] flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
           <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
           <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-          <span className="ml-3 text-[#8b949e] text-[11px]">OmniRoute — Application Console</span>
+          <span className="ml-3 text-[var(--color-text-muted,#8b949e)] text-[11px]">
+            OmniRoute — Application Console
+          </span>
         </div>
 
         {/* Log entries */}
         <div className="p-3 space-y-px">
           {filteredLogs.length === 0 && !loading ? (
-            <div className="text-[#8b949e] text-center py-12">
+            <div className="text-[var(--color-text-muted,#8b949e)] text-center py-12">
               <span className="material-symbols-outlined text-[40px] block mb-2 opacity-30">
                 terminal
               </span>
@@ -273,7 +275,7 @@ export default function ConsoleLogViewer() {
                   }`}
                 >
                   {/* Timestamp */}
-                  <span className="text-[#484f58] whitespace-nowrap shrink-0 select-none">
+                  <span className="text-[var(--color-text-muted,#484f58)] whitespace-nowrap shrink-0 select-none">
                     {formatTime(entry.timestamp)}
                   </span>
 
@@ -285,14 +287,16 @@ export default function ConsoleLogViewer() {
                   </span>
 
                   {/* Component */}
-                  {comp && <span className="text-purple-400/80 shrink-0">[{comp}]</span>}
+                  {comp && <span className="text-primary/80 shrink-0">[{comp}]</span>}
 
                   {/* Message */}
-                  <span className="text-[#c9d1d9] flex-1 break-all">
+                  <span className="text-[var(--color-text,#c9d1d9)] flex-1 break-all">
                     {msg}
                     {/* Extra meta */}
                     {correlationId && (
-                      <span className="text-[#484f58] ml-2">cid:{correlationId.slice(0, 8)}</span>
+                      <span className="text-[var(--color-text-muted,#484f58)] ml-2">
+                        cid:{correlationId.slice(0, 8)}
+                      </span>
                     )}
                   </span>
 
@@ -300,7 +304,7 @@ export default function ConsoleLogViewer() {
                   <button
                     onClick={() => handleCopy(entry, idx)}
                     title={tv("copyLogEntry")}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[#8b949e] hover:text-white"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-[var(--color-text-muted,#8b949e)] hover:text-white"
                   >
                     <span className="material-symbols-outlined text-[14px]">
                       {copiedIdx === idx ? "check" : "content_copy"}
@@ -312,7 +316,7 @@ export default function ConsoleLogViewer() {
           )}
 
           {loading && filteredLogs.length === 0 && (
-            <div className="text-[#8b949e] text-center py-12">
+            <div className="text-[var(--color-text-muted,#8b949e)] text-center py-12">
               <span className="material-symbols-outlined text-[24px] animate-spin block mb-2">
                 progress_activity
               </span>

@@ -52,6 +52,28 @@ test("api_key alias + no_refresh_token: same non-OAuth copy (dual-mode gemini/qo
   });
   assert.equal(copy.id, CONNECTION_STATUS_COPY_IDS.apikeyNoRefreshToken);
   assertNoOAuthCtaOnApikey(copy);
+  // N3: detail must not mention OAuth even in negation.
+  assert.doesNotMatch(copy.detail, /oauth/i);
+});
+
+test("apikey + expiryStatus expired packs CONNECTION_STATUS_COPY_IDS.expired", () => {
+  const copy = formatConnectionStatusMessage({
+    authType: "apikey",
+    expiryStatus: "expired",
+    testStatus: "expired",
+  });
+  assert.equal(copy.id, CONNECTION_STATUS_COPY_IDS.expired);
+  assertNoOAuthCtaOnApikey(copy);
+});
+
+test("oauth + expiryStatus expired packs CONNECTION_STATUS_COPY_IDS.expired", () => {
+  const copy = formatConnectionStatusMessage({
+    authType: "oauth",
+    expiryStatus: "expired",
+    testStatus: "expired",
+  });
+  assert.equal(copy.id, CONNECTION_STATUS_COPY_IDS.expired);
+  assert.match(copy.cta, /re-?authenticat/i);
 });
 
 // ── 2. oauth + no_refresh_token → re-auth allowed ────────────────────────────
@@ -186,4 +208,29 @@ test("legacy apikey false no_refresh_token (pre-heal) uses neutral retest, not O
   assert.equal(copy.id, CONNECTION_STATUS_COPY_IDS.apikeyNoRefreshToken);
   assert.match(copy.title + " " + copy.detail, /re-?test|health|credential|key/i);
   assertNoOAuthCtaOnApikey(copy);
+});
+
+// ── blank / unknown authType (path-to-100 N2) ────────────────────────────────
+
+test("blank / unknown authType + no_refresh_token: neutral retest, not OAuth CTA", () => {
+  for (const authType of [null, "", "unknown", undefined] as const) {
+    const copy = formatConnectionStatusMessage({
+      authType,
+      errorCode: "no_refresh_token",
+      lastError: "No refresh token available — re-authenticate this account.",
+    });
+    assert.equal(copy.id, CONNECTION_STATUS_COPY_IDS.apikeyNoRefreshToken, `authType=${String(authType)}`);
+    assertNoOAuthCtaOnApikey(copy);
+    assert.match(copy.cta, /re-?test/i);
+  }
+});
+
+test("unknown authType + refresh_failed still allows re-auth (token machinery)", () => {
+  const copy = formatConnectionStatusMessage({
+    authType: null,
+    errorCode: "refresh_failed",
+    lastErrorType: "token_refresh_failed",
+  });
+  assert.equal(copy.id, CONNECTION_STATUS_COPY_IDS.oauthRefreshFailed);
+  assert.match(copy.cta, /re-?authenticat/i);
 });

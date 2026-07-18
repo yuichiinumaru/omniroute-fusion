@@ -62,9 +62,9 @@ Every brand color and surface already matches the site **by value** (only the na
 
 ### 3.3 Theming mechanics (so we don't break anything)
 
-- **Tailwind v4, CSS-first** (no `tailwind.config.*`). Tokens are defined in `:root`/`.dark` and exposed to utilities via `@theme inline` (`globals.css:130-179`).
-- **Dark via `.dark` class** on `<html>` (`@custom-variant dark` at `globals.css:22`), toggled by a custom Zustand store (`src/store/themeStore.ts`), default theme = `system` (`src/shared/constants/appConfig.ts:11`). The site uses `html[data-theme="light"]` instead — **the mechanisms differ but never meet** (separate origins), so no conflict. We keep the dashboard's `.dark` mechanism.
-- **Runtime primary override** exists (`themeStore.ts:85-97`, presets in `COLOR_THEMES`) — users can swap `--color-primary`. Any new token (gradient, etc.) that references `--color-primary` inherits those overrides for free. ✅
+- **Tailwind v4, CSS-first** (no `tailwind.config.*`). Tokens are defined on `:root` (dark-only) and exposed via `@theme inline` (`src/app/globals.css`).
+- **Dark-only brand** (Tasks 0052–0053): `<html class="dark">` is forced; `themeStore` freezes `theme:"dark"` + `colorTheme:"coreCyan"` (`#00FFCC`). Light mode, Appearance presets, and `COLOR_THEMES` / ThemeToggle were removed — do not reintroduce them.
+- **Primary token** is fixed coreCyan on CSS vars (`--color-primary`). Any new token that references `--color-primary` inherits the brand accent.
 - **Tailwind v4 reserved radius names:** `--radius-sm/md/lg/...` back the `rounded-*` utilities. Redefining them retroactively changes every existing `rounded-*` (e.g. `rounded-sm` is used in 12 files). So the small-radius value and component repoint are deliberately deferred to Phase 2, where consumers change together.
 
 ---

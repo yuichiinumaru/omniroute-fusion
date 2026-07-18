@@ -469,8 +469,9 @@ export async function refreshWindsurfToken(
   const authMethod = (providerSpecificData?.authMethod as string) || "import";
 
   // Long-lived Codeium API keys (import flow) have no expiry — nothing to refresh.
-  // Aligns with isLongLivedImportCredential(conn) in connectionAuthMode.ts.
-  if (authMethod === "import") {
+  // Aligns with isLongLivedImportCredential(conn) in connectionAuthMode.ts
+  // (`authMethod` "import" | "imported" | missing→import).
+  if (authMethod === "import" || authMethod === "imported") {
     log?.debug?.("TOKEN_REFRESH", "Windsurf import token is long-lived — no refresh needed");
     return null;
   }

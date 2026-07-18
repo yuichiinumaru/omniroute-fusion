@@ -332,6 +332,44 @@ export async function enforceApiKeyPolicy(
     };
   }
 
+  // Registered keys (ork_) live outside api_keys — validate budget windows and
+  // increment usage when the request is accepted (Task 0050 production wire).
+  if (!apiKeyInfo && apiKey.startsWith("ork_")) {
+    try {
+      const { validateRegisteredKey, incrementRegisteredKeyUsage } =
+        await import("@/lib/db/registeredKeys");
+      const registered = validateRegisteredKey(apiKey);
+      if (!registered) {
+        return {
+          apiKey,
+          apiKeyInfo: null,
+          rejection: errorResponse(
+            HTTP_STATUS.RATE_LIMITED,
+            "Registered key budget exceeded or key is invalid/revoked"
+          ),
+        };
+      }
+      incrementRegisteredKeyUsage(registered.id);
+      return {
+        apiKey,
+        apiKeyInfo: {
+          id: registered.id,
+          name: registered.name,
+          isActive: registered.isActive !== false,
+          expiresAt: registered.expiresAt,
+        },
+        rejection: null,
+      };
+    } catch (error) {
+      log.error("API_POLICY", "Registered key policy failed. Request blocked.", { error });
+      return {
+        apiKey,
+        apiKeyInfo: null,
+        rejection: errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "API key policy unavailable"),
+      };
+    }
+  }
+
   // Key not found in DB — skip policy (auth layer handles validation)
   if (!apiKeyInfo) {
     return { apiKey, apiKeyInfo: null, rejection: null };

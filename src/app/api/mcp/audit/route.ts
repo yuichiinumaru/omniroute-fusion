@@ -16,7 +16,7 @@ function parseNumberParam(value: string | null, fallback: number): number {
 }
 
 export async function GET(request: Request) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);

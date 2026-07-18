@@ -47,7 +47,7 @@ class (GHSA-fhh6-4qxv-rpqj).
 | `/api/tunnels/ngrok`                   | Same tunnel class as cloudflared; GET status exempt                 | No                      |
 | `/api/middleware/hooks`                | Compiles caller JS via `new Function` — process RCE (F-07-W2-001)   | No                      |
 | `/api/cli-tools/keys`                  | API key inventory — no remote bulk secret dump (Task 0049 / F-07-W2-005) | No                  |
-| Pattern: `/api/providers/{id}/login`   | Headful Playwright Chromium spawn                                   | No                      |
+| Pattern: `/api/providers/{id}/login`   | Headful Playwright Chromium spawn (also SPAWN_CAPABLE pattern)      | No                      |
 
 **Response on violation:** `403 LOCAL_ONLY`
 
@@ -99,12 +99,21 @@ server process.
 
 ### SPAWN_CAPABLE (deny-list for manage-scope bypass + always-auth)
 
-Defined in `src/shared/constants/spawnCapablePrefixes.ts`. Every entry is also
+Defined in `src/shared/constants/spawnCapablePrefixes.ts` (flat prefixes) plus
+`SPAWN_CAPABLE_PATTERNS` in `src/server/authz/routeGuard.ts` for dynamic segments
+(e.g. `/api/providers/{id}/login` Playwright Chromium spawn). Every entry is also
 LOCAL_ONLY (or a LOCAL_ONLY subpath). Runtime effects:
 
 1. **Never bypassable** via `localOnlyManageScopeBypassPrefixes` (zod + runtime).
+   `isLocalOnlyBypassableByManageScope` also rejects when the *request path*
+   itself is spawn-capable (blocks parent-prefix bypass of login).
 2. **Always require auth** even when `requireLogin=false` (F-04-005) — the
    management policy skips the anonymous allow for these paths.
+
+| Pattern / path | Reason |
+| -------------- | ------ |
+| Flat prefixes in `SPAWN_CAPABLE_PREFIXES` | npm/node/MITM/tunnel/hooks compile surfaces |
+| Pattern: `/api/providers/{id}/login` | Headful Playwright Chromium (Task 0040 N1) |
 
 **Response on violation:** `401 Authentication required`
 

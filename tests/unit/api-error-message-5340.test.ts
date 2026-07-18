@@ -25,4 +25,29 @@ describe("extractApiErrorMessage (#5340)", () => {
     assert.equal(extractApiErrorMessage({}, "fallback"), "fallback");
     assert.equal(extractApiErrorMessage({ error: { message: 42 } }, "fallback"), "fallback");
   });
+
+  it("reads top-level message / detail when nested error has no message (0047 N5)", () => {
+    assert.equal(
+      extractApiErrorMessage({ message: "top-level fail" }, "fallback"),
+      "top-level fail"
+    );
+    assert.equal(extractApiErrorMessage({ detail: "detail fail" }, "fallback"), "detail fail");
+    assert.equal(
+      extractApiErrorMessage({ error: { code: "X" }, message: "prefer nested then top" }, "fb"),
+      "prefer nested then top"
+    );
+  });
+
+  it("never yields [object Object] for structured envelopes", () => {
+    const msg = extractApiErrorMessage({ error: { code: "X", nested: true } }, "safe");
+    assert.equal(msg.includes("[object Object]"), false);
+    assert.equal(msg, "safe");
+  });
+
+  it("coerces non-string fallback to a safe string (0047 N6)", () => {
+    // JS misuse of fallback: never render object
+    const msg = extractApiErrorMessage({}, { bad: true } as unknown as string);
+    assert.equal(typeof msg, "string");
+    assert.equal(msg.includes("[object Object]"), false);
+  });
 });

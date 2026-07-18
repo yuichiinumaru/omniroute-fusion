@@ -48,8 +48,10 @@ export const clientApiPolicy: RoutePolicy = {
       return reject(401, "AUTH_002", "Authentication required");
     }
 
-    const { validateApiKey } = await import("../../../lib/db/apiKeys");
-    const ok = await validateApiKey(bearer);
+    // isValidApiKey covers DB api_keys, env passthrough keys, and registered
+    // keys (ork_ prefix with budget windows — Task 0050 / #464).
+    const { isValidApiKey } = await import("../../../sse/services/auth");
+    const ok = await isValidApiKey(bearer);
     if (!ok) {
       // Issue #2257: when REQUIRE_API_KEY is off, a stale CLI config (Codex
       // Desktop auto-config, Hermes, etc.) carrying an invalid Bearer

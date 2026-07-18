@@ -142,3 +142,34 @@ test("Header maps operations description key", () => {
   assert.ok(src.includes("operations: \"operationsDescription\"") || src.includes('operations: "operationsDescription"'));
   assert.ok(src.includes("OPERATIONS_DEEP_HEADER_META"));
 });
+
+test("Header traffic-inspector uses trafficInspectorDescription (not cliTools)", () => {
+  const src = read("src/shared/components/Header.tsx");
+  assert.ok(src.includes('descKey: "trafficInspectorDescription"'));
+  // Guard: traffic-inspector block must not reuse CLI tools copy.
+  const tiBlock = src.slice(
+    src.indexOf('titleKey: "trafficInspector"'),
+    src.indexOf('titleKey: "trafficInspector"') + 280
+  );
+  assert.ok(tiBlock.includes("trafficInspectorDescription"));
+  assert.ok(!tiBlock.includes('descKey: "cliToolsDescription"'));
+
+  const en = JSON.parse(read("src/i18n/messages/en.json")) as {
+    header?: Record<string, string>;
+  };
+  assert.ok(en.header?.trafficInspectorDescription);
+  assert.notEqual(en.header?.trafficInspectorDescription, en.header?.cliToolsDescription);
+});
+
+test("Header agent-bridge uses agentBridgeDescription", () => {
+  const src = read("src/shared/components/Header.tsx");
+  const block = src.slice(
+    src.indexOf('titleKey: "agentBridge"'),
+    src.indexOf('titleKey: "agentBridge"') + 280
+  );
+  assert.ok(block.includes('descKey: "agentBridgeDescription"'));
+  const en = JSON.parse(read("src/i18n/messages/en.json")) as {
+    header?: Record<string, string>;
+  };
+  assert.ok(en.header?.agentBridgeDescription);
+});

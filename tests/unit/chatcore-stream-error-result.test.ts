@@ -35,6 +35,20 @@ test("createStreamingErrorResult builds an SSE error envelope with [DONE] termin
   assert.equal(json.error.message, "boom");
 });
 
+test("createStreamingErrorResult sanitizes envelope .error (Hard Rule #12 / 0042 N5)", async () => {
+  const dirty =
+    "upstream failed at /home/svc/app/stream.ts:42:1\n    at handle (/home/svc/app/index.js:10:5)";
+  const result = createStreamingErrorResult(502, dirty);
+  assert.equal(result.success, false);
+  assert.equal(result.error.includes("at /"), false, "envelope .error must not leak stack frames");
+  assert.equal(result.error.includes("/home/"), false, "envelope .error must not leak absolute paths");
+  assert.equal(result.error.includes("\n"), false, "envelope .error is first-line sanitized");
+  const body = await result.response.text();
+  const json = JSON.parse(body.slice("data: ".length, body.indexOf("\n\n")));
+  assert.equal(json.error.message, result.error, "body message and envelope .error must match");
+  assert.equal(json.error.message.includes("at /"), false);
+});
+
 test("createStreamingErrorResult attaches optional code and type", async () => {
   const result = createStreamingErrorResult(429, "slow down", "rate_limited", "rate_limit_error");
   const body = await result.response.text();

@@ -61,6 +61,56 @@ test("F-01-001: createErrorResult envelope shape matches chatCore callers (succe
   assert.ok(body.error?.code, "error.code must be present");
 });
 
+test("F-01-001: runtime mock enforceQuotaShare→block composes createErrorResult envelope", async () => {
+  // Path-to-100 N1: runtime mock of the block decision (not source-grep alone).
+  // Mirrors chatCore.ts block branch composition exactly after enforceQuotaShare returns block.
+  const { createErrorResult } = await import("../../open-sse/utils/error.ts");
+  const { HTTP_STATUS } = await import("../../open-sse/config/constants.ts");
+
+  const enforceQuotaShare = async () =>
+    ({
+      kind: "block" as const,
+      reason: "quota share exhausted (unit mock)",
+      retryAfterSeconds: 12,
+    }) as const;
+
+  const decision = await enforceQuotaShare();
+  assert.equal(decision.kind, "block");
+
+  const retryAfterMs =
+    typeof decision.retryAfterSeconds === "number" && decision.retryAfterSeconds > 0
+      ? decision.retryAfterSeconds * 1000
+      : null;
+  const result = createErrorResult(HTTP_STATUS.RATE_LIMITED, decision.reason, retryAfterMs);
+  if (decision.retryAfterSeconds) {
+    result.response.headers.set("Retry-After", String(decision.retryAfterSeconds));
+  }
+
+  assert.equal(result.success, false);
+  assert.equal(result.status, 429);
+  assert.ok(result.response instanceof Response);
+  assert.equal(result.response.status, 429);
+  assert.equal(result.response.headers.get("Retry-After"), "12");
+  assert.equal(result.retryAfterMs, 12_000);
+  const body = (await result.response.json()) as { error?: { message?: string } };
+  assert.match(String(body.error?.message), /quota share exhausted/);
+  assert.equal(String(body.error?.message).includes("at /"), false);
+});
+
+test("F-01-W2-005 residual: createStreamingErrorResult envelope .error is sanitized (0042 N5)", async () => {
+  const { createStreamingErrorResult } = await import(
+    "../../open-sse/handlers/chatCore/streamErrorResult.ts"
+  );
+  const dirty = "stream fail at /var/app/core.ts:9:1\n    at run (/var/app/x.js:1:1)";
+  const result = createStreamingErrorResult(500, dirty);
+  assert.equal(result.success, false);
+  assert.equal(result.error.includes("at /"), false);
+  assert.equal(result.error.includes("/var/"), false);
+  const text = await result.response.text();
+  const json = JSON.parse(text.slice("data: ".length, text.indexOf("\n\n")));
+  assert.equal(json.error.message, result.error);
+});
+
 // ── F-01-003: translator errorType branch uses createErrorResult ─────────────
 
 test("F-01-003: translator errorType path uses createErrorResult (sanitized)", () => {

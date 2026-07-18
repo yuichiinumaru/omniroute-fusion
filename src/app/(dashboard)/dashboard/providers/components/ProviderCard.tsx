@@ -17,6 +17,7 @@ import {
 import {
   connectionStatusToneToBadgeVariant,
   resolveProviderCardAuthStatusCopy,
+  translateConnectionStatusCopy,
 } from "@/shared/utils/connectionStatusPresentation";
 
 import { CategoryDot } from "./CategoryDot";
@@ -191,6 +192,21 @@ export default function ProviderCard({
     lastError: stats.lastError,
     latestTestStatus: stats.latestTestStatus,
   });
+  const authStatusLabels = authStatusCopy
+    ? translateConnectionStatusCopy(authStatusCopy, (key, fallback) => {
+        try {
+          if (typeof t.has === "function" && !t.has(key as never)) return fallback;
+          const out = t(key as never);
+          if (!out || out === key) return fallback;
+          if (String(out).startsWith("__MISSING__:")) {
+            return String(out).slice("__MISSING__:".length) || fallback;
+          }
+          return String(out);
+        } catch {
+          return fallback;
+        }
+      })
+    : null;
   const isCompatible = isOpenAICompatibleProvider(providerId);
   const isCcCompatible = isClaudeCodeCompatibleProvider(providerId);
   const isAnthropicCompatible = isAnthropicCompatibleProvider(providerId) && !isCcCompatible;
@@ -361,23 +377,18 @@ export default function ProviderCard({
                       t,
                       codexServiceTierChip
                     )}
-                    {authStatusCopy && (
+                    {authStatusCopy && authStatusLabels && (
                       <span
-                        title={`${authStatusCopy.title}: ${authStatusCopy.detail} (${authStatusCopy.cta})`}
+                        title={`${authStatusLabels.title}: ${authStatusLabels.detail} (${authStatusLabels.cta})`}
                       >
                         <Badge
                           variant={connectionStatusToneToBadgeVariant(authStatusCopy.tone)}
                           size="sm"
                           dot
                         >
-                          {authStatusCopy.badge}
+                          {authStatusLabels.badge}
                         </Badge>
                       </span>
-                    )}
-                    {!authStatusCopy && stats.expiryStatus === "expired" && (
-                      <Badge variant="error" size="sm" dot>
-                        {t("expiredBadge")}
-                      </Badge>
                     )}
                     {stats.expiryStatus === "expiring_soon" && (
                       <Badge variant="warning" size="sm" dot>

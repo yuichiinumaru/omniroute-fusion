@@ -1487,7 +1487,8 @@
     "settingsAdvancedDescription": "Advanced payload rules, request limits, and proxy API settings",
     "mitmProxyDescription": "Configure MITM proxy settings for traffic inspection and debugging",
     "oneProxyDescription": "Configure 1Proxy settings for advanced proxy chaining",
-    "omniSkillsDescription": "Inbound sandbox tools OmniRoute injects into model requests"
+    "omniSkillsDescription": "Inbound sandbox tools OmniRoute injects into model requests",
+    "operationsDescription": "API keys, endpoints, agents, webhooks, memory, and skills"
   },
   "home": {
     "quickStart": "Pika-aloitus",
@@ -1828,7 +1829,12 @@
     "normalKeysSection": "Normal keys",
     "quotaKeysSection": "Quota keys",
     "quotaPill": "QUOTA",
-    "quotaModeOnly": "qtSd-only"
+    "quotaModeOnly": "qtSd-only",
+    "usdUsageQuota": "USD usage quota",
+    "usdUsageQuotaDesc": "Blocks this key with a 400 API error after its local USD spend reaches the configured daily or weekly quota.",
+    "dailyQuotaUsd": "Daily quota (USD)",
+    "weeklyQuotaUsd": "Weekly quota (USD)",
+    "usageQuotaWindowHint": "Weekly quota follows the cached Claude weekly reset when available; otherwise it falls back to a rolling 7 day window. Daily quota uses the Fortaleza calendar day."
   },
   "auditLog": {
     "title": "Tarkastusloki",

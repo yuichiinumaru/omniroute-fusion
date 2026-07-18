@@ -30,7 +30,8 @@ async function guardEnabled(): Promise<NextResponse | null> {
 }
 
 export async function GET(request: NextRequest) {
-  const authError = await requireManagementAuth(request);
+  // Task 0044 path-to-100 N6: always auth — open-install LAN must not reach tools anonymously
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
   const blocked = await guardEnabled();
   if (blocked) return blocked;
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
   const blocked = await guardEnabled();
   if (blocked) return blocked;

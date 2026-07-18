@@ -111,9 +111,15 @@ test("isSpawnCapablePath: new Task 0040 surfaces are spawn-capable (F-04-004)", 
   assert.equal(isSpawnCapablePath("/api/system/version"), true);
   assert.equal(isSpawnCapablePath("/api/db-backups/exportAll"), true);
   assert.equal(isSpawnCapablePath("/api/oauth/cursor/auto-import"), true);
+  // Task 0040 path-to-100 N1: provider-login Playwright spawn (regex pattern).
+  assert.equal(isSpawnCapablePath("/api/providers/x/login"), true);
+  assert.equal(isSpawnCapablePath("/api/providers/conn-1/login/"), true);
+  assert.equal(isLocalOnlyPath("/api/providers/x/login"), true);
   // Non-spawn management routes stay free of SPAWN_CAPABLE.
   assert.equal(isSpawnCapablePath("/api/settings"), false);
   assert.equal(isSpawnCapablePath("/api/mcp/sse"), false);
+  assert.equal(isSpawnCapablePath("/api/providers/x"), false);
+  assert.equal(isSpawnCapablePath("/api/providers/x/test"), false);
 });
 
 test("isLocalOnlyBypassableByManageScope: new spawn surfaces are NOT bypassable", () => {

@@ -57,6 +57,8 @@ export function createErrorResponseFromUnknown(
   error: unknown,
   fallbackMessage = "Unexpected server error"
 ): Response {
+  // SAFETY: `error` is `unknown` from catch; we only read optional fields and
+  // never trust them without sanitize (message/details go through createErrorResponse).
   const anyError = error as {
     message?: string;
     status?: number;

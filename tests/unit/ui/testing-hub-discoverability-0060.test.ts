@@ -125,11 +125,18 @@ test("Header maps Testing hub deep destinations", () => {
   assert.ok(src.includes('match: (p) => p === "/dashboard/testing"'));
 });
 
-test("DevTools section still debug-gates playground/translator/search-tools", () => {
+test("DevTools sidebar chrome does not render or list Translator, Playground, or Search Tools", () => {
   const src = read("src/shared/constants/sidebarVisibility.ts");
-  assert.ok(src.includes('visibility: "debug"'));
+  // Keep the structure for compatibility, but ensure they are not listed in DEVTOOLS_ITEMS anymore
   assert.ok(src.includes("DEVTOOLS_ITEMS"));
-  assert.ok(src.includes('id: "playground"'));
-  assert.ok(src.includes('id: "translator"'));
-  assert.ok(src.includes('id: "search-tools"'));
+  const devtoolsBlock = src.match(/const DEVTOOLS_ITEMS: readonly SidebarItemDefinition\[\] = \[([\s\S]*?)\];/);
+  if (devtoolsBlock) {
+    const blockContent = devtoolsBlock[1];
+    assert.equal(blockContent.includes('id: "playground"'), false);
+    assert.equal(blockContent.includes('id: "translator"'), false);
+    assert.equal(blockContent.includes('id: "search-tools"'), false);
+  } else {
+    // If it is shortened to empty array `[]`
+    assert.ok(src.includes("DEVTOOLS_ITEMS: readonly SidebarItemDefinition[] = [];"));
+  }
 });

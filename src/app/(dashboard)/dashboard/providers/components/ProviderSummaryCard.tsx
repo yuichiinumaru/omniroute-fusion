@@ -240,14 +240,14 @@ export default function ProviderSummaryCard({
                 onClick={() => onCategoryChange(cat.key, cat.key === "free")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
                   isActive
-                    ? "bg-primary text-white border-primary"
+                    ? "border-primary/20 bg-primary/10 text-primary"
                     : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
                 }`}
                 title={cat.title || cat.label}
               >
                 {cat.color && <CategoryDot color={cat.color} label={cat.label} />}
                 <span>{cat.label}</span>
-                <span className={`text-[11px] ${isActive ? "text-white/80" : "text-text-muted"}`}>
+                <span className={`text-[11px] ${isActive ? "text-primary/80" : "text-text-muted"}`}>
                   {cat.stat.configured}
                   <span className="opacity-70">/{cat.stat.total}</span>
                 </span>
@@ -262,7 +262,7 @@ export default function ProviderSummaryCard({
               disabledConfigured ? "cursor-not-allowed opacity-50" : ""
             } ${
               showConfiguredOnly
-                ? "bg-primary text-white border-primary"
+                ? "border-primary/20 bg-primary/10 text-primary"
                 : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
             }`}
             title={t("configuredLabel")}
@@ -283,7 +283,7 @@ export default function ProviderSummaryCard({
             onClick={() => onSortModeChange("az")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               sortMode === "az"
-                ? "bg-primary text-white border-primary"
+                ? "border-primary/20 bg-primary/10 text-primary"
                 : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
             }`}
           >
@@ -294,7 +294,7 @@ export default function ProviderSummaryCard({
             onClick={() => onSortModeChange("accounts")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               sortMode === "accounts"
-                ? "bg-primary text-white border-primary"
+                ? "border-primary/20 bg-primary/10 text-primary"
                 : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
             }`}
           >
@@ -316,7 +316,7 @@ export default function ProviderSummaryCard({
                 aria-pressed={isActive}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
                   isActive
-                    ? "bg-primary text-white border-primary"
+                    ? "border-primary/20 bg-primary/10 text-primary"
                     : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
                 }`}
               >

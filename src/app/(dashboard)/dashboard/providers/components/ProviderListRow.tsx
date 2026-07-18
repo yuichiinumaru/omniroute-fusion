@@ -15,6 +15,7 @@ import {
 import {
   connectionStatusToneToBadgeVariant,
   resolveProviderCardAuthStatusCopy,
+  translateConnectionStatusCopy,
 } from "@/shared/utils/connectionStatusPresentation";
 
 import { CategoryDot } from "./CategoryDot";
@@ -113,6 +114,21 @@ export default function ProviderListRow({
     lastError: stats.lastError,
     latestTestStatus: stats.latestTestStatus,
   });
+  const authStatusLabels = authStatusCopy
+    ? translateConnectionStatusCopy(authStatusCopy, (key, fallback) => {
+        try {
+          if (typeof t.has === "function" && !t.has(key as never)) return fallback;
+          const out = t(key as never);
+          if (!out || out === key) return fallback;
+          if (String(out).startsWith("__MISSING__:")) {
+            return String(out).slice("__MISSING__:".length) || fallback;
+          }
+          return String(out);
+        } catch {
+          return fallback;
+        }
+      })
+    : null;
 
   const isCompatible = isOpenAICompatibleProvider(providerId);
   const isCcCompatible = isClaudeCodeCompatibleProvider(providerId);
@@ -274,19 +290,18 @@ export default function ProviderListRow({
                   {statusStrings.find((s) => s.includes(String(error))) ?? ""}
                 </Badge>
               )}
-              {authStatusCopy && (
-                <Badge
-                  variant={connectionStatusToneToBadgeVariant(authStatusCopy.tone)}
-                  size="sm"
-                  dot
+              {authStatusCopy && authStatusLabels && (
+                <span
+                  title={`${authStatusLabels.title}: ${authStatusLabels.detail} (${authStatusLabels.cta})`}
                 >
-                  {authStatusCopy.badge}
-                </Badge>
-              )}
-              {!authStatusCopy && stats.expiryStatus === "expired" && (
-                <Badge variant="error" size="sm" dot>
-                  {t("expiredBadge")}
-                </Badge>
+                  <Badge
+                    variant={connectionStatusToneToBadgeVariant(authStatusCopy.tone)}
+                    size="sm"
+                    dot
+                  >
+                    {authStatusLabels.badge}
+                  </Badge>
+                </span>
               )}
               {stats.expiryStatus === "expiring_soon" && (
                 <Badge variant="warning" size="sm" dot>

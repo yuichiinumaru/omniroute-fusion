@@ -443,6 +443,8 @@ test("F-04-005: spawn-capable path rejects anonymous when requireLogin=false (lo
     "/api/cli-tools/runtime/claude",
     "/api/version-manager/install",
     "/api/middleware/hooks",
+    // Task 0040 path-to-100 N1: provider-login is SPAWN pattern (Chromium spawn).
+    "/api/providers/x/login",
   ]) {
     const out = await policy.evaluate(
       ctx(new Headers(), "POST", path, { socket: { remoteAddress: "127.0.0.1" } })
@@ -452,6 +454,21 @@ test("F-04-005: spawn-capable path rejects anonymous when requireLogin=false (lo
       assert.equal(out.status, 401);
       assert.equal(out.code, "AUTH_001");
     }
+  }
+});
+
+test("F-04-005: provider-login rejects anonymous on private LAN when requireLogin=false", async () => {
+  // LOCAL_ONLY treats private LAN as local; SPAWN/F-04-005 must still require auth.
+  await settingsDb.updateSettings({ requireLogin: false, password: null });
+  const policy = await loadPolicy();
+  const out = await policy.evaluate(
+    ctx(new Headers(), "POST", "/api/providers/conn-1/login", {
+      socket: { remoteAddress: "192.168.1.50" },
+    })
+  );
+  assert.equal(out.allow, false, "LAN anonymous must not reach provider-login spawn");
+  if (!out.allow) {
+    assert.equal(out.status, 401);
   }
 });
 

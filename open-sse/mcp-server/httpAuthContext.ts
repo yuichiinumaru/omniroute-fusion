@@ -49,6 +49,15 @@ export function getMcpPrincipalFromStore(): {
   };
 }
 
+/**
+ * True when the current async stack is inside {@link withMcpHttpAuthContext}
+ * (HTTP/SSE MCP transport). Used to refuse unauthenticated tenant-id binding
+ * on HTTP while still allowing stdio operators to pass `apiKeyId` without a principal.
+ */
+export function isMcpHttpAuthContextActive(): boolean {
+  return mcpHttpAuthContext.getStore() !== undefined;
+}
+
 export async function withMcpHttpAuthContext<T>(
   request: Request,
   callback: () => Promise<T>,

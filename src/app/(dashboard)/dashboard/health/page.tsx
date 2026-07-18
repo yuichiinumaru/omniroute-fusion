@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Card } from "@/shared/components";
+import { Card, ObserveHubSubnav } from "@/shared/components";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderDisplayName } from "@/lib/display/names";
 import { useProviderNodeMap, resolveProviderName } from "@/lib/display/useProviderNodeMap";
@@ -203,23 +203,26 @@ export default function HealthPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end gap-3">
-        {lastRefresh && (
-          <span className="text-xs text-text-muted">
-            {t("updatedAt", { time: lastRefresh.toLocaleTimeString() })}
-          </span>
-        )}
-        <button
-          onClick={() => {
-            fetchHealth();
-            fetchExtras();
-            fetchDbHealth();
-          }}
-          className="p-2 rounded-lg bg-surface hover:bg-surface/80 text-text-muted hover:text-text-main transition-colors"
-          title={tc("refresh")}
-        >
-          <span className="material-symbols-outlined text-[18px]">refresh</span>
-        </button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <ObserveHubSubnav active="health" />
+        <div className="flex items-center justify-end gap-3 self-end sm:self-auto">
+          {lastRefresh && (
+            <span className="text-xs text-text-muted">
+              {t("updatedAt", { time: lastRefresh.toLocaleTimeString() })}
+            </span>
+          )}
+          <button
+            onClick={() => {
+              fetchHealth();
+              fetchExtras();
+              fetchDbHealth();
+            }}
+            className="p-2 rounded-lg bg-surface hover:bg-surface/80 text-text-muted hover:text-text-main transition-colors"
+            title={tc("refresh")}
+          >
+            <span className="material-symbols-outlined text-[18px]">refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Status Banner */}

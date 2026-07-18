@@ -1429,6 +1429,8 @@
     "contextCombosDescription": "Define how engines are combined for different routing scenarios.",
     "changelogDescription": "Stay up to date with the latest platform features and announcements.",
     "agentsDescription": "Manage and configure AI agent tools: Codex, Devin, Jules, and custom agents",
+    "agentBridgeDescription": "Intercept and inspect IDE agent traffic through Agent Bridge",
+    "trafficInspectorDescription": "Monitor LLM calls and debug HTTPS traffic in real time",
     "cloudAgentsDescription": "Orchestrate cloud-based AI agents with live task tracking and plan approval",
     "memoryDescription": "Persistent conversational memory with semantic search and FTS5 full-text indexing",
     "skillsDescription": "Inbound sandbox tools OmniRoute injects into model requests",
@@ -1829,7 +1831,12 @@
     "normalKeysSection": "Normal keys",
     "quotaKeysSection": "Quota keys",
     "quotaPill": "QUOTA",
-    "quotaModeOnly": "qtSd-only"
+    "quotaModeOnly": "qtSd-only",
+    "usdUsageQuota": "USD usage quota",
+    "usdUsageQuotaDesc": "Blocks this key with a 400 API error after its local USD spend reaches the configured daily or weekly quota.",
+    "dailyQuotaUsd": "Daily quota (USD)",
+    "weeklyQuotaUsd": "Weekly quota (USD)",
+    "usageQuotaWindowHint": "Weekly quota follows the cached Claude weekly reset when available; otherwise it falls back to a rolling 7 day window. Daily quota uses the Fortaleza calendar day."
   },
   "auditLog": {
     "title": "Audit Log",
@@ -2456,6 +2463,18 @@
     "fusionUnitNotSet": "Not set",
     "fusionSelectJudgeModel": "Select judge model",
     "fusionSelectPanelModel": "Select panel model",
+    "fusionNewTitle": "New fusion",
+    "fusionEditTitle": "Edit fusion",
+    "fusionEditorSubtitle": "Configure panel models, judge, triggers, and tuning. Saves as combo strategy",
+    "fusionBack": "Back",
+    "fusionSave": "Save fusion",
+    "fusionCancel": "Cancel",
+    "fusionBasics": "Basics",
+    "fusionPanelRequired": "Add at least one panel model or combo ref",
+    "fusionPanelIncomplete": "Every panel needs a model or combo reference",
+    "fusionJudgeEmpty": "Judge model is empty — clear it or pick a model",
+    "fusionJudgeComboEmpty": "Judge combo ref is empty — clear it or pick a combo",
+    "fusionTextPatternRequired": "Add at least one text pattern for text-match triggers",
     "models": "Models",
     "autoBalance": "Auto-balance",
     "advancedSettings": "Advanced Settings",
@@ -4895,7 +4914,7 @@
       "apikey_no_refresh_token": {
         "badge": "Retest",
         "title": "Needs re-test",
-        "detail": "API-key credential flagged by a health glitch. Retest or rotate the key — no OAuth refresh token is required.",
+        "detail": "API-key credential flagged by a health glitch. Retest or rotate the key.",
         "cta": "Retest connection"
       },
       "apikey_invalid_key": {
@@ -7011,7 +7030,7 @@
       "apikey_no_refresh_token": {
         "badge": "Retest",
         "title": "Needs re-test",
-        "detail": "API-key credential flagged by a health glitch. Retest or rotate the key — no OAuth refresh token is required.",
+        "detail": "API-key credential flagged by a health glitch. Retest or rotate the key.",
         "cta": "Retest connection"
       },
       "apikey_invalid_key": {

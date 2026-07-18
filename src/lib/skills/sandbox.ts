@@ -230,7 +230,9 @@ class SandboxRunner {
     if (proc) {
       proc.kill("SIGTERM");
       this.runningContainers.delete(sandboxId);
+      // F-06-001 residual (N7): kill path must not inherit full host process.env
       childProcess.spawn("docker", ["kill", `omniroute-sandbox-${sandboxId}`], {
+        env: buildDockerCliEnv(process.env),
         stdio: "ignore",
       });
       return true;
@@ -241,7 +243,11 @@ class SandboxRunner {
   killAll(): void {
     for (const [id, proc] of this.runningContainers) {
       proc.kill("SIGTERM");
-      childProcess.spawn("docker", ["kill", `omniroute-sandbox-${id}`], { stdio: "ignore" });
+      // F-06-001 residual (N7): scrub secrets on docker kill cleanup spawns
+      childProcess.spawn("docker", ["kill", `omniroute-sandbox-${id}`], {
+        env: buildDockerCliEnv(process.env),
+        stdio: "ignore",
+      });
     }
     this.runningContainers.clear();
   }

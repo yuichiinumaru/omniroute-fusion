@@ -102,9 +102,10 @@ export async function registerNodejs(): Promise<void> {
     console.warn("[STARTUP] Could not clear stale crash cooldowns (non-fatal):", msg);
   }
 
-  // Epic 0006: restore static API-key / cookie rows false-marked no_refresh_token
-  // by dual-mode health sweep (provider-level supportsTokenRefresh without auth mode).
-  // Idempotent — only matches non-OAuth rows with that error code; oauth #5326 kept.
+  // Epic 0006: restore false-positive no_refresh_token rows from dual-mode health
+  // sweep (provider-level supportsTokenRefresh without connection auth mode).
+  // Eligible: static apikey/cookie/blank+credential + Windsurf/Devin long-lived
+  // import FPs. Legitimate oauth #5326 (github/antigravity/…) kept. Idempotent.
   try {
     const { healFalsePositiveNoRefreshConnections } = await import(
       "@/lib/db/healFalsePositiveNoRefresh"
@@ -112,7 +113,7 @@ export async function registerNodejs(): Promise<void> {
     const { healed } = await healFalsePositiveNoRefreshConnections();
     if (healed > 0) {
       console.log(
-        `[STARTUP] Healed ${healed} false-positive no_refresh_token connection(s) (static credentials)`
+        `[STARTUP] Healed ${healed} false-positive no_refresh_token connection(s) (static + long-lived import)`
       );
     }
   } catch (err: unknown) {

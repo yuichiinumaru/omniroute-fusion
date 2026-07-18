@@ -134,6 +134,30 @@ describe("Observe redirect matrix sources", () => {
   }
 });
 
+describe("Legacy usage deep-links (Task 0023 path-to-100)", () => {
+  it("ProviderQuotaWidget links to /dashboard/quota (not usage?tab=limits)", () => {
+    const src = readSrc("src/app/(dashboard)/home/ProviderQuotaWidget.tsx");
+    assert.ok(
+      src.includes('href="/dashboard/quota"') || src.includes("href={'/dashboard/quota'}"),
+      "View details must target Provider Limits home"
+    );
+    assert.ok(
+      !src.includes("/dashboard/usage?tab=limits"),
+      "must not deep-link to legacy usage?tab=limits (S4 redirects lose tab intent)"
+    );
+  });
+
+  it("usage page branches tab=limits → quota before observe request redirect", () => {
+    const src = readSrc("src/app/(dashboard)/dashboard/usage/page.tsx");
+    assert.ok(src.includes("limits"), "must inspect tab=limits");
+    assert.ok(src.includes("/dashboard/quota"), "tab=limits must re-home to /dashboard/quota");
+    assert.ok(
+      src.includes("buildObserveHubPath") || src.includes(OBSERVE_HUB_PATH),
+      "default path still targets Observe hub"
+    );
+  });
+});
+
 describe("Observe hub shell composition", () => {
   it("activity page mounts ObserveHubClient", () => {
     const src = readSrc("src/app/(dashboard)/dashboard/activity/page.tsx");
@@ -151,7 +175,7 @@ describe("Observe hub shell composition", () => {
       "McpAuditTab",
       "A2aAuditTab",
       "normalizeObserveSource",
-      "PageTabBar",
+      "ObserveHubSubnav",
     ]) {
       assert.ok(src.includes(needle), `hub must compose ${needle}`);
     }
@@ -159,9 +183,10 @@ describe("Observe hub shell composition", () => {
   });
 
   it("exposes Health as a discoverable link, not a stream tab (Task 0061)", () => {
+    const subnav = readSrc("src/shared/components/ObserveHubSubnav.tsx");
+    assert.ok(subnav.includes("data-observe-health-link"));
+    assert.ok(subnav.includes("HEALTH_NAV_ITEM"));
     const src = readSrc("src/app/(dashboard)/dashboard/activity/ObserveHubClient.tsx");
-    assert.ok(src.includes("data-observe-health-link"));
-    assert.ok(src.includes("HEALTH_NAV_ITEM"));
     assert.ok(!src.includes('id: "health"'));
   });
 });

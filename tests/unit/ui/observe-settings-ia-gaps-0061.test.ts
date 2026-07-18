@@ -38,10 +38,13 @@ test("HEALTH_NAV_ITEM points at the health dashboard page", () => {
 });
 
 test("Observe hub links to Health without making it a log-stream tab", () => {
+  const subnav = read("src/shared/components/ObserveHubSubnav.tsx");
+  assert.ok(subnav.includes("HEALTH_NAV_ITEM"));
+  assert.ok(subnav.includes("data-observe-health-link"));
+  assert.ok(subnav.includes("/dashboard/health") || subnav.includes("HEALTH_NAV_ITEM.href"));
+
   const hub = read("src/app/(dashboard)/dashboard/activity/ObserveHubClient.tsx");
-  assert.ok(hub.includes("HEALTH_NAV_ITEM"));
-  assert.ok(hub.includes("data-observe-health-link"));
-  assert.ok(hub.includes("/dashboard/health") || hub.includes("HEALTH_NAV_ITEM.href"));
+  assert.ok(hub.includes("ObserveHubSubnav"));
   // Must remain stream sources only (no health ObserveSource).
   assert.equal((OBSERVE_SOURCES as readonly string[]).includes("health"), false);
   assert.doesNotMatch(hub, /id:\s*"health"/);
@@ -68,6 +71,11 @@ test("Settings tabbar includes Interface tab on appearance route value", () => {
   assert.ok(layout.includes("pathToTabValue"));
   // Theme/branding customization must not return via this tab label alone.
   assert.doesNotMatch(layout, /label:\s*"Appearance"/);
+});
+
+test("Health page includes ObserveHubSubnav", () => {
+  const page = read("src/app/(dashboard)/dashboard/health/page.tsx");
+  assert.ok(page.includes("ObserveHubSubnav"));
 });
 
 test("Appearance page keeps functional prefs and no theme customization UI", () => {

@@ -1,14 +1,18 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 
+/**
+ * Tier flow illustration for onboarding.
+ *
+ * Dark-only product theme (Tasks 0052/0053): always use the dark SVG.
+ * Do not depend on next-themes — there is no NextThemesProvider and light mode
+ * is not supported.
+ */
 export function TierFlowDiagram() {
   const t = useTranslations("onboarding");
-  const { resolvedTheme } = useTheme();
-  const src =
-    resolvedTheme === "dark" ? "/images/tier-flow-dark.svg" : "/images/tier-flow-light.svg";
+  const src = "/images/tier-flow-dark.svg";
 
   return (
     <div className="flex flex-col items-center gap-3 my-4">

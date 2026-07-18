@@ -753,29 +753,7 @@ const SYSTEM_ITEMS: readonly SidebarItemDefinition[] = [
   },
 ];
 
-const DEVTOOLS_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "translator",
-    href: "/dashboard/translator",
-    i18nKey: "translator",
-    subtitleKey: "translatorSubtitle",
-    icon: "translate",
-  },
-  {
-    id: "playground",
-    href: "/dashboard/playground",
-    i18nKey: "playground",
-    subtitleKey: "playgroundSubtitle",
-    icon: "science",
-  },
-  {
-    id: "search-tools",
-    href: "/dashboard/search-tools",
-    i18nKey: "searchTools",
-    subtitleKey: "searchToolsSubtitle",
-    icon: "manage_search",
-  },
-];
+const DEVTOOLS_ITEMS: readonly SidebarItemDefinition[] = [];
 
 const HELP_ITEMS: readonly SidebarItemDefinition[] = [
   {

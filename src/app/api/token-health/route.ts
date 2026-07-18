@@ -39,9 +39,10 @@ export async function GET() {
       lastCheckAt: lastCheck,
       status: errored > 0 ? "error" : healthy < total ? "warning" : "healthy",
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    // Hard Rule #12: sanitize full throwable — never cast-and-read .message raw.
     return Response.json(
-      { error: sanitizeErrorMessage((err as Error)?.message), status: "unknown" },
+      { error: sanitizeErrorMessage(err) || "Token health check failed", status: "unknown" },
       { status: 500 }
     );
   }

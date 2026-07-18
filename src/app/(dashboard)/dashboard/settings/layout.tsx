@@ -40,6 +40,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="space-y-6">
       <PageTabBar
+        variant="subnav"
         options={SETTINGS_TABS}
         value={activeTab}
         onChange={handleTabChange}

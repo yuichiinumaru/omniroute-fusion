@@ -213,10 +213,10 @@ export default function ConnectionsListPanel({
             setPage(0);
             setSelectedIds(new Set());
           }}
-          className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
+          className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors border ${
             healthFilter === opt.value
-              ? "bg-primary text-white"
-              : "bg-muted/60 text-text-muted hover:bg-muted"
+              ? "border-primary/20 bg-primary/10 text-primary"
+              : "border-transparent bg-muted/60 text-text-muted hover:bg-muted"
           }`}
         >
           {opt.label}

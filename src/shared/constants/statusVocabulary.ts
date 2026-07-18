@@ -3,8 +3,9 @@
  * (healthy / degraded / offline / …) mapped onto OmniRoute Badge + health tones.
  *
  * NOT a second design system: tones resolve to existing Badge variants and
- * semantic Tailwind utilities already used across the dashboard. Coral brand
- * SSoT is unchanged; cyan remains an optional appearance preset only.
+ * semantic Tailwind utilities already used across the dashboard. Brand default
+ * is dark-only coreCyan (`#00FFCC` / `text-primary`); `info` / `active` tones
+ * follow the primary token (Task 0052).
  *
  * Glow is opt-in via `glowClass` and must stay limited to health / circuit-
  * breaker / critical status surfaces — never global layout chrome.

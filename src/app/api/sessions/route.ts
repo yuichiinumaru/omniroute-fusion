@@ -9,11 +9,12 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 
 /**
  * GET /api/sessions
- * Security (Task 0049 stretch / F-07-W2-006): management auth required so
- * auth-disabled installs do not expose the live session map.
+ * Security (Task 0049 stretch / F-07-W2-006 + path-to-100 N3): always require
+ * management auth (`{ always: true }`) so open-install (`requireLogin=false`)
+ * cannot expose the live session map anonymously.
  */
 export async function GET(request: Request) {
-  const authError = await requireManagementAuth(request);
+  const authError = await requireManagementAuth(request, { always: true });
   if (authError) return authError;
 
   try {

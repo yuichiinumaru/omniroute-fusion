@@ -1487,7 +1487,8 @@
     "settingsAdvancedDescription": "Advanced payload rules, request limits, and proxy API settings",
     "mitmProxyDescription": "Configure MITM proxy settings for traffic inspection and debugging",
     "oneProxyDescription": "Configure 1Proxy settings for advanced proxy chaining",
-    "omniSkillsDescription": "__MISSING__:Install and manage sandbox skills for automated prompt and tool execution"
+    "omniSkillsDescription": "__MISSING__:Install and manage sandbox skills for automated prompt and tool execution",
+    "operationsDescription": "API keys, endpoints, agents, webhooks, memory, and skills"
   },
   "home": {
     "quickStart": "Avvio rapido",
@@ -1828,7 +1829,12 @@
     "normalKeysSection": "__MISSING__:Normal keys",
     "quotaKeysSection": "__MISSING__:Quota keys",
     "quotaPill": "__MISSING__:QUOTA",
-    "quotaModeOnly": "__MISSING__:qtSd-only"
+    "quotaModeOnly": "__MISSING__:qtSd-only",
+    "usdUsageQuota": "USD usage quota",
+    "usdUsageQuotaDesc": "Blocks this key with a 400 API error after its local USD spend reaches the configured daily or weekly quota.",
+    "dailyQuotaUsd": "Daily quota (USD)",
+    "weeklyQuotaUsd": "Weekly quota (USD)",
+    "usageQuotaWindowHint": "Weekly quota follows the cached Claude weekly reset when available; otherwise it falls back to a rolling 7 day window. Daily quota uses the Fortaleza calendar day."
   },
   "auditLog": {
     "title": "Registro di controllo",

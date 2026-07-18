@@ -572,6 +572,69 @@ test("legacy handleFusionChat still fans out string models + judge", async () =>
   assert.equal(typeof FUSION_DEFAULTS.panelHardTimeoutMs, "number");
 });
 
+// ─── comboChatBase nested option forwarding (Task 0012/0013 path-to-100) ───
+
+test("V2: comboChatBase settings/signal/acl forward into nested handleComboChat", async () => {
+  const received: Array<Record<string, unknown>> = [];
+  const signal = new AbortController().signal;
+  const settings = { maxComboDepth: 4, fusionProbe: true };
+  const apiKeyAllowedConnections = ["conn-a", "conn-b"];
+  const isModelAvailable = async () => true;
+
+  const handleSingleModel = async (_body: Body, model: string) => {
+    if (model === "p/judge") return okResponse("FINAL");
+    return okResponse(`ans-${model}`);
+  };
+  const handleComboChat = async (opts: Record<string, unknown>) => {
+    received.push(opts);
+    return okResponse("ans-nested");
+  };
+
+  const res = await handleFusionChatV2({
+    body: {
+      messages: [{ role: "user", content: "Q" }],
+      stream: false,
+      tools: [{ name: "t" }],
+    },
+    panels: [
+      { kind: "model", model: "p/direct" },
+      { kind: "combo-ref", comboName: "pool-1" },
+    ],
+    judge: { kind: "model", model: "p/judge" },
+    handleSingleModel,
+    handleComboChat,
+    allCombos: [{ name: "pool-1", models: ["p/m1"] }],
+    nesting: {
+      depth: 0,
+      maxDepth: 3,
+      visitedComboNames: ["root"],
+      rootComboName: "root",
+      attemptBudget: { count: 0, limit: 400 },
+    },
+    comboChatBase: {
+      settings,
+      isModelAvailable,
+      relayOptions: { sessionId: "s1" },
+      signal,
+      apiKeyAllowedConnections,
+    },
+    log,
+    comboName: "root",
+    tuning: fastTuning,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(received.length, 1, "one combo-ref panel");
+  assert.equal(received[0].settings, settings);
+  assert.equal(received[0].signal, signal);
+  assert.equal(received[0].isModelAvailable, isModelAvailable);
+  assert.deepEqual(received[0].apiKeyAllowedConnections, apiKeyAllowedConnections);
+  assert.deepEqual(received[0].relayOptions, { sessionId: "s1" });
+  // body/combo/nesting still win over base
+  assert.equal((received[0].combo as { name: string }).name, "pool-1");
+  assert.equal((received[0].nesting as { depth: number }).depth, 1);
+});
+
 // ─── helpers ───────────────────────────────────────────────────────────────
 
 function extractText(json: unknown): string {

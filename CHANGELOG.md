@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Fusion First-Class path-to-100 residuals (Tasks 0010–0016 / 0018)** — close re-review blockers without behavior regressions.
+  - **0010 / 0011 contracts+resolve**: Task 0010/0011 Unreleased bullets; schema→`resolveFusionUnits` round-trip; `EMPTY_FUSION_JUDGE` sentinel
+  - **0013 wire**: `comboChatBase` (settings/signal/ACL/isModelAvailable/relayOptions) threaded into V2 nested combo-ref
+  - **0014 / 0018 triggers+tests**: extra D8 wire shapes; immutability miss→hit; `validateComboDAG` walks fusion `judge`/`acting`
+  - **0015 shell**: shared `filterFusionCombos`; keyboard card (`role="link"` + Enter/Space)
+  - **0016 editor**: extract Basics/Units/Triggers/Tuning/PatternTagInput; D8 options unit; text-match save + Zod couple; chrome i18n; connectionId plumb when picker allows
+  **Author**: independent re-reviewer (path-to-100 final)
+
+### Added
+- **Fusion contracts (Epic 0003 / Task 0010)** — Zod combo schemas accept `triggers.mode` ∈ {always, tool-call, text-match}, optional `triggers.textPatterns`, top-level `judge` as `comboModelEntry`, and reject `fallbackStrategy` of `fusion` / `conditional-fusion` (D8). Exported `ResolvedFusionUnit` + `HandleFusionChatOptionsV2` from `open-sse/services/fusion.ts`. Legacy `config.judgeModel` remains valid.
+  **Author**: builder (Task 0010) + path-to-100 final review
+- **Fusion resolve units (Epic 0003 / Task 0011)** — `resolveFusionUnits(combo, allCombos?)` maps `models` + top-level `judge` / `config.judgeModel` into typed `{ panels, judge }`. D1 judge precedence; empty panels use `EMPTY_FUSION_JUDGE`.
+  **Author**: builder (Task 0011) + path-to-100 final review
+
+### Security
+- **Path-to-100 dual-mode final polish (Tasks 0032–0035)** — reject array/non-plain shells in `connectionAuthMode` (typeof-array OAuth false-positive); typed heal via `ConnectionAuthShape` + SAFETY bridge; token-health API catch uses `sanitizeErrorMessage(err)` (Hard Rule #12).
+  **Author**: independent re-reviewer (path-to-100 → 100)
+- **Path-to-100 authz + dual-mode polish (Tasks 0035 / 0040)** — sanitize manual token-refresh error responses (Hard Rule #12); align Windsurf `import`/`imported` long-lived no-op; classify `/api/providers/{id}/login` as SPAWN_CAPABLE pattern (F-04-005 always-auth on LAN+auth-disabled); dual-layer `{ always: true }` on export/import/restart/hooks handlers.
+  **Author**: path-to-100 fixer (review path)
+
+### Features
+- **CLI ConfigurableToolCard shell (Frontend IA S8 / Task 0029)** — composition-first `ConfigurableToolCard` under `src/shared/components/cli/` (header, checking, runtime status, configured banner, field, apply/reset actions, message, backups); pilots **Kilo** + **Cline** migrated. Residual detail cards tracked for follow-up.
+  **Author**: builders + path-to-100 fixer (Task 0029)
+
+
+### Fixed
+- **Provider auth-status path-to-100 (Tasks 0037–0039)** — pack true expiry under `CONNECTION_STATUS_COPY_IDS.expired`; remove OAuth wording from apikey nrt detail; wire ProviderCard/ListRow to `providers.connectionStatus` keys; scope expiry chip to connection set; surface CTA on ProviderLimits 401; unit-test `__MISSING__` strip.
+  **Author**: path-to-100 fixer (review path)
+- **Path-to-100 dual-mode auth + PageTabBar polish (Tasks 0030 / 0032–0034)** — close reaudit residuals without behavior regressions on #5326 oauth.
+  - **0032**: blank/`unknown` authType treats any static credential (`apiKey`, accessToken, cookie PSD) as non-OAuth
+  - **0033**: dual-mode matrix pins `supportsTokenRefresh===true`; cookie on refresh-capable provider; blank authType assert + blank+cookie cell
+  - **0034**: heal excludes `banned`/`credits_exhausted`; cookie/blank integration fixtures; JSDoc/boot comments match Windsurf long-lived heal eligibility
+  - **0030**: Analytics single `replaceState` via PageTabBar `deleteParams`; `normalizeTab` onChange; Arrow/Home/End tablist a11y; vitest `IS_REACT_ACT_ENVIRONMENT`
+  **Author**: path-to-100 fixer (reviewers)
+
+
 ### Changed
 - **Observe Health link + Settings Interface tab (Task 0061)** — Observe hub surfaces a discoverable Health link to `/dashboard/health` as a separate dashboard page (not a log-stream tab), command palette includes Health, `/dashboard/logs/proxy` continues to redirect to `?source=proxy`, and Settings re-adds the appearance route as **Interface** while keeping theme/branding customization removed. Reviewer path-to-100 added a `// SAFETY:` justification for the next-intl translator alias in the Observe hub.
   **Author**: builders + reviewer (Task 0061)

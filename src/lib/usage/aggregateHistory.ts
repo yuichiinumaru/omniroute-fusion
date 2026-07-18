@@ -48,12 +48,13 @@ export async function rollupDailyUsage(
   };
 
   try {
-    // Aggregate quota_snapshots by provider, model, and date
+    // Aggregate quota_snapshots by provider, model, and date.
+    // LOWER() keeps dual-writer keys aligned with usage_history rollup (Task 0050 N2).
     const aggregateQuery = `
       INSERT INTO daily_usage_summary (provider, model, date, total_requests, total_input_tokens, total_output_tokens, total_cost)
       SELECT 
-        provider,
-        COALESCE(json_extract(raw_data, '$.model'), 'unknown') as model,
+        LOWER(provider) as provider,
+        LOWER(COALESCE(json_extract(raw_data, '$.model'), 'unknown')) as model,
         DATE(created_at) as date,
         COUNT(*) as total_requests,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.input_tokens') AS INTEGER)), 0) as total_input_tokens,
@@ -61,7 +62,7 @@ export async function rollupDailyUsage(
         COALESCE(SUM(CAST(json_extract(raw_data, '$.cost') AS REAL)), 0.0) as total_cost
       FROM quota_snapshots
       WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?
-      GROUP BY provider, model, DATE(created_at)
+      GROUP BY LOWER(provider), LOWER(COALESCE(json_extract(raw_data, '$.model'), 'unknown')), DATE(created_at)
       ON CONFLICT(provider, model, date) DO UPDATE SET
         total_requests = excluded.total_requests,
         total_input_tokens = excluded.total_input_tokens,
@@ -105,12 +106,13 @@ export async function rollupHourlyQuota(
   };
 
   try {
-    // Aggregate quota_snapshots by provider, model, and hour
+    // Aggregate quota_snapshots by provider, model, and hour.
+    // LOWER() mirrors daily rollup dual-writer key parity (Task 0050 N2).
     const aggregateQuery = `
       INSERT INTO hourly_usage_summary (provider, model, date_hour, total_requests, total_input_tokens, total_output_tokens, total_cost)
-      SELECT 
-        provider,
-        COALESCE(json_extract(raw_data, '$.model'), 'unknown') as model,
+      SELECT
+        LOWER(provider) as provider,
+        LOWER(COALESCE(json_extract(raw_data, '$.model'), 'unknown')) as model,
         datetime(strftime('%Y-%m-%d %H:00:00', created_at)) as date_hour,
         COUNT(*) as total_requests,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.input_tokens') AS INTEGER)), 0) as total_input_tokens,
@@ -118,7 +120,7 @@ export async function rollupHourlyQuota(
         COALESCE(SUM(CAST(json_extract(raw_data, '$.cost') AS REAL)), 0.0) as total_cost
       FROM quota_snapshots
       WHERE created_at >= ? AND created_at <= ?
-      GROUP BY provider, model, datetime(strftime('%Y-%m-%d %H:00:00', created_at))
+      GROUP BY LOWER(provider), LOWER(COALESCE(json_extract(raw_data, '$.model'), 'unknown')), datetime(strftime('%Y-%m-%d %H:00:00', created_at))
       ON CONFLICT(provider, model, date_hour) DO UPDATE SET
         total_requests = excluded.total_requests,
         total_input_tokens = excluded.total_input_tokens,

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { cn } from "@/shared/utils/cn";
 
 const TOPBAR_LINKS: Array<{
   href: string;
@@ -51,11 +52,11 @@ type ProviderMessageTranslator = ((key: string, values?: Record<string, unknown>
 };
 
 function providerText(
-  t: ProviderMessageTranslator,
+  t: ProviderMessageTranslator | undefined,
   key: string,
   fallback: string
 ): string {
-  if (typeof t.has === "function" && t.has(key)) {
+  if (t && typeof t.has === "function" && t.has(key)) {
     return t(key);
   }
   return fallback;
@@ -65,24 +66,28 @@ export default function ProvidersTopBar({
   t,
   currentPath,
 }: {
-  t: ProviderMessageTranslator;
+  t?: ProviderMessageTranslator;
   currentPath?: string;
 }) {
+  const isProviders = currentPath === "/dashboard/providers";
+
   return (
     <nav
-      className="flex items-center gap-1 overflow-x-auto pb-1"
+      className="flex flex-wrap items-center gap-1 rounded-xl border border-black/8 dark:border-white/8 bg-black/[0.02] dark:bg-white/[0.02] p-1 overflow-x-auto shrink-0 mb-4"
       aria-label={providerText(t, "topbarNavLabel", "Providers navigation")}
       data-testid="providers-topbar"
     >
       <Link
         href="/dashboard/providers"
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
-          currentPath === "/dashboard/providers"
-            ? "bg-primary text-white border-primary"
-            : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
-        }`}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all shrink-0",
+          isProviders
+            ? "border border-primary/20 bg-primary/10 text-primary"
+            : "border border-transparent text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main"
+        )}
+        aria-current={isProviders ? "page" : undefined}
       >
-        <span className="material-symbols-outlined text-[14px]">dns</span>
+        <span className="material-symbols-outlined text-[16px]">dns</span>
         <span>{providerText(t, "topbarProviders", "Providers")}</span>
       </Link>
       {TOPBAR_LINKS.map((link) => {
@@ -91,13 +96,15 @@ export default function ProvidersTopBar({
           <Link
             key={link.href}
             href={link.href}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
+            className={cn(
+              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all shrink-0",
               isActive
-                ? "bg-primary text-white border-primary"
-                : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/30"
-            }`}
+                ? "border border-primary/20 bg-primary/10 text-primary"
+                : "border border-transparent text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main"
+            )}
+            aria-current={isActive ? "page" : undefined}
           >
-            <span className="material-symbols-outlined text-[14px]">{link.icon}</span>
+            <span className="material-symbols-outlined text-[16px]">{link.icon}</span>
             <span>{providerText(t, link.labelKey, link.fallback)}</span>
           </Link>
         );

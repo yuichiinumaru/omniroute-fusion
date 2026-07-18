@@ -20,6 +20,7 @@
 export type NormalizedAuthType = "oauth" | "apikey" | "cookie" | "none" | "unknown";
 
 export type ConnectionAuthShape = {
+  id?: string | null;
   provider?: string | null;
   authType?: string | null;
   apiKey?: string | null;
@@ -54,6 +55,22 @@ function hasNonEmptyString(value: unknown): boolean {
 }
 
 /**
+ * Plain connection records only — arrays / boxed primitives are not connections
+ * (`typeof [] === "object"` would otherwise false-positive OAuth classification).
+ */
+function isPlainConnectionRecord(
+  conn: unknown
+): conn is Exclude<ConnectionAuthShape, null> {
+  return conn !== null && typeof conn === "object" && !Array.isArray(conn);
+}
+
+/** Optional field bag from `providerSpecificData` after array rejection. */
+function asPsdRecord(psd: object): Record<string, unknown> {
+  // SAFETY: caller proved plain non-array object; Record is structural view for optional keys.
+  return psd as Record<string, unknown>;
+}
+
+/**
  * Providers whose product path stores long-lived credentials under authType
  * `oauth` without a refresh token. Matches `refreshWindsurfToken` in
  * `open-sse/services/tokenRefresh.ts` (authMethod `"import"` default = no-op).
@@ -69,19 +86,21 @@ const LONG_LIVED_IMPORT_PROVIDERS = new Set(["windsurf", "devin-cli"]);
  * no-auth connections must NEVER enter the #5326 "no refresh token → expired"
  * path — they have no refresh token by design.
  *
- * Blank/legacy authType: only treat as OAuth when there is no static apiKey.
+ * Blank/legacy authType (`unknown`): treat as OAuth only when there is **no**
+ * static credential material (`apiKey`, accessToken, or cookie PSD). Cookie
+ * sessions stored under blank authType must never enter the #5326 path.
  */
 export function connectionUsesOAuthRefresh(conn: ConnectionAuthShape): boolean {
-  if (!conn || typeof conn !== "object") return false;
+  if (!isPlainConnectionRecord(conn)) return false;
   const normalized = normalizeAuthType(conn.authType);
 
   if (normalized === "apikey" || normalized === "cookie" || normalized === "none") {
     return false;
   }
 
-  // Missing/legacy authType (unknown): only treat as OAuth when there is no static apiKey.
+  // Missing/legacy authType: non-OAuth when any static credential is present.
   if (normalized === "unknown") {
-    if (hasNonEmptyString(conn.apiKey)) return false;
+    if (hasStaticCredential(conn)) return false;
     return true;
   }
 
@@ -106,7 +125,7 @@ export function connectionUsesOAuthRefresh(conn: ConnectionAuthShape): boolean {
  * `src/lib/oauth/providers/windsurf.ts` `mapTokens`.
  */
 export function isLongLivedImportCredential(conn: ConnectionAuthShape): boolean {
-  if (!conn || typeof conn !== "object") return false;
+  if (!isPlainConnectionRecord(conn)) return false;
   const provider = String(conn.provider || "")
     .toLowerCase()
     .trim();
@@ -115,7 +134,7 @@ export function isLongLivedImportCredential(conn: ConnectionAuthShape): boolean 
   const psd = conn.providerSpecificData;
   let authMethod = "import";
   if (psd && typeof psd === "object" && !Array.isArray(psd)) {
-    const raw = (psd as Record<string, unknown>).authMethod;
+    const raw = asPsdRecord(psd).authMethod;
     if (typeof raw === "string" && raw.trim()) {
       authMethod = raw.trim().toLowerCase();
     }
@@ -139,7 +158,7 @@ export function shouldMarkNoRefreshExpired(
   conn: ConnectionAuthShape,
   supportsRefresh: boolean
 ): boolean {
-  if (!conn || typeof conn !== "object") return false;
+  if (!isPlainConnectionRecord(conn)) return false;
   if (!supportsRefresh) return false;
   if (!connectionUsesOAuthRefresh(conn)) return false;
   if (isLongLivedImportCredential(conn)) return false;
@@ -158,13 +177,13 @@ export function shouldMarkNoRefreshExpired(
  * Used by heal paths so empty shells are left for the operator.
  */
 export function hasStaticCredential(conn: ConnectionAuthShape): boolean {
-  if (!conn || typeof conn !== "object") return false;
+  if (!isPlainConnectionRecord(conn)) return false;
   if (hasNonEmptyString(conn.apiKey)) return true;
   if (hasNonEmptyString(conn.accessToken)) return true;
 
   const psd = conn.providerSpecificData;
   if (psd && typeof psd === "object" && !Array.isArray(psd)) {
-    const record = psd as Record<string, unknown>;
+    const record = asPsdRecord(psd);
     if (hasNonEmptyString(record.cookie)) return true;
     if (hasNonEmptyString(record.cookies)) return true;
     if (hasNonEmptyString(record.sessionCookie)) return true;
@@ -175,34 +194,47 @@ export function hasStaticCredential(conn: ConnectionAuthShape): boolean {
 }
 
 /**
- * Heal eligibility for false-positive `no_refresh_token` on non-OAuth rows.
- * Does **not** heal legitimate #5326 OAuth rows.
+ * Terminal statuses that must never be mass-reset by the no_refresh_token heal
+ * even if a hybrid `errorCode=no_refresh_token` row were to appear.
+ */
+const HEAL_EXCLUDED_TEST_STATUSES = new Set(["banned", "credits_exhausted"]);
+
+/**
+ * Heal eligibility for false-positive `no_refresh_token` marks.
+ * Does **not** heal legitimate #5326 OAuth rows (missing RT on real OAuth).
  *
- * Note: Windsurf long-lived oauth imports incorrectly marked `no_refresh_token`
- * are handled by not re-marking them (isLongLivedImportCredential) + Task 0034
- * heal predicate may leave pure-oauth false-positives to operator retest.
- * Long-lived windsurf rows still have connectionUsesOAuthRefresh=true, so they
- * are intentionally excluded from the apikey heal path.
+ * Product false-positive classes that **are** heal-eligible when static
+ * credential material remains:
+ * - Non-OAuth rows (`apikey` / `cookie` / `none` / blank+static) with
+ *   `errorCode`/`lastErrorType` = `no_refresh_token`
+ * - Windsurf / Devin long-lived **import** credentials (`isLongLivedImportCredential`)
+ *   that are oauth-shaped but product-policy no-RT — these **are** healable
+ *   (Task 0035 extension). Legitimate non-import oauth (github, antigravity, …)
+ *   remains excluded via `connectionUsesOAuthRefresh` + long-lived gate.
+ *
+ * Status safety: never heal when `testStatus` is a true terminal other than the
+ * dual-mode false-expire class (`banned`, `credits_exhausted`).
  */
 export function isFalsePositiveNoRefreshToken(conn: ConnectionAuthShape): boolean {
-  if (!conn || typeof conn !== "object") return false;
-  // Long-lived import falsely marked no_refresh_token is a product false-positive
-  // on an oauth-shaped row — allow heal when credential material is still present.
-  if (isLongLivedImportCredential(conn) && hasStaticCredential(conn)) {
-    const code = typeof conn.errorCode === "string" ? conn.errorCode : "";
-    const errType = typeof conn.lastErrorType === "string" ? conn.lastErrorType : "";
-    if (code === "no_refresh_token" || errType === "no_refresh_token") {
-      return true;
-    }
-  }
+  if (!isPlainConnectionRecord(conn)) return false;
 
-  if (connectionUsesOAuthRefresh(conn)) return false;
+  const status = typeof conn.testStatus === "string" ? conn.testStatus.trim().toLowerCase() : "";
+  if (status && HEAL_EXCLUDED_TEST_STATUSES.has(status)) {
+    return false;
+  }
 
   const code = typeof conn.errorCode === "string" ? conn.errorCode : "";
   const errType = typeof conn.lastErrorType === "string" ? conn.lastErrorType : "";
-  if (code !== "no_refresh_token" && errType !== "no_refresh_token") {
-    return false;
+  const isNoRefreshMark = code === "no_refresh_token" || errType === "no_refresh_token";
+  if (!isNoRefreshMark) return false;
+
+  // Long-lived import falsely marked no_refresh_token is a product false-positive
+  // on an oauth-shaped row — allow heal when credential material is still present.
+  if (isLongLivedImportCredential(conn) && hasStaticCredential(conn)) {
+    return true;
   }
+
+  if (connectionUsesOAuthRefresh(conn)) return false;
 
   return hasStaticCredential(conn);
 }

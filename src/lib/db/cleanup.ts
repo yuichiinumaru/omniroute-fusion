@@ -97,14 +97,9 @@ export async function cleanupUsageHistory(): Promise<CleanupResult> {
   // totals; see aggregateHistory.ts module docs. The same day boundary is used for
   // both steps so every deleted row was aggregated first.
   try {
-    const { rollup, deleted } = rollupAndDeleteUsageHistoryBeforeDate(cutoffDateStr);
-    if (rollup.errors > 0) {
-      console.error(
-        "[Cleanup] Aborting usage_history deletion because the pre-delete rollup failed."
-      );
-      result.errors += rollup.errors;
-      return result;
-    }
+    // rollupAndDeleteUsageHistoryBeforeDate is transactional and throws on SQL
+    // failure (sync rollup never returns errors>0 on success). Catch handles abort.
+    const { deleted } = rollupAndDeleteUsageHistoryBeforeDate(cutoffDateStr);
     result.deleted = deleted;
     console.log(
       `[Cleanup] Deleted ${result.deleted} usage_history older than ${retentionDays} days`

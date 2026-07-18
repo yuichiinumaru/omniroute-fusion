@@ -425,7 +425,10 @@ export default function ProviderLimits({
               testStatus: conn?.testStatus ?? null,
               expiryStatus: conn?.expiryStatus ?? null,
             });
-            const authMsg = tr(copy.keys.detail, fallbackMsg);
+            // Surface translated detail + CTA next-action (Task 0039 N1 / a11y).
+            const detailMsg = tr(copy.keys.detail, fallbackMsg);
+            const ctaMsg = tr(copy.keys.cta, copy.cta);
+            const authMsg = ctaMsg ? `${detailMsg} — ${ctaMsg}` : detailMsg;
             setQuotaData((prev) => ({
               ...prev,
               [connectionId]: { quotas: [], message: authMsg },

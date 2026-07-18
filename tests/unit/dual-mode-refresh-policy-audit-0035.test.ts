@@ -35,6 +35,24 @@ test("manual refresh route uses connectionUsesOAuthRefresh (not raw authType ===
   assert.match(src, /from\s+["']@\/shared\/utils\/connectionAuthMode["']/);
   // Dual-mode-blind exact-string gate must not be the sole OAuth check.
   assert.doesNotMatch(src, /if\s*\(\s*connection\.authType\s*!==\s*["']oauth["']\s*\)/);
+  // Hard Rule #12: catch path must sanitize — never raw (error as Error).message details.
+  assert.match(src, /sanitizeErrorMessage/);
+  assert.doesNotMatch(src, /details:\s*\(error as Error\)\.message/);
+});
+
+test("manual refresh route rejects non-OAuth (apikey) connections with 400 source contract", async () => {
+  const src = await readSrc("src/app/api/providers/[id]/refresh/route.ts");
+  assert.match(src, /Only OAuth connections support manual token refresh/);
+  assert.match(src, /status:\s*400/);
+  assert.match(src, /if\s*\(\s*!connectionUsesOAuthRefresh\s*\(\s*connection\s*\)\s*\)/);
+});
+
+test("refreshWindsurfToken treats import and imported as long-lived", async () => {
+  const src = await readSrc("open-sse/services/tokenRefresh.ts");
+  assert.match(
+    src,
+    /authMethod\s*===\s*["']import["']\s*\|\|\s*authMethod\s*===\s*["']imported["']/
+  );
 });
 
 test("connection test route normalizes auth mode for dual-mode dispatch", async () => {
@@ -49,6 +67,9 @@ test("token-health API filters with connectionUsesOAuthRefresh", async () => {
   const src = await readSrc("src/app/api/token-health/route.ts");
   assert.match(src, /connectionUsesOAuthRefresh/);
   assert.match(src, /from\s+["']@\/shared\/utils\/connectionAuthMode["']/);
+  // Hard Rule #12: catch path sanitizes full throwable (no (err as Error)?.message).
+  assert.match(src, /sanitizeErrorMessage/);
+  assert.doesNotMatch(src, /\(err as Error\)\?\.message/);
 });
 
 test("supportsTokenRefresh documents provider-only policy (necessary not sufficient)", async () => {

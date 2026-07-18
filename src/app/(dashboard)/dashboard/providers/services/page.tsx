@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/shared/utils/cn";
 import { CliproxyServiceTab } from "./tabs/CliproxyServiceTab";
 import { NinerouterServiceTab } from "./tabs/NinerouterServiceTab";
+import ProvidersTopBar from "../components/ProvidersTopBar";
 
 type Tab = "cliproxy" | "9router";
 
@@ -23,6 +24,8 @@ export default function ServicesPage() {
 
   return (
     <div className="space-y-6">
+      <ProvidersTopBar currentPath="/dashboard/providers/services" />
+
       <header>
         <h1 className="text-xl font-semibold text-text-primary">Embedded Services</h1>
         <p className="text-sm text-text-muted mt-1">
