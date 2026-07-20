@@ -1,20 +1,30 @@
 # Planning: Builder Wave 2026-07-18 — Review-Loop Learnings & Skill Upgrades
 
-> **Status**: Planning only — for architect-orchestrator conversion later  
+> **Status**: Planning only — **historical wave stamp (2026-07-19 hygiene)**  
 > **Origin**: Builder-orchestrator lane drain (2026-07-18)  
-> **Scope**: Process + harness upgrades (not product features)
+> **Scope**: Process + harness upgrades (not product features)  
+>
+> ### Post-wave lane stamp (do not use as live pickup inventory)
+>
+> | Lane | Snapshot 2026-07-18 (this note) | After bulk promote (hygiene 2026-07-19) |
+> |------|----------------------------------|----------------------------------------|
+> | `03-review/` | **17** tasks @ 100/100 | Emptied into `04-completed/`; **later re-filled** by residual promote (EPIC-10…19) — reconfirm with `ls` |
+> | `02-doing/` | empty after promote | Transient claim lane for residual series — reconfirm with `ls` |
+> | `01-open/` | **0036 only** | Ops residual **0036** expected; other IDs are not frozen here — reconfirm with `ls` |
+>
+> This file remains a **process learnings** plan, not an active queue. Active work → live `01-open/` / `02-doing/` / `03-review/` + `EPIC-10+` planning. Naming exception: historical `0009-*` (see QUEUE supersede).
 
 ---
 
-## 1. Wave outcome (builder-internal)
+## 1. Wave outcome (builder-internal) — frozen 2026-07-18
 
-| Lane | Result |
+| Lane | Result (wave day) |
 |------|--------|
 | `02-doing/` | **empty** (17/17 promoted) |
-| `03-review/` | **17** tasks at reviewer **100/100** |
-| `01-open/` | **0036 only** — operator-gated deploy/verify on **:21000 production** (HOLD; AGENTS.md prod ban) |
+| `03-review/` | **17** tasks at reviewer **100/100** (later emptied into `04-completed/`) |
+| `01-open/` | **0036 only** that day — operator-gated deploy/verify on **:21000 production** (HOLD; AGENTS.md prod ban) |
 
-Promoted: **0012, 0017, 0024, 0025, 0028, 0031, 0041, 0043, 0045, 0048, 0054, 0055, 0056, 0057, 0058, 0060, 0061**.
+Promoted that wave: **0012, 0017, 0024, 0025, 0028, 0031, 0041, 0043, 0045, 0048, 0054, 0055, 0056, 0057, 0058, 0060, 0061**.
 
 Reports live under `docs/reports/reviews/2026-07-18-task-*`.
 

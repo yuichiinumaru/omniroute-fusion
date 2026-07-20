@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { runNow, getState } from "@/lib/db/vacuumScheduler";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export async function POST(request: NextRequest) {
   if (!(await isAuthenticated(request))) {
@@ -39,10 +40,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[API] VACUUM endpoint error:", error);
+    // Hard Rule #12: sanitize details leaf (F-SEC-W2-004).
+    const details = sanitizeErrorMessage(
+      error instanceof Error ? error.message : String(error)
+    );
     return NextResponse.json(
-      { error: "Failed to run VACUUM", details: error.message },
+      { error: "Failed to run VACUUM", details },
       { status: 500 }
     );
   }

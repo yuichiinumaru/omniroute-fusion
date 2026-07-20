@@ -24,9 +24,10 @@ test("costs-quota-share appears after quota in COSTS_HUB_DEEP_LINK_IDS", () => {
   assert.ok(idxShare > idxQuota, "costs-quota-share must follow quota");
 });
 
-test("costs-quota-share is not a primary leaf and not adjacent to costs primary only", () => {
+test("costs-quota-share is not a primary leaf (costs hub also dropped in 0082)", () => {
   assert.equal(PRIMARY_SIDEBAR_ITEM_IDS.includes("costs-quota-share"), false);
-  assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("costs"));
+  assert.equal(PRIMARY_SIDEBAR_ITEM_IDS.includes("costs"), false);
+  assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("costs"));
 });
 
 test("exactly one costs-quota-share entry in hub deep-link inventory", () => {

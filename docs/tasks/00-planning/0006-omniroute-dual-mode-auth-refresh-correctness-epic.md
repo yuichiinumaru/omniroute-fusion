@@ -1,8 +1,8 @@
 # Epic 0006 — Dual-Mode Auth / API-Key Refresh Correctness
 
-> **Status**: Planning (promote child tasks next)  
-> **Priority**: High (P0 — live data on `:21000` already corrupted)  
-> **Author**: Grok session (omniroute-fusion) · 2026-07-11  
+> **Status**: **Code complete (2026-07-19)** — children **0032–0035** in `docs/tasks/04-completed/`; **ops residual only**: Task **0036** (deploy/verify dual-mode on `:21000`, operator HOLD)  
+> **Priority**: High (P0 — historical; live `:21000` proof still owned by **0036**)  
+> **Author**: Grok session (omniroute-fusion) · 2026-07-11 · **Hygiene**: 2026-07-19 (EPIC-10 / Task 0062)  
 > **Project**: omniroute-fusion  
 > **Type**: remediation / architecture / maintainability  
 > **Action types**: `HARDEN` (refresh gates) + `EXTEND` (shared auth-mode helpers) + `NEW` (heal path / matrix tests)  
@@ -11,7 +11,10 @@
 > - Issue class **#5326** (OAuth no-refresh → expired) — partial fix present; dual-mode regression  
 > - Live evidence: `data-21000/storage.sqlite`  
 > - Sister epic **0007** (provider connection UX / status copy) — **do not mix UI chrome here**  
-> - Epic 0005 UI IA is orthogonal (sidebar); this epic is credentials runtime
+> - Epic 0005 UI IA is orthogonal (sidebar); this epic is credentials runtime  
+> - Open ops task: `docs/tasks/01-open/0036-omniroute-deploy-verify-21000-dual-mode-auth.md`  
+>
+> **Do not re-promote 0032–0035.** Do **not** execute **0036** from hygiene tasks (prod `:21000` policy). Do not claim live 21000 dual-mode metrics proven without **0036**.
 
 ---
 
@@ -200,21 +203,21 @@ Expected post-fix: **0 rows** where `auth_type='apikey' AND error_code='no_refre
 
 ## 7. Promotion note for gt-task-architect
 
-Promote **atomic tasks into `docs/tasks/01-open/`** starting at next free number (**0032+** as of 2026-07-11).  
-Use template `docs/tasks/.archive/000-template-moved-to-parent.md` (local).  
+**Historical (2026-07-11):** promote atomic tasks into `01-open/` as **0032+**.  
+**Current (2026-07-19):** **0032–0035** completed → `04-completed/`; only **0036** remains executable (ops HOLD).  
 Do **not** put UI badge/copy work in this epic — that is **0007**.  
-Every task: first subtask = read existing code; binary exit conditions; TDD for heal + matrix.
+Do **not** re-open 0032–0035 greenfield.
 
 ---
 
-## 8. Child tasks (promoted 2026-07-11)
+## 8. Child tasks (lane truth 2026-07-19)
 
-| Task | File | Slice |
-|------|------|-------|
-| 0032 | `docs/tasks/01-open/0032-omniroute-connection-auth-mode-helper.md` | S1 helper |
-| 0033 | `docs/tasks/01-open/0033-omniroute-token-health-dual-mode-matrix.md` | S2 matrix |
-| 0034 | `docs/tasks/01-open/0034-omniroute-heal-false-positive-no-refresh-token.md` | S3 heal |
-| 0035 | `docs/tasks/01-open/0035-omniroute-dual-mode-refresh-policy-audit.md` | S4 policy |
-| 0036 | `docs/tasks/01-open/0036-omniroute-deploy-verify-21000-dual-mode-auth.md` | S5 verify |
+| Task | File | Slice | Lane |
+|------|------|-------|------|
+| 0032 | `docs/tasks/04-completed/0032-omniroute-connection-auth-mode-helper.md` | S1 helper | **completed** |
+| 0033 | `docs/tasks/04-completed/0033-omniroute-token-health-dual-mode-matrix.md` | S2 matrix | **completed** |
+| 0034 | `docs/tasks/04-completed/0034-omniroute-heal-false-positive-no-refresh-token.md` | S3 heal | **completed** |
+| 0035 | `docs/tasks/04-completed/0035-omniroute-dual-mode-refresh-policy-audit.md` | S4 policy | **completed** |
+| 0036 | `docs/tasks/01-open/0036-omniroute-deploy-verify-21000-dual-mode-auth.md` | S5 verify | **open (ops HOLD :21000)** |
 
 **Parent review upgrades:** pin helper path `src/shared/utils/connectionAuthMode.ts`; pin heal to TS domain function (not ciphertext SQL); 0036 runbook anchored to `omniroute-21000` + `data-21000/`.

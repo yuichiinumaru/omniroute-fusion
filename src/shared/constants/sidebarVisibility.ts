@@ -1,13 +1,13 @@
 /**
- * Sidebar IA — Epic 0005 guardrail
- * --------------------------------
- * Live chrome is **flat** (**9** primary leaves after Task 0059; budget ≤~10):
+ * Sidebar IA — Epic 0005 guardrail + EPIC-19 cutover
+ * -------------------------------------------------
+ * Live chrome is **flat** (**7** primary leaves after Task **0082**; budget ≤~10):
  * `PRIMARY_SIDEBAR_ITEMS` → `SIDEBAR_SECTIONS` (`main` + optional `devtools`).
  * Conceptual 7 pillars live only in `OPERATIONAL_PILLAR_SECTION_IDS` (docs/mapping)
  * — **not** accordion sections.
  *
- * Nested destinations (fusions, compression, MCP/A2A, logs) = in-page tabs / hubs /
- * command-palette extras — never default peer leaves.
+ * Nested destinations (fusions, compression, MCP/A2A, logs, storytelling, costs config)
+ * = in-page tabs / hubs / command-palette extras — never default peer leaves.
  *
  * Do NOT add a default-visible leaf without:
  *  1. Mapping it to one of the 7 conceptual pillars
@@ -19,6 +19,7 @@
  *
  * Pre-S6 / flat archives: `.archive/sidebar/2026-07-10-seven-pillars/`,
  * `.archive/sidebar/2026-07-10-flat-primary-nav/`
+ * EPIC-19 analytics/costs cutover: `.archive/sidebar/2026-07-19-epic19-analytics-costs-cutover/`
  */
 
 export const HIDEABLE_SIDEBAR_ITEM_IDS = [
@@ -280,9 +281,11 @@ export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
 };
 
 /**
- * Analytics dual-nav leaves retired (Epic 0005 S2). Nested routes redirect to
- * `/dashboard/analytics?tab=…`. Hideable ids retained for stored prefs.
+ * Analytics dual-nav leaves retired (Epic 0005 S2). Nested legacy routes redirect
+ * via EPIC-19 matrix: storytelling → `/home?tab=…` (0081); combo-health/route-trace
+ * → Observe `?panel=` (0080). Hideable ids retained for stored prefs.
  * Snapshot: `.archive/sidebar/2026-07-10-ia-collapse/SNAPSHOT.md`
+ * EPIC-19 cutover: `.archive/sidebar/2026-07-19-epic19-analytics-costs-cutover/`
  */
 export const ANALYTICS_DUAL_NAV_SIDEBAR_IDS = [
   "analytics-combo-health",
@@ -318,7 +321,8 @@ export const HEALTH_NAV_ITEM: SidebarItemDefinition = {
 
 /**
  * Costs hub deep destinations (hideable only — not primary peers).
- * Primary chrome exposes a single `costs` leaf → `/dashboard/costs`.
+ * EPIC-19 / Task **0082**: `costs` is no longer a primary leaf; overview → Dashboard
+ * storytelling (`/home?tab=costs-overview`); budget/pricing/quota-share → Providers.
  * Plans screen (`costs-quota-plans`) was retired into PoolWizard Step 2.
  */
 export const COSTS_HUB_DEEP_LINK_IDS = [
@@ -333,13 +337,16 @@ export const COSTS_HUB_DEEP_LINK_IDS = [
 /** Debug tools section remains empty unless debug mode mounts extras later. */
 const DEVTOOLS_ITEMS: readonly SidebarItemDefinition[] = [];
 
-// ─── Flat primary nav (~10 leaves; no accordion groups) ──────────────────────
+// ─── Flat primary nav (7 leaves post EPIC-19/0082; no accordion groups) ──────
 // Nested destinations live as in-page tabs/subnav, not sidebar collapsibles.
 // Full page inventory still routable via hideable ids + deep links/redirects.
+// Dropped primary peers (archive-not-delete): analytics, costs — see
+// `.archive/sidebar/2026-07-19-epic19-analytics-costs-cutover/`.
 
 /**
- * Exactly the default-visible primary leaves (target ≤ 10).
+ * Exactly the default-visible primary leaves (target ≤ 10; live **7** after 0082).
  * Order = product priority. Debug tools are a separate section when debug mode is on.
+ * Target ids SSoT also: `EPIC19_TARGET_PRIMARY_SIDEBAR_IDS` in `epic19Rebalance.ts`.
  */
 export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
   {
@@ -347,6 +354,7 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
     href: "/home",
     i18nKey: "dashboard",
     labelFallback: "Dashboard",
+    subtitleFallback: "Overview · evals · costs pulse",
     icon: "home",
     exact: true,
   },
@@ -355,7 +363,7 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
     href: "/dashboard/providers",
     i18nKey: "providers",
     labelFallback: "Providers",
-    subtitleFallback: "Models · services · exposures",
+    subtitleFallback: "Models · budget · pricing · quota",
     icon: "dns",
   },
   {
@@ -371,25 +379,8 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
     href: "/dashboard/activity",
     i18nKey: "observeNav",
     labelFallback: "Observe",
-    subtitleFallback: "Logs · audit · health",
+    subtitleFallback: "Logs · health · combo · route",
     icon: "timeline",
-  },
-  {
-    id: "analytics",
-    href: "/dashboard/analytics",
-    i18nKey: "analytics",
-    labelFallback: "Analytics",
-    // Do not lead with "Usage" — that vocabulary is token-volume (usageSubtitle), not this hub.
-    subtitleFallback: "Charts · evals · health",
-    icon: "analytics",
-  },
-  {
-    id: "costs",
-    href: "/dashboard/costs",
-    i18nKey: "costsNav",
-    labelFallback: "Costs",
-    subtitleFallback: "Budget · pricing · quota",
-    icon: "payments",
   },
   /**
    * Operations hub (Task 0059 Option A).
@@ -463,7 +454,7 @@ export interface SidebarPresetDefinition {
   hiddenItems: HideableSidebarItemId[];
 }
 
-/** Flat primary nav role views (all ≤ 10 default leaves). */
+/** Flat primary nav role views (all ≤ 10 default leaves; live primary = 7). */
 const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
   "providers",
@@ -478,6 +469,8 @@ const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
  * Developer: ops-focused primary hubs (hide marketing Docs).
  * Lab destinations (translator / playground / search-tools) are NOT sidebar items
  * (Task 0060 reopen) — discover via Testing hub / command palette / direct routes.
+ * EPIC-19 / 0082: analytics + costs are not primary; storytelling/config live under
+ * Dashboard / Providers / Observe (palette extras + redirects).
  */
 const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "home",
@@ -485,8 +478,6 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "combos",
   "operations",
   "activity",
-  "analytics",
-  "costs",
   "settings-general",
   // docs intentionally omitted — differentiates vs all/admin primary sets
 ]);

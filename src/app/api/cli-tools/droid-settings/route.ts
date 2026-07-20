@@ -15,6 +15,7 @@ import { cliMultiModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { readJsoncConfig } from "../_lib/jsoncConfig";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import {
   buildDroidCustomModels,
   isOmniRouteCustomModel,
@@ -77,7 +78,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     console.log("Error checking droid settings:", error);
     return NextResponse.json({ error: "Failed to check droid settings" }, { status: 500 });
@@ -191,7 +195,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     console.log("Error updating droid settings:", error);
     return NextResponse.json({ error: "Failed to update droid settings" }, { status: 500 });
@@ -255,7 +262,10 @@ export async function DELETE(request: Request) {
     });
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     console.log("Error resetting droid settings:", error);
     return NextResponse.json({ error: "Failed to reset droid settings" }, { status: 500 });

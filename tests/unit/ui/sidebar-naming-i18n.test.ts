@@ -28,17 +28,13 @@ describe("flat primary sidebar naming", () => {
     assert.match(en.sidebar.usageSubtitle, /token|request/i);
   });
 
-  it("primary Analytics hub does not re-blend Usage vocabulary in subtitle fallback", () => {
+  it("Analytics is not a primary leaf; en labels stay distinct from Usage (EPIC-19 / 0082)", () => {
     const analytics = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "analytics");
-    assert.ok(analytics);
-    assert.equal(analytics.i18nKey, "analytics");
-    assert.equal(analytics.labelFallback, "Analytics");
-    assert.ok(analytics.subtitleFallback);
-    assert.doesNotMatch(
-      analytics.subtitleFallback,
-      /^Usage\b/i,
-      "primary analytics subtitleFallback must not lead with Usage (token-volume language)"
-    );
+    assert.equal(analytics, undefined, "analytics must not be a primary leaf after 0082");
+    // i18n vocabulary for palette/deep links still distinguishes Analytics vs Usage
+    assert.equal(en.sidebar.analytics, "Analytics");
+    assert.doesNotMatch(en.sidebar.analyticsSubtitle ?? "", /^Usage\b/i);
+    assert.doesNotMatch(en.sidebar.analyticsDashboardSubtitle ?? "", /^Usage\b/i);
   });
 
   it("primary hubs use clear operator labels", () => {
@@ -104,11 +100,15 @@ describe("flat primary sidebar naming", () => {
     }
   });
 
-  it("PRIMARY_SIDEBAR_ITEMS stay at 9 hubs after Operations absorb (Task 0059)", () => {
-    // Was 10 with separate API Keys + Operations(cli-code); now Operations hub absorbs API Keys.
-    assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 9);
+  it("PRIMARY_SIDEBAR_ITEMS stay at 7 hubs after EPIC-19 analytics/costs drop (0082)", () => {
+    // Was 9 with analytics + costs peers; 0082 drops those (redirects + hideable retained).
+    assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 7);
     const ops = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "operations");
     assert.ok(ops);
     assert.equal(ops.href, "/dashboard/operations");
+    assert.equal(
+      PRIMARY_SIDEBAR_ITEMS.some((i) => i.id === "analytics" || i.id === "costs"),
+      false
+    );
   });
 });

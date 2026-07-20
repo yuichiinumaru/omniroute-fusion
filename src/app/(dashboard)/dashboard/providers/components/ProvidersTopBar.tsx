@@ -8,10 +8,20 @@ import {
   HUB_SUBNAV_ITEM_BASE_CLASS,
   HUB_SUBNAV_SHELL_CLASS,
 } from "@/shared/constants/hubSubnavStyles";
+import {
+  PROVIDERS_BUDGET_PATH,
+  PROVIDERS_PRICING_PATH,
+  PROVIDERS_QUOTA_SHARE_PATH,
+} from "@/shared/constants/epic19Rebalance";
 
 /**
  * Peer provider surfaces that must mount this topbar with matching `currentPath`
- * (Task 0057 multi-route contract). Branded union prevents path drift at call sites.
+ * (Task 0057 multi-route contract + 0079 chrome unify). Branded union prevents
+ * path drift at call sites.
+ *
+ * Order (operator): Providers · Stats · Services · Quota · Rankings · Free Tiers ·
+ * Runtime · Budget · Pricing · Quota Sharing — **exactly one** hub strip (no
+ * secondary ProvidersPolicySubnav / CostsSubnav under this bar).
  */
 export const PROVIDERS_TOPBAR_PATHS = [
   "/dashboard/providers",
@@ -21,6 +31,9 @@ export const PROVIDERS_TOPBAR_PATHS = [
   "/dashboard/free-provider-rankings",
   "/dashboard/free-tiers",
   "/dashboard/runtime",
+  PROVIDERS_BUDGET_PATH,
+  PROVIDERS_PRICING_PATH,
+  PROVIDERS_QUOTA_SHARE_PATH,
 ] as const;
 
 export type ProvidersTopBarPath = (typeof PROVIDERS_TOPBAR_PATHS)[number];
@@ -66,6 +79,24 @@ const TOPBAR_LINKS: Array<{
     labelKey: "topbarRuntime",
     fallback: "Runtime",
     icon: "terminal",
+  },
+  {
+    href: PROVIDERS_BUDGET_PATH,
+    labelKey: "topbarBudget",
+    fallback: "Budget",
+    icon: "savings",
+  },
+  {
+    href: PROVIDERS_PRICING_PATH,
+    labelKey: "topbarPricing",
+    fallback: "Pricing",
+    icon: "price_change",
+  },
+  {
+    href: PROVIDERS_QUOTA_SHARE_PATH,
+    labelKey: "topbarQuotaSharing",
+    fallback: "Quota Sharing",
+    icon: "pie_chart",
   },
 ];
 

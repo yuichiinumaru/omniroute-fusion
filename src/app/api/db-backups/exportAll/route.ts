@@ -7,6 +7,7 @@ import path from "path";
 import os from "os";
 import { execFileSync } from "node:child_process";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 /**
  * GET /api/db-backups/exportAll
@@ -101,10 +102,13 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: unknown) {
     console.error("[ExportAll] Error:", error);
+    // Hard Rule #12: sanitize details leaf (F-SEC-W2-004).
     return NextResponse.json(
       {
         error: "Failed to create full export",
-        details: error instanceof Error ? error.message : String(error),
+        details: sanitizeErrorMessage(
+          error instanceof Error ? error.message : String(error)
+        ),
       },
       { status: 500 }
     );

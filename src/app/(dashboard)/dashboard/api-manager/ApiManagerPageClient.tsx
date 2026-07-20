@@ -30,6 +30,7 @@ import { readActiveOnlyPreference, writeActiveOnlyPreference } from "./apiManage
 import { buildApiKeyCreateScopes, mergeApiKeyPermissionScopes } from "./apiManagerScopes";
 import { SELF_ACCOUNT_QUOTA_SCOPE, SELF_USAGE_SCOPE } from "@/shared/constants/selfServiceScopes";
 import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
+import { buildDashboardStoryPath } from "@/shared/constants/epic19Rebalance";
 import { UsageLimitSettings } from "./components/UsageLimitSettings";
 
 // Constants for validation
@@ -1190,7 +1191,7 @@ export default function ApiManagerPageClient() {
                   </div>
                   <div className="col-span-2 flex items-center justify-end gap-1">
                     <a
-                      href={`/dashboard/costs?range=all&apiKeyIds=${encodeURIComponent(key.id)}&groupBy=model`}
+                      href={`${buildDashboardStoryPath("costs-overview")}&range=all&apiKeyIds=${encodeURIComponent(key.id)}&groupBy=model`}
                       className="p-2 hover:bg-emerald-500/10 rounded text-text-muted hover:text-emerald-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                       title={`View costs for ${key.name}`}
                       aria-label={`View costs for ${key.name}`}

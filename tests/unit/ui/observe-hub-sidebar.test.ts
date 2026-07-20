@@ -189,4 +189,38 @@ describe("Observe hub shell composition", () => {
     const src = readSrc("src/app/(dashboard)/dashboard/activity/ObserveHubClient.tsx");
     assert.ok(!src.includes('id: "health"'));
   });
+
+  /**
+   * EPIC-19 / 0080 residual + 0084: exactly one Observe hub chrome strip on Observe
+   * routes (no stacked Analytics PageTabBar). Health lights Observe via hub alias.
+   */
+  it("single Observe chrome strip on activity + health (no Analytics PageTabBar)", () => {
+    const activity = readSrc("src/app/(dashboard)/dashboard/activity/ObserveHubClient.tsx");
+    const health = readSrc("src/app/(dashboard)/dashboard/health/page.tsx");
+
+    assert.ok(activity.includes("ObserveHubSubnav"));
+    assert.ok(health.includes("ObserveHubSubnav"));
+    assert.ok(!activity.includes("PageTabBar"), "activity must not remount Analytics PageTabBar");
+    assert.ok(!health.includes("PageTabBar"), "health must not remount Analytics PageTabBar");
+
+    // Activity: exactly one mount (covers ?source= and ?panel= combo-health/route-trace).
+    const activityMounts = activity.match(/<ObserveHubSubnav\b/g) ?? [];
+    assert.equal(activityMounts.length, 1, "activity: one ObserveHubSubnav");
+
+    // Health: one mount per exclusive return branch (loading / error / success) — never zero,
+    // never stacked dual chrome in a single render tree.
+    const healthMounts = health.match(/<ObserveHubSubnav\b/g) ?? [];
+    assert.ok(healthMounts.length >= 1, "health: ObserveHubSubnav present");
+    assert.equal(
+      healthMounts.length,
+      3,
+      "health: loading + error + success each mount exactly one ObserveHubSubnav"
+    );
+    assert.ok(health.includes("loadingHealth"), "loading branch retained");
+    assert.ok(health.includes("failedToLoad"), "error branch retained");
+    assert.ok(
+      health.includes('active="health"') || health.includes("active='health'"),
+      "health subnav active=health"
+    );
+  });
 });

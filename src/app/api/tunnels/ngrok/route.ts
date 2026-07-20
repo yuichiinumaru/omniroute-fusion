@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { getNgrokTunnelStatus, startNgrokTunnel, stopNgrokTunnel } from "@/lib/ngrokTunnel";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to load ngrok tunnel status",
+        error:
+          sanitizeErrorMessage(
+            error instanceof Error ? error.message : "Failed to load ngrok tunnel status"
+          ) || "Failed to load ngrok tunnel status",
       },
       { status: 500 }
     );
@@ -66,7 +70,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to update ngrok tunnel",
+        error:
+          sanitizeErrorMessage(
+            error instanceof Error ? error.message : "Failed to update ngrok tunnel"
+          ) || "Failed to update ngrok tunnel",
       },
       { status: 500 }
     );

@@ -46,7 +46,11 @@ test("matchGlob: exact match without wildcards", () => {
   assert.equal(matchGlob("edit_file", "edit"), false);
 });
 
-// ─── hasMatchingToolCall ─────────────────────────────────────────────────────
+// ─── hasMatchingToolCall (Task 0068: last assistant message only) ────────────
+//
+// Product decision (EPIC-11): tool-call trigger inspects only the latest
+// assistant message. Do NOT walk sticky history for an older tool_calls-bearing
+// assistant once a later plain-text assistant has appeared.
 
 function toolBody(toolName: string) {
   return {
@@ -61,7 +65,7 @@ function toolBody(toolName: string) {
   };
 }
 
-test("hasMatchingToolCall: matches write* on write_file", () => {
+test("hasMatchingToolCall: matches write* on write_file when latest assistant has tools", () => {
   assert.equal(hasMatchingToolCall(toolBody("write_file"), ["write*", "edit*"]), true);
 });
 
@@ -73,14 +77,19 @@ test("hasMatchingToolCall: empty patterns never match", () => {
   assert.equal(hasMatchingToolCall(toolBody("write_file"), []), false);
 });
 
-test("hasMatchingToolCall: no tool_calls returns false", () => {
+test("hasMatchingToolCall: empty messages never match", () => {
+  assert.equal(hasMatchingToolCall({ messages: [] }, ["write*"]), false);
+  assert.equal(hasMatchingToolCall({}, ["write*"]), false);
+});
+
+test("hasMatchingToolCall: no tool_calls on latest assistant returns false", () => {
   assert.equal(
     hasMatchingToolCall({ messages: [{ role: "user", content: "hi" }] }, ["write*"]),
     false
   );
 });
 
-test("hasMatchingToolCall: uses last assistant tool_calls when multiple", () => {
+test("hasMatchingToolCall: latest assistant tool_calls win when multiple assistants have tools", () => {
   const body = {
     messages: [
       {
@@ -94,9 +103,141 @@ test("hasMatchingToolCall: uses last assistant tool_calls when multiple", () => 
       },
     ],
   };
-  // Most recent assistant tool call is read_file — write* should miss.
+  // Latest assistant is read_file — write* must miss; read* must hit.
   assert.equal(hasMatchingToolCall(body, ["write*"]), false);
   assert.equal(hasMatchingToolCall(body, ["read*"]), true);
+});
+
+test("hasMatchingToolCall: bare name shape (non-function.name) matches pattern", () => {
+  const body = {
+    messages: [
+      { role: "user", content: "write" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ name: "write_file", arguments: "{}" }],
+      },
+    ],
+  };
+  assert.equal(hasMatchingToolCall(body, ["write*"]), true);
+  assert.equal(hasMatchingToolCall(body, ["edit*"]), false);
+});
+
+test("hasMatchingToolCall: latest assistant non-matching tool names only → false", () => {
+  const body = {
+    messages: [
+      { role: "user", content: "list" },
+      {
+        role: "assistant",
+        tool_calls: [{ function: { name: "list_files", arguments: "{}" } }],
+      },
+    ],
+  };
+  assert.equal(hasMatchingToolCall(body, ["write*", "edit*", "create*"]), false);
+});
+
+test("hasMatchingToolCall: empty tool_calls on latest assistant does not sticky-walk older writes", () => {
+  // Empty array is not matching tool activity — window stays N=1, no history walk.
+  const body = {
+    messages: [
+      {
+        role: "assistant",
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+      { role: "tool", content: "ok" },
+      { role: "assistant", content: "done", tool_calls: [] },
+    ],
+  };
+  assert.equal(hasMatchingToolCall(body, ["write*"]), false);
+});
+
+test("hasMatchingToolCall: does NOT sticky-match older write tool after plain assistant turn", () => {
+  // Agent loop residual: write → tool result → plain assistant → user follow-up
+  // must NOT re-fire fusion (cost control).
+  const body = {
+    messages: [
+      { role: "user", content: "please write the file" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+      { role: "tool", content: "wrote ok" },
+      { role: "assistant", content: "Done writing the file." },
+      { role: "user", content: "ok continue" },
+    ],
+  };
+  assert.equal(hasMatchingToolCall(body, ["write*"]), false);
+  assert.equal(
+    shouldTriggerFusion(body, { mode: "tool-call", toolPatterns: ["write*"] }),
+    false
+  );
+});
+
+test("hasMatchingToolCall: multi-turn agent-loop matrix documents cost control", () => {
+  const writeTurn = {
+    messages: [
+      { role: "user", content: "create config" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+    ],
+  };
+  const afterToolResult = {
+    messages: [
+      ...writeTurn.messages,
+      { role: "tool", content: "ok" },
+    ],
+  };
+  const afterPlainAssistant = {
+    messages: [
+      ...afterToolResult.messages,
+      { role: "assistant", content: "Config written successfully." },
+    ],
+  };
+  const userFollowUp = {
+    messages: [
+      ...afterPlainAssistant.messages,
+      { role: "user", content: "what next?" },
+    ],
+  };
+  const laterWriteAgain = {
+    messages: [
+      ...userFollowUp.messages,
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+    ],
+  };
+
+  const patterns = ["write*"];
+  // Hit only when latest assistant itself carries matching tool_calls.
+  assert.equal(hasMatchingToolCall(writeTurn, patterns), true, "write turn must fire");
+  // Latest assistant is still the write tool_calls message (tool role is not assistant).
+  assert.equal(
+    hasMatchingToolCall(afterToolResult, patterns),
+    true,
+    "tool result after write keeps latest assistant as the write turn"
+  );
+  assert.equal(
+    hasMatchingToolCall(afterPlainAssistant, patterns),
+    false,
+    "plain text assistant clears the tool-call window"
+  );
+  assert.equal(
+    hasMatchingToolCall(userFollowUp, patterns),
+    false,
+    "user follow-up must not re-fire on sticky history"
+  );
+  assert.equal(
+    hasMatchingToolCall(laterWriteAgain, patterns),
+    true,
+    "new matching tool_calls on latest assistant re-arms the trigger"
+  );
 });
 
 // ─── hasMatchingText / extractLatestUserText ─────────────────────────────────
@@ -136,6 +277,22 @@ test("hasMatchingText: case-insensitive substring", () => {
 
 test("hasMatchingText: empty patterns never match", () => {
   assert.equal(hasMatchingText({ messages: [{ role: "user", content: "security" }] }, []), false);
+});
+
+test("hasMatchingText: uses latest user only (not sticky across roles)", () => {
+  const body = {
+    messages: [
+      { role: "user", content: "please do a security review" },
+      { role: "assistant", content: "reviewed" },
+      { role: "user", content: "thanks" },
+    ],
+  };
+  // Earlier user said "security" but latest user is "thanks" — must miss.
+  assert.equal(hasMatchingText(body, ["security"]), false);
+  assert.equal(
+    shouldTriggerFusion(body, { mode: "text-match", textPatterns: ["security"] }),
+    false
+  );
 });
 
 // ─── shouldTriggerFusion modes ───────────────────────────────────────────────

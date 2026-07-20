@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
 import { asSidebarTranslator, sidebarText } from "@/shared/utils/sidebarI18n";
@@ -11,6 +11,15 @@ import {
   HUB_SUBNAV_ITEM_BASE_CLASS,
   HUB_SUBNAV_SHELL_CLASS,
 } from "@/shared/constants/hubSubnavStyles";
+import {
+  buildDashboardStoryPath,
+  buildProvidersBudgetPath,
+  buildProvidersPricingPath,
+  buildProvidersQuotaSharePath,
+  PROVIDERS_BUDGET_PATH,
+  PROVIDERS_PRICING_PATH,
+  PROVIDERS_QUOTA_SHARE_PATH,
+} from "@/shared/constants/epic19Rebalance";
 
 interface CostsTabLink {
   href: string;
@@ -18,37 +27,54 @@ interface CostsTabLink {
   labelKey: string;
   labelFallback: string;
   icon: string;
+  /** Dashboard story tab id for Overview active-state matching */
+  storyTab?: "costs-overview";
 }
+
+/**
+ * Costs hub subnav (residual deep-link chrome after 0082 primary drop).
+ * Overview → Dashboard storytelling (0081 / 0078 builder).
+ * Budget / Pricing / Quota-share → Providers policy surfaces (0079).
+ */
+const COSTS_OVERVIEW_HREF = buildDashboardStoryPath("costs-overview");
 
 const COSTS_LINKS = [
   {
-    href: "/dashboard/costs",
+    href: COSTS_OVERVIEW_HREF,
     labelKey: "costsOverview",
     labelFallback: "Overview",
     icon: "account_balance_wallet",
+    storyTab: "costs-overview",
   },
   {
-    href: "/dashboard/costs/budget",
+    href: buildProvidersBudgetPath(),
     labelKey: "costsBudget",
     labelFallback: "Budget",
     icon: "savings",
   },
   {
-    href: "/dashboard/costs/pricing",
+    href: buildProvidersPricingPath(),
     labelKey: "costsPricing",
     labelFallback: "Pricing",
     icon: "price_change",
   },
   {
-    href: "/dashboard/costs/quota-share",
+    href: buildProvidersQuotaSharePath(),
     labelKey: "costsQuotaShare",
     labelFallback: "Quota Share",
     icon: "pie_chart",
   },
 ] as const satisfies readonly CostsTabLink[];
 
+const PROVIDERS_POLICY_HREFS: ReadonlySet<string> = new Set([
+  PROVIDERS_BUDGET_PATH,
+  PROVIDERS_PRICING_PATH,
+  PROVIDERS_QUOTA_SHARE_PATH,
+]);
+
 export default function CostsSubnav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const t = asSidebarTranslator(useTranslations("sidebar"));
 
   return (
@@ -58,11 +84,13 @@ export default function CostsSubnav() {
       data-costs-subnav=""
     >
       {COSTS_LINKS.map((item) => {
-        // Overview is exact-match so /dashboard/costs/budget does not light Overview.
         const isActive =
-          item.href === "/dashboard/costs"
-            ? pathname === "/dashboard/costs"
-            : pathname.startsWith(item.href);
+          "storyTab" in item && item.storyTab
+            ? pathname === "/home" &&
+              (searchParams.get("tab") ?? "overview") === item.storyTab
+            : PROVIDERS_POLICY_HREFS.has(item.href)
+              ? pathname === item.href || pathname.startsWith(`${item.href}/`)
+              : pathname.startsWith(item.href);
 
         return (
           <Link

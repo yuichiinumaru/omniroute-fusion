@@ -1,16 +1,18 @@
 # Epic 0007 — Provider Connection Auth-Status UX (API Key vs OAuth)
 
-> **Status**: Planning (promote child tasks next)  
-> **Priority**: High (P1 product UX; unblocks operator trust after 0006 heal)  
-> **Author**: Grok session (omniroute-fusion) · 2026-07-11  
+> **Status**: **Closed / Complete (2026-07-19)** — children **0037–0039** all under `docs/tasks/04-completed/`  
+> **Priority**: High (P1 product UX; historical)  
+> **Author**: Grok session (omniroute-fusion) · 2026-07-11 · **Hygiene**: 2026-07-19 (EPIC-10 / Task 0062)  
 > **Project**: omniroute-fusion  
 > **Type**: UX / remediation  
 > **Action types**: `UX_VIS` + `HARDEN` (status mapping)  
 > **Depends on**: Epic **0006** S2 contracts preferred (status codes / error taxonomy stable); heal (0006 S3) can land first  
 > **Related**:  
-> - Epic **0006** dual-mode refresh correctness (backend) — **no runtime gates here**  
+> - Epic **0006** dual-mode refresh correctness (backend) — **no runtime gates here**; live 21000 still **0036**  
 > - Epic **0005** / `docs/guides/UI.md` / `docs/architecture/NAV-TREE-TARGET.md` — stay under **Providers** hub; **no new sidebar leaves**  
-> - Live false copy: “re-authenticate” / “No refresh token” on AI Studio + Qoder PAT cards
+> - Live false copy (pre-fix): “re-authenticate” / “No refresh token” on AI Studio + Qoder PAT cards  
+>
+> **Do not re-open as greenfield.** Auth-status copy helper + ProviderCard wire + Limits/i18n shipped via **0037–0039**.
 
 ---
 
@@ -126,19 +128,17 @@ Manual (optional): open Providers on 21000 after 0006 heal — gemini keys show 
 
 ## 6. Promotion note for gt-task-architect
 
-Promote atomic tasks to `docs/tasks/01-open/` after **0006** numbering (continue **0032+** sequence; do not collide).  
-Prefix slug: `omniroute-provider-auth-status-ux-*`.  
-Enforce UI.md: **no new default-visible sidebar leaf**.  
-Template: `docs/tasks/.archive/000-template-moved-to-parent.md`.
+**Historical (2026-07-11):** promote atomic tasks after **0006** numbering; slug `omniroute-provider-auth-status-ux-*`; UI.md no-new-leaf.  
+**Current (2026-07-19):** all children completed — do not re-promote.
 
 ---
 
-## 7. Child tasks (promoted 2026-07-11)
+## 7. Child tasks (lane truth 2026-07-19)
 
-| Task | File | Slice |
-|------|------|-------|
-| 0037 | `docs/tasks/01-open/0037-omniroute-provider-auth-status-copy-helper.md` | S1+S5 helper + matrix |
-| 0038 | `docs/tasks/01-open/0038-omniroute-provider-auth-status-wire-card.md` | S2 ProviderCard wire |
-| 0039 | `docs/tasks/01-open/0039-omniroute-provider-auth-status-limits-i18n.md` | S3+S4 Limits + i18n |
+| Task | File | Slice | Lane |
+|------|------|-------|------|
+| 0037 | `docs/tasks/04-completed/0037-omniroute-provider-auth-status-copy-helper.md` | S1+S5 helper + matrix | **completed** |
+| 0038 | `docs/tasks/04-completed/0038-omniroute-provider-auth-status-wire-card.md` | S2 ProviderCard wire | **completed** |
+| 0039 | `docs/tasks/04-completed/0039-omniroute-provider-auth-status-limits-i18n.md` | S3+S4 Limits + i18n | **completed** |
 
 **Parent review upgrades:** pin copy helper to `src/shared/utils/connectionStatusCopy.ts`; no optional 0040 (polish folded into 0039).

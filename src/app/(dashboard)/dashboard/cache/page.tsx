@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useProviderNodeMap, resolveProviderName } from "@/lib/display/useProviderNodeMap";
 import CacheEntriesTab from "./components/CacheEntriesTab";
 import ReasoningCacheTab from "./components/ReasoningCacheTab";
+import DashboardTopbar from "../../home/DashboardTopbar";
 
 interface SemanticCacheStats {
   memoryEntries: number;
@@ -427,6 +428,8 @@ export default function CachePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Same single Dashboard hub topbar as /home (EPIC-19 / 0081 chrome). */}
+      <DashboardTopbar />
       <div className="flex justify-end">
         <Button
           variant="secondary"

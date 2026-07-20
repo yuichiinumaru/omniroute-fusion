@@ -11,16 +11,17 @@ import EmptyState from "@/shared/components/EmptyState";
 import { CardSkeleton } from "@/shared/components/Loading";
 import { useNotificationStore } from "@/store/notificationStore";
 import RoutingHubSubnav from "@/shared/components/RoutingHubSubnav";
-import { filterFusionCombos } from "./fusionEditorTypes";
+import {
+  filterFusionCombos,
+  formatFusionActingLabel,
+  type ComboRecord,
+} from "./fusionEditorTypes";
 
-type FusionCombo = {
-  id: string;
-  name: string;
-  strategy?: string;
-  models?: Array<string | Record<string, unknown>>;
-  isHidden?: boolean;
-  description?: string | null;
-};
+/** List-shell view of a fusion combo — pick from ComboRecord so `acting` cannot drift. */
+type FusionCombo = Pick<
+  ComboRecord,
+  "id" | "name" | "strategy" | "models" | "isHidden" | "description" | "acting"
+>;
 
 type FeedbackState = { type: "success" | "error"; message: string } | null;
 
@@ -171,6 +172,7 @@ export default function FusionsPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {sortedFusions.map((combo) => {
             const count = panelCount(combo);
+            const actingLabel = formatFusionActingLabel(combo.acting);
             return (
               <Card
                 key={combo.id}
@@ -199,11 +201,30 @@ export default function FusionsPage() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-sm text-text-muted">
-                  <span className="material-symbols-outlined text-[18px]">groups</span>
-                  <span>
-                    {count} panel model{count === 1 ? "" : "s"}
+                <div className="flex flex-wrap items-center gap-2 text-sm text-text-muted">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                      groups
+                    </span>
+                    <span>
+                      {count} panel model{count === 1 ? "" : "s"}
+                    </span>
                   </span>
+                  {actingLabel ? (
+                    <span
+                      data-testid="fusion-list-acting"
+                      title={`Acting: ${actingLabel}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300"
+                    >
+                      <span
+                        className="material-symbols-outlined text-[14px]"
+                        aria-hidden="true"
+                      >
+                        record_voice_over
+                      </span>
+                      Acting · {actingLabel}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="mt-auto flex items-center justify-end gap-2">

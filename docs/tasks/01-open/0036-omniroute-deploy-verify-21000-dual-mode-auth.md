@@ -1,15 +1,31 @@
 # Task 0036: Deploy/Verify 21000 Dual-Mode Auth Correctness
 
-> **Status**: `[ ]` Open
-> **Priority**: 🔴 P0
+> **Status**: `[ ]` Open — **HOLD / operator-only for live :21000**
+> **Priority**: 🔴 P0 (product correctness residual — **not** free builder pickup)
 > **Type**: `verification`
 > **Origin**: Epic 0006 — Dual-Mode Auth / API-Key Refresh Correctness (S5)
 > **Action type**: HARDEN (ops proof)
 > **Blocks**: none (closes Epic 0006 success metrics on live data)
 > **Depends on**: Task 0033, Task 0034
+> **Parallel class**: `operator-hold` — never parallel with docker touch of 21000
 
 ---
-> **Queued after Epic 0008**: **Q4** — [`QUEUE-post-adversarial-return.md`](../00-planning/QUEUE-post-adversarial-return.md)
+
+> [!CAUTION]
+> ## HOLD — PORT 21000 = PRODUÇÃO — NÃO MEXER
+>
+> Root `AGENTS.md`: **localhost:21000 is production**. Agents must **NOT**:
+> - `docker rm` / recreate / restart `omniroute-21000` without **explicit operator command**
+> - rebuild/redeploy the live :21000 image without operator approval
+> - mutate live `data-21000/storage.sqlite` without operator approval
+>
+> **Default agent path = DRY-RUN**: copy DB → heal/matrix against copy + source/bundle greps only.  
+> Live rebuild/restart/heal-on-prod = **operator-only**. Prefer tests/canary on **:22000** when a running instance is needed.  
+> Desrespeitar essa regra = production session kill + permanent model ban risk.
+
+---
+> **Queued after Epic 0008**: **Q4** — [`QUEUE-post-adversarial-return.md`](../00-planning/QUEUE-post-adversarial-return.md)  
+> Note: QUEUE is historical for Q1–Q3; this task is residual dual-mode **ops HOLD**, not the sole open product lane (see `01-open/` EPIC-10…19 children).
 
 
 ## Objective
@@ -20,7 +36,7 @@ Prove on the operator environment that serves **:21000** (or document equivalent
 2. After heal (Task 0034) applied to that data directory: **0** rows with `auth_type = 'apikey' AND error_code = 'no_refresh_token'`
 3. Health sweep no longer re-marks gemini/qoder apikey rows on next cycle
 
-This is a **verification** task — may be operator-executed with agent-prepared runbook. Product code changes only if verify finds residual gaps (then open/fix under 0033/0034, do not expand scope here).
+This is a **verification** task — **operator-executed** for live :21000; agents prepare runbook + **DRY-RUN** evidence by default. Product code changes only if verify finds residual gaps (then open/fix under 0033/0034, do not expand scope here).
 
 ## Background Context
 
@@ -99,10 +115,11 @@ If live rebuild is operator-gated: copy `data-21000/storage.sqlite` to a temp di
 
 ## Exit Conditions (GDD/TDD)
 
-- [ ] Runbook steps executed or explicitly blocked with operator note + dry-run on DB copy
+- [ ] **HOLD respected**: no live :21000 docker recreate/restart without explicit operator command recorded in Completion Evidence
+- [ ] Runbook steps executed by operator **or** agent **DRY-RUN** on DB copy + source greps (default agent path)
 - [ ] Before table recorded in Completion Evidence
 - [ ] After table recorded; apikey `no_refresh_token` = 0 (or dry-run proves heal+code would achieve 0)
-- [ ] Proof that runtime bundle includes connection guard (string search in built chunk **or** version/SHA match to commit containing Task 0032/0033)
+- [ ] Proof that runtime bundle includes connection guard (string search in built chunk **or** version/SHA match to commit containing Task 0032/0033) — on **deployed** artifact only with operator; agents may grep workspace source + optional :22000
 - [ ] Unit regression still green on the same commit:
   - `node --import tsx/esm --test tests/unit/token-health-no-refresh-token-expired-5326.test.ts`
   - heal unit suite from Task 0034

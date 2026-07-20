@@ -160,12 +160,17 @@ export default function HealthPage() {
   const fmtMs = (ms) =>
     ms != null ? t("millisecondsShort", { value: Math.round(ms) }) : t("notAvailable");
 
+  // Observe hub chrome stays mounted on loading/error so Health never drops the single
+  // ObserveHubSubnav strip (EPIC-19 residual / single-topbar law).
   if (!data && !error) {
     return (
-      <div className="flex items-center justify-center min-h-100">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-text-muted mt-4">{t("loadingHealth")}</p>
+      <div className="space-y-6">
+        <ObserveHubSubnav active="health" />
+        <div className="flex items-center justify-center min-h-100">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <p className="text-text-muted mt-4">{t("loadingHealth")}</p>
+          </div>
         </div>
       </div>
     );
@@ -173,7 +178,8 @@ export default function HealthPage() {
 
   if (error && !data) {
     return (
-      <div>
+      <div className="space-y-6">
+        <ObserveHubSubnav active="health" />
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
           <span className="material-symbols-outlined text-red-500 text-[32px] mb-2">error</span>
           <p className="text-red-400">{t("failedToLoad", { error })}</p>

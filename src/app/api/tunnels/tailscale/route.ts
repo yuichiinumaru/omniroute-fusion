@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTailscaleTunnelStatus } from "@/lib/tailscaleTunnel";
 import { requireTailscaleAuth } from "./routeUtils";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,10 @@ export async function GET(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to load Tailscale status",
+        error:
+          sanitizeErrorMessage(
+            error instanceof Error ? error.message : "Failed to load Tailscale status"
+          ) || "Failed to load Tailscale status",
       },
       { status: 500 }
     );

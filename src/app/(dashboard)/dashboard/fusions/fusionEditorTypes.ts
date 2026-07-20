@@ -170,6 +170,19 @@ export function unitDisplayLabel(unit: FusionUnit | null): string {
   return unit.model;
 }
 
+/**
+ * Compact list-card label for an optional acting unit (Task 0077 / H-FUSION-010).
+ * Returns `null` when acting is missing or invalid so the list chip can be omitted.
+ * Prefer short model id / combo name (optional `label` wins when set).
+ */
+export function formatFusionActingLabel(acting: unknown): string | null {
+  const unit = normalizeFusionUnit(acting);
+  if (!unit) return null;
+  if (typeof unit.label === "string" && unit.label.trim()) return unit.label.trim();
+  if (unit.kind === "combo-ref") return unit.comboName;
+  return unit.model;
+}
+
 export function unitToPayload(unit: FusionUnit): Record<string, unknown> | string {
   if (unit.kind === "combo-ref") {
     return {

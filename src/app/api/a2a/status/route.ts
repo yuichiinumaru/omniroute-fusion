@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTaskManager } from "@/lib/a2a/taskManager";
 import { getSettings } from "@/lib/db/settings";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export async function GET() {
   try {
@@ -38,7 +39,9 @@ export async function GET() {
       skills: Array.isArray(agentCard?.skills) ? agentCard.skills : [],
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load A2A status";
+    const message =
+      sanitizeErrorMessage(error instanceof Error ? error.message : "Failed to load A2A status") ||
+      "Failed to load A2A status";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -3,7 +3,8 @@
  *
  * Modes (combo.config.triggers.mode):
  *   - always     → fusion always fires
- *   - tool-call  → fusion when an assistant tool_call name matches toolPatterns (glob)
+ *   - tool-call  → fusion when the **latest** assistant message carries tool_calls
+ *                 whose names match toolPatterns (glob); not sticky across history
  *   - text-match → fusion when the latest user message contains any textPatterns
  *                 (case-insensitive substring, not glob)
  *
@@ -49,9 +50,16 @@ export function matchGlob(input: string, pattern: string): boolean {
 }
 
 /**
- * Check whether any tool call in the request body matches one of the given
- * glob-style patterns. Walks backwards to the last assistant message that has
- * tool_calls (the pending tool-use turn).
+ * Check whether any tool call on the **latest assistant message** matches one
+ * of the given glob-style patterns (EPIC-11 / Task 0068).
+ *
+ * Window: scan messages from the end for the first `role === "assistant"`.
+ * Match only that message's `tool_calls`. If the latest assistant has no
+ * `tool_calls` (or none match), return false — do **not** walk sticky history
+ * for an older tool_calls-bearing assistant. This keeps conditional-fusion
+ * cost-controlled in multi-turn agent loops after a write tool turn.
+ *
+ * Tool name resolution: prefers `function.name`, falls back to bare `name`.
  */
 export function hasMatchingToolCall(
   body: Record<string, unknown>,
@@ -59,29 +67,36 @@ export function hasMatchingToolCall(
 ): boolean {
   if (!patterns.length) return false;
   const messages = Array.isArray(body.messages) ? body.messages : [];
+
+  // Find the latest assistant message only (N=1 window).
+  let latestAssistant: Record<string, unknown> | null = null;
   for (let i = messages.length - 1; i >= 0; i--) {
     // SAFETY: messages elements are untyped chat payloads; narrow before field access.
     const msg = messages[i] as Record<string, unknown> | null | undefined;
     if (!msg || typeof msg !== "object") continue;
     if (msg.role !== "assistant") continue;
-    const toolCalls = msg.tool_calls;
-    if (!Array.isArray(toolCalls) || toolCalls.length === 0) continue;
-    return toolCalls.some((tc: unknown) => {
-      if (!tc || typeof tc !== "object") return false;
-      // SAFETY: OpenAI tool_call shape after object check — function.name is optional.
-      const call = tc as Record<string, unknown>;
-      const func = call.function as Record<string, unknown> | undefined;
-      const name: string | undefined =
-        typeof func?.name === "string"
-          ? func.name
-          : typeof call.name === "string"
-            ? call.name
-            : undefined;
-      if (!name) return false;
-      return patterns.some((pattern) => matchGlob(name, pattern));
-    });
+    latestAssistant = msg;
+    break;
   }
-  return false;
+  if (!latestAssistant) return false;
+
+  const toolCalls = latestAssistant.tool_calls;
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return false;
+
+  return toolCalls.some((tc: unknown) => {
+    if (!tc || typeof tc !== "object") return false;
+    // SAFETY: OpenAI tool_call shape after object check — function.name is optional.
+    const call = tc as Record<string, unknown>;
+    const func = call.function as Record<string, unknown> | undefined;
+    const name: string | undefined =
+      typeof func?.name === "string"
+        ? func.name
+        : typeof call.name === "string"
+          ? call.name
+          : undefined;
+    if (!name) return false;
+    return patterns.some((pattern) => matchGlob(name, pattern));
+  });
 }
 
 /**

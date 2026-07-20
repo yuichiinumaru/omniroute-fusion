@@ -1,13 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
+import { buildProvidersPricingPath } from "@/shared/constants/epic19Rebalance";
 
-import CostsSubnav from "../CostsSubnav";
-import PricingTab from "../../settings/components/PricingTab";
-
-export default function CostsPricingPage() {
-  return (
-    <>
-      <CostsSubnav />
-      <PricingTab />
-    </>
-  );
+/**
+ * Legacy costs pricing URL → Providers pricing (EPIC-19 T19-B / 0079).
+ * Canonical: `buildProvidersPricingPath()`.
+ */
+export default function CostsPricingRedirectPage() {
+  redirect(buildProvidersPricingPath());
 }

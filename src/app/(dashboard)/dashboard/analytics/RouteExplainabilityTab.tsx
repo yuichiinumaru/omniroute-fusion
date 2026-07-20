@@ -526,11 +526,15 @@ export default function RouteExplainabilityTab({
   useEffect(() => {
     if (!selectedId || typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    if (
-      url.searchParams.get("tab") === "route-trace" ||
-      url.searchParams.get("tab") === "route-explain"
-    ) {
+    const tab = url.searchParams.get("tab");
+    const panel = url.searchParams.get("panel");
+    // Analytics legacy (?tab=) or Observe operational panel (?panel=route-trace) — keep id=
+    if (tab === "route-trace" || tab === "route-explain") {
       url.searchParams.set("tab", "route-trace");
+      url.searchParams.set("id", selectedId);
+      window.history.replaceState(null, "", url.toString());
+    } else if (panel === "route-trace") {
+      url.searchParams.set("panel", "route-trace");
       url.searchParams.set("id", selectedId);
       window.history.replaceState(null, "", url.toString());
     }

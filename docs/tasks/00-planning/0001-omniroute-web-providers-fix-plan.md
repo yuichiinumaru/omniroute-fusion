@@ -1,10 +1,18 @@
 # Fix Definitivo — Web Providers para Fusion Mode
 
-> **Status**: Planning
-> **Priority**: High
-> **Author**: GT-Architect
-> **Date**: 2026-07-06
+> **Status**: Planning — **partial land truth-up (2026-07-19, Task 0062)**  
+> **Priority**: High  
+> **Author**: GT-Architect  
+> **Date**: 2026-07-06  
 > **Context**: Fusion mode (conditional-fusion) precisa de providers web non-stream. 4 providers estão com problemas conhecidos.
+>
+> ### Truth-up banner (do not treat as untouched greenfield)
+>
+> - **Not fully re-planned or re-closed** by EPIC-10 hygiene — this is a plan, not a drained child-task epic.  
+> - **Partial land signals (verified filesystem, not full product audit):** `open-sse/config/providers/registry/lmarena/` exists; `LMArenaExecutor` registered in `open-sse/executors/`; `chatgpt-web` / other web registries also present under `open-sse/config/providers/registry/`.  
+> - **Do not** re-implement registry/executor scaffolding that already exists without grepping first.  
+> - Remaining web-provider correctness (captcha, cookie, transform bugs) may still need dedicated tasks — see also **0002** (qwen captcha) as orthogonal HOLD/plan.  
+> - Historical filename `0001-*` is a naming-rule exception (see `QUEUE-post-adversarial-return.md` § Naming exception).
 
 ---
 

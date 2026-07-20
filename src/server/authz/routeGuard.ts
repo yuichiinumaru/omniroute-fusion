@@ -47,6 +47,9 @@ export const LOCAL_ONLY_API_PREFIXES: ReadonlyArray<string> = [
   "/api/cli-tools/antigravity-mitm", // MITM server spawn + sudo (sibling of agent-bridge)
   "/api/tunnels/tailscale/install", // brew/curl/sudo package install
   "/api/tunnels/tailscale/start-daemon", // daemon start spawn
+  "/api/tunnels/tailscale/enable", // funnel/login spawn (F-SEC-W2-001)
+  "/api/tunnels/tailscale/login", // tailscale up spawn (F-SEC-W2-001)
+  "/api/tunnels/tailscale/disable", // funnel reset + pkill/net stop daemon (F-SEC-W2-001 residual)
   "/api/tunnels/cloudflared", // managed binary download + spawn (GET status exempted below)
   "/api/tunnels/ngrok", // same tunnel class as cloudflared (GET status exempted below)
   "/api/middleware/hooks", // compiles caller JS via new Function — process RCE (Hard Rule #3)

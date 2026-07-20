@@ -86,7 +86,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof AgyAuthFileError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+      return NextResponse.json(
+        {
+          error: sanitizeErrorMessage(error.message) || "Invalid Antigravity auth file",
+          code: error.code,
+        },
+        { status: error.status }
+      );
     }
     return NextResponse.json(
       { error: sanitizeErrorMessage(error) || "Failed to import Antigravity CLI auth" },

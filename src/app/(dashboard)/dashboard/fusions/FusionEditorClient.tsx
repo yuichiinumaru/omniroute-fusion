@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import Button from "@/shared/components/Button";
 import Card from "@/shared/components/Card";
 import { CardSkeleton } from "@/shared/components/Loading";
+import RoutingHubSubnav from "@/shared/components/RoutingHubSubnav";
 import { useNotificationStore } from "@/store/notificationStore";
 import FusionTriggersSection from "./FusionTriggersSection";
 import FusionTuningSection from "./FusionTuningSection";
@@ -381,9 +382,14 @@ export default function FusionEditorClient({ id }: { id: string }) {
     [t]
   );
 
+  // Task 0075: shared Routing hub strip for create + edit (list already mounts it).
+  // Prefer one mount in this client so new/[id] inherit without divergent page markup.
+  const routingHub = <RoutingHubSubnav active="fusions" />;
+
   if (loading) {
     return (
       <div className="space-y-6">
+        {routingHub}
         <CardSkeleton />
         <CardSkeleton />
       </div>
@@ -403,6 +409,7 @@ export default function FusionEditorClient({ id }: { id: string }) {
             </Button>
           </Link>
         </div>
+        {routingHub}
         <Card padding="lg">
           <p className="text-sm text-red-600 dark:text-red-300">{loadError}</p>
           <div className="mt-3">
@@ -443,6 +450,8 @@ export default function FusionEditorClient({ id }: { id: string }) {
           </Button>
         </div>
       </div>
+
+      {routingHub}
 
       <FusionUnitsSections
         form={form}

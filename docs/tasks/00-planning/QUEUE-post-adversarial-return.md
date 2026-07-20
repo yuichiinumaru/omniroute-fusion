@@ -1,52 +1,78 @@
 # Builder queue — after Epic 0008 adversarial (0040–0051)
 
+> ## SUPERSEDED 2026-07-19 (EPIC-10 / Task 0062)
+>
+> **This QUEUE is no longer an active builder pickup list.**  
+> Keep the historical tables below for archaeology only.
+>
+> | Historical item | Reality (2026-07-19) |
+> |-----------------|----------------------|
+> | Q1 **0024** / Q2 **0025** / Q3 **0017** | **Closed** — all in `docs/tasks/04-completed/` (not `02-doing/` / REJECT) |
+> | Soft-queue dual-mode / fusion / tab kit in `03-review` | **Closed** — bulk promote wave emptied `03-review/` |
+> | Epic **0008** adversarial **0040–0051** | **Closed** — all in `04-completed/` |
+> | Q4 **0036** dual-mode deploy/verify **:21000** | **Still open** — `docs/tasks/01-open/0036-…` (operator HOLD; do not run from hygiene) |
+>
+> ### Active product / residual lanes (look here, not this QUEUE)
+>
+> **Do not trust task-ID lists frozen in this banner.** Reconfirm with `ls` before claiming lane truth:
+>
+> - **`docs/tasks/01-open/`** — live open executables (ops HOLD **0036** dual-mode `:21000` is expected here; other IDs come and go).  
+> - **`docs/tasks/02-doing/`** — currently claimed implementation work.  
+> - **`docs/tasks/03-review/`** — review-ready residual series (EPIC-10…19 hygiene / fusion / security / IA / rebalance as present).  
+> - **`docs/tasks/04-completed/`** — drained packages (do not re-open Q1–Q3 / 0040–0051 from tables below).  
+> - **Planning:** `EPIC-10` … `EPIC-14`, `EPIC-19` under `docs/tasks/00-planning/`.  
+>
+> **Do not claim the sole residual executable is 0036 forever.** 0036 is the dual-mode **ops** residual only; product residual work lives in the live lane dirs + planning epics, not this QUEUE.  
+> **Do not** re-work completed 0024/0025/0017 from REJECT scores below.  
+> Historical namespace exception for `000N-*.md` planning files: see **§ Naming exception** at bottom.
+
+---
+
 > **Created**: 2026-07-11  
-> **Purpose**: Park **returned / incomplete prior-wave** work so it does not compete with adversarial P0/P1 closeout.  
+> **Purpose (historical)**: Park **returned / incomplete prior-wave** work so it does not compete with adversarial P0/P1 closeout.  
 > **Docker**: leave `:21000` / `:22000` policy to operator (canary vs promote separate from this queue).
 
 ---
 
-## 0. Already done / not re-queued as “return”
+## 0. Already done / not re-queued as “return” (historical snapshot 2026-07-11; **lanes stale**)
 
-| Block | Tasks | Notes |
-|-------|-------|-------|
-| Epic **0008** adversarial | **0040–0051** | All in `03-review/` after builder wave — **independent review** next, not this queue |
-| Dual-mode **0006/0007** | **0032–0035, 0037–0039** | Review **PASS WITH NOTES** (S 93–96) — path-to-100 polish only; stay `03-review` until promote |
-| Fusion path-to-100 holds | **0010–0016, 0018** | S≥90 hold in `03-review` (not rejects) |
-| Frontend IA holds | **0023, 0026–0031** | Mostly S≥90 hold / promote-ready; not “returned” |
+| Block | Tasks | Notes (2026-07-11) → **truth 2026-07-19** |
+|-------|-------|-------------------------------------------|
+| Epic **0008** adversarial | **0040–0051** | Then in `03-review/` → now **`04-completed/`** |
+| Dual-mode **0006/0007** | **0032–0035, 0037–0039** | Then `03-review` → now **`04-completed/`**; ops **0036** still open |
+| Fusion path-to-100 holds | **0010–0016, 0018** | Then `03-review` → now **`04-completed/`** |
+| Frontend IA holds | **0023, 0026–0031** | Then promote-ready → now **`04-completed/`** |
 
 ---
 
-## 1. Hard queue — **returned from review (builder must rework)**
+## 1. Hard queue — **returned from review (historical; Q1–Q3 closed)**
 
-Execute **after** adversarial 0040–0051 are stable (review wave can run in parallel on 0040+; **do not** starve these).
+| Order | Task | Lane then | Score / signal | Focus | **Status 2026-07-19** |
+|------:|------|-----------|----------------|-------|------------------------|
+| **Q1** | **0024** Frontend IA Registry/Connect | was `02-doing/` | **84 REJECT** (2026-07-11) | Path-to-100 | **`04-completed/`** |
+| **Q2** | **0025** Frontend IA seven-pillar | was `02-doing/` | **81 REJECT** (2026-07-11) | Path-to-100 | **`04-completed/`** |
+| **Q3** | **0017** Fusion docs / i18n | was `02-doing/` | **88** re-review | Docs/i18n | **`04-completed/`** |
+| **Q4** | **0036** Deploy/verify dual-mode on **:21000** | `01-open/` | Operator HOLD | Promote dual-mode when A/B signs off | **Still `01-open/` HOLD** |
 
-| Order | Task | Lane now | Score / signal | Focus |
-|------:|------|----------|----------------|-------|
-| **Q1** | **0024** ✅ reworked → `03-review` Frontend IA Registry/Connect cleanup (S5) | `02-doing/` | **84 REJECT** (2026-07-11) | Path-to-100 residuals from re-review; unblocks clean 0025 pillar story |
-| **Q2** | **0025** Frontend IA seven-pillar / flat primary sidebar (S6) | `02-doing/` | **81 REJECT** (2026-07-11) | Prior path-to-100 items not closed; coordinate with live `PRIMARY_SIDEBAR_ITEMS` (~10 flat) |
-| **Q3** | **0017** Fusion docs / i18n / operator notes | `02-doing/` | **88** re-review return (F3/F6 open) | Docs/i18n only — after 0024/0025 or parallel if no file collision |
-| **Q4** | **0036** Deploy/verify dual-mode on **:21000** | `01-open/` | Canary **:22000** already OK | Promote `omniroute:base` to 21000 when operator A/B signs off; heal + bundle proof |
-
-**Suggested seriality**
+**Suggested seriality (historical only)**
 
 ```
-Q1 0024  →  Q2 0025  →  (optional path-to-100 promote IA 0023/26–31)
-Q3 0017  // parallel with Q1/Q2 if docs-only (avoid fusion UI files)
-Q4 0036  // operator-gated; independent of IA returns
+Q1 0024  →  Q2 0025  →  (optional path-to-100 promote IA)
+Q3 0017  // parallel if docs-only
+Q4 0036  // operator-gated; independent
 ```
 
 ---
 
-## 2. Soft queue — path-to-100 polish (stay in `03-review`, optional builder pass)
+## 2. Soft queue — path-to-100 polish (historical; all drained)
 
-Only if operator wants S→100 before `04-completed/`:
+Only if operator wanted S→100 before `04-completed/` (wave finished):
 
 | Group | Tasks | Typical residual |
 |-------|-------|------------------|
-| Dual-mode polish | 0032–0035, 0037–0039 | Matrix pin `supportsTokenRefresh`, blank authType assert, CTA/tone polish |
-| Tab kit | **0030** | F1–F4 polish @ 91 |
-| Fusion polish | 0014, 0016, 0018 | Size split / notes already mostly applied |
+| Dual-mode polish | 0032–0035, 0037–0039 | Matrix pin, CTA polish → **completed** |
+| Tab kit | **0030** | polish → **completed** |
+| Fusion polish | 0014, 0016, 0018 | notes → **completed** |
 
 Do **not** open competing tasks for these.
 
@@ -56,29 +82,49 @@ Do **not** open competing tasks for these.
 
 - Re-opening dual-mode false-positive research (healed on :22000; 0036 is deploy only).  
 - Re-litigating adversarial findings already mapped to 0040–0051.  
-- Docker rebuild without operator request.
+- Docker rebuild without operator request.  
+- Treating this file as the active residual list for EPIC-10…19 (use `01-open/` / `02-doing/` / planning epics).
 
 ---
 
-## 4. Handoff checklist for next builder session
+## 4. Handoff checklist (historical)
 
-1. Read this file + latest reject reports:
-   - `docs/reports/reviews/2026-07-11-task-0024-frontend-ia-registry-connect-cleanup-review.md`
-   - `docs/reports/reviews/2026-07-11-task-0025-frontend-ia-seven-pillar-sidebar-review.md`
-   - `docs/reports/reviews/2026-07-10-task-0017-omniroute-fusion-docs-i18n-rereview.md` (if present)
-2. Work **Q1 → Q2** first (IA returned).  
-3. Then **Q3** fusion docs.  
-4. **Q4** only when operator says promote 21000.  
+1. Read this file + latest reject reports (paths under `docs/reports/reviews/` for 0024/0025/0017).  
+2. Work **Q1 → Q2** first — **done**.  
+3. Then **Q3** fusion docs — **done**.  
+4. **Q4** only when operator says promote 21000 — **still pending**.  
 5. Keep unrelated dirty frontend-IA tree files out of security commits.
 
-
 ---
 
-## Progress (2026-07-11)
+## Progress (2026-07-11, updated 2026-07-19)
 
 | Item | Status |
 |------|--------|
-| Q1 0024 | **Done** → `03-review/` (commit path-to-100 shell tests) |
-| Q2 0025 | **Done** → `03-review/` (Routing hub subnav + flat tests) |
-| Q3 0017 | **Done** → `03-review/` (18 strategies + acting/A6 docs) |
+| Q1 0024 | **Done** → `04-completed/` |
+| Q2 0025 | **Done** → `04-completed/` |
+| Q3 0017 | **Done** → `04-completed/` |
 | Q4 0036 | **Pending** — promote dual-mode to :21000 when operator A/B signs off |
+
+---
+
+## Naming exception (historical `000N-*.md` planning namespace)
+
+> Per `.agents/rules/planning-artifact-naming.md`, new `00-planning/` artifacts should use `EPIC-` / `PLAN-` / `HOLD-` / … prefixes.  
+> Files `0001`–`0009` and this `QUEUE-*` predate that rule and are **intentionally retained** under the historical numeric namespace to avoid mass link breakage this hygiene slice.
+
+| Historical file | Intended modern form (not renamed this slice) | Role |
+|-----------------|-----------------------------------------------|------|
+| `0001-omniroute-web-providers-fix-plan.md` | `PLAN-omniroute-web-providers-fix.md` | Web providers plan (partial land) |
+| `0002-omniroute-qwen-web-captcha-solver.md` | `HOLD-` or `PLAN-` | Deferred captcha |
+| `0003-omniroute-fusion-first-class-epic.md` | `EPIC-03-…` (or absorb into FUSION docs) | Closed fusion first-class |
+| `0004-omniroute-fusion-acting-unit-epic.md` | `EPIC-04-…` | Acting closeout → Task 0063 |
+| `0005-omniroute-frontend-ia-design-system-epic.md` | `EPIC-05-…` | Closed IA + successor 0052–0061 |
+| `0006-omniroute-dual-mode-auth-refresh-correctness-epic.md` | `EPIC-06-…` | Code complete; ops **0036** |
+| `0007-omniroute-provider-connection-auth-status-ux-epic.md` | `EPIC-07-…` | Closed |
+| `0008-omniroute-adversarial-remediation-epic.md` | `EPIC-08-…` | Closed remediation wave |
+| `0009-builder-wave-2026-07-18-review-loop-learnings.md` | `PLAN-omniroute-builder-wave-learnings.md` | Historical wave notes |
+| `QUEUE-post-adversarial-return.md` | `PLAN-` or archive pointer | **This file — SUPERSEDED** |
+| `EPIC-10` … `EPIC-19` | Already compliant | Active planning epics |
+
+New planning artifacts **must** use the compliant prefixes. Do not invent executable `Task NNNN` identity inside `00-planning/`.

@@ -18,6 +18,10 @@ import {
   type ComboControlCenterTargetHealth,
 } from "@/lib/combos/controlCenter";
 import { getProviderDisplayName } from "@/lib/display/names";
+import {
+  buildDashboardStoryPath,
+  buildObserveComboHealthPath,
+} from "@/shared/constants/epic19Rebalance";
 
 type TimeRange = "1h" | "24h" | "7d" | "30d";
 
@@ -510,9 +514,9 @@ export default function ComboControlCenterClient({ comboId }: { comboId: string 
         <h2 className="text-lg font-semibold text-text-main">Quick links</h2>
         <div className="mt-4 flex flex-wrap gap-2">
           {[
-            ["Combo Health", "/dashboard/analytics/combo-health"],
+            ["Combo Health", buildObserveComboHealthPath()],
             ["Call Logs", "/dashboard/logs"],
-            ["Costs", "/dashboard/costs"],
+            ["Costs", buildDashboardStoryPath("costs-overview")],
             ["Quota", "/dashboard/quota"],
             ["Playground", "/dashboard/playground"],
             ["Providers", "/dashboard/providers"],

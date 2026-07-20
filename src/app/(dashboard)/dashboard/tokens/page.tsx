@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import DashboardTopbar from "../../home/DashboardTopbar";
 
 interface TokenLedgerEntry {
   id: number;
@@ -237,6 +238,8 @@ export default function TokensPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Same single Dashboard hub topbar as /home (EPIC-19 / 0081 chrome). */}
+      <DashboardTopbar />
       {/* Balance */}
       <Card>
         <div className="flex items-center justify-between">

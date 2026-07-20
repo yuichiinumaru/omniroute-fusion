@@ -5,6 +5,11 @@
  * Existing routes remain deep-linkable. Playground / Translator / Search Tools are
  * intentionally NOT listed in any sidebar section (including debug DEVTOOLS);
  * the Testing hub, command palette, and direct URLs are the discovery paths.
+ *
+ * Reverse chrome (Task 0076 **D1**): intentional one-way launchpad. Destination
+ * peers do **not** mount a Testing reverse strip / TestingHubSubnav — return via
+ * Operations→Testing hub card, CommandPalette, or browser history (no Testing
+ * primary leaf). Policy: `docs/guides/UI.md` § Hub reverse chrome.
  */
 
 export type TestingHubGroupId = "interactive" | "batch-media" | "extensions";

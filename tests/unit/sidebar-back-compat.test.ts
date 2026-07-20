@@ -35,22 +35,24 @@ test("admin preset shows activity (not logs-activity) as visible", () => {
   );
 });
 
-test("admin preset shows costs hub (flat chrome — not sub-cost leaves)", () => {
-  // Post flat-primary: costs-* dual-nav leaves are not primary chrome; Costs hub
-  // is the SSoT. Admin must keep the hub visible (not re-dump pricing/budget peers).
+test("admin preset: costs is not primary (EPIC-19 / 0082); hideable ids retained", () => {
+  // Post-0082: costs is not a primary leaf. Admin shown = PRIMARY + security/flags.
+  // costs may be in hiddenItems; hideable id retained for prefs (archive-not-delete).
   const adminPreset = sidebarVisibility.SIDEBAR_PRESETS.find((p) => p.id === "admin");
   assert.ok(adminPreset, "admin preset must exist");
 
   assert.equal(
-    (adminPreset.hiddenItems as string[]).includes("costs"),
+    (sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS as readonly string[]).includes("costs"),
     false,
-    "costs hub must be visible in admin preset",
+    "costs must not be a primary leaf after 0082",
   );
-  // Sub-leaves remain hideable ids for prefs/back-compat; not required visible in flat tree.
   assert.ok(
-    (sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("costs-pricing") ||
-      true,
-    "costs-pricing may remain hideable for prefs even if not a primary leaf",
+    (sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("costs"),
+    "costs hideable id retained",
+  );
+  assert.ok(
+    (sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("costs-pricing"),
+    "costs-pricing remains hideable for prefs",
   );
 });
 

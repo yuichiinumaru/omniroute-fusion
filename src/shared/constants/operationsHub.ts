@@ -5,6 +5,11 @@
  *
  * Catalog SSoT (Task 0024): only `CONNECT_CATALOG_SSOT_HREF` — never re-list
  * retired `/dashboard/api-endpoints` as a hub discovery peer.
+ *
+ * Reverse chrome (Task 0076 **D1**): intentional one-way launchpad. Destination
+ * peers do **not** mount an Operations reverse strip / OperationsHubSubnav —
+ * return via primary Operations leaf, CommandPalette, or browser history.
+ * Policy: `docs/guides/UI.md` § Hub reverse chrome.
  */
 
 import { CONNECT_CATALOG_SSOT_HREF } from "./sidebarVisibility";

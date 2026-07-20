@@ -14,6 +14,7 @@ import { testComboSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 const COMBO_TEST_INTERNAL_KEY_NAME = "combo-test-internal";
 
@@ -150,9 +151,15 @@ async function testComboTarget(target, baseInternalUrl, internalApiKey: string |
     });
   } catch (error) {
     const latencyMs = Date.now() - startTime;
+    const rawMessage =
+      error && typeof error === "object" && "name" in error && error.name === "AbortError"
+        ? "Timeout (20s)"
+        : error instanceof Error
+          ? error.message
+          : String(error);
     return buildComboTestResult(target, {
       status: "error",
-      error: error.name === "AbortError" ? "Timeout (20s)" : error.message,
+      error: sanitizeErrorMessage(rawMessage) || "Unknown error",
       latencyMs,
     });
   }

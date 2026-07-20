@@ -931,25 +931,32 @@ export async function handleComboChat({
 
   /**
    * Epic 0004 / A6: on trigger miss with an acting unit set, dispatch only the
-   * acting unit (no panel fan-out). Uses the same model/combo-ref dispatch path
-   * as fusion units via a one-panel handleFusionChatV2 shortcut is NOT used —
-   * we call handleFusionChatV2 only for full fusion; acting-only is a direct
-   * nested dispatch to avoid judge/panel overhead.
+   * acting unit (no panel fan-out, no judge synthesis).
+   *
+   * Implementation: synthetic single-panel `handleFusionChatV2` short-circuit.
+   * We pass `panels: [acting]` and omit the `acting` handoff field so V2's
+   * `panel.length === 1 && !actingUnit` branch (`fusion.ts` single-unit path)
+   * dispatches that unit once with the original client body (stream/tools/
+   * tool_choice preserved — not panel policy). The `judge` argument is unused
+   * when `panel.length === 1` (required by the V2 options type; set equal to
+   * acting as a harmless placeholder). This reuses model/combo-ref dispatch +
+   * nesting without a second public unit-dispatch export.
+   *
+   * Landmine: if the single-panel short-circuit ever starts requiring a real
+   * judge or applying panel body policy, rewrite this path to a direct
+   * `dispatchFusionUnit` (or equivalent) instead of the V2 placeholder trick.
    */
   const dispatchActingOnly = async (): Promise<Response | null> => {
     const { acting } = resolveFusionUnits(combo, allCombos);
     if (!acting) return null;
     const label = acting.kind === "combo-ref" ? `combo:${acting.comboName}` : acting.model;
     log.info("FUSION", `Trigger miss — dispatching acting only (${label})`);
-    // Reuse V2 with a synthetic single-panel path is wrong (would skip acting
-    // handoff semantics). Dispatch acting as the sole target via temporary
-    // one-model fusion that short-circuits: panels=[acting] without judge/acting
-    // would return acting's raw answer — correct for miss path.
+    // Synthetic single-panel V2: no `acting` handoff field → direct unit answer.
     return handleFusionChatV2({
       body,
       panels: [acting],
-      judge: acting,
-      // no acting handoff — acting IS the answer
+      judge: acting, // unused when panel.length === 1; satisfies HandleFusionChatOptionsV2
+      // intentionally omit `acting` — acting IS the sole panel / final answer
       handleSingleModel: handleSingleModelWithTimeout,
       handleComboChat,
       allCombos,

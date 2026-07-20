@@ -85,7 +85,10 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     if (isApiKeySecretUnavailableError(err)) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(err.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     return NextResponse.json(
       { error: { message: sanitizeErrorMessage(err) } },
@@ -169,7 +172,10 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     if (isApiKeySecretUnavailableError(err)) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(err.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     return NextResponse.json(
       { error: { message: sanitizeErrorMessage(err) } },
@@ -228,7 +234,10 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true, message: "Smelt OmniRoute settings removed" });
   } catch (err) {
     if (isApiKeySecretUnavailableError(err)) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(err.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     return NextResponse.json(
       { error: { message: sanitizeErrorMessage(err) } },

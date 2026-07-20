@@ -49,9 +49,10 @@ describe("COMPRESSION_CONTEXT_GROUP is hub-only (no engine leaves)", () => {
 describe("flat primary chrome keeps engines and dual-nav off", () => {
   const leafIds = defaultLeafIds();
 
-  it("analytics is a primary hub", () => {
-    assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("analytics"));
-    assert.ok(leafIds.includes("analytics"));
+  it("analytics is not a primary hub (EPIC-19 / 0082) but hideable id retained", () => {
+    assert.equal(PRIMARY_SIDEBAR_ITEM_IDS.includes("analytics"), false);
+    assert.equal(leafIds.includes("analytics"), false);
+    assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("analytics"));
   });
 
   for (const id of ANALYTICS_DUAL_NAV_SIDEBAR_IDS) {

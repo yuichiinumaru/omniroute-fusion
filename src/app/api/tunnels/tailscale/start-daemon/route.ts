@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTailscaleTunnelStatus, startTailscaleDaemon } from "@/lib/tailscaleTunnel";
 import { parseOptionalJsonBody, requireTailscaleAuth, tailscaleSudoSchema } from "../routeUtils";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,10 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to start the Tailscale daemon",
+        error:
+          sanitizeErrorMessage(
+            error instanceof Error ? error.message : "Failed to start the Tailscale daemon"
+          ) || "Failed to start the Tailscale daemon",
       },
       { status: 500 }
     );

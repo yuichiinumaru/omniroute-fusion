@@ -8,7 +8,7 @@
  * - panel body stream:false + tool_choice:"none" (tools kept)
  * - judge body keeps client stream/tools (no tool_choice:"none" forced)
  * - nesting depth/cycle → 503
- * - degrade: 0 answers → 503, 1 answer → re-dispatch survivor
+ * - degrade: 0 answers → 503, 1 answer → synthesize from collected text (no re-dispatch)
  * - legacy handleFusionChat still works for string models
  */
 import test from "node:test";
@@ -333,11 +333,16 @@ test("V2: circular combo-ref fails the cycled unit (handleComboChat not called)"
   });
 
   // Cycle guard drops the combo-ref before handleComboChat; lone survivor
-  // re-dispatches p/a (no judge). Status is 200 (survivor) not 503 (not all failed).
+  // finalizes from collected panel text (no judge, no re-dispatch — Task 0069).
+  // Status is 200 (survivor) not 503 (not all failed).
   assert.equal(comboCalled, false, "cycle must not call handleComboChat");
-  assert.equal(res.status, 200, "lone survivor answers directly");
+  assert.equal(res.status, 200, "lone survivor answers from collected text");
   assert.ok(!seenModels.includes("p/judge"), "cycle drop leaves one answer → no judge");
-  assert.ok(seenModels.includes("p/a"));
+  assert.equal(
+    seenModels.filter((m) => m === "p/a").length,
+    1,
+    "collect only for survivor (no re-dispatch)"
+  );
 });
 
 test("V2: all panels cycle → 503 (no survivors)", async () => {
@@ -476,7 +481,7 @@ test("V2: single-panel fusion answers directly without judge synthesis", async (
   assert.equal(text, "solo");
 });
 
-test("V2: single survivor re-dispatches that unit (no judge)", async () => {
+test("V2: single survivor finalizes from collected text without re-dispatch (no judge)", async () => {
   const seen: string[] = [];
   const handleSingleModel = async (_b: Body, m: string) => {
     seen.push(m);
@@ -484,8 +489,8 @@ test("V2: single survivor re-dispatches that unit (no judge)", async () => {
     return errResponse(500);
   };
 
-  await handleFusionChatV2({
-    body: { messages: [{ role: "user", content: "Q" }] },
+  const res = await handleFusionChatV2({
+    body: { messages: [{ role: "user", content: "Q" }], stream: false },
     panels: [
       { kind: "model", model: "p/ok" },
       { kind: "model", model: "p/bad" },
@@ -496,9 +501,72 @@ test("V2: single survivor re-dispatches that unit (no judge)", async () => {
     tuning: fastTuning,
   });
 
+  assert.equal(res.status, 200);
   assert.ok(!seen.includes("p/judge"), "judge not invoked for single survivor");
-  // panel attempt + re-dispatch
-  assert.ok(seen.filter((m) => m === "p/ok").length >= 2);
+  // Collect only — no second upstream call for the survivor (H-FUSION-005 / Task 0069)
+  assert.equal(seen.filter((m) => m === "p/ok").length, 1);
+  assert.equal(extractText(await res.json()), "lone");
+});
+
+test("V2: single survivor does not fail client when a hypothetical re-dispatch would 5xx", async () => {
+  let okCalls = 0;
+  const handleSingleModel = async (_b: Body, m: string) => {
+    if (m === "p/ok") {
+      okCalls++;
+      // First call = panel collect success. Any later call would 5xx (fail-after-success).
+      if (okCalls === 1) return okResponse("lone-success");
+      return errResponse(503);
+    }
+    return errResponse(500);
+  };
+
+  const res = await handleFusionChatV2({
+    body: { messages: [{ role: "user", content: "Q" }], stream: false },
+    panels: [
+      { kind: "model", model: "p/ok" },
+      { kind: "model", model: "p/bad" },
+    ],
+    judge: { kind: "model", model: "p/judge" },
+    handleSingleModel,
+    log,
+    tuning: fastTuning,
+  });
+
+  assert.equal(res.status, 200, "client must not see error after successful collect");
+  assert.equal(okCalls, 1, "no re-dispatch after collect success");
+  assert.equal(extractText(await res.json()), "lone-success");
+});
+
+test("V2: single survivor stream:true synthesizes SSE from collected text", async () => {
+  let okCalls = 0;
+  const handleSingleModel = async (_b: Body, m: string) => {
+    if (m === "p/ok") {
+      okCalls++;
+      if (okCalls === 1) return okResponse("streamed-lone");
+      return errResponse(500);
+    }
+    return errResponse(500);
+  };
+
+  const res = await handleFusionChatV2({
+    body: { messages: [{ role: "user", content: "Q" }], stream: true },
+    panels: [
+      { kind: "model", model: "p/ok" },
+      { kind: "model", model: "p/bad" },
+    ],
+    judge: { kind: "model", model: "p/judge" },
+    handleSingleModel,
+    log,
+    tuning: fastTuning,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(okCalls, 1, "collect only — synthesize SSE, do not re-dispatch");
+  const ct = res.headers.get("content-type") ?? "";
+  assert.match(ct, /text\/event-stream/);
+  const raw = await res.text();
+  assert.match(raw, /streamed-lone/);
+  assert.match(raw, /\[DONE\]/);
 });
 
 // ─── mixed model + combo-ref coexistence ───────────────────────────────────
@@ -626,7 +694,14 @@ test("V2: comboChatBase settings/signal/acl forward into nested handleComboChat"
   assert.equal(res.status, 200);
   assert.equal(received.length, 1, "one combo-ref panel");
   assert.equal(received[0].settings, settings);
-  assert.equal(received[0].signal, signal);
+  // Panel fan-out uses a per-panel AbortController linked to parent signal
+  // (Task 0070) — not the parent reference itself.
+  assert.ok(received[0].signal instanceof AbortSignal, "panel signal is AbortSignal");
+  assert.notEqual(
+    received[0].signal,
+    signal,
+    "panel owns a child AbortController (linked to parent)"
+  );
   assert.equal(received[0].isModelAvailable, isModelAvailable);
   assert.deepEqual(received[0].apiKeyAllowedConnections, apiKeyAllowedConnections);
   assert.deepEqual(received[0].relayOptions, { sessionId: "s1" });

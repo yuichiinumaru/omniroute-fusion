@@ -1,7 +1,7 @@
 /**
  * Task 0056 — Dashboard IA consolidation regression guards (review F1).
- * Covers: sidebar Home→Dashboard i18nKey, DashboardTopbar wiring, CostsSubnav
- * on all costs leaves, and flattened /dashboard/cache (no activeView switcher).
+ * Updated for EPIC-19 (0079–0082): topbar + costs point at Dashboard/Providers builders;
+ * costs overview is a redirect shell; primary chrome no longer lists analytics/costs.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,6 +10,7 @@ import { join } from "node:path";
 import {
   PRIMARY_SIDEBAR_ITEMS,
 } from "../../../src/shared/constants/sidebarVisibility";
+import { buildDashboardStoryPath } from "../../../src/shared/constants/epic19Rebalance";
 
 const root = join(import.meta.dirname, "../../..");
 
@@ -27,31 +28,54 @@ test("PRIMARY_SIDEBAR_ITEMS home entry is Dashboard (i18nKey + fallback)", () =>
   assert.equal(home.exact, true);
 });
 
-test("DashboardTopbar exposes the seven high-level dashboard hub links", () => {
+test("DashboardTopbar exposes dashboard hubs via story builders (not retired peer routes)", () => {
   const src = read("src/app/(dashboard)/home/DashboardTopbar.tsx");
-  const requiredHrefs = [
-    "/home",
-    "/dashboard/analytics",
-    "/dashboard/costs",
-    "/dashboard/cache",
-    "/dashboard/tokens",
-    "/dashboard/leaderboard",
-    "/dashboard/profile",
-  ];
-  for (const href of requiredHrefs) {
-    assert.ok(src.includes(`href: "${href}"`), `DashboardTopbar missing href: ${href}`);
+  // Operator peers: Dashboard/Home (bare /home) + Overview (?tab=overview) are distinct
+  assert.ok(
+    /href:\s*["']\/home["']/.test(src),
+    "DashboardTopbar missing Dashboard/Home bare /home destination"
+  );
+  assert.ok(
+    src.includes("buildDashboardStoryPath") ||
+      src.includes(buildDashboardStoryPath("overview")),
+    "DashboardTopbar missing Overview story destination"
+  );
+  assert.ok(
+    src.includes("buildDashboardStoryPath") || src.includes("/home?tab="),
+    "Costs (and overview) topbar links must use Dashboard story builders"
+  );
+  // Story peers live on the same single strip (0081 rework)
+  for (const tab of ["overview", "evals", "search", "utilization", "compression", "costs-overview"]) {
+    assert.ok(
+      src.includes(`"${tab}"`) || src.includes(`'${tab}'`),
+      `DashboardTopbar missing story peer ${tab}`
+    );
   }
-  // Density decision (subtask 3b): no Analytics deep tabs nested in the hub strip
+  assert.ok(src.includes('labelFallback: "Overview"'), "must label Overview peer");
+  assert.ok(src.includes('labelFallback: "Dashboard"'), "must label Dashboard peer");
+  assert.ok(src.includes('href: "/dashboard/cache"'));
+  assert.ok(src.includes('href: "/dashboard/tokens"'));
+  assert.ok(src.includes('href: "/dashboard/leaderboard"'));
+  assert.ok(src.includes('href: "/dashboard/profile"'));
+  // Must not dual-promote retired Analytics/Costs hubs as peer homes
+  assert.equal(src.includes('href: "/dashboard/analytics"'), false);
+  assert.equal(src.includes('href: "/dashboard/costs"'), false);
   assert.equal(src.includes("/dashboard/analytics/evals"), false);
   assert.equal(src.includes("/dashboard/analytics/combo-health"), false);
+  // F2: at most one storyTab overview control (Overview only — Dashboard is bare /home)
+  const overviewStoryTabs = src.match(/storyTab:\s*"overview"/g) ?? [];
+  assert.equal(
+    overviewStoryTabs.length,
+    1,
+    "exactly one topbar storyTab overview (no dual aria-current)"
+  );
+  assert.equal(/labelKey:\s*"analytics"/.test(src), false);
   assert.ok(src.includes('aria-label="Dashboard navigation"'));
-  // Shared hub visual contract + i18n helper (path-to-100 type/UI purity)
+  assert.ok(src.includes('data-dashboard-topbar=""'));
   assert.ok(src.includes("HUB_SUBNAV_SHELL_CLASS"));
   assert.ok(src.includes("asSidebarTranslator"));
   assert.ok(src.includes("sidebarText"));
   assert.ok(src.includes("as const satisfies"));
-  // /home active state is exact-match (not prefix)
-  assert.ok(src.includes('pathname === "/home"'));
 });
 
 test("home/page.tsx mounts DashboardTopbar after setupComplete gate", () => {
@@ -68,46 +92,69 @@ test("home/page.tsx mounts DashboardTopbar after setupComplete gate", () => {
   assert.ok(topbarIdx > redirectIdx, "DashboardTopbar must render only after the setupComplete redirect gate");
 });
 
-test("CostsSubnav lists Overview / Budget / Pricing / Quota Share", () => {
+test("CostsSubnav lists Overview + Providers policy destinations (EPIC-19)", () => {
   const src = read("src/app/(dashboard)/dashboard/costs/CostsSubnav.tsx");
-  const requiredHrefs = [
-    "/dashboard/costs",
-    "/dashboard/costs/budget",
-    "/dashboard/costs/pricing",
-    "/dashboard/costs/quota-share",
-  ];
-  for (const href of requiredHrefs) {
-    assert.ok(src.includes(`href: "${href}"`), `CostsSubnav missing href: ${href}`);
-  }
+  // Overview → Dashboard costs-overview (0081); config → Providers (0079)
+  assert.ok(
+    src.includes("buildDashboardStoryPath") ||
+      src.includes(buildDashboardStoryPath("costs-overview")),
+    "CostsSubnav Overview must target Dashboard costs-overview"
+  );
+  assert.ok(
+    src.includes("buildProvidersBudgetPath") || src.includes("/dashboard/providers/budget"),
+    "CostsSubnav Budget must target Providers budget"
+  );
+  assert.ok(
+    src.includes("buildProvidersPricingPath") || src.includes("/dashboard/providers/pricing"),
+    "CostsSubnav Pricing must target Providers pricing"
+  );
+  assert.ok(
+    src.includes("buildProvidersQuotaSharePath") ||
+      src.includes("/dashboard/providers/quota-share"),
+    "CostsSubnav Quota Share must target Providers quota-share"
+  );
+  assert.equal(
+    src.includes('href: "/dashboard/costs/budget"'),
+    false,
+    "Budget href must not remain on costs/budget after 0079"
+  );
+  assert.equal(
+    src.includes('href: "/dashboard/costs"'),
+    false,
+    "Overview must leave legacy /dashboard/costs home"
+  );
   assert.ok(src.includes('labelFallback: "Overview"'));
   assert.ok(src.includes('labelFallback: "Budget"'));
   assert.ok(src.includes('labelFallback: "Pricing"'));
   assert.ok(src.includes('labelFallback: "Quota Share"'));
   assert.ok(src.includes('aria-label="Costs sections"'));
-  // Overview exact-match so /dashboard/costs/budget does not light Overview
-  assert.ok(src.includes('pathname === "/dashboard/costs"'));
   assert.ok(src.includes("HUB_SUBNAV_SHELL_CLASS"));
   assert.ok(src.includes("asSidebarTranslator"));
   assert.ok(src.includes("as const satisfies"));
 });
 
-test("all four costs pages import and render CostsSubnav", () => {
-  const pages = [
-    "src/app/(dashboard)/dashboard/costs/page.tsx",
+test("costs overview is redirect shell; config routes redirect to Providers (0079/0081)", () => {
+  const overview = read("src/app/(dashboard)/dashboard/costs/page.tsx");
+  assert.ok(overview.includes("redirect"), "costs overview must be a server redirect shell");
+  assert.ok(
+    overview.includes("buildDashboardStoryPath") || overview.includes("costs-overview"),
+    "overview must redirect to Dashboard costs-overview"
+  );
+  assert.equal(
+    overview.includes("CostsSubnav"),
+    false,
+    "overview must not dual-host CostsSubnav content shell"
+  );
+
+  const redirectPages = [
     "src/app/(dashboard)/dashboard/costs/budget/page.tsx",
     "src/app/(dashboard)/dashboard/costs/pricing/page.tsx",
     "src/app/(dashboard)/dashboard/costs/quota-share/page.tsx",
   ];
-  for (const rel of pages) {
+  for (const rel of redirectPages) {
     const src = read(rel);
-    assert.ok(
-      src.includes("CostsSubnav"),
-      `${rel} must import/render CostsSubnav`
-    );
-    assert.ok(
-      src.includes("<CostsSubnav"),
-      `${rel} must render <CostsSubnav />`
-    );
+    assert.ok(src.includes("redirect"), `${rel} must redirect to Providers`);
+    assert.equal(src.includes("CostsSubnav"), false, `${rel} must not mount CostsSubnav`);
   }
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CardSkeleton, ObserveHubSubnav } from "@/shared/components";
 import ProxyLogger from "@/shared/components/ProxyLogger";
@@ -10,33 +10,56 @@ import {
   OBSERVE_SOURCES,
   normalizeObserveSource,
 } from "@/shared/constants/observeHub";
+import {
+  isObserveOperationalPanel,
+  type ObserveOperationalPanel,
+} from "@/shared/constants/epic19Rebalance";
+import type { ObserveHubActive } from "@/shared/components/ObserveHubSubnav";
 import ActivityFeedClient from "./ActivityFeedClient";
 import RequestLogsPanel from "../logs/RequestLogsPanel";
 import ComplianceTab from "../audit/ComplianceTab";
 import McpAuditTab from "../audit/McpAuditTab";
 import A2aAuditTab from "../audit/A2aAuditTab";
+import ComboHealthTab from "../analytics/ComboHealthTab";
+import RouteExplainabilityTab from "../analytics/RouteExplainabilityTab";
 
 // Stream chrome lives in ObserveHubSubnav (Task 0061); hub only composes viewers.
+// Operational panels (combo-health / route-trace) use ?panel= — Task 0080 / 0078 freeze.
+
+function normalizeOperationalPanel(
+  raw: string | null | undefined
+): ObserveOperationalPanel | null {
+  if (!raw) return null;
+  const value = raw.trim().toLowerCase();
+  return isObserveOperationalPanel(value) ? value : null;
+}
 
 function ObserveHubContent() {
   const searchParams = useSearchParams();
-  const [activeSource, setActiveSource] = useState<ObserveSource>(() =>
-    normalizeObserveSource(searchParams.get("source") ?? searchParams.get("tab"))
+  // Derive from URL — no setState-in-effect (searchParams already drives re-render).
+  const activeSource = normalizeObserveSource(
+    searchParams.get("source") ?? searchParams.get("tab")
   );
+  const operationalPanel = normalizeOperationalPanel(searchParams.get("panel"));
+  // Freeze deep-link id at first paint (request-logs / route-trace selection).
   const [initialRequestId] = useState(
     () => searchParams.get("id") || searchParams.get("request") || ""
   );
 
-  useEffect(() => {
-    setActiveSource(normalizeObserveSource(searchParams.get("source") ?? searchParams.get("tab")));
-  }, [searchParams]);
+  const subnavActive: ObserveHubActive = operationalPanel ?? activeSource;
 
   return (
     <div className="flex flex-col gap-6">
-      <ObserveHubSubnav active={activeSource} />
+      <ObserveHubSubnav active={subnavActive} />
 
       <Suspense fallback={<CardSkeleton />}>
-        {renderObserveSourcePanel(activeSource, initialRequestId)}
+        {operationalPanel === "combo-health" ? (
+          <ComboHealthTab />
+        ) : operationalPanel === "route-trace" ? (
+          <RouteExplainabilityTab initialRequestId={initialRequestId} />
+        ) : (
+          renderObserveSourcePanel(activeSource, initialRequestId)
+        )}
       </Suspense>
     </div>
   );

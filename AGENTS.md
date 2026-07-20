@@ -625,6 +625,71 @@ Only cherry-pick or reapply the changes intended for the upstream PR.
 
 ---
 
+## Dashboard IA, Design System & Self-Evident Organization
+
+> **Operator law (fork).** Applies to product architects, task-architects, builders, and reviewers
+> working on OmniRoute dashboard UI. Complements [`docs/guides/UI.md`](docs/guides/UI.md)
+> (no-new-leaf, archive-not-delete) and root [`design.md`](design.md) (tokens).
+
+### Philosophy
+
+**"Organização tem que ser auto-evidente, ou não é organização."**
+
+If a stranger cannot glance at the sidebar, a single topbar, and the URL and immediately
+understand *where they are* and *what they can do*, the organization failed — regardless of
+how many redirects or nested routes “work.” Prefer one clear hierarchy over many bars,
+dumps, and legacy paths.
+
+Historical debt: upstream OmniRoute often mapped **feature → route → sidebar leaf** under a
+giant `/dashboard/*` tree (municipal-site / “vai fazendo” navigation). This fork’s IA work
+exists to reverse that. Do not reintroduce multi-topbar dumps or opaque path trees when
+re-homing surfaces.
+
+### Hard requirements when creating or reviewing **UI / IA tasks**
+
+1. **Design system is not optional.** Tasks that move, split, or merge dashboard surfaces
+   **MUST** specify chrome explicitly:
+   - **Exactly one** hub-level topbar / `PageTabBar` strip per hub page family (no stacked
+     “inherited” subnavs from the old home of the content).
+   - How the moved items appear on the **destination hub’s existing** topbar (peer items), not
+     as a second/third bar glued under it.
+   - Sidebar **active state** for every deep route that belongs to the hub (path prefix or
+     explicit matcher — fusions under Routing must light Routing; health under Observe must
+     light Observe).
+   - Exit conditions include an **anti-phantom chrome matrix**: mount count ≤ 1 hub topbar
+     per route; no dual `CostsSubnav` + story `PageTabBar` + hub topbar unless operator
+     explicitly approved a temporary exception in the task text.
+
+2. **Clarify before writing tasks.** If the operator’s request sounds like destination
+   re-home only but **conflicts** with UI.md / single-topbar / self-evident paths, the
+   architect **MUST stop** and ask, e.g.:
+   > “Design system today is single topbar per hub + no-new-leaf. I heard re-home X→Y with
+   > redirects. Do you want items **merged into Y’s existing topbar**, or is a nested subnav
+   > acceptable? Preferred URL shape?”
+   Do **not** encode multi-topbar or path dump as “done” without that confirmation.
+   Precedent: EPIC-19 destination matrix was correct; multi-topbar chrome was under-specified
+   and shipped wrong (2026-07-19).
+
+3. **Self-evident URLs (target).** Prefer  
+   `/{sidebar-leaf}/{topbar-item}`  
+   over deep legacy dumps under `/dashboard/.../whenever`. Path rename is a **phased**
+   migration (compat redirects first) — see  
+   `docs/reports/audits/2026-07-19-url-ia-self-evident-path-inventory.md`.  
+   Until rename lands, still make **chrome** self-evident (one topbar + correct sidebar
+   active). Do not wait for path rename to fix multi-topbar.
+
+4. **Authority docs for UI tasks:** `docs/guides/UI.md`, `docs/architecture/NAV-TREE-TARGET.md`,
+   `design.md`, and any epic-locked matrix. Task “Origin” must cite them when chrome moves.
+
+### When planning path renames
+
+- Inventory + redirect matrix first (do not big-bang).
+- Nest hub children under the hub path so sidebar active state is automatic where possible
+  (e.g. fusions under routing/combos prefix, health under observe/activity prefix).
+- Keep API routes (`/api/**`, `/v1/**`) out of this UI path work.
+
+---
+
 ## Review Focus
 
 - **DB ops** go through `src/lib/db/` modules, never raw SQL in routes
@@ -636,4 +701,6 @@ Only cherry-pick or reapply the changes intended for the upstream PR.
 - **Provider constants** validated at module load via Zod (`src/shared/validation/providerSchema.ts`)
 - **Pricing data** syncs from LiteLLM via `src/lib/pricingSync.ts`
 - **Memory/Skills** are cross-cutting: affect MCP tools, request pipeline, and A2A skills
+- **UI/IA tasks** must satisfy single-topbar + self-evident organization (see section above);
+  reject “destination moved but triple chrome” as incomplete
 - **⛔ NEVER close a contributor's PR** after using their code — always merge via GitHub so they get credit. See `.agents/workflows/review-prs.md` for full policy.

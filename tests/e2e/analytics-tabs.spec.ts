@@ -122,9 +122,15 @@ test.describe("Analytics Tabs UI", () => {
     });
   });
 
-  test("displays all 5 analytics tabs", async ({ page }) => {
+  test("displays Dashboard storytelling tabs after analytics redirect (EPIC-19)", async ({
+    page,
+  }) => {
+    // Legacy analytics root redirects to /home?tab=overview (0081).
+    // Story hub hosts six tabs; combo-health/route-trace live under Observe (0080).
     await gotoDashboardRoute(page, "/dashboard/analytics");
     await waitForAnalyticsShell(page);
+
+    await expect(page).toHaveURL(/\/home(\?|$)/);
 
     const mainTabList = page.locator('[role="tablist"]').first();
     await expect(mainTabList).toBeVisible();
@@ -133,9 +139,16 @@ test.describe("Analytics Tabs UI", () => {
       'button[class*="segmented"], [role="tablist"] > button, [role="tablist"] div > button'
     );
     const count = await tabButtons.count();
-    expect(count).toBeGreaterThanOrEqual(4);
+    expect(count).toBeGreaterThanOrEqual(6);
 
-    const tabLabels = ["overview", "evals", "search", "utilization", "combo health"];
+    const tabLabels = [
+      "overview",
+      "evals",
+      "search",
+      "utilization",
+      "compression",
+      "costs",
+    ];
     for (const label of tabLabels) {
       const tabButton = page
         .locator("button")

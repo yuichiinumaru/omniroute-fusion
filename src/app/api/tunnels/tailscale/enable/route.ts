@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { enableTailscaleTunnel } from "@/lib/tailscaleTunnel";
 import { parseOptionalJsonBody, requireTailscaleAuth, tailscaleEnableSchema } from "../routeUtils";
 
@@ -15,11 +16,6 @@ export async function POST(request: Request) {
     const result = await enableTailscaleTunnel(parsed.data);
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to enable Tailscale Funnel",
-      },
-      { status: 500 }
-    );
+    return createErrorResponseFromUnknown(error, "Failed to enable Tailscale Funnel");
   }
 }

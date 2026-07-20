@@ -43,6 +43,9 @@ class (GHSA-fhh6-4qxv-rpqj).
 | `/api/cli-tools/antigravity-mitm`      | MITM spawn + sudo (F-07-W2-002)                                     | No                      |
 | `/api/tunnels/tailscale/install`       | Package install spawn (F-07-003)                                    | No                      |
 | `/api/tunnels/tailscale/start-daemon`  | Daemon start spawn (F-07-003)                                       | No                      |
+| `/api/tunnels/tailscale/enable`         | Funnel/login spawn via `tailscale funnel` / `up` (F-SEC-W2-001)     | No                      |
+| `/api/tunnels/tailscale/login`          | `tailscale up` spawn (F-SEC-W2-001)                                 | No                      |
+| `/api/tunnels/tailscale/disable`        | Funnel reset + pkill/net stop daemon (F-SEC-W2-001 residual)        | No                      |
 | `/api/tunnels/cloudflared`             | Binary download + spawn; GET status exempt (F-07-W2-003)            | No                      |
 | `/api/tunnels/ngrok`                   | Same tunnel class as cloudflared; GET status exempt                 | No                      |
 | `/api/middleware/hooks`                | Compiles caller JS via `new Function` — process RCE (F-07-W2-001)   | No                      |

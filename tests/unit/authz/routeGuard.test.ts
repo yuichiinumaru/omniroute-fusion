@@ -52,9 +52,23 @@ test("isLocalOnlyPath: version-manager install/start are local-only (F-07-002)",
 test("isLocalOnlyPath: tailscale install/start-daemon are local-only (F-07-003)", () => {
   assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/install"), true);
   assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/start-daemon"), true);
-  // Non-spawn tailscale status/enable remain remote-reachable classification-wise.
+  // Status-only GET root remains remote-reachable (no spawn).
   assert.equal(isLocalOnlyPath("/api/tunnels/tailscale"), false);
-  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/enable"), false);
+});
+
+test("isLocalOnlyPath: tailscale enable/login/disable are local-only (F-SEC-W2-001)", () => {
+  // enable → startTailscaleLogin + startTailscaleFunnel spawn; login → tailscale up spawn;
+  // disable → funnel reset + pkill/net stop daemon (proven spawn — Hard Rule #15 residual).
+  // Loopback-only so a stolen manage JWT via tunnel cannot trigger process control.
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/enable"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/login"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/disable"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/enable/"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/login/"), true);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/disable/"), true);
+  // Status root + check stay remote-reachable (read-only CLI probes, no process control).
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale"), false);
+  assert.equal(isLocalOnlyPath("/api/tunnels/tailscale/check"), false);
 });
 
 test("isLocalOnlyPath: antigravity-mitm is local-only (F-07-W2-002)", () => {
@@ -120,6 +134,34 @@ test("isSpawnCapablePath: new Task 0040 surfaces are spawn-capable (F-04-004)", 
   assert.equal(isSpawnCapablePath("/api/mcp/sse"), false);
   assert.equal(isSpawnCapablePath("/api/providers/x"), false);
   assert.equal(isSpawnCapablePath("/api/providers/x/test"), false);
+});
+
+test("isSpawnCapablePath: tailscale enable/login/disable are spawn-capable (F-SEC-W2-001)", () => {
+  assert.equal(isSpawnCapablePath("/api/tunnels/tailscale/enable"), true);
+  assert.equal(isSpawnCapablePath("/api/tunnels/tailscale/login"), true);
+  assert.equal(isSpawnCapablePath("/api/tunnels/tailscale/disable"), true);
+  // Non-bypassable even if manage-scope bypass list is misconfigured.
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/tunnels/tailscale/enable"), false);
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/tunnels/tailscale/login"), false);
+  assert.equal(isLocalOnlyBypassableByManageScope("/api/tunnels/tailscale/disable"), false);
+  // Status root / check are not process-control spawn surfaces.
+  assert.equal(isSpawnCapablePath("/api/tunnels/tailscale"), false);
+  assert.equal(isSpawnCapablePath("/api/tunnels/tailscale/check"), false);
+});
+
+test("management policy rejects tailscale enable/login/disable from non-localhost (F-SEC-W2-001)", async () => {
+  // Runtime dual-score: LOCAL_ONLY membership must enforce at managementPolicy entry.
+  for (const path of [
+    "/api/tunnels/tailscale/enable",
+    "/api/tunnels/tailscale/login",
+    "/api/tunnels/tailscale/disable",
+  ]) {
+    const outcome = await managementPolicy.evaluate(makeCtx(path, { host: "evil.tunnel.io" }));
+    assert.equal(outcome.allow, false, `${path} must deny remote host`);
+    if (!outcome.allow) {
+      assert.equal(outcome.status, 403, `${path} must be 403`);
+    }
+  }
 });
 
 test("isLocalOnlyBypassableByManageScope: new spawn surfaces are NOT bypassable", () => {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTaskManager, type TaskState } from "@/lib/a2a/taskManager";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 const VALID_TASK_STATES = new Set<TaskState>([
   "submitted",
@@ -40,7 +41,9 @@ export async function GET(request: Request) {
       offset,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to list A2A tasks";
+    const message =
+      sanitizeErrorMessage(error instanceof Error ? error.message : "Failed to list A2A tasks") ||
+      "Failed to list A2A tasks";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

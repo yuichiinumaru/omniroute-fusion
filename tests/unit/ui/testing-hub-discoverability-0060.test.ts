@@ -51,7 +51,8 @@ function allRenderedSidebarHrefs(): string[] {
 
 test("Testing is not a primary sidebar leaf (primary-nav budget)", () => {
   assert.equal(PRIMARY_SIDEBAR_ITEM_IDS.includes("testing"), false);
-  assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 9);
+  // Task 0082 / EPIC-19: 7 primary leaves (analytics + costs dropped)
+  assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 7);
   assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("testing"));
 });
 

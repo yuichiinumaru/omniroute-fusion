@@ -97,7 +97,15 @@ When the gate applies and `shouldTriggerFusion` is false:
 1. If `acting` is configured → dispatch **acting only** (no panels, no judge).
 2. Else apply `config.fallbackStrategy` via a **local** strategy override only
    (`resolveFusionFallbackStrategy` — never `fusion` / `conditional-fusion`).
+   The fallback **reuses the same panel `models` list** under that non-fusion strategy
+   (e.g. priority / auto). There is **no** dedicated cheap-fallback model field
+   (H-FUSION-006) — operators who want a cheaper miss path should put those models in
+   `models` and pick a strategy that prefers them, or rely on acting-only when acting is set.
 3. **Do not** mutate `combo.strategy` on the shared combo object (cache-safe).
+
+Fall-through lives in `open-sse/services/combo.ts` (conditional-fusion / gated fusion block):
+after `dispatchActingOnly()` returns null, `strategy` is reassigned to the resolved fallback
+and normal combo execution continues with the existing models.
 
 ### Panel tools policy (D9)
 
@@ -133,8 +141,13 @@ Optional object on `comboRuntimeConfigSchema`:
 
 ### `config.fallbackStrategy`
 
-Used when the trigger gate misses. Must **not** be `"fusion"` or `"conditional-fusion"`
-(schema `superRefine` + runtime `resolveFusionFallbackStrategy`, default `"priority"`).
+Used when the trigger gate misses **and** no acting unit is set. Must **not** be
+`"fusion"` or `"conditional-fusion"` (schema `superRefine` + runtime
+`resolveFusionFallbackStrategy`, default `"priority"`).
+
+**Operator note (H-FUSION-006):** fallback does not introduce a second model set. It
+re-runs the combo’s existing **`models` (panel units)** under the chosen non-fusion
+strategy. Acting-only (when `acting` is set) is the dedicated miss path that skips panels.
 
 ### `config.fusionTuning`
 
@@ -226,14 +239,20 @@ relay — see Nested combo base options).
    - With acting → collect the single panel non-stream (`stream:false`, `tool_choice:"none"`)
      as review context, then **`finalizeWithActing`** (acting is final voice).
 3. Build `panelBody` once (see Panel body ownership).
-4. Fan out each panel via `dispatchFusionUnit` + `withTimeout(panelHardTimeoutMs)`.
-5. `collectPanel` for quorum-grace collection.
+4. Fan out each panel via `dispatchFusionUnit` + `withTimeout(panelHardTimeoutMs, onTimeout → abort)`.
+5. `collectPanel` for quorum-grace collection; after extract, **abort dropped/timed-out
+   stragglers** (Task 0070 / H-FUSION-014). Abort is **best-effort**: fusion always
+   aborts per-panel `AbortController`s (and links parent `comboChatBase.signal`), but
+   production `src/sse/handlers/chat.ts` does **not** yet forward `modelAbortSignal`
+   into mid-flight upstream fetch — cooperative handlers / combo hedge see the abort;
+   full fetch cancel is residual until the leaf honors the signal.
 6. Degrade / synthesize:
    - 0 answers → `503` “All fusion panel models failed”
    - 1 answer → collect survivor prose; **`finalizeWithActing`** if acting set, else
-     **re-dispatch** that unit with the original client body (intentional second upstream
-     call so stream/tools match the client; collected text is not replayed as a synthetic
-     Response — Task 0012 F3 residual, not a silent drop)
+     **`responseFromCollectedPanelText`** (Task 0069 / H-FUSION-005): synthesize an
+     OpenAI-compatible completion (JSON or SSE via `synthesizeOpenAiSseFromJson`) from
+     already-collected panel text — **no second upstream re-dispatch** (avoids
+     fail-after-success / 2× cost)
    - 2+ answers → append judge prompt via `appendUserTurn` + `buildJudgePrompt`, dispatch judge
 7. **Judge path when acting is set**: judge runs **non-stream** with `tool_choice: "none"`
    so fusion can extract review text for the handoff (`fusion.ts` judge-for-acting branch).
@@ -249,9 +268,11 @@ relay — see Nested combo base options).
 
 `dispatchFusionUnit`:
 
-- `kind: "model"` → `handleSingleModel(body, model)`
+- `kind: "model"` → `handleSingleModel(body, model, { modelAbortSignal })` when a
+  per-panel signal is set (Task 0070)
 - `kind: "combo-ref"` → `handleComboChat` with child nesting + `comboChatBase` spread
-  (Decision D3 — reuse combo failover; fusion does not reimplement retry)
+  (panel signal overrides base `signal`; Decision D3 — reuse combo failover; fusion
+  does not reimplement retry)
 
 Legacy `handleFusionChat({ models, judgeModel })` maps strings to `ResolvedFusionUnit` and
 delegates to `handleFusionChatV2`.
@@ -265,7 +286,7 @@ Implemented in `open-sse/services/fusionTriggers.ts`.
 | Mode | Fires when | Matcher |
 |------|------------|---------|
 | `always` | Always | — |
-| `tool-call` | Last assistant message with `tool_calls` has a name matching a pattern | `hasMatchingToolCall` + `matchGlob` (`*` / `?`) |
+| `tool-call` | **Latest** assistant message has matching `tool_calls` (N=1 window — not sticky history) | `hasMatchingToolCall` + `matchGlob` (`*` / `?`) |
 | `text-match` | Latest user message text contains any pattern | `hasMatchingText` — **case-insensitive substring**, not glob |
 
 Defaults and fail-closed behavior (`shouldTriggerFusion`):
@@ -274,6 +295,19 @@ Defaults and fail-closed behavior (`shouldTriggerFusion`):
 - Empty `toolPatterns` → `DEFAULT_FUSION_TOOL_PATTERNS` (`write*`, `edit*`, `create*`).
 - Empty/missing `textPatterns` → never matches.
 - Unknown mode → do not fire fusion.
+
+### Tool-call window (post-0068 / H-FUSION-008)
+
+`hasMatchingToolCall` scans messages **from the end** and stops at the **first**
+`role === "assistant"`. Only that message’s `tool_calls` are matched. If the latest
+assistant has no `tool_calls` (or none match the globs), the gate returns **false** —
+it does **not** walk older assistants for a sticky “tool was called earlier in the
+session” match.
+
+**Operator impact:** multi-turn agent loops after a write/edit tool turn will **not**
+keep paying fusion cost on subsequent turns unless the **latest** assistant again
+emits a matching tool call. Prefer `always` when every turn should fuse; use
+`tool-call` when fusion should fire only on the tool-bearing assistant turn.
 
 Helpers: `matchGlob`, `hasMatchingToolCall`, `hasMatchingText`, `extractLatestUserText`,
 `fusionStrategyHasConditionalTriggers`, `resolveFusionFallbackStrategy`.
@@ -345,19 +379,26 @@ client stream/tools as the final voice; with acting, the judge is internal (non-
 
 | Route | Role |
 |-------|------|
-| `/dashboard/fusions` | List combos where strategy ∈ `{fusion, conditional-fusion}`; create/delete via combo API |
+| `/dashboard/fusions` | List combos where strategy ∈ `{fusion, conditional-fusion}`; create/delete via combo API; **acting chip** when configured (H-FUSION-010 / Task 0077) |
 | `/dashboard/fusions/new` | Create editor |
 | `/dashboard/fusions/[id]` | Edit editor |
 
 Implementation notes:
 
-- Dedicated Fusions sidebar item (`sidebar.fusions` / `sidebar.fusionsSubtitle`) — Decision D5.
+- Fusions live under the **Routing** hub (`PRIMARY` leaf `combos`) + `RoutingHubSubnav` —
+  not a permanent primary sidebar peer (NAV-TREE / D5 product surface still at
+  `/dashboard/fusions`).
+- List (`fusions/page.tsx`): strategy badge + panel count + optional
+  `data-testid="fusion-list-acting"` chip via `formatFusionActingLabel` /
+  `ComboRecord.acting` (omit chip when acting absent/invalid). Editor remains the full
+  acting editor (`FusionUnitsSections` `data-testid="fusion-acting"`).
 - Focused editor only (`FusionEditorClient`, `FusionUnitRow`); does **not** embed ComboEditor
   (Decision D6). May reuse pickers such as `ModelSelectModal`.
 - Save mapping (`buildSavePayload` in `fusionEditorTypes.ts`):
   - triggers.mode `always` → `strategy: "fusion"`
   - `tool-call` / `text-match` → `strategy: "conditional-fusion"` + `config.fallbackStrategy`
   - top-level `judge`; legacy `config.judgeModel` mirrored for string judges
+  - top-level `acting` when set (Epic 0004)
 
 ---
 
@@ -407,8 +448,11 @@ Implementation notes:
    - **Tool call** — only when an assistant tool name matches globs (default write/edit/create).
    - **Text match** — only when the latest user message contains any keyword/phrase.
 7. For non-always modes, pick a **fallback strategy** (priority, auto, round-robin, … — never fusion).
-   Fallback runs only when triggers miss **and** no acting unit is set.
-8. Optionally open **Tuning** (min panel quorum, straggler grace, hard timeout).
+   Fallback runs only when triggers miss **and** no acting unit is set. It uses the **same
+   panel models** under that strategy — there is no separate fallback model picker.
+8. Optionally open **Tuning** (min panel quorum, straggler grace, hard timeout). Hard timeout
+   **signals abort** on the panel request (0070); stragglers after quorum are also aborted
+   after extract (best-effort — see stage 5 residual if leaf fetch ignores the signal).
 9. Save. Clients call `model: "combo/<name>"` on `/api/v1/chat/completions`.
 
 ### Choosing panel combos
@@ -417,17 +461,23 @@ Implementation notes:
 - Combo-ref panels reuse that combo’s failover — good for “provider family with accounts”.
 - Nesting fusion→fusion is allowed but depth-guarded; prefer non-fusion children.
 - Acting is often a strong builder/executor combo-ref; keep it distinct from consultor panels.
+- On the list page, combos with acting show an **Acting · …** chip (`fusion-list-acting`);
+  open the editor for full acting configuration.
 
 ### Troubleshooting
 
 | Symptom | Likely cause | What to check |
 |---------|--------------|---------------|
-| No multi-model latency / single-model behavior | Trigger miss → **acting-only** or fallback | `config.triggers`, tool history, text patterns; logs: acting-only (`dispatchActingOnly`) vs fallback strategy under the conditional-fusion path |
+| No multi-model latency / single-model behavior | Trigger miss → **acting-only** or fallback | `config.triggers`, **latest** assistant tool_calls (not sticky history), text patterns; logs: acting-only (`dispatchActingOnly`) vs fallback strategy under the conditional-fusion path |
+| Fusion stopped after first tool turn in a multi-turn loop | `tool-call` N=1 window (0068) | Latest assistant lacks matching `tool_calls`; switch to `always` or ensure tool-bearing assistant is latest |
+| Fallback still hits expensive panel models | H-006: fallback reuses `models` | Change panel list / strategy order, or set **acting** for miss path |
 | Always one model even when triggers match | Acting empty + only one panel | Add ≥2 panels; optional acting does not replace panel fan-out on hit |
 | `503 All fusion panel models failed` | 0 panel answers | Panel credentials, circuit breakers, `panelHardTimeoutMs`, provider health |
-| Only one model answers / “no fusion” log | Only one panel succeeded | Quorum path → survivor; with acting, handoff via `finalizeWithActing` |
+| Only one model answers / “no fusion” log | Only one panel succeeded | Quorum path → **collected-text** survivor (0069, no re-dispatch); with acting, handoff via `finalizeWithActing` |
+| Late breaker trips after panel timeout | Straggler abort best-effort only | 0070 abort graph fires `AbortSignal`; if leaf ignores `modelAbortSignal` (chat residual), mid-flight fetch may still complete — not full breaker isolation |
 | Judge never streams to client | Acting is set | Expected: judge is non-stream for handoff; acting owns client stream |
 | Acting answer lacks judge synthesis | Judge empty/failed on hit | Runtime concatenates panel texts as review then still calls acting; check judge credentials/logs |
+| List shows no Acting chip | Acting unset / invalid unit | Editor Acting section; API payload top-level `acting`; chip omits when `formatFusionActingLabel` returns null |
 | `503 Circular combo reference` | Combo-ref cycle | Visited chain in nesting; rename or break cycle |
 | `503 Max combo nesting depth` | Too deep combo-ref tree | Flatten refs or raise `maxComboDepth` carefully (hard cap 10) |
 | Short panel refusals / empty content | Tools stripped incorrectly | Ensure panel path keeps tools + `tool_choice: "none"` (D9) |

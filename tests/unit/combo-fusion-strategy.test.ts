@@ -671,3 +671,266 @@ test("fusion strategy: combo-ref panel is not dropped (typed panels + nested han
   assert.ok(singleModels.includes("f/judge"), "judge must still run after panel fan-out");
   void nestedComboNames;
 });
+
+// ─── Epic 0004 / A6: trigger miss → acting-only (combo gate via handleComboChat) ─
+
+function conditionalFusionWithActing(
+  acting: string | { kind: "combo-ref"; comboName: string },
+  extra: Record<string, unknown> = {}
+) {
+  return {
+    name: "a6-cond-fusion",
+    strategy: "conditional-fusion",
+    models: [{ model: "p/a" }, { model: "p/b" }],
+    acting,
+    config: {
+      judgeModel: "p/judge",
+      fallbackStrategy: "priority",
+      triggers: { mode: "tool-call", toolPatterns: ["write*", "edit*"] },
+      fusionTuning: { minPanel: 2, stragglerGraceMs: 50, panelHardTimeoutMs: 5000 },
+      ...extra,
+    },
+  };
+}
+
+const A6_MISS_BODY = { messages: [{ role: "user", content: "just chat" }] };
+const A6_HIT_BODY = {
+  messages: [
+    { role: "user", content: "please write" },
+    {
+      role: "assistant",
+      content: null,
+      tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+    },
+  ],
+};
+
+test("A6: trigger miss + acting model → acting-only (zero panels, zero judge)", async () => {
+  const seen: string[] = [];
+  const infos: string[] = [];
+  const captureLog = {
+    info: (_tag: string, msg: string) => {
+      infos.push(msg);
+    },
+    warn: noop,
+    debug: noop,
+    error: noop,
+  };
+  const handleSingleModel = async (_b: Body, m: string) => {
+    seen.push(m);
+    return okResponse(`ans-${m}`);
+  };
+
+  const res = await handleComboChat({
+    body: A6_MISS_BODY,
+    combo: conditionalFusionWithActing("p/acting"),
+    handleSingleModel,
+    log: captureLog,
+    settings: {},
+    allCombos: [],
+  });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(seen, ["p/acting"], "exactly one leaf call to the acting model");
+  assert.ok(!seen.includes("p/a") && !seen.includes("p/b"), "panel models must not run on A6 miss");
+  assert.ok(!seen.includes("p/judge"), "judge must not run on A6 miss");
+  assert.ok(
+    infos.some((m) => m.includes("acting only") && m.includes("p/acting")),
+    "A6 gate must log acting-only dispatch for the model unit"
+  );
+});
+
+test("A6: trigger miss + acting combo-ref → only nested acting combo leaf (no panel/judge)", async () => {
+  const seen: string[] = [];
+  const infos: string[] = [];
+  const debugs: string[] = [];
+  const captureLog = {
+    info: (_tag: string, msg: string) => {
+      infos.push(msg);
+    },
+    warn: noop,
+    debug: (_tag: string, msg: string) => {
+      debugs.push(msg);
+    },
+    error: noop,
+  };
+  const handleSingleModel = async (_b: Body, m: string) => {
+    seen.push(m);
+    return okResponse(`ans-${m}`);
+  };
+
+  const actingPool = {
+    name: "acting-pool",
+    strategy: "priority",
+    models: [{ model: "act/leaf" }],
+  };
+  const combo = conditionalFusionWithActing({ kind: "combo-ref", comboName: "acting-pool" });
+
+  const res = await handleComboChat({
+    body: A6_MISS_BODY,
+    combo,
+    handleSingleModel,
+    log: captureLog,
+    settings: {},
+    allCombos: [combo, actingPool],
+  });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    seen,
+    ["act/leaf"],
+    "exactly one nested combo leaf from the acting combo-ref; no panel/judge fan-out"
+  );
+  assert.ok(!seen.includes("p/a") && !seen.includes("p/b"), "panel models must not run");
+  assert.ok(!seen.includes("p/judge"), "judge must not run");
+  // Nested handleComboChat is not injectable; prove combo name via A6 + fusion unit logs.
+  assert.ok(
+    infos.some((m) => m.includes("acting only") && m.includes("combo:acting-pool")),
+    "A6 gate must name the acting combo-ref (nested handleComboChat target)"
+  );
+  assert.ok(
+    debugs.some((m) => m.includes("combo:acting-pool")),
+    "fusion unit dispatch must enter combo-ref handleComboChat for acting-pool"
+  );
+});
+
+test("A6: trigger miss + acting preserves client stream/tools/tool_choice (not panel policy)", async () => {
+  const bodies: Body[] = [];
+  const handleSingleModel = async (b: Body, m: string) => {
+    bodies.push({ ...b, __model: m });
+    return okResponse("acting-ok");
+  };
+
+  const clientTools = [{ type: "function", function: { name: "write_file" } }];
+  const clientMessages = A6_MISS_BODY.messages;
+  const res = await handleComboChat({
+    body: {
+      ...A6_MISS_BODY,
+      stream: true,
+      tools: clientTools,
+      tool_choice: "auto",
+    },
+    combo: conditionalFusionWithActing("p/acting"),
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [],
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(bodies.length, 1, "sole acting dispatch");
+  const b = bodies[0];
+  assert.equal(b.__model, "p/acting");
+  assert.equal(b.stream, true, "acting-only must keep client stream (not force false)");
+  assert.deepEqual(b.tools, clientTools, "acting-only must keep client tools");
+  assert.equal(
+    b.tool_choice,
+    "auto",
+    "acting-only must not force tool_choice:none (panel policy)"
+  );
+  assert.deepEqual(b.messages, clientMessages, "acting-only must preserve client messages");
+});
+
+test("A6: trigger miss + acting must not mutate combo.strategy (shared-object safety)", async () => {
+  const sharedCombo = conditionalFusionWithActing("p/acting");
+  const handleSingleModel = async (_b: Body, m: string) => okResponse(`ans-${m}`);
+
+  await handleComboChat({
+    body: A6_MISS_BODY,
+    combo: sharedCombo,
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [sharedCombo],
+  });
+
+  assert.equal(
+    sharedCombo.strategy,
+    "conditional-fusion",
+    "combo.strategy must remain immutable after A6 acting-only miss"
+  );
+
+  // Hit path still fuses on the same object (strategy not permanently rewritten).
+  const seen: string[] = [];
+  await handleComboChat({
+    body: A6_HIT_BODY,
+    combo: sharedCombo,
+    handleSingleModel: async (_b, m) => {
+      seen.push(m);
+      if (m === "p/judge") return okResponse("REVIEW");
+      if (m === "p/acting") return okResponse("ACTING");
+      return okResponse(`ans-${m}`);
+    },
+    log,
+    settings: {},
+    allCombos: [sharedCombo],
+  });
+  assert.equal(sharedCombo.strategy, "conditional-fusion");
+  assert.ok(seen.includes("p/a") || seen.includes("p/b"), "hit must still run panels");
+  // Full fusion: judge is required; acting final voice is optional-but-configured here.
+  assert.ok(seen.includes("p/judge"), "hit must run judge (not A6 acting-only shape)");
+  assert.ok(seen.includes("p/acting"), "hit with acting configured must hand off to acting");
+});
+
+test("A6: trigger miss + no acting → fallback still hits a panel model", async () => {
+  // Strengthens existing miss→fallback coverage: explicit panel target, no acting.
+  const seen: string[] = [];
+  const handleSingleModel = async (_b: Body, m: string) => {
+    seen.push(m);
+    return okResponse(`ans-${m}`);
+  };
+
+  const res = await handleComboChat({
+    body: A6_MISS_BODY,
+    combo: {
+      name: "a6-miss-no-acting",
+      strategy: "conditional-fusion",
+      // Priority fallback iterates string models as targets.
+      models: ["p/a", "p/b"],
+      config: {
+        judgeModel: "p/judge",
+        fallbackStrategy: "priority",
+        triggers: { mode: "tool-call", toolPatterns: ["write*"] },
+      },
+    },
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [],
+  });
+
+  assert.equal(res.status, 200);
+  assert.ok(!seen.includes("p/judge"), "miss without acting must not run judge");
+  assert.ok(
+    seen.includes("p/a") || seen.includes("p/b"),
+    "priority fallback should hit a panel model as a normal target"
+  );
+  assert.ok(seen.length <= 2, "fallback must not fan out full fusion panel+judge");
+});
+
+test("A6: trigger hit + acting configured → fusion panels/judge still run (not always-acting)", async () => {
+  const seen: string[] = [];
+  const handleSingleModel = async (_b: Body, m: string) => {
+    seen.push(m);
+    if (m === "p/judge") return okResponse("SYNTH REVIEW");
+    if (m === "p/acting") return okResponse("ACTING FINAL");
+    return okResponse(`panel-${m}`);
+  };
+
+  const res = await handleComboChat({
+    body: A6_HIT_BODY,
+    combo: conditionalFusionWithActing("p/acting"),
+    handleSingleModel,
+    log,
+    settings: {},
+    allCombos: [],
+  });
+
+  assert.equal(res.status, 200);
+  assert.ok(seen.includes("p/a"), "hit must fan out panel p/a");
+  assert.ok(seen.includes("p/b"), "hit must fan out panel p/b");
+  assert.ok(seen.includes("p/judge"), "hit must run judge (acting does not skip fusion)");
+  assert.ok(seen.includes("p/acting"), "hit with acting must hand off to acting final voice");
+  // Multi-panel + judge + acting — not the single-call A6 miss shape.
+  assert.ok(seen.length >= 4, `expected full fusion activity, got ${JSON.stringify(seen)}`);
+});

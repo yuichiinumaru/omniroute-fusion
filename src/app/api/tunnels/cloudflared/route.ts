@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import {
   getCloudflaredTunnelStatus,
   startCloudflaredTunnel,
@@ -29,7 +30,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to load cloudflared tunnel status",
+        error:
+          sanitizeErrorMessage(
+            error instanceof Error ? error.message : "Failed to load cloudflared tunnel status"
+          ) || "Failed to load cloudflared tunnel status",
       },
       { status: 500 }
     );
@@ -67,7 +71,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to update cloudflared tunnel",
+        error:
+          sanitizeErrorMessage(
+            error instanceof Error ? error.message : "Failed to update cloudflared tunnel"
+          ) || "Failed to update cloudflared tunnel",
       },
       { status: 500 }
     );

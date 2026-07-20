@@ -1,13 +1,11 @@
-import CostsSubnav from "../CostsSubnav";
-import QuotaSharePageClient from "./QuotaSharePageClient";
+import { redirect } from "next/navigation";
+import { buildProvidersQuotaSharePath } from "@/shared/constants/epic19Rebalance";
 
-export const dynamic = "force-dynamic";
-
-export default function QuotaSharePage() {
-  return (
-    <>
-      <CostsSubnav />
-      <QuotaSharePageClient />
-    </>
-  );
+/**
+ * Legacy costs quota-share URL → Providers quota-share (EPIC-19 T19-B / 0079).
+ * Implementation tree remains under costs/quota-share/ (imported by Providers route).
+ * Canonical: `buildProvidersQuotaSharePath()`.
+ */
+export default function CostsQuotaShareRedirectPage() {
+  redirect(buildProvidersQuotaSharePath());
 }

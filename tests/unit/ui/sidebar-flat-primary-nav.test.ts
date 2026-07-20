@@ -16,8 +16,8 @@ describe("flat primary sidebar nav", () => {
   it("exposes at most 10 primary leaves", () => {
     assert.ok(PRIMARY_SIDEBAR_ITEMS.length <= 10);
     assert.equal(PRIMARY_SIDEBAR_ITEMS.length, PRIMARY_SIDEBAR_ITEM_IDS.length);
-    // Task 0059: API Keys absorbed into Operations → 9 primary leaves
-    assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 9);
+    // Task 0082 / EPIC-19: analytics + costs dropped → 7 primary leaves
+    assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 7);
   });
 
   it("SIDEBAR_SECTIONS is main + optional debug only (no pillar accordion sections)", () => {
@@ -32,12 +32,12 @@ describe("flat primary sidebar nav", () => {
     for (const child of main!.children) {
       assert.ok(!("type" in child && (child as { type?: string }).type === "group"));
     }
-    assert.equal(getSectionItems(main!).length, 9);
+    assert.equal(getSectionItems(main!).length, 7);
   });
 
   it("all preset shows exactly primary non-debug leaves", () => {
     assert.equal(countPresetVisibleLeaves("all"), PRIMARY_SIDEBAR_ITEMS.length);
-    assert.equal(countPresetVisibleLeaves("all"), 9);
+    assert.equal(countPresetVisibleLeaves("all"), 7);
   });
 
   it("minimal is a short role view ≤ 12 (task contract; stretch ≤ 10)", () => {
@@ -69,6 +69,9 @@ describe("flat primary sidebar nav", () => {
     assert.ok(!ids.has("api-manager"));
     assert.ok(!ids.has("leaderboard"));
     assert.ok(!ids.has("tokens"));
+    // EPIC-19 / 0082: analytics + costs not primary
+    assert.ok(!ids.has("analytics"));
+    assert.ok(!ids.has("costs"));
   });
 
   it("Operations primary leaf points at /dashboard/operations hub", () => {

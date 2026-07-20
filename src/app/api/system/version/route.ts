@@ -18,6 +18,7 @@ import {
 } from "@/lib/system/autoUpdate";
 import { NEWS_JSON_URL, parseActiveNewsPayload } from "@/shared/utils/releaseNotes";
 import { isNewer, resolveLatestVersion } from "@/lib/system/versionCheck";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 const execFileAsync = promisify(execFile);
 
@@ -257,7 +258,9 @@ export async function POST(req: NextRequest) {
           });
           console.log(`[AutoUpdate] Successfully updated to ${resolvedTargetTag} via source mode`);
         } catch (err: any) {
-          const errMsg = err?.stderr || err?.message || String(err);
+          // Hard Rule #12: never stream raw stderr/stack/paths to the client (F-SEC-W2-002).
+          const errMsg =
+            sanitizeErrorMessage(err?.stderr || err?.message || String(err)) || "Update failed";
           send({ step: "error", status: "failed", message: errMsg });
           console.error("[AutoUpdate] Source update failed:", err);
         } finally {
@@ -342,7 +345,9 @@ export async function POST(req: NextRequest) {
         });
         console.log(`[AutoUpdate] Successfully updated to v${latest}`);
       } catch (err: any) {
-        const errMsg = err?.stderr || err?.message || String(err);
+        // Hard Rule #12: never stream raw stderr/stack/paths to the client (F-SEC-W2-002).
+        const errMsg =
+          sanitizeErrorMessage(err?.stderr || err?.message || String(err)) || "Update failed";
         send({ step: "error", status: "failed", message: errMsg });
         console.error(`[AutoUpdate] Update failed:`, err);
       } finally {

@@ -7,9 +7,16 @@ import {
   SIDEBAR_SECTIONS,
   HIDDEN_SIDEBAR_ITEMS_SETTING_KEY,
   normalizeHiddenSidebarItems,
-  type SidebarItemDefinition,
   type SidebarSectionChild,
 } from "@/shared/constants/sidebarVisibility";
+import {
+  buildDashboardStoryPath,
+  buildObserveComboHealthPath,
+  buildObserveRouteTracePath,
+  buildProvidersBudgetPath,
+  buildProvidersPricingPath,
+  buildProvidersQuotaSharePath,
+} from "@/shared/constants/epic19Rebalance";
 
 function isSidebarGroup(
   child: SidebarSectionChild
@@ -137,6 +144,90 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
         icon: "health_and_safety",
         label: safeTranslate("health", "Health"),
         subtitle: safeTranslate("healthSubtitle", "System health, breakers, and rate limits"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+    ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
+
+    // EPIC-19 / Task 0082: retired Analytics + Costs primary leaves → hub deep links.
+    // Never re-promote /dashboard/analytics or /dashboard/costs as peer homes.
+    const epic19HubExtras: PaletteItem[] = [
+      {
+        id: "analytics",
+        href: buildDashboardStoryPath("overview"),
+        icon: "analytics",
+        label: safeTranslate("analytics", "Analytics"),
+        subtitle: safeTranslate(
+          "analyticsDashboardSubtitle",
+          "Dashboard storytelling · evals · utilization"
+        ),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "costs",
+        href: buildDashboardStoryPath("costs-overview"),
+        icon: "payments",
+        label: safeTranslate("costsNav", "Costs"),
+        subtitle: safeTranslate(
+          "costsDashboardSubtitle",
+          "Dashboard costs pulse · Providers for budget/pricing"
+        ),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "costs-budget",
+        href: buildProvidersBudgetPath(),
+        icon: "account_balance_wallet",
+        label: safeTranslate("costsBudget", "Budget"),
+        subtitle: safeTranslate("costsBudgetSubtitle", "Providers budget policy"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "costs-pricing",
+        href: buildProvidersPricingPath(),
+        icon: "price_change",
+        label: safeTranslate("costsPricing", "Pricing"),
+        subtitle: safeTranslate("costsPricingSubtitle", "Providers pricing table"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "costs-quota-share",
+        href: buildProvidersQuotaSharePath(),
+        icon: "pie_chart",
+        label: safeTranslate("costsQuotaShare", "Quota share"),
+        subtitle: safeTranslate("costsQuotaShareSubtitle", "Providers quota share"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "analytics-combo-health",
+        href: buildObserveComboHealthPath(),
+        icon: "monitor_heart",
+        label: safeTranslate("analyticsComboHealth", "Combo health"),
+        subtitle: safeTranslate(
+          "analyticsComboHealthSubtitle",
+          "Observe combo health panel"
+        ),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
+        id: "route-trace",
+        href: buildObserveRouteTracePath(),
+        icon: "route",
+        label: safeTranslate("routeTrace", "Route trace"),
+        subtitle: safeTranslate("routeTraceSubtitle", "Observe route-trace panel"),
         external: false,
         sectionId: "main",
         sectionLabel: safeTranslate("mainNav", "Main"),
@@ -342,6 +433,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
     return [
       ...sectionItems,
       ...observeHubExtras,
+      ...epic19HubExtras,
       ...routingHubExtras,
       ...operationsHubExtras,
       ...testingHubExtras,

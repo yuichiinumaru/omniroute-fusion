@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
+import { buildDashboardStoryPath } from "@/shared/constants/epic19Rebalance";
 
-/** Dual-nav retired (Epic 0005 S2) — keep deep link via ?tab= */
+/** Legacy nested analytics route → Dashboard storytelling (EPIC-19 / Task 0081). */
 export default function AnalyticsCompressionPage() {
-  redirect("/dashboard/analytics?tab=compression");
+  redirect(buildDashboardStoryPath("compression"));
 }

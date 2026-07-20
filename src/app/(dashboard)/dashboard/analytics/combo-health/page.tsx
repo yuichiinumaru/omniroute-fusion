@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
+import { buildObserveComboHealthPath } from "@/shared/constants/epic19Rebalance";
 
-/** Dual-nav retired (Epic 0005 S2) — keep deep link via ?tab= */
+/**
+ * Legacy nested analytics route → Observe operational panel (EPIC-19 / Task 0080).
+ * Was: rewrite to `?tab=combo-health` (now also redirected to Observe).
+ */
 export default function AnalyticsComboHealthPage() {
-  redirect("/dashboard/analytics?tab=combo-health");
+  redirect(buildObserveComboHealthPath());
 }

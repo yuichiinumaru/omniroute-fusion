@@ -1,7 +1,7 @@
 /**
  * Costs IA under flat primary chrome (Epic 0005 S6 / Task 0025 path-to-100).
- * Single `costs` primary leaf; deep cost routes are hideable-only (in-page tabs).
- * Pre-flat "governance" accordion section no longer exists.
+ * EPIC-19 / Task 0082: `costs` is no longer a primary leaf (Dashboard + Providers homes).
+ * Deep cost routes remain hideable-only. Pre-flat "governance" accordion is gone.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,6 @@ import assert from "node:assert/strict";
 const sidebarVisibility = await import("../../src/shared/constants/sidebarVisibility.ts");
 
 const {
-  PRIMARY_SIDEBAR_ITEMS,
   PRIMARY_SIDEBAR_ITEM_IDS,
   HIDEABLE_SIDEBAR_ITEM_IDS,
   COSTS_HUB_DEEP_LINK_IDS,
@@ -24,9 +23,11 @@ function defaultLeafIds(): string[] {
   );
 }
 
-test("costs is a primary flat leaf (not a governance accordion section)", () => {
-  assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("costs"));
-  assert.ok(defaultLeafIds().includes("costs"));
+test("costs is not a primary leaf (EPIC-19 / 0082) and not a governance accordion section", () => {
+  assert.equal(PRIMARY_SIDEBAR_ITEM_IDS.includes("costs"), false);
+  assert.equal(defaultLeafIds().includes("costs"), false);
+  // Hideable id retained for prefs (archive-not-delete)
+  assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("costs"));
   // Flat chrome: no accordion sections named governance / observability
   assert.equal(
     SIDEBAR_SECTIONS.some((s) => s.id === "governance"),
@@ -36,13 +37,6 @@ test("costs is a primary flat leaf (not a governance accordion section)", () => 
     SIDEBAR_SECTIONS.some((s) => s.id === "observability"),
     false
   );
-});
-
-test("costs primary leaf points at costs hub", () => {
-  const costs = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "costs");
-  assert.ok(costs, "costs primary item must exist");
-  assert.equal(costs.href, "/dashboard/costs");
-  assert.equal(costs.i18nKey, "costsNav");
 });
 
 test("deep cost destinations stay hideable, not primary peers", () => {

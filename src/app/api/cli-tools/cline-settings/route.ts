@@ -12,6 +12,7 @@ import { cliModelConfigSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services/apiKeyResolver";
 import { readJsoncConfig } from "../_lib/jsoncConfig";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 const CLINE_DATA_DIR = path.join(os.homedir(), ".cline", "data");
 const GLOBAL_STATE_PATH = path.join(CLINE_DATA_DIR, "globalState.json");
@@ -87,7 +88,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     console.log("Error checking cline settings:", error);
     return NextResponse.json({ error: "Failed to check cline settings" }, { status: 500 });
@@ -186,7 +190,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     console.log("Error updating cline settings:", error);
     return NextResponse.json({ error: "Failed to update cline settings" }, { status: 500 });
@@ -257,7 +264,10 @@ export async function DELETE(request: Request) {
     });
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "Invalid request" },
+        { status: 400 }
+      );
     }
     console.log("Error resetting cline settings:", error);
     return NextResponse.json({ error: "Failed to reset cline settings" }, { status: 500 });

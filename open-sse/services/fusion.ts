@@ -20,6 +20,7 @@
  */
 import { errorResponse, sanitizeErrorMessage } from "../utils/error.ts";
 import { extractTextContent } from "../translator/helpers/geminiHelper.ts";
+import { synthesizeOpenAiSseFromJson } from "../utils/jsonToSse.ts";
 import {
   normalizeComboModels,
   normalizeComboStep,
@@ -169,15 +170,102 @@ export function buildActingHandoffPrompt(reviewText: string): string {
   ].join("\n");
 }
 
-type Sentinel = { __timeout?: true; __error?: unknown };
+type TimeoutSentinel = { __timeout: true };
+type ErrorSentinel = { __error: unknown };
+type Sentinel = TimeoutSentinel | ErrorSentinel;
 
-// Resolve a Response (or sentinel) within ms; the loser keeps running but is ignored.
+function isTimeoutSentinel(v: unknown): v is TimeoutSentinel {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    "__timeout" in v &&
+    (v as TimeoutSentinel).__timeout === true
+  );
+}
+
+function isErrorSentinel(v: unknown): v is ErrorSentinel {
+  return typeof v === "object" && v !== null && "__error" in v && !isTimeoutSentinel(v);
+}
+
+/**
+ * Build a minimal OpenAI-compatible chat.completion body from already-collected
+ * panel prose (single-survivor finalize — no second upstream call).
+ */
+function buildCollectedChatCompletionBody(
+  text: string,
+  model: string
+): Record<string, unknown> {
+  return {
+    id: `chatcmpl-fusion-${Date.now()}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1000),
+    model,
+    choices: [
+      {
+        index: 0,
+        message: { role: "assistant", content: text },
+        finish_reason: "stop",
+      },
+    ],
+    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+  };
+}
+
+/**
+ * Synthesize a client Response from panel text already collected during fan-out.
+ * Prefer this over re-dispatching the survivor (H-FUSION-005 / Task 0069): a second
+ * upstream call doubles cost and can 429/5xx after a successful collect.
+ *
+ * When client stream:true, synthesize OpenAI SSE via existing jsonToSse helper
+ * rather than inventing a streaming stack or re-dispatching for a live stream.
+ */
+function responseFromCollectedPanelText(args: {
+  text: string;
+  model: string;
+  stream: boolean;
+}): Response {
+  const body = buildCollectedChatCompletionBody(args.text, args.model);
+  if (args.stream) {
+    const sse = synthesizeOpenAiSseFromJson(JSON.stringify(body));
+    if (sse) {
+      return new Response(sse, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+    // Synthesis failed (should not with a well-formed body) — fall through to JSON.
+  }
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * Resolve a Response (or sentinel) within ms.
+ * When the timer fires, optional `onTimeout` runs so callers can abort the
+ * underlying work (H-FUSION-014 / Task 0070). Without onTimeout the loser
+ * promise still settles later but is ignored — prefer abort to stop orphaned
+ * upstream billing and late breaker/cooldown stamps.
+ */
 function withTimeout(
   promise: Promise<Response>,
-  ms: number
+  ms: number,
+  onTimeout?: () => void
 ): Promise<Response | Sentinel> {
   return new Promise((resolve) => {
-    const t = setTimeout(() => resolve({ __timeout: true }), ms);
+    const t = setTimeout(() => {
+      try {
+        onTimeout?.();
+      } catch {
+        /* ignore abort errors */
+      }
+      resolve({ __timeout: true });
+    }, ms);
     Promise.resolve(promise)
       .then((v) => {
         clearTimeout(t);
@@ -188,6 +276,16 @@ function withTimeout(
         resolve({ __error: e });
       });
   });
+}
+
+/** Best-effort abort; ignore double-abort / already-aborted. */
+function abortControllerQuiet(ac: AbortController, reason?: unknown): void {
+  if (ac.signal.aborted) return;
+  try {
+    ac.abort(reason);
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -376,6 +474,18 @@ function buildFusionChildNesting(args: {
  *
  * Fusion owns panelHardTimeout via withTimeout at the call site — child combos
  * must not stack an extra top-level fusion timeout.
+ *
+ * Optional `signal` (Task 0070): per-panel AbortSignal. Model units receive it as
+ * `modelAbortSignal` on the HandleSingleModel target; combo-ref units override
+ * comboChatBase.signal so nested handleComboChat sees the panel abort graph.
+ *
+ * Residual (best-effort abort): production `src/sse/handlers/chat.ts` wraps
+ * `handleSingleModelChat` and does **not** forward `target.modelAbortSignal` into
+ * fetch/`clientAbortSignal`. Combo hedge (`handleSingleModelWithTimeout`) links
+ * parent `modelAbortSignal` when per-model timeout is configured, but mid-flight
+ * upstream fetch cancel still depends on that leaf honoring the signal. Fusion
+ * always aborts panel controllers so cooperative handlers (combo hedge, tests,
+ * future chat wiring) can stop orphaned work — do not claim full breaker isolation.
  */
 async function dispatchFusionUnit(args: {
   body: Body;
@@ -386,6 +496,8 @@ async function dispatchFusionUnit(args: {
   nesting: ComboNestingContext;
   log: ComboLogger;
   comboChatBase?: FusionComboChatBase | null;
+  /** Per-panel (or parent) abort signal for timeout/straggler drop (Task 0070). */
+  signal?: AbortSignal | null;
 }): Promise<Response> {
   const {
     body,
@@ -396,9 +508,13 @@ async function dispatchFusionUnit(args: {
     nesting,
     log,
     comboChatBase,
+    signal,
   } = args;
 
   if (unit.kind === "model") {
+    if (signal) {
+      return handleSingleModel(body, unit.model, { modelAbortSignal: signal });
+    }
     return handleSingleModel(body, unit.model);
   }
 
@@ -425,6 +541,7 @@ async function dispatchFusionUnit(args: {
   );
 
   // Spread parent base options first so body/combo/nesting below always win.
+  // Panel signal overrides base signal when set (abort graph owned by fan-out).
   return handleComboChat({
     ...(comboChatBase ?? {}),
     body,
@@ -433,6 +550,7 @@ async function dispatchFusionUnit(args: {
     log,
     allCombos,
     nesting: childNesting,
+    ...(signal ? { signal } : {}),
   });
 }
 
@@ -547,25 +665,15 @@ export function resolveFusionUnits(
 }
 
 /**
- * Multi-unit fusion runtime (Task 0012 / Epic 0003 S2).
- *
- * Fans the prompt to every panel unit in parallel (model → handleSingleModel,
- * combo-ref → handleComboChat with nesting), then dispatches the judge the same
- * way. Panel body ownership (Decision D9): fusion builds panelBody once with
- * stream:false + tool_choice:"none" and tools KEPT; child combos receive that
- * body as-is and must not re-strip tools.
- *
- * Decision D3: combo-ref units reuse handleComboChat for failover — fusion does
- * not reimplement retry. Fusion owns panelHardTimeoutMs via withTimeout only.
- *
-/**
  * After panels produce prose (or a single survivor), optionally hand the review
  * to the acting unit as the final voice (Epic 0004 / A1, A3).
- * When acting is absent, returns the provided finalResponse as-is (legacy).
+ * When acting is absent, returns `finalWithoutActing()` (legacy or synthesized).
  *
- * Single-survivor path (no acting): re-dispatches the unit with the original client
- * body rather than synthesizing a Response from already-collected text — intentional
- * so stream/tools match the client request (Task 0012 F3 residual / not a silent drop).
+ * Single-survivor path (no acting): synthesizes the client Response from already-
+ * collected panel text (JSON or SSE) — no second `dispatchFusionUnit` for the
+ * survivor (H-FUSION-005 / Task 0069). A re-dispatch could fail after collect
+ * success and wipe usable prose. When acting is set, survivor text is handed once
+ * via reviewText; acting is the final voice (no third panel re-dispatch).
  */
 async function finalizeWithActing(args: {
   body: Body;
@@ -602,6 +710,19 @@ async function finalizeWithActing(args: {
   });
 }
 
+/**
+ * Multi-unit fusion runtime (Task 0012 / Epic 0003 S2).
+ *
+ * Fans the prompt to every panel unit in parallel (model → handleSingleModel,
+ * combo-ref → handleComboChat with nesting), then dispatches the judge the same
+ * way. Panel body ownership (Decision D9): fusion builds panelBody once with
+ * stream:false + tool_choice:"none" and tools KEPT; child combos receive that
+ * body as-is and must not re-strip tools.
+ *
+ * Decision D3: combo-ref units reuse handleComboChat for failover — fusion does
+ * not reimplement retry. Fusion owns panelHardTimeoutMs via withTimeout only;
+ * Task 0070 aborts stragglers when timeouts/collect finish.
+ */
 export async function handleFusionChatV2({
   body,
   panels,
@@ -717,115 +838,197 @@ export async function handleFusionChatV2({
   //
   //    Panel body ownership: fusion constructs panelBody once. Child combo-ref
   //    panels receive this already-transformed body and MUST NOT re-strip tools.
+  //
+  //    Abort graph (Task 0070 / H-FUSION-014): each panel gets an AbortController
+  //    linked to comboChatBase.signal. withTimeout abort + collectPanel finish
+  //    abort stragglers so orphaned upstream work stops tripping breakers late.
   const { tool_choice: _tc, ...rest } = body;
   void _tc;
   const panelBody: Body = { ...rest, stream: false, tool_choice: "none" };
   const t0 = Date.now();
-  const calls = panel.map((unit) =>
-    withTimeout(
-      dispatchFusionUnit({
-        body: panelBody,
-        unit,
-        handleSingleModel,
-        handleComboChat,
-        allCombos,
-        nesting: nestingCtx,
-        log,
-        comboChatBase,
-      }),
-      cfg.panelHardTimeoutMs
-    )
-  );
-  const settled = await collectPanel(calls, { ...cfg, minPanel });
-  log.info("FUSION", `fan-out collected in ${Date.now() - t0}ms`);
-
-  // 2. Collect successful answers (aligned to panel units).
-  const answers: Array<{ unit: ResolvedFusionUnit; model: string; text: string }> = [];
-  for (let i = 0; i < settled.length; i++) {
-    const res = settled[i];
-    const unit = panel[i];
-    const label = fusionUnitLabel(unit);
-    if (!res) {
-      log.warn("FUSION", `Panel ${label} dropped (straggler/timeout)`);
-      continue;
-    }
-    const sentinel = res as Sentinel;
-    if (sentinel.__timeout) {
-      log.warn("FUSION", `Panel ${label} timed out`);
-      continue;
-    }
-    if (sentinel.__error) {
-      log.warn("FUSION", `Panel ${label} threw`, {
-        error: sanitizeErrorMessage(sentinel.__error as Error),
-      });
-      continue;
-    }
-    const resp = res as Response;
-    if (!resp.ok) {
-      log.warn("FUSION", `Panel ${label} failed`, { status: resp.status });
-      continue;
-    }
-    try {
-      const json = await resp.clone().json();
-      const text = extractPanelText(json);
-      if (text) {
-        answers.push({ unit, model: label, text });
-        log.info("FUSION", `Panel ${label} ok (${text.length} chars)`);
-      } else {
-        log.warn("FUSION", `Panel ${label} returned empty content`);
-      }
-    } catch (e) {
-      log.warn("FUSION", `Panel ${label} unparseable`, {
-        error: sanitizeErrorMessage(e as Error),
-      });
+  const parentSignal = comboChatBase?.signal ?? null;
+  const panelControllers: AbortController[] = panel.map(() => new AbortController());
+  let onParentAbort: (() => void) | null = null;
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      for (const ac of panelControllers) abortControllerQuiet(ac);
+    } else {
+      onParentAbort = () => {
+        for (const ac of panelControllers) abortControllerQuiet(ac);
+      };
+      parentSignal.addEventListener("abort", onParentAbort, { once: true });
     }
   }
 
-  // 3. Degrade gracefully when the panel is too thin to fuse.
-  if (answers.length === 0) {
-    log.warn("FUSION", "All panel models failed");
-    return errorResponse(503, "All fusion panel models failed");
-  }
-  if (answers.length === 1) {
-    log.info(
-      "FUSION",
-      `Only ${answers[0].model} succeeded — ${actingUnit ? "handing to acting" : "answering directly"} (no multi-panel fusion)`
-    );
-    return finalizeWithActing({
-      body,
-      reviewText: answers[0].text,
-      acting: actingUnit,
-      finalWithoutActing: async () =>
+  // Keep parent→panel abort link until stragglers are aborted (covers extract window).
+  let settled: Array<Response | Sentinel | undefined>;
+  try {
+    const calls = panel.map((unit, i) => {
+      const ac = panelControllers[i];
+      return withTimeout(
         dispatchFusionUnit({
-          body,
-          unit: answers[0].unit,
+          body: panelBody,
+          unit,
           handleSingleModel,
           handleComboChat,
           allCombos,
           nesting: nestingCtx,
           log,
           comboChatBase,
+          signal: ac.signal,
         }),
-      handleSingleModel,
-      handleComboChat,
-      allCombos,
-      nesting: nestingCtx,
-      log,
-      comboChatBase,
+        cfg.panelHardTimeoutMs,
+        () => abortControllerQuiet(ac, new Error("fusion-panel-timeout"))
+      );
     });
-  }
+    settled = await collectPanel(calls, { ...cfg, minPanel });
+    log.info("FUSION", `fan-out collected in ${Date.now() - t0}ms`);
 
-  // 4. Judge analyzes + writes a synthesis (internal when acting is set).
-  //    Judge body is non-streaming so we can extract text for the acting handoff.
-  //    Without acting, judge streams/returns to the client (legacy Epic 0003).
-  if (actingUnit) {
-    const judgeBody: Body = {
-      ...appendUserTurn(body, buildJudgePrompt(answers)),
-      stream: false,
-      tool_choice: "none",
-    };
-    log.info("FUSION", `Judging ${answers.length} answers with ${judgeLabel} (for acting handoff)`);
-    const judgeRes = await dispatchFusionUnit({
+    // 2. Collect successful answers (aligned to panel units).
+    //    Read Response bodies BEFORE aborting stragglers so extract stays valid.
+    const answers: Array<{ unit: ResolvedFusionUnit; model: string; text: string }> = [];
+    for (let i = 0; i < settled.length; i++) {
+      const res = settled[i];
+      const unit = panel[i];
+      const label = fusionUnitLabel(unit);
+      if (!res) {
+        log.warn("FUSION", `Panel ${label} dropped (straggler/timeout)`);
+        continue;
+      }
+      if (isTimeoutSentinel(res)) {
+        log.warn("FUSION", `Panel ${label} timed out`);
+        continue;
+      }
+      if (isErrorSentinel(res)) {
+        log.warn("FUSION", `Panel ${label} threw`, {
+          error: sanitizeErrorMessage(
+            res.__error instanceof Error ? res.__error : new Error(String(res.__error))
+          ),
+        });
+        continue;
+      }
+      // SAFETY: non-sentinel slots from withTimeout/collectPanel are Response.
+      const resp = res;
+      if (!resp.ok) {
+        log.warn("FUSION", `Panel ${label} failed`, { status: resp.status });
+        continue;
+      }
+      try {
+        const json = await resp.clone().json();
+        const text = extractPanelText(json);
+        if (text) {
+          answers.push({ unit, model: label, text });
+          log.info("FUSION", `Panel ${label} ok (${text.length} chars)`);
+        } else {
+          log.warn("FUSION", `Panel ${label} returned empty content`);
+        }
+      } catch (e) {
+        log.warn("FUSION", `Panel ${label} unparseable`, {
+          error: sanitizeErrorMessage(e instanceof Error ? e : new Error(String(e))),
+        });
+      }
+    }
+
+    // Abort timed-out / dropped / still-pending panels after successes are extracted.
+    // Successful slots keep their controller un-aborted (no spurious mid-consume abort).
+    for (let i = 0; i < panelControllers.length; i++) {
+      const slot = settled[i];
+      const dropped =
+        slot === undefined || isTimeoutSentinel(slot) || isErrorSentinel(slot);
+      if (dropped) {
+        abortControllerQuiet(panelControllers[i], new Error("fusion-panel-dropped"));
+      }
+    }
+
+    // 3. Degrade gracefully when the panel is too thin to fuse.
+    if (answers.length === 0) {
+      log.warn("FUSION", "All panel models failed");
+      return errorResponse(503, "All fusion panel models failed");
+    }
+    if (answers.length === 1) {
+      log.info(
+        "FUSION",
+        `Only ${answers[0].model} succeeded — ${actingUnit ? "handing to acting" : "answering from collected text"} (no multi-panel fusion)`
+      );
+      return finalizeWithActing({
+        body,
+        reviewText: answers[0].text,
+        acting: actingUnit,
+        // Prefer collected text over re-dispatch (H-FUSION-005): avoids 2× cost and
+        // fail-after-success when a second upstream call 429/5xxs after collect.
+        finalWithoutActing: async () =>
+          responseFromCollectedPanelText({
+            text: answers[0].text,
+            model: answers[0].model,
+            stream: body.stream === true,
+          }),
+        handleSingleModel,
+        handleComboChat,
+        allCombos,
+        nesting: nestingCtx,
+        log,
+        comboChatBase,
+      });
+    }
+
+    // 4. Judge analyzes + writes a synthesis (internal when acting is set).
+    //    Judge body is non-streaming so we can extract text for the acting handoff.
+    //    Without acting, judge streams/returns to the client (legacy Epic 0003).
+    if (actingUnit) {
+      const judgeBody: Body = {
+        ...appendUserTurn(body, buildJudgePrompt(answers)),
+        stream: false,
+        tool_choice: "none",
+      };
+      log.info(
+        "FUSION",
+        `Judging ${answers.length} answers with ${judgeLabel} (for acting handoff)`
+      );
+      const judgeRes = await dispatchFusionUnit({
+        body: judgeBody,
+        unit: judge,
+        handleSingleModel,
+        handleComboChat,
+        allCombos,
+        nesting: nestingCtx,
+        log,
+        comboChatBase,
+      });
+      let reviewText = "";
+      if (judgeRes.ok) {
+        try {
+          const json = await judgeRes.clone().json();
+          reviewText = extractPanelText(json);
+        } catch {
+          reviewText = "";
+        }
+      }
+      if (!reviewText) {
+        // Judge failed — fall back to concatenating panel answers as review.
+        reviewText = answers.map((a, i) => `[Source ${i + 1}]\n${a.text}`).join("\n\n");
+        log.warn(
+          "FUSION",
+          `Judge ${judgeLabel} produced no text (status=${judgeRes.status}) — using panel texts as review for acting`
+        );
+      }
+      return finalizeWithActing({
+        body,
+        reviewText,
+        acting: actingUnit,
+        finalWithoutActing: async () => judgeRes,
+        handleSingleModel,
+        handleComboChat,
+        allCombos,
+        nesting: nestingCtx,
+        log,
+        comboChatBase,
+      });
+    }
+
+    // Legacy path (no acting): judge is the final voice.
+    const judgeBody = appendUserTurn(body, buildJudgePrompt(answers));
+    log.info("FUSION", `Judging ${answers.length} answers with ${judgeLabel}`);
+    return dispatchFusionUnit({
       body: judgeBody,
       unit: judge,
       handleSingleModel,
@@ -835,50 +1038,11 @@ export async function handleFusionChatV2({
       log,
       comboChatBase,
     });
-    let reviewText = "";
-    if (judgeRes.ok) {
-      try {
-        const json = await judgeRes.clone().json();
-        reviewText = extractPanelText(json);
-      } catch {
-        reviewText = "";
-      }
+  } finally {
+    if (parentSignal && onParentAbort) {
+      parentSignal.removeEventListener("abort", onParentAbort);
     }
-    if (!reviewText) {
-      // Judge failed — fall back to concatenating panel answers as review.
-      reviewText = answers.map((a, i) => `[Source ${i + 1}]\n${a.text}`).join("\n\n");
-      log.warn(
-        "FUSION",
-        `Judge ${judgeLabel} produced no text (status=${judgeRes.status}) — using panel texts as review for acting`
-      );
-    }
-    return finalizeWithActing({
-      body,
-      reviewText,
-      acting: actingUnit,
-      finalWithoutActing: async () => judgeRes,
-      handleSingleModel,
-      handleComboChat,
-      allCombos,
-      nesting: nestingCtx,
-      log,
-      comboChatBase,
-    });
   }
-
-  // Legacy path (no acting): judge is the final voice.
-  const judgeBody = appendUserTurn(body, buildJudgePrompt(answers));
-  log.info("FUSION", `Judging ${answers.length} answers with ${judgeLabel}`);
-  return dispatchFusionUnit({
-    body: judgeBody,
-    unit: judge,
-    handleSingleModel,
-    handleComboChat,
-    allCombos,
-    nesting: nestingCtx,
-    log,
-    comboChatBase,
-  });
 }
 
 /**

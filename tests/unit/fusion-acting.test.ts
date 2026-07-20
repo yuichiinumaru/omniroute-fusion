@@ -183,4 +183,43 @@ describe("handleFusionChatV2 — acting handoff", () => {
     });
     assert.equal(res.status, 400);
   });
+
+  it("single survivor with acting: panel once + acting once (no panel re-dispatch)", async () => {
+    const calls: string[] = [];
+    const handleSingleModel = async (body: Record<string, unknown>, model: string) => {
+      calls.push(model);
+      if (model === "p/ok") return jsonResponse(chatText("survivor prose"));
+      if (model === "p/bad") return jsonResponse({ error: { message: "boom" } }, 500);
+      if (model === "acting") {
+        const messages = Array.isArray(body.messages) ? body.messages : [];
+        const last = messages[messages.length - 1] as { content?: string } | undefined;
+        const content = typeof last?.content === "string" ? last.content : "";
+        assert.match(content, /survivor prose/);
+        assert.match(content, /FUSION REVIEW/);
+        return jsonResponse(chatText("ACTING FROM SURVIVOR"));
+      }
+      return jsonResponse(chatText(`unexpected ${model}`));
+    };
+
+    const res = await handleFusionChatV2({
+      body: { messages: [{ role: "user", content: "hi" }], stream: false },
+      panels: [
+        { kind: "model", model: "p/ok" },
+        { kind: "model", model: "p/bad" },
+      ],
+      judge: { kind: "model", model: "judge" },
+      acting: { kind: "model", model: "acting" },
+      handleSingleModel,
+      log,
+      comboName: "t",
+      tuning: { minPanel: 2, stragglerGraceMs: 50, panelHardTimeoutMs: 5000 },
+    });
+
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(extractPanelText(json), "ACTING FROM SURVIVOR");
+    assert.equal(calls.filter((c) => c === "p/ok").length, 1, "panel collect once");
+    assert.equal(calls.filter((c) => c === "acting").length, 1, "acting once");
+    assert.ok(!calls.includes("judge"), "judge not invoked for single survivor");
+  });
 });

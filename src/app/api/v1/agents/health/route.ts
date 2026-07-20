@@ -56,7 +56,10 @@ async function checkProviderHealth(providerId: string): Promise<ProviderHealth> 
       name,
       connected: false,
       latencyMs: Date.now() - start,
-      error: error instanceof Error ? error.message : "Unknown error",
+      // Hard Rule #12: provider health errors reach the client JSON body.
+      error:
+        sanitizeErrorMessage(error instanceof Error ? error.message : "Unknown error") ||
+        "Unknown error",
     };
   } finally {
     if (timeoutId) clearTimeout(timeoutId);

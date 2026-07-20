@@ -294,6 +294,8 @@ STORAGE_ENCRYPTION_KEY=<your-key>
 
 > **Critical**: Losing the encryption key means losing access to all encrypted data. **Back up the key separately from the database**.
 
+Dual-read of legacy plaintext secret rows (intentional transition residual after encrypt-on-write) is documented in [`docs/security/SECRETS_AT_REST.md`](../security/SECRETS_AT_REST.md) — not a 0041 regression; ops checklist for key + restart migrate lives there.
+
 ### What's NOT Encrypted
 
 For performance reasons, the following are stored in plaintext:

@@ -1,9 +1,9 @@
 # Epic 0005 — Frontend IA Reform + Design System Cohesion + Smart Componentization
 
-> **Status**: **S0–S10 closeout complete (2026-07-10)** — Wave 1 + Wave 2 IA slices shipped; durable guide at [`docs/guides/UI.md`](../../guides/UI.md). Ongoing work is maintenance (no new default leaves without pillar mapping).  
+> **Status**: **Closed / Complete (2026-07-19 hygiene)** — S0–S10 (0020–0031) + successor wave **0052–0061** all under `docs/tasks/04-completed/`. Durable guide: [`docs/guides/UI.md`](../../guides/UI.md).  
 > **Priority**: High (P0 product UX)  
 > **Author**: Grok session (omniroute-fusion) · synthesizes live inventory (2026-07-10) + prior GPT-5.5 analysis in `.agents/user/why-khala-full.txt` L5571–5949  
-> **Date**: 2026-07-10  
+> **Date**: 2026-07-10 · **Successor rollup**: 2026-07-19 (EPIC-10 / Task 0062)  
 > **Project**: omniroute-fusion (`yuichiinumaru/omniroute-fusion`, private)  
 > **Type**: UX / architecture / maintainability  
 > **Action types**: `UX_VIS` (sidebar IA) + `EXTEND` (primitives/tokens) + `HARDEN` (naming dual-nav)  
@@ -15,7 +15,8 @@
 > - [`docs/dependency-tree.md`](../../dependency-tree.md) — serial vs parallel child tasks  
 > - `visual-reference/` (local mock, gitignored — design input only)  
 > - `.agents/user/why-khala-full.txt` L5054, L5571–5953 (CyberCore anti-pattern analysis)  
-> - `.agents/user/why-khala-full2.txt` (CC identity; risk of repeating OmniRoute menu dump)
+> - `.agents/user/why-khala-full2.txt` (CC identity; risk of repeating OmniRoute menu dump)  
+> - Later IA residuals: **EPIC-13** / **EPIC-19** (dashboard rebalance) — do not re-open 0005 greenfield
 
 ---
 
@@ -397,7 +398,7 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 ## 11. Child tasks (Task NNNN tree)
 
 > Promoted 2026-07-10 by GT-TASK-ARCHITECT. Numbering: Fusion **0010–0018**; Frontend IA **0020–0031**.  
-> **Closeout:** child table below reflects completed work under `docs/tasks/04-completed/` (S10 evidence may still sit in `02-doing` until parent promote).
+> **Closeout (2026-07-19):** all S0–S10 children under `docs/tasks/04-completed/` (including **0026** / **0031**).
 
 ### All child tasks (S0–S10)
 
@@ -409,12 +410,12 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 | **0023** | S4 | Observe unified event stream | `[x]` | `docs/tasks/04-completed/0023-frontend-ia-observe-unified-stream.md` |
 | **0024** | S5 | Connect / Registry exposure cleanup | `[x]` | `docs/tasks/04-completed/0024-frontend-ia-registry-connect-cleanup.md` |
 | **0025** | S6 | Seven-pillar sidebar + role presets | `[x]` | `docs/tasks/04-completed/0025-frontend-ia-seven-pillar-sidebar.md` |
-| **0026** | S7 | i18n / naming cleanup | `[x]` / residual | `docs/tasks/` lane for `0026-frontend-ia-i18n-naming-cleanup.md` |
+| **0026** | S7 | i18n / naming cleanup | `[x]` | `docs/tasks/04-completed/0026-frontend-ia-i18n-naming-cleanup.md` |
 | **0027** | S1 rem. | SettingsToggleRow / Toggle migration | `[x]` | `docs/tasks/04-completed/0027-frontend-ia-settings-toggle-migration.md` |
 | **0028** | S9 | Theme micro VR adoption | `[x]` | `docs/tasks/04-completed/0028-frontend-ia-theme-micro-adoption.md` |
 | **0029** | S8 | CLI ConfigurableToolCard | `[x]` | `docs/tasks/04-completed/0029-frontend-ia-cli-configurable-tool-card.md` |
 | **0030** | quickwins | PageTabBar + field kit + DeployRelayModal | `[x]` | `docs/tasks/04-completed/0030-frontend-ia-page-tabbar-field-kit.md` |
-| **0031** | S10 | UI IA docs + no-new-leaf guide | `[x]` evidence | `docs/tasks/03-review/0031-frontend-ia-docs-guardrail.md` → promote to `04-completed/` after reviewer accept |
+| **0031** | S10 | UI IA docs + no-new-leaf guide | `[x]` | `docs/tasks/04-completed/0031-frontend-ia-docs-guardrail.md` |
 
 ### Dependency graph (shipped)
 
@@ -427,6 +428,25 @@ Full line-by-line leaf table: session inventory 2026-07-10 (sidebarVisibility wa
 
 Parallel (group A): 0026 i18n · 0029 CLI · 0030 kits  (all landed)
 ```
+
+### 11b. Successor wave (0052–0061) — theme / hub IA (completed)
+
+> Not part of original S0–S10 decomposition; landed after 0005 closeout and **must not** be re-opened as 0005 greenfield. Paths verified under `04-completed/` (2026-07-19).
+
+| Task | Theme | Path |
+|------|-------|------|
+| **0052** | Theme: Obsidian cyan dark-only | `docs/tasks/04-completed/0052-omniroute-theme-obsidian-cyan-darkonly.md` |
+| **0053** | Strip appearance customization | `docs/tasks/04-completed/0053-omniroute-strip-appearance-customization.md` |
+| **0054** | Settings hub TabNav | `docs/tasks/04-completed/0054-omniroute-settings-hub-tabnav.md` |
+| **0055** | Visual finetuning / dark readability | `docs/tasks/04-completed/0055-omniroute-visual-finetuning-darkreadability.md` |
+| **0056** | Dashboard IA consolidation | `docs/tasks/04-completed/0056-omniroute-dashboard-ia-consolidation.md` |
+| **0057** | Providers IA cleanup | `docs/tasks/04-completed/0057-omniroute-providers-ia-cleanup.md` |
+| **0058** | Routing / context / compression IA | `docs/tasks/04-completed/0058-omniroute-routing-context-compression-ia.md` |
+| **0059** | Operations hub IA | `docs/tasks/04-completed/0059-omniroute-operations-hub-ia.md` |
+| **0060** | Testing hub IA | `docs/tasks/04-completed/0060-omniroute-testing-hub-ia.md` |
+| **0061** | Observe + settings small IA gaps | `docs/tasks/04-completed/0061-omniroute-observe-settings-small-ia-gaps.md` |
+
+Further dashboard Observe/Providers rebalance → **EPIC-19** (open residual series), not 0005.
 
 ### Durable guardrail (post-epic)
 

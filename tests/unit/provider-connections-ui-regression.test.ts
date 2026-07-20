@@ -157,9 +157,16 @@ describe("provider connections UI regression", () => {
     );
   });
 
-  it("asserts peer provider pages mount ProvidersTopBar with correct currentPath (Task 0057)", () => {
+  it("asserts peer provider pages mount ProvidersTopBar with correct currentPath (Task 0057 + 0079)", () => {
     const parentDir = path.resolve(__dirname, "../../");
-    const peers: Array<{ relPath: string; currentPath: string }> = [
+    const peers: Array<{
+      relPath: string;
+      currentPath: string;
+      /** Alternate currentPath form (0078 path constant). */
+      currentPathAlt?: string;
+      /** Tokens that may appear in topbar source instead of quoted path. */
+      topbarTokens?: string[];
+    }> = [
       {
         relPath: "src/app/(dashboard)/dashboard/providers/page.tsx",
         currentPath: "/dashboard/providers",
@@ -188,6 +195,25 @@ describe("provider connections UI regression", () => {
         relPath: "src/app/(dashboard)/dashboard/runtime/RuntimePageClient.tsx",
         currentPath: "/dashboard/runtime",
       },
+      // EPIC-19 / 0079 policy peers (single topbar)
+      {
+        relPath: "src/app/(dashboard)/dashboard/providers/budget/page.tsx",
+        currentPath: "/dashboard/providers/budget",
+        currentPathAlt: "PROVIDERS_BUDGET_PATH",
+        topbarTokens: ["PROVIDERS_BUDGET_PATH", "/dashboard/providers/budget"],
+      },
+      {
+        relPath: "src/app/(dashboard)/dashboard/providers/pricing/page.tsx",
+        currentPath: "/dashboard/providers/pricing",
+        currentPathAlt: "PROVIDERS_PRICING_PATH",
+        topbarTokens: ["PROVIDERS_PRICING_PATH", "/dashboard/providers/pricing"],
+      },
+      {
+        relPath: "src/app/(dashboard)/dashboard/providers/quota-share/page.tsx",
+        currentPath: "/dashboard/providers/quota-share",
+        currentPathAlt: "PROVIDERS_QUOTA_SHARE_PATH",
+        topbarTokens: ["PROVIDERS_QUOTA_SHARE_PATH", "/dashboard/providers/quota-share"],
+      },
     ];
 
     const topBarSrc = readFileSync(
@@ -198,24 +224,48 @@ describe("provider connections UI regression", () => {
     // Branded path union + link table cover all peer destinations.
     assert.ok(topBarSrc.includes("PROVIDERS_TOPBAR_PATHS"));
     assert.ok(topBarSrc.includes("ProvidersTopBarPath"));
-    for (const { currentPath } of peers) {
-      assert.ok(
-        topBarSrc.includes(`"${currentPath}"`) || topBarSrc.includes(`'${currentPath}'`),
-        `ProvidersTopBar must include href/path ${currentPath}`
+    for (const { currentPath, topbarTokens } of peers) {
+      const tokens = topbarTokens ?? [currentPath];
+      const found = tokens.some(
+        (t) =>
+          topBarSrc.includes(`"${t}"`) ||
+          topBarSrc.includes(`'${t}'`) ||
+          topBarSrc.includes(t)
       );
+      assert.ok(found, `ProvidersTopBar must include href/path ${currentPath}`);
     }
 
-    for (const { relPath, currentPath } of peers) {
+    for (const { relPath, currentPath, currentPathAlt } of peers) {
       const content = readFileSync(path.join(parentDir, relPath), "utf-8");
       assert.ok(
         content.includes("ProvidersTopBar"),
         `Expected ${relPath} to import or use ProvidersTopBar`
       );
-      assert.ok(
+      const hasLiteral =
         content.includes(`currentPath="${currentPath}"`) ||
-          content.includes(`currentPath='${currentPath}'`),
+        content.includes(`currentPath='${currentPath}'`);
+      const hasConst =
+        currentPathAlt != null &&
+        (content.includes(`currentPath={${currentPathAlt}}`) ||
+          content.includes(`currentPath={${currentPathAlt} }`));
+      assert.ok(
+        hasLiteral || hasConst,
         `Expected ${relPath} to mount ProvidersTopBar with currentPath=${currentPath}`
       );
+      // Anti-phantom dual strip on policy peers (import/JSX only — comments may name retired strip)
+      if (relPath.includes("/budget/") || relPath.includes("/pricing/") || relPath.includes("/quota-share/")) {
+        assert.equal(
+          /import\s+ProvidersPolicySubnav\b/.test(content) ||
+            /<ProvidersPolicySubnav\b/.test(content),
+          false,
+          `${relPath} must not mount ProvidersPolicySubnav (single topbar)`
+        );
+        assert.equal(
+          /import\s+CostsSubnav\b/.test(content) || /<CostsSubnav\b/.test(content),
+          false,
+          `${relPath} must not mount CostsSubnav`
+        );
+      }
     }
 
     // Nested services path must use exact services currentPath (not providers root).

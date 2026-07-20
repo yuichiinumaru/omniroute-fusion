@@ -9,9 +9,11 @@ const repoRoot = join(import.meta.dirname, "../..");
 test("flat primary sidebar: main + debug only", () => {
   const sectionIds = sidebarVisibility.SIDEBAR_SECTIONS.map((section) => section.id);
   assert.deepEqual(sectionIds, ["main", "devtools"]);
-  // Task 0059: Operations hub absorbs API Keys → 9 primary leaves
-  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEMS.length, 9);
-  assert.equal(sidebarVisibility.countPresetVisibleLeaves("all"), 9);
+  // Task 0082 / EPIC-19: drop analytics + costs → 7 primary leaves
+  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEMS.length, 7);
+  assert.equal(sidebarVisibility.countPresetVisibleLeaves("all"), 7);
+  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS.includes("analytics"), false);
+  assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS.includes("costs"), false);
 });
 
 test("primary hubs include observe + routing + providers + operations", () => {

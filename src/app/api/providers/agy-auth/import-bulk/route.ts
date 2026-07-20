@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     } catch (err) {
       const message =
         err instanceof AgyAuthFileError
-          ? err.message
+          ? sanitizeErrorMessage(err.message) || "Invalid Antigravity auth file"
           : sanitizeErrorMessage(err) || "Failed to import";
       errors.push({ index: i, name: label, message });
     }

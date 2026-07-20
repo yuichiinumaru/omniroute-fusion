@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTailscaleTunnelStatus, installTailscale } from "@/lib/tailscaleTunnel";
 import { parseOptionalJsonBody, requireTailscaleAuth, tailscaleSudoSchema } from "../routeUtils";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,10 @@ export async function POST(request: Request) {
           });
         } catch (error) {
           pushEvent("error", {
-            error: error instanceof Error ? error.message : "Failed to install Tailscale",
+            error:
+              sanitizeErrorMessage(
+                error instanceof Error ? error.message : "Failed to install Tailscale"
+              ) || "Failed to install Tailscale",
           });
         } finally {
           controller.close();

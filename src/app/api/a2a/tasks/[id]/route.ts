@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTaskManager } from "@/lib/a2a/taskManager";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,7 +12,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }
     return NextResponse.json({ task });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load A2A task";
+    const message =
+      sanitizeErrorMessage(error instanceof Error ? error.message : "Failed to load A2A task") ||
+      "Failed to load A2A task";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

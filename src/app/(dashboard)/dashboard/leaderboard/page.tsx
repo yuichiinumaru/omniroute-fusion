@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import DashboardTopbar from "../../home/DashboardTopbar";
 
 type LeaderboardScope = "global" | "weekly" | "monthly" | "tokens_shared";
 
@@ -90,6 +91,8 @@ export default function LeaderboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Same single Dashboard hub topbar as /home (EPIC-19 / 0081 chrome). */}
+      <DashboardTopbar />
       {/* Scope selector */}
       <div className="flex items-center gap-2 flex-wrap">
         {(Object.keys(SCOPE_LABELS) as LeaderboardScope[]).map((s) => (

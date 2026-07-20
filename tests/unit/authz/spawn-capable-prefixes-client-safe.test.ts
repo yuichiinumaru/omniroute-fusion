@@ -87,6 +87,9 @@ test("SPAWN_CAPABLE_PREFIXES is defined in the server-free constants leaf with t
     "/api/cli-tools/antigravity-mitm",
     "/api/tunnels/tailscale/install",
     "/api/tunnels/tailscale/start-daemon",
+    "/api/tunnels/tailscale/enable", // funnel/login spawn (F-SEC-W2-001)
+    "/api/tunnels/tailscale/login", // tailscale up spawn (F-SEC-W2-001)
+    "/api/tunnels/tailscale/disable", // funnel reset + daemon stop (F-SEC-W2-001 residual)
     "/api/tunnels/cloudflared",
     "/api/tunnels/ngrok",
     "/api/middleware/hooks",
@@ -96,5 +99,5 @@ test("SPAWN_CAPABLE_PREFIXES is defined in the server-free constants leaf with t
       `SPAWN_CAPABLE_PREFIXES lost the spawn-capable prefix "${prefix}" during extraction`
     );
   }
-  assert.equal(SPAWN_CAPABLE_PREFIXES.length, 18);
+  assert.equal(SPAWN_CAPABLE_PREFIXES.length, 21);
 });

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardSkeleton, Button, Modal } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, NOAUTH_PROVIDERS, OAUTH_PROVIDERS } from "@/shared/constants/providers";
+import { buildDashboardStoryPath } from "@/shared/constants/epic19Rebalance";
 import { useNotificationStore } from "@/store/notificationStore";
 import { copyToClipboard } from "@/shared/utils/clipboard";
 import { getProviderDisplayLabel } from "@/shared/utils/providerDisplayLabel";
@@ -1159,7 +1160,10 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                         </Link>
                       ),
                       analytics: (chunks) => (
-                        <Link href="/dashboard/analytics" className="text-primary hover:underline">
+                        <Link
+                          href={buildDashboardStoryPath("overview")}
+                          className="text-primary hover:underline"
+                        >
                           {chunks}
                         </Link>
                       ),

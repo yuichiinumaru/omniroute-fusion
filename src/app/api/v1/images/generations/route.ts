@@ -12,7 +12,11 @@ import {
   getImageProvider,
   getImageModelEntry,
 } from "@omniroute/open-sse/config/imageRegistry.ts";
-import { errorResponse, unavailableResponse } from "@omniroute/open-sse/utils/error.ts";
+import {
+  errorResponse,
+  unavailableResponse,
+  sanitizeErrorMessage,
+} from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import * as log from "@/sse/utils/logger";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
@@ -264,7 +268,8 @@ async function postHandler(request, context) {
     ? runWithProxyContext(proxyInfo?.proxy || null, generateImage).catch((err: any) => ({
         success: false,
         status: err.statusCode || 500,
-        error: err.message,
+        // Hard Rule #12: error reaches client via toJsonErrorPayload.
+        error: sanitizeErrorMessage(err?.message) || "Image generation provider error",
       }))
     : generateImage());
 

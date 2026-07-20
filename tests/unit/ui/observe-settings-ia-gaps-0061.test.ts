@@ -45,7 +45,8 @@ const OBSERVE_SUBNAV_IDS = [
 
 test("Health is not a primary sidebar leaf (primary-nav budget)", () => {
   assert.equal(PRIMARY_SIDEBAR_ITEM_IDS.includes("health"), false);
-  assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 9);
+  // Task 0082 / EPIC-19: 7 primary leaves (analytics + costs dropped)
+  assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 7);
   assert.ok((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("health"));
 });
 
@@ -97,6 +98,9 @@ test("Health page mounts ObserveHubSubnav with active=health", () => {
   const page = read("src/app/(dashboard)/dashboard/health/page.tsx");
   assert.ok(page.includes("ObserveHubSubnav"));
   assert.match(page, /<ObserveHubSubnav\s+active=["']health["']\s*\/>/);
+  // Loading + error branches also keep the single Observe strip (no chrome drop).
+  const mounts = page.match(/<ObserveHubSubnav\b/g) ?? [];
+  assert.equal(mounts.length, 3, "loading, error, and success each mount ObserveHubSubnav once");
   // Must not mount Dashboard/Analytics/Operations chrome in this fix loop.
   assert.doesNotMatch(page, /RoutingHubSubnav|AnalyticsHub|OperationsHub/);
   // Structural unity with Observe hub: full-width subnav first, not side-by-side with actions.

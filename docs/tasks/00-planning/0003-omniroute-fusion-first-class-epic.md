@@ -1,18 +1,22 @@
 # Epic 0003 — Fusion First-Class (Panels + Judge as Combos)
 
-> **Status**: Active (Epic) — child tasks in `docs/tasks/01-open/0010`–`0018`
-> **Priority**: High (P0)
+> **Status**: **Closed / Complete (2026-07-19)** — implementation drained; children **0010–0018** all under `docs/tasks/04-completed/`
+> **Priority**: High (P0) — historical
 > **Author**: GT-OmniRoute-Architect
-> **Date**: 2026-07-09
+> **Date**: 2026-07-09 · **Closeout**: 2026-07-19 (EPIC-10 / Task 0062 planning hygiene)
 > **Project**: omniroute
 > **Type**: feature / architecture
 > **Action types**: `EXTEND` (runtime) + `NEW` (UI surface) + `UX_VIS` (sidebar/page)
 > **Depends on**: none (does NOT depend on v3.8.46 merge; design is compatible with both current HEAD and origin/main)
 > **Supersedes / absorbs**: the ad-hoc `conditional-fusion` strategy sketch from the current working tree
 > **Related planning**:
+> - Acting unit extension → Epic **0004** (closeout evidence: Task **0063**; residual runtime → **EPIC-11**)
 > - `docs/architecture/FUSION-TRIGGERS-CONDITIONAL.md` (keep as design history; triggers become a Fusion field)
+> - `docs/architecture/FUSION.md` (operator SSoT for shipped fusion)
 > - `docs/tasks/00-planning/0001-omniroute-web-providers-fix-plan.md` (orthogonal; web providers feed the panel pool)
 > - `docs/tasks/00-planning/0002-omniroute-qwen-web-captcha-solver.md` (orthogonal; deferred)
+>
+> **Do not re-open as greenfield.** Fusion first-class (panels/judge combo-ref, triggers, UI, docs, tests) shipped via **0010–0018**. New fusion product work belongs under **EPIC-11** residuals (or later epics), not a new 0003 child series.
 
 ---
 
@@ -445,21 +449,21 @@ And it is usable as a routing target
 - `src/shared/components/ModelSelectModal.tsx` (or current model picker)
 - Combo-ref selection UI if present in combo builder steps
 
-### Suggested atomic task breakdown (architect may refine numbering)
+### Child tasks (shipped — all under `04-completed/`)
 
-| ID (suggested) | Slice | Title | Parallel? |
-|----------------|-------|-------|-----------|
-| 0010 | S0 | Fusion contracts: Zod + strategy registry + types | Blocker for others |
-| 0011 | S1 | Resolve FusionUnit from combo data | After 0010 |
-| 0012 | S2 | handleFusionChat multi-unit dispatch | After 0011 |
-| 0013 | S3 | Wire combo.ts fusion branches to V2 options | After 0012 |
-| 0014 | S4 | Triggers + fallbackStrategy runtime | After 0010 (can parallel 0011–13 if careful; prefer after 0013) |
-| 0015 | S5 | Fusions sidebar + list page | After 0010 |
-| 0016 | S6 | Fusions editor (panels/judge/triggers/tuning) | After 0015 |
-| 0017 | S7 | Docs, i18n keys, operator notes, changelog | After 0016 + runtime green |
-| 0018 | S8 | Test suite + regression hardening | After 0013+0014 |
+| ID | Slice | Title | Path |
+|----|-------|-------|------|
+| 0010 | S0 | Fusion contracts: Zod + strategy registry + types | `docs/tasks/04-completed/0010-omniroute-fusion-contracts.md` |
+| 0011 | S1 | Resolve FusionUnit from combo data | `docs/tasks/04-completed/0011-omniroute-fusion-resolve-units.md` |
+| 0012 | S2 | handleFusionChat multi-unit dispatch | `docs/tasks/04-completed/0012-omniroute-fusion-runtime-dispatch.md` |
+| 0013 | S3 | Wire combo.ts fusion branches to V2 options | `docs/tasks/04-completed/0013-omniroute-fusion-combo-branch-wire.md` |
+| 0014 | S4 | Triggers + fallbackStrategy runtime | `docs/tasks/04-completed/0014-omniroute-fusion-triggers-fallback.md` |
+| 0015 | S5 | Fusions sidebar + list page | `docs/tasks/04-completed/0015-omniroute-fusion-ui-shell.md` |
+| 0016 | S6 | Fusions editor (panels/judge/triggers/tuning) | `docs/tasks/04-completed/0016-omniroute-fusion-ui-editor.md` |
+| 0017 | S7 | Docs, i18n keys, operator notes, changelog | `docs/tasks/04-completed/0017-omniroute-fusion-docs-i18n.md` |
+| 0018 | S8 | Test suite + regression hardening | `docs/tasks/04-completed/0018-omniroute-fusion-tests-hardening.md` |
 
-Numbering note: local OmniRoute namespace; last digit `0` = blocker. Architect must check collisions with existing `0001`/`0002` planning docs and any open tasks.
+> **Lane truth (2026-07-19):** none of 0010–0018 remain in `01-open/`, `02-doing/`, or `03-review/`. Residual fusion runtime/tests → **EPIC-11** (not re-promote under 0003).
 
 ---
 
@@ -505,20 +509,10 @@ Epic is done when:
 
 **Input artifact for decomposition:** this file.
 
-**Required outputs:**
+**Historical required outputs (fulfilled 2026-07):**
 
-1. Atomic tasks in `docs/tasks/01-open/` following `docs/tasks/.archive/000-template-moved-to-parent.md` (or restored `000-template.md` if present).
-2. Each task ≥50 lines, with:
-   - Objective, Background, Test Requirements, Exit Conditions
-   - Subtasks starting with **Read existing code**
-   - Where table
-   - How / Why
-   - Anti-hallucination guardrails
-   - Empty Completion Evidence section
-3. Dependencies expressed as `Task NNNN` (lane-neutral).
-4. Action type tags: NEW / EXTEND / EXPOSE / HARDEN / UX_VIS.
-5. Exact verification commands per exit condition.
-6. Do **not** implement code. Do **not** edit `tasklist.md` unless asked.
-7. Do **not** expand scope into web-provider fixes or upstream merge.
+1. Atomic tasks were promoted and drained through `01-open` → `04-completed/` as **0010–0018** (see child table above).
+2. Template / Exit Conditions / Completion Evidence were required on each child.
+3. Do **not** re-decompose this epic into a new `01-open/` series. New fusion work → **EPIC-11** / later planning only.
 
-**After architect returns:** parent (OmniRoute Architect) reviews tasks for fidelity to D1–D10 and slice graph, then launches builders only for tasks that are 100% ready.
+**Closeout (2026-07-19):** Epic acceptance §13 items 1 and 7 met (children in `04-completed/`; CHANGELOG has Fusion First-Class entries). Residual product metrics (scenarios H, operator canary) are ops/history — not a reason to re-open greenfield 0003.

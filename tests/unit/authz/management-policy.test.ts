@@ -445,6 +445,10 @@ test("F-04-005: spawn-capable path rejects anonymous when requireLogin=false (lo
     "/api/middleware/hooks",
     // Task 0040 path-to-100 N1: provider-login is SPAWN pattern (Chromium spawn).
     "/api/providers/x/login",
+    // Task 0072 / F-SEC-W2-001: tailscale process-control mutators.
+    "/api/tunnels/tailscale/enable",
+    "/api/tunnels/tailscale/login",
+    "/api/tunnels/tailscale/disable",
   ]) {
     const out = await policy.evaluate(
       ctx(new Headers(), "POST", path, { socket: { remoteAddress: "127.0.0.1" } })

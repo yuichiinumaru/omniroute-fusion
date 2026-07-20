@@ -6,32 +6,67 @@ function readSource(relativePath: string) {
   return readFileSync(new URL("../../" + relativePath, import.meta.url), "utf8");
 }
 
-test("analytics page exposes the restored analytics tab shell", () => {
-  const source = readSource("src/app/(dashboard)/dashboard/analytics/page.tsx");
+test("analytics page is redirect shell; storytelling lives on Dashboard hub (0080+0081)", () => {
+  // Server shell redirects ops → Observe and storytelling → Dashboard (no content mount).
+  const page = readSource("src/app/(dashboard)/dashboard/analytics/page.tsx");
+  const hub = readSource("src/app/(dashboard)/home/DashboardStoryHubClient.tsx");
+  const topbar = readSource("src/app/(dashboard)/home/DashboardTopbar.tsx");
+  const home = readSource("src/app/(dashboard)/home/page.tsx");
 
-  assert.ok(source.includes("PageTabBar"));
-  assert.ok(source.includes('aria-label="Analytics sections"'));
-  assert.ok(source.includes('syncSearchParam="tab"'));
-  for (const label of [
-    "Overview",
-    "Evals",
-    "Search",
-    "Utilization",
-    "Combo Health",
-    "Route Trace",
-  ]) {
-    assert.ok(source.includes('label: "' + label + '"'));
+  assert.ok(page.includes("buildObserveComboHealthPath"));
+  assert.ok(
+    page.includes("resolveEpic19RouteTraceDestination") ||
+      page.includes("buildObserveRouteTracePath")
+  );
+  assert.ok(page.includes("buildDashboardStoryPath"));
+  assert.ok(page.includes("redirect"));
+  assert.ok(page.includes("combo-health"));
+  assert.ok(page.includes("route-trace") || page.includes("route-explain"));
+  assert.equal(page.includes("<AnalyticsPageClient"), false);
+
+  // Single-topbar rework: navigation is DashboardTopbar only (no nested strips).
+  assert.equal(
+    /import\s*\{[^}]*PageTabBar/.test(hub) ||
+      /import\s+PageTabBar\b/.test(hub) ||
+      /<PageTabBar\b/.test(hub),
+    false,
+    "story hub must not import/mount PageTabBar"
+  );
+  assert.equal(
+    /import\s+CostsSubnav\b/.test(hub) || /<CostsSubnav\b/.test(hub),
+    false,
+    "story hub must not import/mount CostsSubnav"
+  );
+  assert.ok(home.includes("<DashboardTopbar"), "home must mount DashboardTopbar");
+  assert.ok(topbar.includes('data-dashboard-topbar=""'));
+  assert.ok(
+    hub.includes("useSearchParams"),
+    "active tab must be URL-driven via searchParams"
+  );
+  for (const label of ["Evals", "Search", "Utilization", "Compression", "Costs"]) {
+    assert.ok(
+      topbar.includes('labelFallback: "' + label + '"'),
+      `missing topbar peer label ${label}`
+    );
   }
   for (const tabId of [
     "overview",
     "evals",
     "search",
     "utilization",
-    "combo-health",
-    "route-trace",
+    "compression",
+    "costs-overview",
   ]) {
-    assert.ok(source.includes('id: "' + tabId + '"'));
+    assert.ok(
+      topbar.includes('"' + tabId + '"') || topbar.includes("'" + tabId + "'"),
+      `missing topbar story tab id ${tabId}`
+    );
   }
+  // Operational tabs live under Observe ?panel= — not the Dashboard topbar.
+  assert.equal(hub.includes('id: "combo-health"'), false);
+  assert.equal(hub.includes('id: "route-trace"'), false);
+  assert.equal(topbar.includes('storyTab: "combo-health"'), false);
+  assert.equal(topbar.includes('storyTab: "route-trace"'), false);
 });
 
 test("endpoint page uses S5 tabs + protocol homes (not embedded MCP/A2A peers)", () => {

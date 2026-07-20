@@ -1,9 +1,10 @@
 # Epic 0008 — OmniRoute Adversarial Remediation (Wave 1 + Wave 2)
 
-> **Status**: Planning (children already in `01-open/` as 0040–0051); Architect-2 upgraded 2026-07-11  
-> **Priority**: Critical (P0 security + correctness from full-codebase adversarial hunt)  
+> **Status**: **Closed (remediation wave complete, 2026-07-19)** — children **0040–0051** all under `docs/tasks/04-completed/`  
+> **Priority**: Critical (P0 security + correctness — historical wave)  
 > **Author**: gt-task-architect · 2026-07-11  
 > **Reviewer (A2)**: gt-task-architect (independent) · 2026-07-11 — see §9  
+> **Hygiene**: 2026-07-19 (EPIC-10 / Task 0062)  
 > **Project**: omniroute-2  
 > **Type**: remediation / security / correctness  
 > **Action types**: `HARDEN` (authz, secrets, sanitization) + `FIX` (pipeline contracts, resilience wiring) + `EXTEND` (SSoT, tests)  
@@ -11,7 +12,9 @@
 > **Related**:  
 > - Source reports: full inventory in **§ Source reports** below (`docs/reports/00`–`08`)  
 > - Hard Rules #3, #12, #15, #17 (RCE / error sanitize / LOCAL_ONLY spawn)  
-> - **Do not compete** with open/doing/review work listed in exclusions below
+> - Stretch / deferred residuals in epic body remain **non-actionable history** unless re-homed under a later epic (e.g. **EPIC-12** security residual)  
+>
+> **Do not re-open as greenfield.** Primary P0/P1 package **0040–0051** drained. New security residual work → **EPIC-12** (or explicit new tasks), not re-promotion of 0040–0051.
 
 ---
 
@@ -75,11 +78,11 @@ Operators running with `requireLogin=false`, tunnel exposure, or SQLite backups 
 
 ### Stop criteria (out of scope)
 
-- **Already tracked — do not open competing tasks**:
-  - `01-open` **0036** dual-mode deploy verify
-  - `02-doing` **0017** fusion docs/i18n
-  - `03-review` fusion **0010–0016, 0018**; dual-mode **0032–0035, 0037–0039**; frontend IA **0023–0031**
-- Fusion residuals labeled **may overlap 03-review** in reports (e.g. F-03-012, F-03-W2-006) → **deferred / already tracked** unless residual is clearly outside fusion contracts
+- **Historical exclusions at wave start (lane truth 2026-07-19)**:
+  - Dual-mode ops: **0036** still `01-open/` (HOLD :21000)
+  - Fusion **0010–0018**, dual-mode **0032–0035**, UX **0037–0039**, IA **0020–0031** → all `04-completed/`
+  - Fusion runtime residuals → **EPIC-11**; security residuals → **EPIC-12**
+- Fusion residuals labeled **may overlap** in original reports (e.g. F-03-012, F-03-W2-006) → tracked under fusion/EPIC-11, not re-opened as 0008 children
 - Full multi-tenant product redesign; Electron product overhaul (P3 only as stretch)
 - Live tunnel RCE pentest on production (static + unit proof is the gate; VPS only if unit impossible)
 
@@ -218,17 +221,15 @@ Each child task lists exact `node --import tsx/esm --test …` patterns.
 
 ## 7. Promotion note for gt-task-architect
 
-Child tasks promoted to `docs/tasks/01-open/` as **0040–0051**.  
-Style: match `0036` / `0032` (Open status, Origin Epic 0008, first subtask = read existing code, ≥50 lines, binary exits, finding IDs in Background).  
-Do **not** rebuild `tasklist.md` here (parent may refresh later).  
-Do **not** touch 0036 / 0017 / 03-review fusion·dual-mode·IA contracts.
+**Historical (2026-07-11):** child tasks promoted to `01-open/` as **0040–0051**.  
+**Current (2026-07-19):** all **0040–0051** are in `docs/tasks/04-completed/`. Do not re-promote. Stretch residuals stay deferred text or re-home under **EPIC-12**.
 
 ---
 
-## 8. Child tasks (promoted 2026-07-11)
+## 8. Child tasks (lane truth 2026-07-19 — all completed)
 
-| Task | File (under `docs/tasks/01-open/`) | Story |
-|------|-------------------------------------|-------|
+| Task | File (under `docs/tasks/04-completed/`) | Story |
+|------|------------------------------------------|-------|
 | 0040 | `0040-omniroute-routeguard-local-only-always-protected-expansion.md` | S1 |
 | 0041 | `0041-omniroute-secrets-at-rest-encryption.md` | S2 |
 | 0042 | `0042-omniroute-chat-pipeline-envelope-and-sanitize.md` | S3 |
@@ -289,4 +290,5 @@ Do **not** touch 0036 / 0017 / 03-review fusion·dual-mode·IA contracts.
   7. **Dependency waves** A/B/C added; 0049↔0041 key-material coordination.
 - **No new task 0052+**: upgrades fit existing stories; splitting further would fragment ownership without new finding IDs.
 - **Intentionally deferred (still OK)**: fusion residuals; dual-mode F-05-006; bulk P2/P3 inventory as stretch on 0051; Electron sandbox P3; full multi-tenant redesign.
-- **Quality score after upgrades**: READY for promotion execution (tasks already in `01-open/`).
+- **Quality score after upgrades**: READY for promotion execution (tasks already in `01-open/` at review time).  
+- **Post-wave (2026-07-19)**: package executed and drained → `04-completed/0040`–`0051`; epic closed.

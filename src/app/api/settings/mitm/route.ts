@@ -9,6 +9,7 @@ import { resolveApiKey, isApiKeySecretUnavailableError } from "@/shared/services
 import { resolveMitmDataDir } from "@/mitm/dataDir";
 import { KIRO_MITM_PROFILE } from "@/mitm/targets/kiro";
 import { ANTIGRAVITY_MITM_PROFILE } from "@/mitm/targets/antigravity";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 type MitmTargetRoute = {
   id: string;
@@ -181,9 +182,15 @@ export async function GET(request: Request) {
     return NextResponse.json(await buildMitmResponse());
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "API key secret unavailable" },
+        { status: 400 }
+      );
     }
-    const message = error instanceof Error ? error.message : "Failed to load MITM settings";
+    const message =
+      sanitizeErrorMessage(
+        error instanceof Error ? error.message : "Failed to load MITM settings"
+      ) || "Failed to load MITM settings";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -240,9 +247,15 @@ export async function PUT(request: Request) {
     return NextResponse.json(await buildMitmResponse());
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "API key secret unavailable" },
+        { status: 400 }
+      );
     }
-    const message = error instanceof Error ? error.message : "Failed to update MITM settings";
+    const message =
+      sanitizeErrorMessage(
+        error instanceof Error ? error.message : "Failed to update MITM settings"
+      ) || "Failed to update MITM settings";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -281,10 +294,15 @@ export async function POST(request: Request) {
     return NextResponse.json(await buildMitmResponse());
   } catch (error) {
     if (isApiKeySecretUnavailableError(error)) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: sanitizeErrorMessage(error.message) || "API key secret unavailable" },
+        { status: 400 }
+      );
     }
     const message =
-      error instanceof Error ? error.message : "Failed to regenerate MITM certificate";
+      sanitizeErrorMessage(
+        error instanceof Error ? error.message : "Failed to regenerate MITM certificate"
+      ) || "Failed to regenerate MITM certificate";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
