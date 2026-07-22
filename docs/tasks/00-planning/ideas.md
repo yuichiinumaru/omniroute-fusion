@@ -44,43 +44,9 @@ Cheap GHA bumps — Dependabot will recreate anytime:
 
 ## 2. Combo Topology (inspired by Provider Topology on `/home`)
 
-**Inspiration:** Home dashboard Provider Topology — React Flow graph of providers + live activity  
-(`ProviderTopology.tsx`, `HomeProviderTopologySection`, shared `flow/*` canvas).
-
-**Product itch:** Provider topology shows *accounts/providers*. Operators care as much (or more) about **combos** — how traffic fans across models, fusion panels, fallbacks, cognitive lenses, acting/judge.
-
-### Sketch (not committed design)
-
-| Mode | UX |
-|------|-----|
-| **Catalog** | Graph or list of combos as nodes (strategy badge: fusion / conditional-fusion / priority / auto…) |
-| **Single-combo focus** | Pick one combo → expand internal topology: steps / panel units / judge / acting / combo-refs as nested nodes; edges = order, weight, or fusion fan-out |
-| **Live overlay** (stretch) | Active requests tint edges/nodes like provider topology (`activeRequests`) but keyed by combo name / step |
-
-### Reuse (do not rebuild from zero)
-
-- `src/shared/components/flow/FlowCanvas.tsx`, `edgeStyles.ts`, `StatusDot.tsx` (already extracted from ProviderTopology for Combo/Routing Studio + Compression Studio)  
-- Combo data: `src/lib/db/combos.ts` + resolve units (`fusion.ts` / combo steps)  
-- Optional home setting parallel to `showProviderTopologyOnHome` → e.g. `showComboTopologyOnHome` or a Routing hub page  
-
-### Why more useful than provider-only
-
-- Combos are the *policy*; providers are the *pool*  
-- Fusion + cognitive lenses (EPIC-22) need a visual “what does this combo actually do?”  
-- Conditional-fusion triggers are hard to explain as text; a diagram helps  
-
-### Out of scope until epic
-
-- Real-time multi-combo heatmap (nice-to-have after single-combo view)  
-- Editing graph = mutating combo (view-first; edit stays in Fusion/Combo editors)  
-
-**Priority:** P2 product idea — promote to EPIC when operator wants. Depends on stable combo schema (post EPIC-22 lenses OK).
-
-### Entry points (candidates)
-
-- Routing hub / Combos / Fusions area (self-evident IA)  
-- Or home section next to provider topology (toggle)  
-- Deep link: `/routing/combos?topology=<name>` or `/dashboard/fusions` peer tab  
+> **Promoted 2026-07-22 → [EPIC-24](./EPIC-24-omniroute-combo-topology.md)**  
+> Children: **0112** graph builder · **0113** UI route + dropdown · **0114** hub tests  
+> Operator lock: Routing hub topbar peer; dropdown under topbar (`All` + per-combo); expand combo-ref → model → **provider** (account optional later).  
 
 ---
 
