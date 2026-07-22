@@ -1,6 +1,7 @@
 import {
   parseEmbeddingModel,
   getAllEmbeddingModels,
+  toEmbeddingModelPublicMrlFields,
 } from "@omniroute/open-sse/config/embeddingRegistry.ts";
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
@@ -32,13 +33,17 @@ export async function GET() {
   const builtInModels = getAllEmbeddingModels();
   const timestamp = Math.floor(Date.now() / 1000);
 
+  // Built-in rows carry registry MRL fields via getAllEmbeddingModels /
+  // toEmbeddingModelPublicMrlFields (EPIC-21 T21-E). Custom models omit MRL
+  // keys unless future curation supplies them (no false positives).
   const data = builtInModels.map((m) => ({
     id: m.id,
     object: "model",
     created: timestamp,
     owned_by: m.provider,
     type: "embedding",
-    dimensions: m.dimensions,
+    dimensions: m.dimensions ?? null,
+    ...toEmbeddingModelPublicMrlFields(m),
   }));
 
   try {
@@ -50,6 +55,7 @@ export async function GET() {
         if (!model.supportedEndpoints.includes("embeddings")) continue;
         const fullId = toProviderScopedModelId(providerId, model.id);
         if (data.some((d) => d.id === fullId)) continue;
+        // Custom models: dimensions unknown; omit MRL keys (no false positives).
         data.push({
           id: fullId,
           object: "model",

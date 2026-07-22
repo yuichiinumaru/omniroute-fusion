@@ -12,7 +12,10 @@ import {
 } from "@/lib/localDb";
 import { extractAliasBackedModels } from "./aliasBackedModels";
 import { appendNoThinkingVariants } from "@omniroute/open-sse/utils/noThinkingAlias";
-import { getAllEmbeddingModels } from "@omniroute/open-sse/config/embeddingRegistry";
+import {
+  getAllEmbeddingModels,
+  toEmbeddingModelPublicMrlFields,
+} from "@omniroute/open-sse/config/embeddingRegistry";
 import { getAllImageModels } from "@omniroute/open-sse/config/imageRegistry";
 import { getAllRerankModels } from "@omniroute/open-sse/config/rerankRegistry";
 import { getAllAudioModels } from "@omniroute/open-sse/config/audioRegistry";
@@ -1130,6 +1133,8 @@ export async function getUnifiedModelsResponse(
         root: rawModelId,
         type: "embedding",
         dimensions: embModel.dimensions,
+        // EPIC-21 T21-E: expose registry MRL capability fields (omit for non-MRL).
+        ...toEmbeddingModelPublicMrlFields(embModel),
       });
     }
 

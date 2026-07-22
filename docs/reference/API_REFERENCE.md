@@ -121,16 +121,65 @@ Content-Type: application/json
 
 {
   "model": "nebius/Qwen/Qwen3-Embedding-8B",
-  "input": "The food was delicious"
+  "input": "The food was delicious",
+  "dimensions": 1024
 }
 ```
 
-Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**, **GitHub Models**.
+Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**, **GitHub Models**, Gemini (OpenAI-compat shim), and others registered in `open-sse/config/embeddingRegistry.ts`.
 
 ```bash
-# List all embedding models
+# List all embedding models (includes Matryoshka / MRL capability fields when curated)
 GET /v1/embeddings
 ```
+
+Embedding models also appear on `GET /v1/models` with `type: "embedding"` (catalog builder in `src/app/api/v1/models/catalog.ts`).
+
+### Dimensions / Matryoshka (MRL)
+
+Operator contract (EPIC-21 decisions **D1–D5**). Investigation:
+[`docs/reports/audits/2026-07-19-embeddings-mrl-dimensions-investigation.md`](../reports/audits/2026-07-19-embeddings-mrl-dimensions-investigation.md).
+
+| # | Decision | Runtime source (grep-verified) |
+|---|----------|--------------------------------|
+| **D1** | Client contract is OpenAI-compatible: optional body field **`dimensions`** on `POST /v1/embeddings`. | Request schema: `v1EmbeddingsSchema` in `src/shared/validation/schemas/apiV1.ts`; handler: `open-sse/handlers/embeddings.ts` |
+| **D2** | Gemini **OpenAI-compat** shim base URL: forward **`dimensions` only**; never send `outputDimensionality` on that path. | `open-sse/config/embeddingDimensionDialect.ts` (`gemini-openai-shim`, `stripFields: ["outputDimensionality"]`); applied in `open-sse/handlers/embeddings.ts` via `applyEmbeddingDimensions` |
+| **D3** | Future native Gemini embed URL may map `dimensions` → `outputDimensionality` (extension point; not the production registry baseUrl today). | Same dialect module (`gemini-native` mode) |
+| **D4** | When the model is MRL-capable and upstream returns a longer float vector than requested, OmniRoute **prefix-truncates** to `d` and applies **L2 renorm by default** (`EMBEDDING_MRL_CLIENT_RENORM_DEFAULT`). Non-MRL models are never silently truncated. | `open-sse/utils/embeddingMrl.ts`; constant in `open-sse/config/embeddingRegistry.ts`; wired post-upstream in `open-sse/handlers/embeddings.ts` (log event `embed.mrl_client_truncate`) |
+| **D5** | Unsupported requested dim on a **known MRL** model → **HTTP 400** with a clear message (not silent wrong length). | `validateRequestedMrlDim` in `open-sse/utils/embeddingMrl.ts`; pre-upstream gate in `open-sse/handlers/embeddings.ts` |
+
+**Discovery fields** (list + catalog, when registry marks `isMatryoshka: true`):
+
+| JSON field | Meaning |
+|------------|---------|
+| `dimensions` | Preferred / native default size when the client omits `dimensions` |
+| `isMatryoshka` | `true` only for curated MRL models (absent otherwise — no false positives) |
+| `matryoshkaMode` | `provider` \| `client_truncate` \| `none` — preferred production path for variable dims. **`provider` does not disable D4**: if upstream still returns a longer float vector, OmniRoute may prefix-truncate + L2 renorm. |
+| `minDimensions` / `maxDimensions` | Inclusive continuous range when documented |
+| `matryoshkaDimensions` | Curated discrete cut points (allowlist) |
+
+Mapper SSoT: `toEmbeddingModelPublicMrlFields` / `getAllEmbeddingModels` in `open-sse/config/embeddingRegistry.ts`.  
+List surface: `src/app/api/v1/embeddings/route.ts` (`GET`).  
+Catalog surface: `src/app/api/v1/models/catalog.ts` (embedding loop).
+
+Example list entry (shape only; exact allowlist values come from the seed registry):
+
+```json
+{
+  "id": "openai/text-embedding-3-small",
+  "object": "model",
+  "type": "embedding",
+  "owned_by": "openai",
+  "dimensions": 1536,
+  "isMatryoshka": true,
+  "matryoshkaMode": "provider",
+  "minDimensions": 1,
+  "maxDimensions": 1536,
+  "matryoshkaDimensions": [256, 512, 1024, 1536]
+}
+```
+
+Non-MRL models (e.g. `openai/text-embedding-ada-002`) expose `dimensions` only — no `isMatryoshka` / allowlist keys.
 
 ---
 

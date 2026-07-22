@@ -1,0 +1,18 @@
+# Changelog Index
+
+> Auto-generated from `.changelog/` entries.
+> Last rebuilt: 2026-07-22 02:06:05 UTC
+
+| Timestamp | Task | Project | Agent | Description | File |
+|:----------|:-----|:--------|:------|:------------|:-----|
+| 20260722-014427 | 0105 | omniroute-2 | reviewers | Task 0105 path-to-100: composition-shape tests for list/catalog; readonly public allowlist type; matryoshkaMode vs D4 docs note. | [20260722-014427-0105-epic21-catalog-docs-path-to-100-reviewers.md](./20260722-014427-0105-epic21-catalog-docs-path-to-100-reviewers.md) |
+| 20260722-013900 | 0104 | omniroute-2 | reviewers | Task 0104 path-to-100: applyClientMrl re-validates MRL dims; remove Record cast; base64 + invalid-dim pure tests. | [20260722-013900-0104-epic21-mrl-truncate-path-to-100-reviewers.md](./20260722-013900-0104-epic21-mrl-truncate-path-to-100-reviewers.md) |
+| 20260722-000100 | 0103 | omniroute-2 | reviewers | Task 0103 path-to-100: fail-closed dim bounds, Gemini MRL factory, readonly allowlist type. | [20260722-000100-0103-epic21-matryoshka-path-to-100-reviewers.md](./20260722-000100-0103-epic21-matryoshka-path-to-100-reviewers.md) |
+| 20260721-230604 | 0106 | omniroute-2 | builders | Flip dual-mode hand-edit to .changelog ledger; symlink/archive/profiles evidence; gitignore decision | [20260721-230604-0106-0106-path-to-100-ledger-policy-flip-honest-residuals-builders.md](./20260721-230604-0106-0106-path-to-100-ledger-policy-flip-honest-residuals-builders.md) |
+| 20260721-230352 | 0101 | omniroute-2 | builders | Fixed: stop injecting Gemini-native outputDimensionality into OpenAI-compat embeddings shim; forward dimensions only (D2). Invert dual-forward unit tests; combo schema comment D2. | [20260721-230352-0101-epic-21-t21-a-gemini-openai-shim-dimensions-p0-builders.md](./20260721-230352-0101-epic-21-t21-a-gemini-openai-shim-dimensions-p0-builders.md) |
+| 20260721-223940 | 0105 | omniroute-2 | builders | Added toEmbeddingModelPublicMrlFields + extended getAllEmbeddingModels; wired embeddings GET and models catalog; unit tests; API_REFERENCE Embeddings dimensions/MRL section. | [20260721-223940-0105-epic-21-t21-e-catalog-docs-dim-capabilities-builders.md](./20260721-223940-0105-epic-21-t21-e-catalog-docs-dim-capabilities-builders.md) |
+| 20260721-223530 | 0104 | omniroute-2 | builders | EPIC-21 T21-D client MRL prefix-truncate + L2 renorm fallback post-upstream; 400 for unsupported MRL dims and non-MRL mismatches; log embed.mrl_client_truncate. | [20260721-223530-0104-epic-21-client-mrl-truncate-fallback-t21-d-builders.md](./20260721-223530-0104-epic-21-client-mrl-truncate-fallback-t21-d-builders.md) |
+| 20260721-223149 | 0103 | omniroute-2 | builders | EPIC-21 T21-C registry Matryoshka/MRL metadata seed + helpers; D4 renorm default on. | [20260721-223149-0103-epic21-registry-matryoshka-metadata-builders.md](./20260721-223149-0103-epic21-registry-matryoshka-metadata-builders.md) |
+| 20260721-154708 | 0106 | omniroute-2 | builders | migrate root CHANGELOG to .changelog; parent-linked .memories (archived local shell). | [20260721-154708-0106-changelog-migrate-and-memories-parent-link-builders.md](./20260721-154708-0106-changelog-migrate-and-memories-parent-link-builders.md) |
+| 20260721-154553 | 0106 | legacy | builders | Migrated changelog to append-only docs/changelog entries with unified subcommands | [20260721-154553-0106-changelog-system-migration-builders.md](./20260721-154553-0106-changelog-system-migration-builders.md) |
+| 00000000-000000 | 0000 | legacy | builders | Legacy root CHANGELOG snapshot before docs/changelog migration | [00000000-000000-0000-legacy-changelog-builders.md](./00000000-000000-0000-legacy-changelog-builders.md) |

@@ -94,6 +94,7 @@ export {
   getEmbeddingProvider,
   parseEmbeddingModel,
   getAllEmbeddingModels,
+  toEmbeddingModelPublicMrlFields,
 } from "./config/embeddingRegistry.ts";
 
 // Image Generation

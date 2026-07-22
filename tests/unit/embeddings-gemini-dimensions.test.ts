@@ -8,13 +8,15 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "omniroute-embeddings-gemini-d
 
 const { handleEmbedding } = await import("../../open-sse/handlers/embeddings.ts");
 
-// Ported from upstream decolua/9router#1366 (author @nguyenha935).
-// Gemini embedding models can return 3072 dimensions by default. OpenAI-compatible
-// clients may request a smaller embedding (e.g. 1536 for pgvector schemas) via the
-// `dimensions` field. The Gemini native API uses `outputDimensionality` instead;
-// Google's OpenAI-compatibility shim does not document the `dimensions` translation,
-// so OmniRoute must forward `outputDimensionality` alongside `dimensions` for Gemini
-// embedding requests to guarantee the requested vector size lands at the model.
+// EPIC-21 T21-A — Gemini OpenAI-shim dimensions fix (Task 0101).
+//
+// Gemini's OpenAI-compat shim at /v1beta/openai/embeddings accepts standard
+// OpenAI `dimensions` and rejects the native `outputDimensionality` field with:
+//   400 Unknown name "outputDimensionality": Cannot find field.
+//
+// D2: OpenAI-shim = `dimensions` only. OmniRoute MUST NOT inject
+// `outputDimensionality` when the Gemini baseUrl is the OpenAI-compat path.
+// See: docs/reports/audits/2026-07-19-embeddings-mrl-dimensions-investigation.md
 
 function captureFetch(captured: { body?: Record<string, unknown> }) {
   return async (_url: unknown, options: { headers?: unknown; body?: unknown } = {}) => {
@@ -29,7 +31,7 @@ function captureFetch(captured: { body?: Record<string, unknown> }) {
   };
 }
 
-test("handleEmbedding forwards Gemini dimensions as outputDimensionality (single input)", async () => {
+test("handleEmbedding forwards Gemini dimensions WITHOUT outputDimensionality (single input)", async () => {
   const originalFetch = globalThis.fetch;
   const captured: { body?: Record<string, unknown> } = {};
   globalThis.fetch = captureFetch(captured) as typeof fetch;
@@ -46,17 +48,21 @@ test("handleEmbedding forwards Gemini dimensions as outputDimensionality (single
     });
 
     assert.equal(result.success, true);
-    // OpenAI-style `dimensions` must still be forwarded (back-compat).
+    // D2: OpenAI-style `dimensions` forwarded to the OpenAI-compat shim.
     assert.equal(captured.body?.dimensions, 1536);
-    // Gemini-native `outputDimensionality` must also be present so the upstream
-    // returns the requested vector size regardless of the OpenAI-shim behavior.
-    assert.equal(captured.body?.outputDimensionality, 1536);
+    // D2: `outputDimensionality` must NOT be present — the OpenAI-compat shim
+    // rejects it with 400 "Unknown name".
+    assert.equal(
+      "outputDimensionality" in (captured.body || {}),
+      false,
+      "outputDimensionality must not be injected on Gemini OpenAI-compat shim"
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("handleEmbedding forwards Gemini dimensions as outputDimensionality (batch input)", async () => {
+test("handleEmbedding forwards Gemini dimensions WITHOUT outputDimensionality (batch input)", async () => {
   const originalFetch = globalThis.fetch;
   const captured: { body?: Record<string, unknown> } = {};
   globalThis.fetch = captureFetch(captured) as typeof fetch;
@@ -73,8 +79,14 @@ test("handleEmbedding forwards Gemini dimensions as outputDimensionality (batch 
     });
 
     assert.equal(result.success, true);
+    // D2: OpenAI-style `dimensions` forwarded to the OpenAI-compat shim.
     assert.equal(captured.body?.dimensions, 1536);
-    assert.equal(captured.body?.outputDimensionality, 1536);
+    // D2: `outputDimensionality` must NOT be present.
+    assert.equal(
+      "outputDimensionality" in (captured.body || {}),
+      false,
+      "outputDimensionality must not be injected on Gemini OpenAI-compat shim"
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -156,6 +168,36 @@ test("handleEmbedding ignores non-finite/non-positive dimensions for Gemini", as
       "outputDimensionality" in (captured.body || {}),
       false,
       "0/NaN/negative dimensions must not map to outputDimensionality"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// Registry seed production model id (embeddingRegistry.ts gemini models).
+// Operator report used dimensions:768 on the OpenAI-compat shim.
+test("handleEmbedding forwards registry seed gemini/gemini-embedding-2 dimensions WITHOUT outputDimensionality", async () => {
+  const originalFetch = globalThis.fetch;
+  const captured: { body?: Record<string, unknown> } = {};
+  globalThis.fetch = captureFetch(captured) as typeof fetch;
+
+  try {
+    const result = await handleEmbedding({
+      body: {
+        model: "gemini/gemini-embedding-2",
+        input: "test",
+        dimensions: 768,
+      },
+      credentials: { apiKey: "gemini-key" },
+      log: null,
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(captured.body?.dimensions, 768);
+    assert.equal(
+      "outputDimensionality" in (captured.body || {}),
+      false,
+      "registry seed gemini-embedding-2 must use dimensions only on OpenAI-shim"
     );
   } finally {
     globalThis.fetch = originalFetch;

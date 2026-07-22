@@ -16,8 +16,8 @@ Parent workflows [`.agents/workflows/gt-create-tasks.md`](../../.agents/workflow
 1. Structure = `docs/tasks/000-template.md` (live path; ≥50 lines when open).  
 2. First subtask = **Ler código existente** / **Ler existentes**.  
 3. Exit Conditions are **binary** checkboxes — npm commands only unless the task is explicitly non-code docs/governance (still no cargo).  
-4. **Forbidden** as OmniRoute required exits: `cargo check`, `cargo test`, `cargo clippy`, Surreal `.bind()`, “must write `.changelog/` ledger”.  
-5. Changelog: root **`CHANGELOG.md`** TOP under `[Unreleased]` when the task needs a product/governance note.  
+4. **Forbidden** as OmniRoute required exits: `cargo check`, `cargo test`, `cargo clippy`, Surreal `.bind()`, hand-edit of generated root `CHANGELOG.md`.  
+5. Changelog: append-only entry under **`.changelog/`** via manage-changelog; then `rebuild.sh build` (root `CHANGELOG.md` is generated — Task 0106 ledger mode).  
 6. Dual test runners: Node native unit **and** `npm run test:vitest` when MCP / autoCombo / cache (vitest-owned) surfaces change.  
 7. Bug-fix tasks: include Hard Rule #18 (TDD fail→pass **or** documented VPS live proof).  
 8. Docs that claim live inventory counts: add an exit that runs a **live** count/grep (0009 U5 pointer).
@@ -43,7 +43,7 @@ Paste into the task and **adapt** file paths / test names. Keep the npm gates.
 - [ ] `npm run typecheck:core` passes without errors
 - [ ] `npm run lint` passes without **new** errors
 - [ ] Bug fix only: Hard Rule #18 — failing-then-passing test **or** documented VPS live proof
-- [ ] Entrada no TOPO de `CHANGELOG.md` under `[Unreleased]` (product surface; `.changelog/` not required)
+- [ ] Entrada no ledger `.changelog/` via manage-changelog + `rebuild.sh build` (do **not** hand-edit root `CHANGELOG.md`)
 - [ ] Completion Evidence filled with real npm command output (no cargo lines)
 ```
 
@@ -59,7 +59,7 @@ When **no** production code under `src/`, `open-sse/`, `electron/`, or `bin/` ch
 - [ ] [Doc/governance artifact paths exist and are linked]
 - [ ] Grep/doc-accuracy checks named in Test Requirements pass (no fabricated API names)
 - [ ] `npm run typecheck:core` passes (repo still type-clean; skip only if task forbids any toolchain run **and** operator agrees — default is still run)
-- [ ] Entrada no TOPO de `CHANGELOG.md` when the change is operator-visible governance
+- [ ] Entrada no ledger `.changelog/` + rebuild when the change is operator-visible governance
 - [ ] Completion Evidence filled
 - [ ] No cargo-required exits
 ```
@@ -87,7 +87,7 @@ If the agent’s mental model is “I am closing TypeScript work in OmniRoute”
 | Run `npm run typecheck:core` | Require `cargo check` |
 | Run targeted `node --import tsx/esm --test …` | Claim cargo test PASS |
 | Run `npm run test:vitest` when vitest surfaces change | Treat parent DoD cargo rows as mandatory |
-| Edit root `CHANGELOG.md` TOP | Fail for missing `.changelog/` |
+| Write `.changelog/` entry + `rebuild.sh build` | Hand-edit root `CHANGELOG.md` Unreleased |
 | Use `.agents/rules/definition-of-done-omniroute.md` | Copy-only parent `definition-of-done.md` cargo checklist |
 
 ---

@@ -1,4 +1,4 @@
-# Changelog
+# Changelog - Full History
 
 > **Note**: Auto-generated from individual entries in `.changelog/`.
 > **Do NOT edit manually** - use the changelog skill/subcommands.

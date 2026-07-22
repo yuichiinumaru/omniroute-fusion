@@ -73,26 +73,27 @@ Use these as the **default required exits** for product/code tasks (docs/governa
 | Vitest surfaces | `npm run test:vitest` when MCP / autoCombo / cache (or other vitest-owned) files change — **non-overlapping** with `test:unit` |
 | Full suite | `npm run test:all` only when scope warrants |
 | Bug fix proof | Hard Rule #18: TDD (fail→pass) **or** documented live test on VPS — see root AGENTS |
-| Changelog | Entry at **TOP** of root [`CHANGELOG.md`](../../CHANGELOG.md) |
+| Changelog | Append-only entry under [`.changelog/`](../../.changelog/) via manage-changelog; then `rebuild.sh build` projects root [`CHANGELOG.md`](../../CHANGELOG.md) |
 
 **Forbidden as OmniRoute mandatory exits** (unless the task is explicitly about a Rust/cargo surface, which this product is not):
 
 - `cargo check` / `cargo test` as required closeout  
 - SurrealDB `.bind()` laws  
-- Parent-only `.changelog/` ledger as the **only** allowed changelog path
+- Hand-editing root `CHANGELOG.md` / `CHANGELOG-FULL.md` / the `docs/changelog` symlink as a write path
 
-**DoD SSoT (Task 0065)**: [`.agents/rules/definition-of-done-omniroute.md`](../../.agents/rules/definition-of-done-omniroute.md) takes precedence for OmniRoute closes. Parent [`.agents/rules/definition-of-done.md`](../../.agents/rules/definition-of-done.md) remains cargo-centric for multi-stack history and is **not** mandatory here. This section + `000-template.md` + the overlay are the authoritative exits.
+**DoD SSoT (Task 0065, ledger adopted Task 0106)**: [`.agents/rules/definition-of-done-omniroute.md`](../../.agents/rules/definition-of-done-omniroute.md) takes precedence for OmniRoute closes. Parent [`.agents/rules/definition-of-done.md`](../../.agents/rules/definition-of-done.md) remains cargo-centric for multi-stack history and is **not** mandatory here. This section + `000-template.md` + the overlay are the authoritative exits.
 
 ---
 
-## 6. Changelog dual-mode (H-HARNESS-09)
+## 6. Changelog ledger mode (H-HARNESS-09 — adopted Task 0106)
 
-| Surface | Status in this repo |
-|---------|---------------------|
-| Root `CHANGELOG.md` | **Product SSoT** — edit TOP under `[Unreleased]` for task closes |
-| `.changelog/` Ganthritor ledger | **Absent** by default — do not invent full ledger content; do not fail OmniRoute tasks solely for missing ledger files |
+| Surface | Role in this repo |
+|---------|-------------------|
+| [`.changelog/`](../../.changelog/) | **Canonical append-only SSoT** — write entries here (manage-changelog `add` / `closeout` / engine) |
+| Root [`CHANGELOG.md`](../../CHANGELOG.md) | **Generated only** — `rebuild.sh build` (or closeout path). Banner: *Do NOT edit manually* |
+| `docs/changelog` | **Compat symlink** → `../.changelog` — not a separate write root |
 
-**Policy (Task 0065)**: dual-mode is intentional. Product/governance notes go to root `CHANGELOG.md`. Do **not** force `.changelog/` migration without an explicit operator decision. Full wording also lives in the OmniRoute DoD overlay § dual-mode.
+**Policy (Task 0106 supersedes Task 0065 dual-mode hand-edit)**: agents **must not** hand-edit root `CHANGELOG.md` Unreleased (or any section). All product/governance notes go through `.changelog/` + rebuild. Full wording in the OmniRoute DoD overlay § changelog ledger.
 
 ---
 
@@ -103,7 +104,7 @@ Before `03-review/`, executor MUST fill (npm field shape — see DoD overlay):
 - Files created/modified (paths)  
 - Tests that verify the work + **real** PASS/FAIL output (Node unit and/or vitest)  
 - Lint + `typecheck:core` results  
-- Changelog entry reference (root `CHANGELOG.md`)  
+- Changelog entry reference (`.changelog/<entry>.md` + rebuild; never claim hand-edit of root `CHANGELOG.md`)  
 - Agent id + date  
 
 Missing evidence = not reviewable. Reviewer must be a **different** agent than the executor. **Never** paste fabricated cargo PASS lines.

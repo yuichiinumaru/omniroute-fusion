@@ -15,10 +15,21 @@
 
 import {
   getEmbeddingProvider,
+  getEmbeddingModel,
   getEmbeddingModelDefaultParams,
   parseEmbeddingModel,
   type EmbeddingProvider,
 } from "../config/embeddingRegistry.ts";
+import {
+  applyEmbeddingDimensions,
+  DIMENSION_OWNED_FIELDS,
+} from "../config/embeddingDimensionDialect.ts";
+import {
+  applyClientMrlToEmbeddingData,
+  EMBED_MRL_CLIENT_TRUNCATE_EVENT,
+  parseRequestedEmbeddingDim,
+  validateRequestedMrlDim,
+} from "../utils/embeddingMrl.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { createRequestLogger } from "../utils/requestLogger.ts";
 import { isDetailedLoggingEnabled } from "@/lib/db/detailedLogs";
@@ -128,14 +139,21 @@ export async function handleEmbedding({
 
   // Build upstream request — start with standard fields, then forward extra fields
   // the client sent (e.g. input_type, user, truncate for NVIDIA NIM asymmetric models).
-  const KNOWN_FIELDS = new Set(["model", "input", "dimensions", "encoding_format"]);
+  // Dimension-owned keys (`dimensions`, `outputDimensionality`, …) are applied
+  // exclusively by the dialect SSoT (EPIC-21 T21-B / Task 0102) so provider-specific
+  // mapping cannot reintroduce ad-hoc dual inject.
+  const KNOWN_FIELDS = new Set([
+    "model",
+    "input",
+    "encoding_format",
+    ...DIMENSION_OWNED_FIELDS,
+  ]);
 
-  const upstreamBody: Record<string, unknown> = {
+  let upstreamBody: Record<string, unknown> = {
     model: model,
     input: body.input,
   };
 
-  if (body.dimensions !== undefined) upstreamBody.dimensions = body.dimensions;
   if (body.encoding_format !== undefined) upstreamBody.encoding_format = body.encoding_format;
 
   for (const [key, value] of Object.entries(body)) {
@@ -144,31 +162,46 @@ export async function handleEmbedding({
     }
   }
 
-  // Gemini embedding models (gemini-embedding-001 / -2-preview / text-embedding-004)
-  // default to 3072-dim vectors. Clients targeting pgvector-style schemas typically
-  // request a smaller size (e.g. 1536) via OpenAI's `dimensions` field, but Google's
-  // OpenAI-compatibility shim at /v1beta/openai/embeddings does not document the
-  // `dimensions` → `outputDimensionality` translation. Mirror the request value into
-  // the Gemini-native `outputDimensionality` field so the upstream actually returns
-  // the requested vector size. Ported from upstream decolua/9router#1366.
-  if (provider === "gemini" && upstreamBody.outputDimensionality === undefined) {
-    const outputDimensionality = Number(body.dimensions);
-    if (Number.isFinite(outputDimensionality) && outputDimensionality > 0) {
-      upstreamBody.outputDimensionality = outputDimensionality;
-    }
-  }
-
   // Inject model-level default params (e.g. NVIDIA NIM asymmetric models require
   // `input_type`) only for keys the client did not already supply, so a
   // client-sent value is never overwritten. Symmetric models carry no defaults
   // and are unaffected. See issue #1378.
+  // Dimension-owned keys are excluded: the dialect SSoT is the sole last-writer
+  // for those fields (applied immediately after).
   const defaultParams = getEmbeddingModelDefaultParams(providerConfig, model);
   if (defaultParams) {
+    const dimensionOwned = new Set(DIMENSION_OWNED_FIELDS);
     for (const [key, value] of Object.entries(defaultParams)) {
+      if (dimensionOwned.has(key)) continue;
       if (upstreamBody[key] === undefined) {
         upstreamBody[key] = value;
       }
     }
+  }
+
+  // EPIC-21 T21-B: dimension dialect SSoT (must run after passthrough + defaults).
+  // Client contract = OpenAI `dimensions`. Upstream field selection is data-driven:
+  // Gemini OpenAI-shim → dimensions only (strips outputDimensionality); default
+  // OpenAI-compat → dimensions; future Gemini native baseUrl → outputDimensionality.
+  // Preserves Task 0101 D2 contract (no dual inject on production Gemini baseUrl).
+  upstreamBody = applyEmbeddingDimensions({
+    providerId: provider,
+    baseUrl: providerConfig.baseUrl,
+    clientDimensions: body.dimensions,
+    upstreamBody,
+  });
+
+  // EPIC-21 T21-D: pre-upstream MRL dim validation (fail-closed for known MRL models).
+  // Saves quota when the client asks for an unsupported Matryoshka cut.
+  const embeddingModelEntry = model ? getEmbeddingModel(provider, model) : null;
+  const requestedDim = parseRequestedEmbeddingDim(body.dimensions);
+  const dimValidation = validateRequestedMrlDim(embeddingModelEntry, requestedDim);
+  if (!dimValidation.ok) {
+    return {
+      success: false,
+      status: 400,
+      error: sanitizeErrorMessage(dimValidation.message),
+    };
   }
 
   // Build headers
@@ -281,9 +314,36 @@ export async function handleEmbedding({
     reqLogger.logProviderResponse(response.status, "", response.headers, data);
 
     // Normalize response to OpenAI format
+    const rawDataField = data.data || data;
+
+    // EPIC-21 T21-D: client MRL prefix-truncate + L2 renorm when upstream
+    // returns N ≥ d for a Matryoshka model. Never silent-truncate non-MRL.
+    // Usage fields are left untouched — only data[].embedding lengths adjust.
+    const mrlResult = applyClientMrlToEmbeddingData({
+      dataField: rawDataField,
+      model: embeddingModelEntry,
+      requestedDim,
+    });
+    if (!mrlResult.ok) {
+      return {
+        success: false,
+        status: mrlResult.status,
+        error: sanitizeErrorMessage(mrlResult.message),
+      };
+    }
+
+    if (mrlResult.truncated && log) {
+      log.info(
+        EMBED_MRL_CLIENT_TRUNCATE_EVENT,
+        `${provider}/${model} | ${mrlResult.fromDim}→${mrlResult.toDim}` +
+          ` | count=${mrlResult.count ?? 0}` +
+          ` | renorm=${mrlResult.renorm === true}`
+      );
+    }
+
     const normalizedResponse = {
       object: "list",
-      data: data.data || data,
+      data: mrlResult.data,
       model: `${provider}/${model}`,
       usage: data.usage || { prompt_tokens: 0, total_tokens: 0 },
     };

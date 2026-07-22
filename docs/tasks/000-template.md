@@ -73,7 +73,7 @@
 - [ ] `npm run typecheck:core` passa sem erros
 - [ ] `npm run lint` passa sem erros novos
 - [ ] Relevant tests pass (`node --import tsx/esm --test …` and/or `npm run test:vitest` when those surfaces change; full `npm run test:all` only when scope warrants)
-- [ ] Entrada no `CHANGELOG.md` adicionada (no TOPO do arquivo) — product surface is root `CHANGELOG.md` (not `.changelog/` unless operator adopts ledger)
+- [ ] Entrada no ledger `.changelog/` via manage-changelog + `rebuild.sh build` (root `CHANGELOG.md` is **generated** — do **not** hand-edit Unreleased)
 
 ---
 
@@ -169,7 +169,7 @@ Subtasks:
 - **Resultado dos testes**: [PASS/FAIL + contagem — output real, não claim]
 - **Resultado do lint**: [PASS/FAIL]
 - **Resultado do typecheck/build**: [PASS/FAIL]
-- **Entrada no changelog**: [referência ao arquivo — root `CHANGELOG.md`]
+- **Entrada no changelog**: [path under `.changelog/<entry>.md` + rebuild; never claim hand-edit of root `CHANGELOG.md`]
 - **Agente executor**: [nome/role]
 - **Data de conclusão**: [YYYY-MM-DD]
 

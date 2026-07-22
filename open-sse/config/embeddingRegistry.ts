@@ -6,11 +6,115 @@
  *
  * API keys are stored in the same provider credentials system,
  * keyed by provider ID (e.g. "nebius", "openai").
+ *
+ * Matryoshka / MRL metadata (EPIC-21 T21-C / Task 0103):
+ * `dimensions` remains the preferred/native default size. Optional MRL fields
+ * (`isMatryoshka`, allowlist/range, `matryoshkaMode`) are additive curation for
+ * catalog exposure (0105) and client prefix-truncate fallback (0104).
  */
+
+/**
+ * How variable output dimensions are expected to be produced.
+ * - provider: upstream honors OpenAI `dimensions` (or dialect-mapped field)
+ * - client_truncate: OmniRoute may prefix-truncate post-upstream (0104)
+ * - none: not MRL-safe; do not shorten
+ */
+export type MatryoshkaMode = "provider" | "client_truncate" | "none";
+
+/**
+ * EPIC-21 D4 / Task 0103 lock for **0104** client MRL fallback:
+ * After prefix-truncating a returned vector to the requested dim, apply
+ * **L2 renormalization by default** (parity with OpenAI guidance to normalize
+ * after shortening). Operators may flip off only with explicit rationale.
+ */
+export const EMBEDDING_MRL_CLIENT_RENORM_DEFAULT = true as const;
+
+/**
+ * Gemini embedding family (gemini-embedding-001 / gemini-embedding-2).
+ * Public docs: flexible output 128–3072 (default 3072); recommended 768 / 1536 / 3072.
+ * Registry `dimensions: 768` is a **preferred default**, not full capability.
+ * Sources: https://ai.google.dev/gemini-api/docs/embeddings · DeepMind Gemini Embedding 2
+ *
+ * Factory (not a shared object) so each model row gets a fresh allowlist array —
+ * avoids cross-row mutation if a consumer ever mutates `matryoshkaDimensions`.
+ */
+function geminiEmbeddingMrl(): Pick<
+  EmbeddingModel,
+  | "isMatryoshka"
+  | "matryoshkaMode"
+  | "minDimensions"
+  | "maxDimensions"
+  | "matryoshkaDimensions"
+> {
+  return {
+    isMatryoshka: true,
+    matryoshkaMode: "provider",
+    minDimensions: 128,
+    maxDimensions: 3072,
+    // Recommended quality points (Google); continuous range is min–max above.
+    matryoshkaDimensions: [768, 1536, 3072],
+  };
+}
+
+/**
+ * OpenAI text-embedding-3-* (not ada-002).
+ * MRL via API `dimensions` parameter; any positive integer ≤ native is accepted.
+ * Native: small=1536, large=3072. Common documented cut points listed in allowlist.
+ * Source: https://openai.com/index/new-embedding-models-and-api-updates/
+ */
+function openaiEmbedding3Mrl(nativeDim: number): Pick<
+  EmbeddingModel,
+  | "isMatryoshka"
+  | "matryoshkaMode"
+  | "minDimensions"
+  | "maxDimensions"
+  | "matryoshkaDimensions"
+> {
+  const common =
+    nativeDim >= 3072
+      ? [256, 512, 1024, 1536, 3072]
+      : [256, 512, 1024, 1536].filter((d) => d <= nativeDim);
+  return {
+    isMatryoshka: true,
+    matryoshkaMode: "provider",
+    minDimensions: 1,
+    maxDimensions: nativeDim,
+    matryoshkaDimensions: common,
+  };
+}
+
+/**
+ * Qwen3-Embedding family (0.6B / 4B / 8B). Official tables mark MRL Support = Yes.
+ * Native dims: 0.6B→1024, 4B→2560, 8B→4096. Variable dims up to native.
+ * Sources: https://huggingface.co/Qwen/Qwen3-Embedding-8B · QwenLM/Qwen3-Embedding
+ */
+function qwen3EmbeddingMrl(nativeDim: number): Pick<
+  EmbeddingModel,
+  | "isMatryoshka"
+  | "matryoshkaMode"
+  | "minDimensions"
+  | "maxDimensions"
+  | "matryoshkaDimensions"
+> {
+  // Conservative curated cut points ≤ native (not a full invented continuum).
+  const candidates = [32, 64, 128, 256, 512, 768, 1024, 1536, 2048, 2560, 3072, 4096];
+  return {
+    isMatryoshka: true,
+    matryoshkaMode: "provider",
+    minDimensions: 32,
+    maxDimensions: nativeDim,
+    matryoshkaDimensions: candidates.filter((d) => d <= nativeDim),
+  };
+}
 
 export interface EmbeddingModel {
   id: string;
   name: string;
+  /**
+   * Preferred / native default vector length for this model.
+   * For MRL models this is the full-size output when `dimensions` is omitted —
+   * not necessarily the only legal size (see matryoshka* fields).
+   */
   dimensions?: number;
   /**
    * Model-level default request parameters injected into the upstream body when
@@ -19,6 +123,28 @@ export interface EmbeddingModel {
    * reject requests without `input_type` ("query" | "passage"). See issue #1378.
    */
   defaultParams?: Record<string, unknown>;
+  /**
+   * True when the model is trained with Matryoshka Representation Learning so
+   * prefix truncation / variable dims are geometrically valid.
+   * Unset or false → non-MRL; 0104 must not client-truncate.
+   */
+  isMatryoshka?: boolean;
+  /**
+   * Discrete allowed output dimensions (curated public cut points).
+   * When both this and min/max exist, either membership in the list **or**
+   * the continuous range may authorize a dim (see `isAllowedEmbeddingDim`).
+   * Prefer treating as read-only at call sites (do not mutate shared rows).
+   */
+  matryoshkaDimensions?: readonly number[];
+  /** Inclusive lower bound when a continuous MRL range is documented. */
+  minDimensions?: number;
+  /** Inclusive upper bound (usually native max dim). */
+  maxDimensions?: number;
+  /**
+   * Preferred path for variable dims. Client truncate (0104) still requires
+   * `isMatryoshka === true` and an allowed dim; mode documents intent.
+   */
+  matryoshkaMode?: MatryoshkaMode;
 }
 
 export interface EmbeddingProvider {
@@ -78,7 +204,14 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     baseUrl: "https://api.tokenfactory.nebius.com/v1/embeddings",
     authType: "apikey",
     authHeader: "bearer",
-    models: [{ id: "Qwen/Qwen3-Embedding-8B", name: "Qwen3 Embedding 8B", dimensions: 4096 }],
+    models: [
+      {
+        id: "Qwen/Qwen3-Embedding-8B",
+        name: "Qwen3 Embedding 8B",
+        dimensions: 4096,
+        ...qwen3EmbeddingMrl(4096),
+      },
+    ],
   },
 
   openai: {
@@ -87,8 +220,19 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     authType: "apikey",
     authHeader: "bearer",
     models: [
-      { id: "text-embedding-3-small", name: "Text Embedding 3 Small", dimensions: 1536 },
-      { id: "text-embedding-3-large", name: "Text Embedding 3 Large", dimensions: 3072 },
+      {
+        id: "text-embedding-3-small",
+        name: "Text Embedding 3 Small",
+        dimensions: 1536,
+        ...openaiEmbedding3Mrl(1536),
+      },
+      {
+        id: "text-embedding-3-large",
+        name: "Text Embedding 3 Large",
+        dimensions: 3072,
+        ...openaiEmbedding3Mrl(3072),
+      },
+      // ada-002 is NOT MRL — fixed 1536; do not mark isMatryoshka.
       { id: "text-embedding-ada-002", name: "Text Embedding Ada 002", dimensions: 1536 },
     ],
   },
@@ -134,6 +278,7 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
         id: "accounts/fireworks/models/qwen3-embedding-8b",
         name: "Qwen3 Embedding 8B",
         dimensions: 4096,
+        ...qwen3EmbeddingMrl(4096),
       },
     ],
   },
@@ -165,9 +310,24 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     authType: "apikey",
     authHeader: "bearer",
     models: [
-      { id: "Qwen/Qwen3-Embedding-8B", name: "Qwen3 Embedding 8B", dimensions: 4096 },
-      { id: "Qwen/Qwen3-Embedding-4B", name: "Qwen3 Embedding 4B", dimensions: 2560 },
-      { id: "Qwen/Qwen3-Embedding-0.6B", name: "Qwen3 Embedding 0.6B", dimensions: 1024 },
+      {
+        id: "Qwen/Qwen3-Embedding-8B",
+        name: "Qwen3 Embedding 8B",
+        dimensions: 4096,
+        ...qwen3EmbeddingMrl(4096),
+      },
+      {
+        id: "Qwen/Qwen3-Embedding-4B",
+        name: "Qwen3 Embedding 4B",
+        dimensions: 2560,
+        ...qwen3EmbeddingMrl(2560),
+      },
+      {
+        id: "Qwen/Qwen3-Embedding-0.6B",
+        name: "Qwen3 Embedding 0.6B",
+        dimensions: 1024,
+        ...qwen3EmbeddingMrl(1024),
+      },
       { id: "BAAI/bge-large-en-v1.5", name: "BGE Large EN v1.5", dimensions: 1024 },
       { id: "BAAI/bge-base-en-v1.5", name: "BGE Base EN v1.5", dimensions: 768 },
       { id: "BAAI/bge-m3", name: "BGE-M3", dimensions: 1024 },
@@ -186,11 +346,13 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
         id: "openai/text-embedding-3-small",
         name: "Text Embedding 3 Small (OpenRouter)",
         dimensions: 1536,
+        ...openaiEmbedding3Mrl(1536),
       },
       {
         id: "openai/text-embedding-3-large",
         name: "Text Embedding 3 Large (OpenRouter)",
         dimensions: 3072,
+        ...openaiEmbedding3Mrl(3072),
       },
       {
         id: "openai/text-embedding-ada-002",
@@ -206,8 +368,19 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     authType: "apikey",
     authHeader: "bearer",
     models: [
-      { id: "gemini-embedding-2", name: "Gemini Embedding 2", dimensions: 768 },
-      { id: "gemini-embedding-001", name: "Gemini Embedding 001", dimensions: 768 },
+      // dimensions: 768 = preferred default (Google recommends 768/1536/3072; API default is 3072).
+      {
+        id: "gemini-embedding-2",
+        name: "Gemini Embedding 2",
+        dimensions: 768,
+        ...geminiEmbeddingMrl(),
+      },
+      {
+        id: "gemini-embedding-001",
+        name: "Gemini Embedding 001",
+        dimensions: 768,
+        ...geminiEmbeddingMrl(),
+      },
     ],
   },
 
@@ -235,8 +408,18 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     authType: "apikey",
     authHeader: "bearer",
     models: [
-      { id: "text-embedding-3-small", name: "Text Embedding 3 Small (GitHub)", dimensions: 1536 },
-      { id: "text-embedding-3-large", name: "Text Embedding 3 Large (GitHub)", dimensions: 3072 },
+      {
+        id: "text-embedding-3-small",
+        name: "Text Embedding 3 Small (GitHub)",
+        dimensions: 1536,
+        ...openaiEmbedding3Mrl(1536),
+      },
+      {
+        id: "text-embedding-3-large",
+        name: "Text Embedding 3 Large (GitHub)",
+        dimensions: 3072,
+        ...openaiEmbedding3Mrl(3072),
+      },
     ],
   },
 
@@ -357,11 +540,82 @@ export function parseEmbeddingModel(
  * providers) — callers treat undefined as "can't assert", not "zero".
  */
 export function getEmbeddingDimension(modelStr: string): number | undefined {
+  return getEmbeddingModelEntry(modelStr)?.dimensions;
+}
+
+/**
+ * Look up the full `EmbeddingModel` row for `providerId` + model id
+ * (raw or provider-scoped). Returns null when unknown.
+ */
+export function getEmbeddingModel(
+  providerId: string,
+  modelId: string
+): EmbeddingModel | null {
+  const config = getEmbeddingProvider(providerId);
+  if (!config || !modelId) return null;
+  const normalized = normalizeProviderScopedModelId(providerId, modelId);
+  return config.models.find((m) => m.id === normalized || m.id === modelId) ?? null;
+}
+
+/**
+ * Resolve registry row from a `provider/model` (or bare model) string.
+ */
+export function getEmbeddingModelEntry(modelStr: string): EmbeddingModel | null {
   const { provider, model } = parseEmbeddingModel(modelStr);
-  if (!provider || !model) return undefined;
-  const config = getEmbeddingProvider(provider);
-  if (!config) return undefined;
-  return config.models.find((m) => m.id === model)?.dimensions;
+  if (!provider || !model) return null;
+  return getEmbeddingModel(provider, model);
+}
+
+/**
+ * True when the registry marks the model as Matryoshka / MRL-capable.
+ */
+export function isMatryoshkaModel(providerId: string, modelId: string): boolean {
+  return getEmbeddingModel(providerId, modelId)?.isMatryoshka === true;
+}
+
+/**
+ * Whether `dim` is an allowed output size for an MRL model row.
+ *
+ * Authorization (fail-closed for non-MRL and incomplete metadata):
+ * 1. `isMatryoshka` must be true.
+ * 2. If `matryoshkaDimensions` is non-empty and contains `dim` → allow.
+ * 3. Else if **both** min and max are set and `min ≤ dim ≤ max` → allow.
+ * 4. Else if only one of min/max is set, pair it with native `dimensions` as the
+ *    missing bound (never open-ended).
+ * 5. Else if only native `dimensions` equals `dim` → allow as identity.
+ * 6. Otherwise → reject (incomplete range without native identity is not authorized).
+ *
+ * Used by 0104 (client truncate) and 0105 (catalog validation).
+ */
+export function isAllowedEmbeddingDim(model: EmbeddingModel, dim: number): boolean {
+  if (!model.isMatryoshka) return false;
+  if (!Number.isFinite(dim) || dim <= 0 || !Number.isInteger(dim)) return false;
+
+  const allowlist = model.matryoshkaDimensions;
+  if (Array.isArray(allowlist) && allowlist.length > 0 && allowlist.includes(dim)) {
+    return true;
+  }
+
+  const min = model.minDimensions;
+  const max = model.maxDimensions;
+  const native = model.dimensions;
+  const hasMin = typeof min === "number";
+  const hasMax = typeof max === "number";
+  const hasNative = typeof native === "number";
+
+  if (hasMin && hasMax) {
+    return dim >= min && dim <= max;
+  }
+  // Incomplete continuous range: require native as the missing end (fail-closed).
+  if (hasMin && hasNative) {
+    return dim >= min && dim <= native;
+  }
+  if (hasMax && hasNative) {
+    return dim >= 1 && dim <= max;
+  }
+
+  // Fall back to native identity only (no open-ended min-only / max-only ranges).
+  return hasNative && native === dim;
 }
 
 /**
@@ -400,15 +654,68 @@ export function getEmbeddingModelDefaultParams(
 }
 
 /**
- * Get all embedding models as a flat list
+ * Public Matryoshka / MRL capability fields for list + catalog JSON
+ * (EPIC-21 T21-E / Task 0105).
+ *
+ * Stable camelCase names aligned with `EmbeddingModel` registry fields.
+ * Non-MRL rows return `{}` so operators never see false-positive capabilities.
+ * Allowlist arrays are copied so callers cannot mutate shared seed rows.
  */
-export function getAllEmbeddingModels() {
-  const models: Array<{
-    id: string;
-    name: string;
-    provider: string;
-    dimensions: number | undefined;
-  }> = [];
+export type EmbeddingModelPublicMrlFields = {
+  isMatryoshka?: true;
+  /** Copied allowlist (not shared with seed rows). Treat as read-only. */
+  matryoshkaDimensions?: readonly number[];
+  minDimensions?: number;
+  maxDimensions?: number;
+  matryoshkaMode?: MatryoshkaMode;
+};
+
+/**
+ * Map registry MRL metadata → public list/catalog fields.
+ * Only emits capability keys when `isMatryoshka === true`.
+ */
+export function toEmbeddingModelPublicMrlFields(
+  model: Pick<
+    EmbeddingModel,
+    | "isMatryoshka"
+    | "matryoshkaDimensions"
+    | "minDimensions"
+    | "maxDimensions"
+    | "matryoshkaMode"
+  >
+): EmbeddingModelPublicMrlFields {
+  if (model.isMatryoshka !== true) {
+    return {};
+  }
+  const out: EmbeddingModelPublicMrlFields = { isMatryoshka: true };
+  if (model.matryoshkaMode) {
+    out.matryoshkaMode = model.matryoshkaMode;
+  }
+  if (typeof model.minDimensions === "number") {
+    out.minDimensions = model.minDimensions;
+  }
+  if (typeof model.maxDimensions === "number") {
+    out.maxDimensions = model.maxDimensions;
+  }
+  if (Array.isArray(model.matryoshkaDimensions) && model.matryoshkaDimensions.length > 0) {
+    out.matryoshkaDimensions = [...model.matryoshkaDimensions];
+  }
+  return out;
+}
+
+/** Flat list row returned by `getAllEmbeddingModels` (provider-scoped id + MRL). */
+export type FlatEmbeddingModelListEntry = {
+  id: string;
+  name: string;
+  provider: string;
+  dimensions: number | undefined;
+} & EmbeddingModelPublicMrlFields;
+
+/**
+ * Get all embedding models as a flat list (includes MRL capability fields for 0105).
+ */
+export function getAllEmbeddingModels(): FlatEmbeddingModelListEntry[] {
+  const models: FlatEmbeddingModelListEntry[] = [];
   for (const [providerId, config] of Object.entries(EMBEDDING_PROVIDERS)) {
     for (const model of config.models) {
       models.push({
@@ -416,6 +723,7 @@ export function getAllEmbeddingModels() {
         name: model.name,
         provider: providerId,
         dimensions: model.dimensions,
+        ...toEmbeddingModelPublicMrlFields(model),
       });
     }
   }
