@@ -13,9 +13,13 @@ test("search-tools: export modal mounts on exportOpen (not by default) without i
   assert.equal(/<ExportCodeModal[^>]*\bisOpen=/.test(src), false, "no invalid isOpen prop on ExportCodeModal");
 });
 
-test("memory: tabs ordered memories -> engine -> playground", () => {
-  const src = read("src/app/(dashboard)/dashboard/memory/page.tsx");
-  assert.ok(src.includes('["memories", "engine", "playground"]'), "TABS order is memories, engine, playground");
+test("memory: single-scroll stack order memories -> engine -> playground (0095)", () => {
+  // EPIC-20 T20-J: tab topbar killed; sections stacked on MemoryPageClient
+  const src = read("src/app/(dashboard)/dashboard/memory/MemoryPageClient.tsx");
+  const iMem = src.indexOf('data-section="memories"');
+  const iEng = src.indexOf('data-section="engine"');
+  const iPlay = src.indexOf('data-section="playground"');
+  assert.ok(iMem >= 0 && iEng > iMem && iPlay > iEng, "section order is memories, engine, playground");
 });
 
 test("shared Select: renders children and guards placeholder/options when children present", () => {

@@ -27,9 +27,15 @@ import {
   type ComboStep,
 } from "../../src/lib/combos/steps.ts";
 import {
+  resolveJudgeModeDirective,
+  resolvePanelLensText,
+  type FusionCognitiveLensId,
+} from "../../src/shared/constants/fusionCognitiveLenses.ts";
+import {
   MAX_COMBO_DEPTH,
   MAX_GLOBAL_ATTEMPTS,
 } from "./combo/comboPredicates.ts";
+import { injectCustomSystemPrompt } from "./systemPrompt.ts";
 import type {
   ComboCollectionLike,
   ComboLike,
@@ -130,16 +136,24 @@ export function appendUserTurn(body: Body, text: string): Body {
 /**
  * Build the judge directive. Sources are anonymized ("Source N") so the judge
  * weighs substance, not the reputation of a model brand.
+ *
+ * EPIC-22: optional `judgeMode` selects the analysis directive via
+ * `resolveJudgeModeDirective` (default synthesize fingerprint when omit/unknown).
+ * Panel cognitive lenses never appear here.
  */
-export function buildJudgePrompt(answers: Array<{ text: string }>): string {
+export function buildJudgePrompt(
+  answers: Array<{ text: string }>,
+  judgeMode?: string | null
+): string {
   const panel = answers.map((a, i) => `[Source ${i + 1}]\n${a.text}`).join("\n\n");
+  const modeDirective = resolveJudgeModeDirective(judgeMode);
 
   return [
     `You are the JUDGE in a model-fusion panel. ${answers.length} expert models independently answered the user's most recent request. Their responses are below, anonymized by source.`,
     "",
     "Do NOT mention that multiple models were used, and do NOT refer to the sources. Produce ONE authoritative final answer addressed directly to the user.",
     "",
-    "First, internally analyze the panel along these dimensions: consensus (points most sources agree on — treat as higher-confidence), contradictions (where they disagree — resolve with your own judgment), partial coverage, unique insights only one source surfaced, and blind spots every source missed. Then write the best possible final answer grounded in that analysis — more complete and correct than any single response, with no filler.",
+    modeDirective,
     "",
     "=== PANEL RESPONSES ===",
     panel,
@@ -147,6 +161,26 @@ export function buildJudgePrompt(answers: Array<{ text: string }>): string {
     "",
     "Now write the final answer to the user's original request.",
   ].join("\n");
+}
+
+/**
+ * EPIC-22 T22-C: apply per-panel cognitive lens to a dispatch body.
+ *
+ * Resolves `thinkingMode` + `systemAddon` via `resolvePanelLensText`; when the
+ * composed text is non-empty, injects it with `injectCustomSystemPrompt`.
+ * Combo-ref units and empty compose are identity (no mutation of `body`).
+ * Never mutates the shared panel body base — inject clones when applying.
+ */
+export function applyFusionCognitiveLens(
+  body: Body,
+  unit: ResolvedFusionUnit
+): Body {
+  if (unit.kind !== "model") return body;
+  const text = resolvePanelLensText(unit.thinkingMode, unit.systemAddon);
+  if (!text) return body;
+  // SAFETY: Body is Record<string, unknown>; injectCustomSystemPrompt accepts and
+  // returns the same structural shape (shallow-cloned body). No extra fields invented.
+  return injectCustomSystemPrompt(body, text) as Body;
 }
 
 /**
@@ -348,9 +382,20 @@ export type HandleFusionChatOptions = {
 /**
  * Resolved panel/judge unit for Fusion First-Class (Epic 0003 §5.3).
  * Resolved by resolveFusionUnits (Task 0011); dispatch lands in Tasks 0012–0013.
+ *
+ * EPIC-22: optional `thinkingMode` / `systemAddon` on the model arm only —
+ * plumbed from ComboModelStep via comboStepToFusionUnit. Fan-out inject is 0109.
  */
 export type ResolvedFusionUnit =
-  | { kind: "model"; model: string; label?: string }
+  | {
+      kind: "model";
+      model: string;
+      label?: string;
+      /** Closed fusion cognitive lens id (EPIC-22). */
+      thinkingMode?: FusionCognitiveLensId;
+      /** Operator system addon prose (EPIC-22). */
+      systemAddon?: string;
+    }
   | { kind: "combo-ref"; comboName: string; label?: string };
 
 /**
@@ -399,6 +444,12 @@ export type HandleFusionChatOptionsV2 = {
   log: ComboLogger;
   comboName?: string;
   tuning?: FusionTuning;
+  /**
+   * EPIC-22: optional judge analysis mode (`synthesize` | `dialectical` |
+   * `security-review` | `pick-best`). Omit/unknown → synthesize directive.
+   * Affects judge user-turn only; never panel fan-out bodies.
+   */
+  judgeMode?: string | null;
 };
 
 /**
@@ -557,6 +608,7 @@ async function dispatchFusionUnit(args: {
 /**
  * Map a normalized ComboStep onto the fusion unit shape used by S1–S3.
  * Drops weight/id/provider fields that fusion dispatch does not need.
+ * Preserves EPIC-22 cognitive fields on the model arm (inject is 0109).
  */
 function comboStepToFusionUnit(step: ComboStep): ResolvedFusionUnit {
   if (step.kind === "combo-ref") {
@@ -570,6 +622,8 @@ function comboStepToFusionUnit(step: ComboStep): ResolvedFusionUnit {
     kind: "model",
     model: step.model,
     ...(step.label ? { label: step.label } : {}),
+    ...(step.thinkingMode ? { thinkingMode: step.thinkingMode } : {}),
+    ...(typeof step.systemAddon === "string" ? { systemAddon: step.systemAddon } : {}),
   };
 }
 
@@ -736,6 +790,7 @@ export async function handleFusionChatV2({
   log,
   comboName,
   tuning,
+  judgeMode,
 }: HandleFusionChatOptionsV2): Promise<Response> {
   const panel = Array.isArray(panels) ? panels.filter(Boolean) : [];
   if (panel.length === 0) {
@@ -756,11 +811,12 @@ export async function handleFusionChatV2({
 
   // A single-unit fusion has nothing to fuse — answer via that unit directly,
   // unless acting is set (then hand survivor text to acting as final voice).
+  // EPIC-22: still apply per-unit cognitive lens on the early path.
   if (panel.length === 1) {
     const nestingCtx = nesting ?? defaultFusionNesting(comboName);
     if (!actingUnit) {
       return dispatchFusionUnit({
-        body,
+        body: applyFusionCognitiveLens(body, panel[0]),
         unit: panel[0],
         handleSingleModel,
         handleComboChat,
@@ -771,8 +827,12 @@ export async function handleFusionChatV2({
       });
     }
     // Collect the single panel answer as review context, then hand to acting.
+    const singlePanelBody = applyFusionCognitiveLens(
+      { ...body, stream: false, tool_choice: "none" },
+      panel[0]
+    );
     const singleRes = await dispatchFusionUnit({
-      body: { ...body, stream: false, tool_choice: "none" },
+      body: singlePanelBody,
       unit: panel[0],
       handleSingleModel,
       handleComboChat,
@@ -796,7 +856,7 @@ export async function handleFusionChatV2({
       acting: actingUnit,
       finalWithoutActing: async () =>
         dispatchFusionUnit({
-          body,
+          body: applyFusionCognitiveLens(body, panel[0]),
           unit: panel[0],
           handleSingleModel,
           handleComboChat,
@@ -836,15 +896,16 @@ export async function handleFusionChatV2({
   //    Setting tool_choice to "none" prevents the panel from calling tools
   //    itself; the judge handles synthesis (and tool calls) from panel prose.
   //
-  //    Panel body ownership: fusion constructs panelBody once. Child combo-ref
-  //    panels receive this already-transformed body and MUST NOT re-strip tools.
+  //    Panel body ownership: fusion constructs panelBodyBase once (D9 flags).
+  //    Per-unit clone/inject via applyFusionCognitiveLens (EPIC-22); child
+  //    combo-ref panels receive that unit body and MUST NOT re-strip tools.
   //
   //    Abort graph (Task 0070 / H-FUSION-014): each panel gets an AbortController
   //    linked to comboChatBase.signal. withTimeout abort + collectPanel finish
   //    abort stragglers so orphaned upstream work stops tripping breakers late.
   const { tool_choice: _tc, ...rest } = body;
   void _tc;
-  const panelBody: Body = { ...rest, stream: false, tool_choice: "none" };
+  const panelBodyBase: Body = { ...rest, stream: false, tool_choice: "none" };
   const t0 = Date.now();
   const parentSignal = comboChatBase?.signal ?? null;
   const panelControllers: AbortController[] = panel.map(() => new AbortController());
@@ -865,9 +926,10 @@ export async function handleFusionChatV2({
   try {
     const calls = panel.map((unit, i) => {
       const ac = panelControllers[i];
+      const unitBody = applyFusionCognitiveLens(panelBodyBase, unit);
       return withTimeout(
         dispatchFusionUnit({
-          body: panelBody,
+          body: unitBody,
           unit,
           handleSingleModel,
           handleComboChat,
@@ -974,9 +1036,11 @@ export async function handleFusionChatV2({
     // 4. Judge analyzes + writes a synthesis (internal when acting is set).
     //    Judge body is non-streaming so we can extract text for the acting handoff.
     //    Without acting, judge streams/returns to the client (legacy Epic 0003).
+    //    EPIC-22: judgeMode changes directive only — no panel lens inject on judge.
+    const judgePrompt = buildJudgePrompt(answers, judgeMode);
     if (actingUnit) {
       const judgeBody: Body = {
-        ...appendUserTurn(body, buildJudgePrompt(answers)),
+        ...appendUserTurn(body, judgePrompt),
         stream: false,
         tool_choice: "none",
       };
@@ -1026,7 +1090,7 @@ export async function handleFusionChatV2({
     }
 
     // Legacy path (no acting): judge is the final voice.
-    const judgeBody = appendUserTurn(body, buildJudgePrompt(answers));
+    const judgeBody = appendUserTurn(body, judgePrompt);
     log.info("FUSION", `Judging ${answers.length} answers with ${judgeLabel}`);
     return dispatchFusionUnit({
       body: judgeBody,

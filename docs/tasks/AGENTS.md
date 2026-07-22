@@ -2,7 +2,7 @@
 
 > **Scope**: Executable task discipline for this child repo only.  
 > **Stack**: Node.js / Next.js / TypeScript / npm / better-sqlite3 (SQLite is canonical product storage).  
-> **Not this file**: Product Hard Rules, ports, worktrees, provider pipeline — see root [`AGENTS.md`](../../AGENTS.md) and [`CLAUDE.md`](../../CLAUDE.md).  
+> **Not this file**: Product Hard Rules, ports, worktrees, provider pipeline — see root [`AGENTS.md`](../../AGENTS.md) (former `CLAUDE.md` content was merged there 2026-07-22; stub remains at [`CLAUDE.md`](../../CLAUDE.md)).  
 > **Template SSoT**: [`000-template.md`](./000-template.md) (restored EPIC-14 / Task 0064; provenance archive under `.archive/`).
 
 This document exists so onboard Step 1.2 and create-tasks pre-reqs are **satisfiable on disk**. Do not invent a parallel protocol.
@@ -143,7 +143,7 @@ Do not re-import cargo exits into new `01-open/` tasks for this product.
 Full text lives in root `AGENTS.md`. Non-negotiable for task agents:
 
 - **`:21000` = production** — no docker rm/restart/mutate without explicit operator command. Prefer `:22000` / dry-run for agent work.  
-- **No commit to `main`**; worktrees under `.claude/worktrees/` per Hard Rule #19.  
+- **No commit to `main`**; worktrees under `.worktrees/<slug>/` per Hard Rule #19 (see root `CLAUDE.md` Worktree isolation).  
 - **Doc accuracy**: if `grep` finds zero hits, do not document the name. When docs claim inventory counts, require a live verification exit (0009 U5).  
 - SQLite via `src/lib/db/` is intentional product storage — not a temporary stand-in to abolish.
   Agent-readable exception: [`.agents/rules/sqlite-omniroute-product-exception.md`](../../.agents/rules/sqlite-omniroute-product-exception.md)

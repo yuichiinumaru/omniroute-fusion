@@ -9,6 +9,7 @@ import {
   buildObserveRouteTracePath,
   type ObserveOperationalPanel,
 } from "@/shared/constants/epic19Rebalance";
+import { buildObserveTrafficInspectorPath } from "@/shared/constants/epic20Operations";
 import { HEALTH_NAV_ITEM } from "@/shared/constants/sidebarVisibility";
 import {
   HUB_SUBNAV_ACTIVE_CLASS,
@@ -20,8 +21,8 @@ import { asSidebarTranslator, sidebarText } from "@/shared/utils/sidebarI18n";
 
 /**
  * Observe topbar active slot — stream sources + operational panels (`?panel=`) + Health.
- * Log streams stay on ObserveSource; combo-health / route-trace use panel= (0078/0080).
- * Health is a separate page, not a log stream or panel.
+ * Log streams stay on ObserveSource; combo-health / route-trace / traffic use panel=
+ * (0078/0080/0098). Health is a separate page, not a log stream or panel.
  * LINKS exhaustiveness is still asserted below.
  */
 export type ObserveHubActive = ObserveSource | ObserveOperationalPanel | "health";
@@ -56,6 +57,14 @@ const LINKS = [
     labelKey: "analyticsRouteTrace",
     label: "Route Trace",
     icon: "alt_route",
+  },
+  {
+    // EPIC-20 T20-M / 0098 — Traffic Inspector Observe peer (not Operations).
+    id: "traffic",
+    href: buildObserveTrafficInspectorPath(),
+    labelKey: "trafficInspector",
+    label: "Traffic Inspector",
+    icon: "network_check",
   },
   // Deep link — same path as OBSERVE_HEALTH_DEEP_LINK / HEALTH_NAV_ITEM (Task 0061).
   { id: "health", href: "/dashboard/health", labelKey: "health", label: "Health", icon: "health_and_safety" },

@@ -140,9 +140,10 @@ test("TOTAL_MCP_TOOL_COUNT equals unique MCP_TOOL_COUNT (no agentSkill double-co
 });
 
 test("MCP hub page imports live counts — no hardcoded tools:37 / scopes:13", () => {
+  // EPIC-20 / 0089: body lives under Operations CoreMCP peer
   const hubPath = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
-    "../../src/app/(dashboard)/dashboard/mcp/page.tsx"
+    "../../src/app/(dashboard)/operations/core-mcp/CoreMcpPageClient.tsx"
   );
   const source = readFileSync(hubPath, "utf8");
   assert.match(source, /MCP_TOOL_COUNT/);

@@ -11,6 +11,7 @@ import {
   formFromCombo,
   isFusionStrategy,
   normalizeFusionUnit,
+  unitToPayload,
   type FusionEditorForm,
 } from "../../src/app/(dashboard)/dashboard/fusions/fusionEditorTypes.ts";
 import { ROUTING_STRATEGIES } from "../../src/shared/constants/routingStrategies.ts";
@@ -160,4 +161,145 @@ test("emptyFusionForm is a valid starting point for create", () => {
   const payload = buildSavePayload(form, null, "create");
   assert.equal(payload.name, "n");
   assert.ok(payload.models.length >= 1);
+  assert.equal(form.judgeMode, "");
+  assert.equal("judgeMode" in payload.config, false);
+});
+
+// ─── EPIC-22 / Task 0110 — cognitive lens editor pure helpers ──────────────
+
+test("normalizeFusionUnit: reads valid mode+addon; drops invalid mode — EPIC-22/0110", () => {
+  const ok = normalizeFusionUnit({
+    kind: "model",
+    model: "p/a",
+    thinkingMode: "adversarial",
+    systemAddon: "counter-examples",
+  });
+  assert.ok(ok && ok.kind === "model");
+  if (!ok || ok.kind !== "model") return;
+  assert.equal(ok.thinkingMode, "adversarial");
+  assert.equal(ok.systemAddon, "counter-examples");
+
+  const bad = normalizeFusionUnit({
+    kind: "model",
+    model: "p/b",
+    thinkingMode: "turbo",
+    systemAddon: "kept-when-mode-invalid",
+  });
+  assert.ok(bad && bad.kind === "model");
+  if (!bad || bad.kind !== "model") return;
+  assert.equal(bad.thinkingMode, undefined);
+  assert.equal(bad.systemAddon, "kept-when-mode-invalid");
+});
+
+test("unitToPayload: emits structured object when mode or addon set — EPIC-22/0110", () => {
+  const withMode = unitToPayload({
+    kind: "model",
+    model: "p/a",
+    thinkingMode: "security",
+  });
+  assert.equal(typeof withMode, "object");
+  assert.deepEqual(withMode, {
+    kind: "model",
+    model: "p/a",
+    thinkingMode: "security",
+  });
+
+  const withAddonOnly = unitToPayload({
+    kind: "model",
+    model: "p/b",
+    systemAddon: "Focus on SSRF.",
+  });
+  assert.deepEqual(withAddonOnly, {
+    kind: "model",
+    model: "p/b",
+    systemAddon: "Focus on SSRF.",
+  });
+});
+
+test("unitToPayload: empty mode+addon omits keys (bare string) — EPIC-22/0110", () => {
+  assert.equal(unitToPayload({ kind: "model", model: "p/plain" }), "p/plain");
+  assert.equal(
+    unitToPayload({ kind: "model", model: "p/plain", systemAddon: "   " }),
+    "p/plain"
+  );
+});
+
+test("buildSavePayload → createComboSchema.safeParse succeeds for lens combo — EPIC-22/0110", () => {
+  const form = emptyFusionForm();
+  form.name = "lens-combo";
+  form.panels = [
+    {
+      kind: "model",
+      model: "p/a",
+      thinkingMode: "first-principles",
+      systemAddon: "Rebuild from axioms.",
+    },
+    { kind: "model", model: "p/b", thinkingMode: "adversarial" },
+  ];
+  form.judge = { kind: "model", model: "p/judge" };
+  form.judgeMode = "dialectical";
+  form.triggers.mode = "always";
+  const payload = buildSavePayload(form, null, "create");
+  const parsed = createComboSchema.safeParse(payload);
+  assert.equal(parsed.success, true, parsed.success ? "" : JSON.stringify(parsed.error?.issues));
+  if (!parsed.success) return;
+  assert.equal(parsed.data.config?.judgeMode, "dialectical");
+  const step0 = parsed.data.models[0] as {
+    thinkingMode?: string;
+    systemAddon?: string;
+  };
+  assert.equal(step0.thinkingMode, "first-principles");
+  assert.equal(step0.systemAddon, "Rebuild from axioms.");
+});
+
+test("formFromCombo round-trips mode+addon+judgeMode — EPIC-22/0110", () => {
+  const form = formFromCombo({
+    id: "cog-1",
+    name: "cog-fusion",
+    strategy: "fusion",
+    models: [
+      {
+        kind: "model",
+        model: "p/a",
+        thinkingMode: "skeptical-evidence",
+        systemAddon: "Cite sources.",
+      },
+      { kind: "model", model: "p/b", thinkingMode: "systems" },
+    ],
+    judge: "p/judge",
+    config: { judgeMode: "pick-best", triggers: { mode: "always" } },
+  });
+  assert.equal(form.judgeMode, "pick-best");
+  assert.equal(form.panels.length, 2);
+  assert.equal(form.panels[0]?.kind, "model");
+  if (form.panels[0]?.kind === "model") {
+    assert.equal(form.panels[0].thinkingMode, "skeptical-evidence");
+    assert.equal(form.panels[0].systemAddon, "Cite sources.");
+  }
+  if (form.panels[1]?.kind === "model") {
+    assert.equal(form.panels[1].thinkingMode, "systems");
+  }
+
+  const payload = buildSavePayload(form, null, "create");
+  const again = formFromCombo({
+    id: "cog-1",
+    name: payload.name,
+    strategy: payload.strategy,
+    models: payload.models,
+    judge: payload.judge ?? undefined,
+    config: payload.config,
+  });
+  assert.equal(again.judgeMode, "pick-best");
+  if (again.panels[0]?.kind === "model") {
+    assert.equal(again.panels[0].thinkingMode, "skeptical-evidence");
+    assert.equal(again.panels[0].systemAddon, "Cite sources.");
+  }
+});
+
+test("switching kind to combo-ref drops cognitive fields on unitToPayload — EPIC-22/0110", () => {
+  // Editor setKind("combo-ref") builds a fresh unit without mode/addon.
+  const refPayload = unitToPayload({ kind: "combo-ref", comboName: "inner" });
+  assert.deepEqual(refPayload, { kind: "combo-ref", comboName: "inner" });
+  assert.equal("thinkingMode" in (refPayload as object), false);
+  assert.equal("systemAddon" in (refPayload as object), false);
 });

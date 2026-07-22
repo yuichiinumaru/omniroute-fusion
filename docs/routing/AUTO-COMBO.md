@@ -179,7 +179,9 @@ OmniRoute's combo engine supports **18 routing strategies** (declared in `src/sh
 
 `fusion` / `conditional-fusion` are the strategies that do **not** pick a single target
 for the primary path. They fan the prompt to a **panel** of units in parallel, then a
-**judge** synthesizes one final answer. Full architecture: [`docs/architecture/FUSION.md`](../architecture/FUSION.md).
+**judge** synthesizes one final answer. Full architecture: [`docs/architecture/FUSION.md`](../architecture/FUSION.md)
+(including EPIC-22 cognitive lenses: panel `thinkingMode` / `systemAddon`, config `judgeMode` —
+config on the combo, not MCP tools).
 Implementation: `open-sse/services/fusion.ts`, gate: `open-sse/services/combo.ts`,
 triggers: `open-sse/services/fusionTriggers.ts`.
 
@@ -213,6 +215,9 @@ legacy `config.judgeModel`.
 | `judge` | `comboModelEntry` | first panel | Top-level judge unit (preferred) |
 | `acting` | `comboModelEntry` | unset | Optional final executor (Epic 0004) |
 | `config.judgeModel` | `string` | first panel | Legacy judge string |
+| `config.judgeMode` | enum | omit → synthesize | EPIC-22 judge directive style (see FUSION.md) |
+| `models[].thinkingMode` | enum | omit | EPIC-22 panel cognitive lens (model steps only) |
+| `models[].systemAddon` | string ≤4000 | omit | EPIC-22 operator system prose (model steps only) |
 | `config.triggers` | object | — | `mode`: `always` \| `tool-call` \| `text-match` |
 | `config.fallbackStrategy` | strategy | `priority` | Non-fusion strategy on trigger miss (D8) |
 | `config.fusionTuning.minPanel` | `number` | `2` | Quorum before grace timer |

@@ -913,6 +913,8 @@ export async function handleComboChat({
       cfg.fusionTuning && typeof cfg.fusionTuning === "object"
         ? (cfg.fusionTuning as FusionTuning)
         : undefined;
+    // EPIC-22: optional config.judgeMode → judge directive only (not panel inject).
+    const judgeMode = typeof cfg.judgeMode === "string" ? cfg.judgeMode : undefined;
     return handleFusionChatV2({
       body,
       panels,
@@ -926,6 +928,7 @@ export async function handleComboChat({
       log,
       comboName: combo.name,
       tuning,
+      judgeMode,
     });
   };
 

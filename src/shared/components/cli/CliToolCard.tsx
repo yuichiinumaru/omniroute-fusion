@@ -13,6 +13,8 @@ export interface CliToolCardProps {
   batchStatus: ToolBatchStatus | null;
   detailHref: string;
   hasActiveProviders: boolean;
+  /** Presentation density — grid (default card) or compact list row. */
+  layout?: "grid" | "list";
 }
 
 export default function CliToolCard({
@@ -20,12 +22,14 @@ export default function CliToolCard({
   batchStatus,
   detailHref,
   hasActiveProviders,
+  layout = "grid",
 }: CliToolCardProps) {
   const t = useTranslations("cliCommon");
   const installed = batchStatus?.detection.installed ?? false;
   const configStatus = batchStatus?.config.status ?? null;
   const version = batchStatus?.detection.version ?? "not found";
   const endpoint = batchStatus?.config.endpoint ?? null;
+  const isList = layout === "list";
 
   const showInstallChips = !installed && tool.configType !== "guide";
 
@@ -36,13 +40,16 @@ export default function CliToolCard({
         <Image
           src={tool.image}
           alt={tool.name}
-          width={32}
-          height={32}
+          width={isList ? 24 : 32}
+          height={isList ? 24 : 32}
           className="rounded-md object-contain flex-shrink-0"
         />
       ) : (
         <span
-          className="material-symbols-outlined text-[20px] flex-shrink-0"
+          className={cn(
+            "material-symbols-outlined flex-shrink-0",
+            isList ? "text-[18px]" : "text-[20px]"
+          )}
           style={{ color: tool.color }}
           aria-hidden="true"
         >
@@ -69,11 +76,14 @@ export default function CliToolCard({
   return (
     <Link
       href={detailHref}
+      data-layout={layout}
+      data-testid="cli-tool-card"
       className={cn(
-        "block min-h-[180px]",
+        "block",
+        isList ? "min-h-0" : "min-h-[180px]",
         "bg-surface border border-black/5 dark:border-white/5 rounded-lg shadow-sm",
         "hover:shadow-md hover:border-primary/30 transition-all",
-        "p-4 flex flex-col gap-3"
+        isList ? "p-3 flex flex-row items-center gap-3 flex-wrap" : "p-4 flex flex-col gap-3"
       )}
     >
       {/* Header */}
@@ -134,11 +144,16 @@ export default function CliToolCard({
       </div>
 
       {/* Footer */}
-      <div className="mt-auto pt-1 flex items-center justify-between">
-        <span className="text-xs text-primary font-medium">
+      <div
+        className={cn(
+          "flex items-center justify-between",
+          isList ? "ml-auto gap-2 shrink-0" : "mt-auto pt-1"
+        )}
+      >
+        <span className="text-xs text-primary font-medium whitespace-nowrap">
           {installed ? t("card.configure") : t("card.howToInstall")}
         </span>
-        {!hasActiveProviders && (
+        {!hasActiveProviders && !isList && (
           <span
             className="text-[10px] text-text-muted italic"
             title={t("card.connectProviderHint")}

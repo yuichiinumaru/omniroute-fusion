@@ -48,7 +48,7 @@ test("sidebar visibility drops stale entries from saved settings", () => {
   ]);
 });
 
-test("plugins route remains real (marketplace) even when not a primary leaf", async () => {
+test("plugins is not a primary leaf; list redirects to Integrations (0094), config stays live", async () => {
   assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("plugins"), true);
   assert.equal(sidebarVisibility.PRIMARY_SIDEBAR_ITEM_IDS.includes("plugins"), false);
 
@@ -56,8 +56,22 @@ test("plugins route remains real (marketplace) even when not a primary leaf", as
     join(repoRoot, "src/app/(dashboard)/dashboard/plugins/page.tsx"),
     "utf8"
   );
-  assert.doesNotMatch(pluginsPage, /^\s*redirect\(/m);
-  assert.match(pluginsPage, /marketplace/i);
+  // EPIC-20 Task 0094: list → Operations Integrations stack via builder
+  assert.match(pluginsPage, /redirect\(/);
+  assert.match(pluginsPage, /buildOperationsPath/);
+  assert.match(pluginsPage, /integrations/);
+
+  const pluginsClient = await readFile(
+    join(repoRoot, "src/app/(dashboard)/dashboard/plugins/PluginsPageClient.tsx"),
+    "utf8"
+  );
+  assert.match(pluginsClient, /marketplace/i);
+
+  const pluginsConfig = await readFile(
+    join(repoRoot, "src/app/(dashboard)/dashboard/plugins/[name]/config/page.tsx"),
+    "utf8"
+  );
+  assert.doesNotMatch(pluginsConfig, /^\s*redirect\(/m);
 });
 
 test("changelog remains hideable deep surface", () => {

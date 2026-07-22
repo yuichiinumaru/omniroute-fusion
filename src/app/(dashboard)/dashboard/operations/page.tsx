@@ -1,9 +1,10 @@
-import OperationsHubClient from "./OperationsHubClient";
+import { redirect } from "next/navigation";
+import { buildOperationsHubPath } from "@/shared/constants/epic20Operations";
 
 /**
- * Operations hub (Task 0059 Option A).
- * Sidebar Operations leaf points here; existing routes remain deep-linkable.
+ * Legacy Operations hub (Task 0059) → canonical EPIC-20 hub root.
+ * Matrix row: `/dashboard/operations` → `buildOperationsHubPath()` (owner 0087).
  */
-export default function OperationsPage() {
-  return <OperationsHubClient />;
+export default function OperationsLegacyRedirectPage() {
+  redirect(buildOperationsHubPath());
 }

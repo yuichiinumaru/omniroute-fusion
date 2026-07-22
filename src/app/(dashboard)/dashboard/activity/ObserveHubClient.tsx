@@ -22,9 +22,10 @@ import McpAuditTab from "../audit/McpAuditTab";
 import A2aAuditTab from "../audit/A2aAuditTab";
 import ComboHealthTab from "../analytics/ComboHealthTab";
 import RouteExplainabilityTab from "../analytics/RouteExplainabilityTab";
+import { TrafficInspectorPageClient } from "../tools/traffic-inspector/TrafficInspectorPageClient";
 
 // Stream chrome lives in ObserveHubSubnav (Task 0061); hub only composes viewers.
-// Operational panels (combo-health / route-trace) use ?panel= — Task 0080 / 0078 freeze.
+// Operational panels (combo-health / route-trace / traffic) use ?panel= — 0080 / 0098.
 
 function normalizeOperationalPanel(
   raw: string | null | undefined
@@ -53,16 +54,28 @@ function ObserveHubContent() {
       <ObserveHubSubnav active={subnavActive} />
 
       <Suspense fallback={<CardSkeleton />}>
-        {operationalPanel === "combo-health" ? (
-          <ComboHealthTab />
-        ) : operationalPanel === "route-trace" ? (
-          <RouteExplainabilityTab initialRequestId={initialRequestId} />
-        ) : (
-          renderObserveSourcePanel(activeSource, initialRequestId)
-        )}
+        {operationalPanel
+          ? renderOperationalPanel(operationalPanel, initialRequestId)
+          : renderObserveSourcePanel(activeSource, initialRequestId)}
       </Suspense>
     </div>
   );
+}
+
+/** Exhaustive operational panel dispatch (`?panel=`). */
+function renderOperationalPanel(panel: ObserveOperationalPanel, initialRequestId: string) {
+  switch (panel) {
+    case "combo-health":
+      return <ComboHealthTab />;
+    case "route-trace":
+      return <RouteExplainabilityTab initialRequestId={initialRequestId} />;
+    case "traffic":
+      return <TrafficInspectorPageClient />;
+    default: {
+      const _exhaustive: never = panel;
+      return _exhaustive;
+    }
+  }
 }
 
 /** Exhaustive panel dispatch — adding an ObserveSource without a panel fails typecheck. */

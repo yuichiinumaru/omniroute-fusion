@@ -869,7 +869,7 @@
     "cloudAgents": "Cloud Agents",
     "memory": "Memory",
     "skills": "Skills",
-    "omniSkills": "Omni Skills",
+    "omniSkills": "Core Skills",
     "agentSkills": "Agent Skills",
     "docs": "Docs",
     "issues": "Issues",
@@ -976,7 +976,7 @@
     "devtoolsSection": "Dev Tools",
     "configurationSection": "Configuration",
     "aiFeaturesSection": "AI Features",
-    "mcp": "MCP Server",
+    "mcp": "CoreMCP",
     "a2a": "A2A Server",
     "plugins": "Plugins",
     "apiEndpoints": "API Endpoints",
@@ -1140,9 +1140,12 @@
     "observeNav": "Observe",
     "costsNav": "Costs",
     "operationsNav": "Operations",
+    "operationsAgents": "Agents",
+    "operationsAgentsSubtitle": "CLI Agents · CLI Code",
     "testingNav": "Testing",
     "testingSubtitle": "Labs · batch · media · plugins",
-    "settingsNav": "Settings"
+    "settingsNav": "Settings",
+    "a2aAcpBridge": "A2A/ACP Bridge"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1414,8 +1417,9 @@
     "homeDescription": "Welcome to OmniRoute",
     "endpoint": "Endpoints",
     "endpointDescription": "Manage proxy endpoints, MCP, A2A, and API endpoints",
-    "mcp": "MCP Server",
+    "mcp": "CoreMCP",
     "mcpDescription": "Model Context Protocol server management and tools",
+    "operationsAgentsDescription": "CLI Agents and CLI Code tools pointing at OmniRoute",
     "a2a": "A2A Server",
     "a2aDescription": "Agent-to-Agent protocol tasks and observability",
     "settings": "Settings",
@@ -1498,7 +1502,8 @@
     "settingsAdvancedDescription": "Advanced payload rules, request limits, and proxy API settings",
     "mitmProxyDescription": "Configure MITM proxy settings for traffic inspection and debugging",
     "oneProxyDescription": "Configure 1Proxy settings for advanced proxy chaining",
-    "omniSkillsDescription": "Inbound sandbox tools OmniRoute injects into model requests"
+    "omniSkillsDescription": "Inbound sandbox tools OmniRoute injects into model requests",
+    "a2aAcpBridgeDescription": "Agent Bridge, A2A JSON-RPC server, and ACP agent registry"
   },
   "home": {
     "quickStart": "Quick Start",
@@ -2463,6 +2468,28 @@
     "fusionFallbackStrategyHelp": "Used when triggers do not match. Fusion strategies are excluded (no recursion).",
     "fusionTuning": "Tuning",
     "fusionTuningHelp": "Quorum and timeout controls for panel collection (defaults shown as placeholders).",
+    "fusionCognitiveLens": "Cognitive lens",
+    "fusionCognitiveLensHelp": "Optional framing injected into this panel's system prompt. Empty = no lens.",
+    "fusionCognitiveLensNone": "None (default)",
+    "fusionCognitiveLens_first-principles": "First principles",
+    "fusionCognitiveLens_adversarial": "Adversarial",
+    "fusionCognitiveLens_security": "Security",
+    "fusionCognitiveLens_systems": "Systems",
+    "fusionCognitiveLens_implementation": "Implementation",
+    "fusionCognitiveLens_skeptical-evidence": "Skeptical evidence",
+    "fusionCognitiveLens_custom": "Custom",
+    "fusionCognitiveSystemAddon": "System addon",
+    "fusionCognitiveSystemAddonHelp": "Optional extra instructions. Required when lens is Custom.",
+    "fusionCognitiveSystemAddonPlaceholder": "Optional operator prose for this panel…",
+    "fusionCognitiveCustomRequiresAddon": "Cognitive lens \"Custom\" requires a non-empty system addon",
+    "fusionCognitiveSystemAddonTooLong": "System addon must be at most 4000 characters",
+    "fusionJudgeMode": "Judge mode",
+    "fusionJudgeModeHelp": "How the judge merges panel answers. Empty uses synthesize at runtime.",
+    "fusionJudgeModeDefault": "Default (synthesize)",
+    "fusionJudgeMode_synthesize": "Synthesize (default)",
+    "fusionJudgeMode_dialectical": "Dialectical",
+    "fusionJudgeMode_security-review": "Security review",
+    "fusionJudgeMode_pick-best": "Pick best",
     "fusionUnitModel": "Model",
     "fusionUnitComboRef": "Combo ref",
     "fusionPickModel": "Pick model",
@@ -3104,7 +3131,7 @@
     "tabsAria": "Endpoint sections",
     "protocolsTitle": "Protocols",
     "protocolsDescription": "MCP and A2A are first-class endpoints with dedicated observability and controls.",
-    "mcpCardTitle": "MCP Server",
+    "mcpCardTitle": "CoreMCP",
     "mcpCardDescription": "Model Context Protocol over stdio",
     "a2aCardTitle": "A2A Server",
     "a2aCardDescription": "Agent2Agent JSON-RPC endpoint",
@@ -3228,7 +3255,10 @@
     "featureAuth": "API key and OAuth scope management per endpoint"
   },
   "mcpDashboard": {
-    "loading": "Loading MCP dashboard...",
+    "pageTitle": "CoreMCP",
+    "howToTitle": "How to use CoreMCP",
+    "howToSubtitle": "Quick start steps for clients and transports",
+    "loading": "Loading CoreMCP dashboard...",
     "activate": "activate",
     "deactivate": "deactivate",
     "confirmSwitchCombo": "Confirm {action} combo \"{combo}\"?",
@@ -3251,8 +3281,8 @@
     "transportStreamableHttpDesc": "Remote — Modern bidirectional HTTP",
     "copy": "Copy",
     "mcpDashboardCopyUrl": "Copy URL",
-    "mcpDisabledTitle": "MCP is disabled",
-    "mcpDisabledDesc": "Enable MCP above to configure transport mode and view server telemetry.",
+    "mcpDisabledTitle": "CoreMCP is disabled",
+    "mcpDisabledDesc": "Enable CoreMCP above to configure transport mode and view server telemetry.",
     "mcpIntro": "Model Context Protocol — {tools} tools across {scopes} scopes, {transports} transports (stdio / SSE / Streamable HTTP).",
     "mcpStep1": "Run via {code}",
     "mcpStep2": "Configure your MCP client to connect over stdio transport.",
@@ -3572,7 +3602,7 @@
     "memoryEnabled": "Memory enabled"
   },
   "skills": {
-    "title": "Omni Skills",
+    "title": "Core Skills",
     "description": "Inbound sandbox tools for model requests — not Agent Skills or MCP tools",
     "skillsTab": "Skills",
     "executionsTab": "Executions",
@@ -9051,7 +9081,9 @@
     "detectionNotFound": "Not found",
     "baseUrlAll": "All",
     "baseUrlFull": "Full",
-    "baseUrlPartial": "Partial"
+    "baseUrlPartial": "Partial",
+    "visibleCount": "{count} visible",
+    "emptyState": "No CLI code tools match the current filters."
   },
   "cliAgents": {
     "pageTitle": "CLI Agents",
@@ -9063,7 +9095,14 @@
     "detectionInstalled": "Installed",
     "detectionNotInstalled": "Not installed",
     "visibleCount": "{count} visible",
-    "emptyState": "No CLI agents found with the current filters."
+    "emptyState": "No CLI agents found with the current filters.",
+    "fusionPageTitle": "Agents",
+    "fusionPageSubtitle": "CLI Agents and CLI Code tools pointing at OmniRoute",
+    "viewModeGrid": "Grid",
+    "viewModeList": "List",
+    "viewModeAria": "Tool layout",
+    "explainersTitle": "About CLI Agents & Code",
+    "explainersSubtitle": "Concepts and comparison — collapsed by default"
   },
   "acpAgents": {
     "pageTitle": "ACP Agents",
@@ -9108,13 +9147,13 @@
         "crossLinkLabel": "Understand the difference →"
       },
       "omni": {
-        "title": "Omni Skills — Inbound",
-        "description": "Omni Skills are sandbox tools that OmniRoute injects into the model's context on every request. They are executed by OmniRoute, not read by the agent.",
+        "title": "Core Skills — Inbound",
+        "description": "Core Skills are sandbox tools that OmniRoute injects into the model's context on every request. They are executed by OmniRoute, not read by the agent.",
         "crossLinkLabel": "Understand the difference →"
       },
       "comparison": {
         "colAgent": "Agent Skills",
-        "colOmni": "Omni Skills",
+        "colOmni": "Core Skills",
         "whatIs": {
           "label": "What it is",
           "agent": "Machine-readable SKILL.md that teaches an external agent to operate OmniRoute",

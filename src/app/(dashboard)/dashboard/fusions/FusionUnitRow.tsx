@@ -1,8 +1,14 @@
 "use client";
 
+import { useId } from "react";
 import { useTranslations } from "next-intl";
 import Button from "@/shared/components/Button";
-import type { ComboRefOption, FusionUnit } from "./fusionEditorTypes";
+import {
+  FUSION_COGNITIVE_LENS_IDS,
+  FUSION_SYSTEM_ADDON_MAX_CHARS,
+  type FusionCognitiveLensId,
+} from "@/shared/constants/fusionCognitiveLenses";
+import type { ComboRefOption, FusionModelUnit, FusionUnit } from "./fusionEditorTypes";
 import { unitDisplayLabel } from "./fusionEditorTypes";
 
 type FusionUnitRowProps = {
@@ -20,6 +26,11 @@ type FusionUnitRowProps = {
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   testId?: string;
+  /**
+   * EPIC-22: show cognitive lens + systemAddon controls.
+   * Only enable for **panel** model rows (not judge/acting/combo-ref).
+   */
+  showCognitiveFields?: boolean;
 };
 
 function tx(
@@ -33,6 +44,69 @@ function tx(
   } catch {
     return fallback;
   }
+}
+
+/** Human labels for closed lens ids (i18n keys under combos.fusionCognitiveLens_*). */
+const LENS_LABEL_FALLBACKS: Record<FusionCognitiveLensId, string> = {
+  "first-principles": "First principles",
+  adversarial: "Adversarial",
+  security: "Security",
+  systems: "Systems",
+  implementation: "Implementation",
+  "skeptical-evidence": "Skeptical evidence",
+  custom: "Custom",
+};
+
+type ModelPatch = {
+  model?: string;
+  providerId?: string;
+  connectionId?: string | null;
+  label?: string;
+  /** `null` clears the field; omit leaves previous. */
+  thinkingMode?: FusionCognitiveLensId | null;
+  /** `null` clears the field; omit leaves previous. */
+  systemAddon?: string | null;
+};
+
+/**
+ * Preserve model-only meta when editing one field (provider pin, cognitive lens, label).
+ */
+function patchModelUnit(unit: FusionUnit | null, patch: ModelPatch): FusionModelUnit {
+  const base: FusionModelUnit =
+    unit?.kind === "model" ? { ...unit } : { kind: "model", model: "" };
+
+  const next: FusionModelUnit = {
+    kind: "model",
+    model: patch.model !== undefined ? patch.model : base.model,
+  };
+
+  const providerId = patch.providerId !== undefined ? patch.providerId : base.providerId;
+  if (providerId) next.providerId = providerId;
+
+  const connectionId =
+    patch.connectionId !== undefined ? patch.connectionId : base.connectionId;
+  if (connectionId !== undefined) next.connectionId = connectionId;
+
+  const label = patch.label !== undefined ? patch.label : base.label;
+  if (label) next.label = label;
+
+  if (patch.thinkingMode === null) {
+    // cleared
+  } else if (patch.thinkingMode !== undefined) {
+    next.thinkingMode = patch.thinkingMode;
+  } else if (base.thinkingMode) {
+    next.thinkingMode = base.thinkingMode;
+  }
+
+  if (patch.systemAddon === null) {
+    // cleared
+  } else if (patch.systemAddon !== undefined) {
+    if (patch.systemAddon !== "") next.systemAddon = patch.systemAddon;
+  } else if (base.systemAddon !== undefined && base.systemAddon !== "") {
+    next.systemAddon = base.systemAddon;
+  }
+
+  return next;
 }
 
 /**
@@ -54,8 +128,14 @@ export default function FusionUnitRow({
   canMoveUp = false,
   canMoveDown = false,
   testId,
+  showCognitiveFields = false,
 }: FusionUnitRowProps) {
   const t = useTranslations("combos");
+  const fieldId = useId();
+  const lensSelectId = `${fieldId}-lens`;
+  const lensHelpId = `${fieldId}-lens-help`;
+  const addonFieldId = `${fieldId}-addon`;
+  const addonHelpId = `${fieldId}-addon-help`;
   const entryKind: "model" | "combo-ref" | "empty" = unit
     ? unit.kind
     : allowEmpty
@@ -67,10 +147,12 @@ export default function FusionUnitRow({
   const setKind = (kind: "model" | "combo-ref") => {
     if (kind === "model") {
       if (unit?.kind === "model") return;
+      // Switching to model clears combo-ref; start without cognitive fields.
       onChange({ kind: "model", model: "" });
       return;
     }
     if (unit?.kind === "combo-ref") return;
+    // Switching to combo-ref drops thinkingMode / systemAddon (no cognitive on refs).
     const first = filteredRefs[0];
     onChange({ kind: "combo-ref", comboName: first?.name || "" });
   };
@@ -96,6 +178,30 @@ export default function FusionUnitRow({
     "Combo refs may nest; fusion→fusion depth is guarded at runtime"
   );
   const fusionDepthGuardedLabel = tx(t, "fusionFusionDepthGuarded", "(fusion — depth guarded)");
+  const cognitiveLensLabel = tx(t, "fusionCognitiveLens", "Cognitive lens");
+  const cognitiveLensHelp = tx(
+    t,
+    "fusionCognitiveLensHelp",
+    "Optional framing injected into this panel's system prompt. Empty = no lens."
+  );
+  const cognitiveLensNone = tx(t, "fusionCognitiveLensNone", "None (default)");
+  const systemAddonLabel = tx(t, "fusionCognitiveSystemAddon", "System addon");
+  const systemAddonHelp = tx(
+    t,
+    "fusionCognitiveSystemAddonHelp",
+    "Optional extra instructions. Required when lens is Custom."
+  );
+  const systemAddonPlaceholder = tx(
+    t,
+    "fusionCognitiveSystemAddonPlaceholder",
+    "Optional operator prose for this panel…"
+  );
+
+  const showLensUi = showCognitiveFields && (entryKind === "model" || entryKind === "empty");
+  const modelUnit = unit?.kind === "model" ? unit : null;
+  const customMissingAddon =
+    modelUnit?.thinkingMode === "custom" &&
+    !(typeof modelUnit.systemAddon === "string" && modelUnit.systemAddon.trim());
 
   return (
     <div
@@ -179,7 +285,7 @@ export default function FusionUnitRow({
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
-            value={unit?.kind === "model" ? unit.model : ""}
+            value={modelUnit ? modelUnit.model : ""}
             placeholder={modelPlaceholder}
             onChange={(e) => {
               const model = e.target.value;
@@ -187,16 +293,7 @@ export default function FusionUnitRow({
                 onChange(null);
                 return;
               }
-              onChange({
-                kind: "model",
-                model,
-                ...(unit?.kind === "model" && unit.providerId
-                  ? { providerId: unit.providerId }
-                  : {}),
-                ...(unit?.kind === "model" && unit.connectionId !== undefined
-                  ? { connectionId: unit.connectionId }
-                  : {}),
-              });
+              onChange(patchModelUnit(unit, { model }));
             }}
             className="flex-1 text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
           />
@@ -210,6 +307,82 @@ export default function FusionUnitRow({
           ) : null}
         </div>
       )}
+
+      {showLensUi ? (
+        <div className="flex flex-col gap-2 pt-1 border-t border-white/5">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={lensSelectId} className="text-xs font-medium text-text-main">
+              {cognitiveLensLabel}
+            </label>
+            <select
+              id={lensSelectId}
+              data-testid={testId ? `${testId}-lens` : undefined}
+              value={modelUnit?.thinkingMode ?? ""}
+              aria-describedby={lensHelpId}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const model = modelUnit?.model ?? "";
+                if (!raw) {
+                  onChange(patchModelUnit(unit, { model, thinkingMode: null }));
+                  return;
+                }
+                if (!(FUSION_COGNITIVE_LENS_IDS as readonly string[]).includes(raw)) return;
+                onChange(
+                  patchModelUnit(unit, {
+                    model,
+                    thinkingMode: raw as FusionCognitiveLensId,
+                  })
+                );
+              }}
+              className="w-full text-xs py-2 px-2.5 rounded border border-white/10 bg-white/5 text-text-main focus:border-primary focus:outline-none"
+            >
+              <option value="">{cognitiveLensNone}</option>
+              {FUSION_COGNITIVE_LENS_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {tx(t, `fusionCognitiveLens_${id}`, LENS_LABEL_FALLBACKS[id])}
+                </option>
+              ))}
+            </select>
+            <p id={lensHelpId} className="text-[10px] text-text-muted">
+              {cognitiveLensHelp}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={addonFieldId} className="text-xs font-medium text-text-main">
+              {systemAddonLabel}
+            </label>
+            <textarea
+              id={addonFieldId}
+              data-testid={testId ? `${testId}-addon` : undefined}
+              value={modelUnit?.systemAddon ?? ""}
+              rows={2}
+              maxLength={FUSION_SYSTEM_ADDON_MAX_CHARS}
+              placeholder={systemAddonPlaceholder}
+              aria-describedby={addonHelpId}
+              aria-invalid={customMissingAddon || undefined}
+              required={modelUnit?.thinkingMode === "custom"}
+              onChange={(e) => {
+                const systemAddon = e.target.value;
+                const model = modelUnit?.model ?? "";
+                onChange(
+                  patchModelUnit(unit, {
+                    model,
+                    systemAddon: systemAddon === "" ? null : systemAddon,
+                  })
+                );
+              }}
+              className={`w-full text-xs py-2 px-2.5 rounded border bg-white/5 text-text-main focus:border-primary focus:outline-none resize-y min-h-[2.5rem] ${
+                customMissingAddon
+                  ? "border-red-500/50"
+                  : "border-white/10"
+              }`}
+            />
+            <p id={addonHelpId} className="text-[10px] text-text-muted">
+              {systemAddonHelp}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {entryKind === "combo-ref" && (
         <div className="flex flex-col gap-1">

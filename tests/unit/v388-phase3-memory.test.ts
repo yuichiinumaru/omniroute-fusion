@@ -16,7 +16,8 @@ test("memory: health auto-checks on mount + 30s polling", () => {
 });
 
 test("memory: page wires enable/disable toggle via useMemorySettings", () => {
-  const src = read("src/app/(dashboard)/dashboard/memory/page.tsx");
+  // EPIC-20 T20-J / 0095: body lives in MemoryPageClient; legacy page is redirect-only
+  const src = read("src/app/(dashboard)/dashboard/memory/MemoryPageClient.tsx");
   assert.ok(src.includes("useMemorySettings"), "uses the settings hook");
   assert.ok(/role="switch"/.test(src), "renders a switch control");
   assert.ok(src.includes("save({ enabled:"), "persists enabled via save()");

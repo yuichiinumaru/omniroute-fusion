@@ -1,16 +1,17 @@
 // @vitest-environment jsdom
+/**
+ * Memory single-page stack (EPIC-20 T20-J / Task 0095).
+ * Tab topbar removed — sections stacked with Collapsible.
+ */
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mutable state for controlling what tab the navigation mock returns
-let mockTabValue: string | null = null;
-
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({
-    get: (key: string) => (key === "tab" ? mockTabValue : null),
-    toString: () => (mockTabValue ? `tab=${mockTabValue}` : ""),
+    get: () => null,
+    toString: () => "",
   }),
   useRouter: () => ({
     replace: vi.fn(),
@@ -31,7 +32,6 @@ vi.mock("swr", () => ({
   default: () => ({ data: null, error: null, isLoading: false, mutate: vi.fn() }),
 }));
 
-// Mock all child tab components + concept card
 vi.mock(
   "../../../src/app/(dashboard)/dashboard/memory/components/MemoryConceptCard",
   () => ({
@@ -63,6 +63,19 @@ vi.mock(
   }),
 );
 
+vi.mock(
+  "../../../src/app/(dashboard)/dashboard/memory/hooks/useMemorySettings",
+  () => ({
+    useMemorySettings: () => ({
+      settings: { enabled: true },
+      isLoading: false,
+      isError: false,
+      mutate: vi.fn(),
+      save: vi.fn(async () => true),
+    }),
+  }),
+);
+
 const cleanupCallbacks: Array<() => void> = [];
 
 function makeContainer(): HTMLElement {
@@ -72,9 +85,8 @@ function makeContainer(): HTMLElement {
   return container;
 }
 
-describe("MemoryPage", () => {
+describe("MemoryPageClient (0095 single-scroll stack)", () => {
   beforeEach(() => {
-    mockTabValue = null;
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
       true;
   });
@@ -85,72 +97,61 @@ describe("MemoryPage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the concept card", async () => {
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
+  it("renders section markers in Memories → Engine → Playground order", async () => {
+    const { default: MemoryPageClient } = await import(
+      "../../../src/app/(dashboard)/dashboard/memory/MemoryPageClient"
     );
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
-      root.render(<MemoryPage />);
+      root.render(<MemoryPageClient />);
     });
-    expect(container.querySelector("[data-testid='concept-card']")).toBeTruthy();
+
+    const sections = Array.from(container.querySelectorAll("[data-section]")).map((el) =>
+      el.getAttribute("data-section")
+    );
+    expect(sections).toEqual(["memories", "engine", "playground", "concept"]);
   });
 
-  it("renders 3 tab buttons", async () => {
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
+  it("does not mount tab-* L1 navigation buttons", async () => {
+    const { default: MemoryPageClient } = await import(
+      "../../../src/app/(dashboard)/dashboard/memory/MemoryPageClient"
     );
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
-      root.render(<MemoryPage />);
+      root.render(<MemoryPageClient />);
     });
-    const tabs = ["memories", "playground", "engine"];
-    for (const tab of tabs) {
-      expect(container.querySelector(`[data-testid='tab-${tab}']`)).toBeTruthy();
+    for (const tab of ["memories", "playground", "engine"]) {
+      expect(container.querySelector(`[data-testid='tab-${tab}']`)).toBeNull();
     }
   });
 
-  it("defaults to memories tab (tab=null)", async () => {
-    mockTabValue = null;
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
+  it("defaults Memories expanded (content visible); Engine/Playground collapsed", async () => {
+    const { default: MemoryPageClient } = await import(
+      "../../../src/app/(dashboard)/dashboard/memory/MemoryPageClient"
     );
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
-      root.render(<MemoryPage />);
+      root.render(<MemoryPageClient />);
     });
     expect(container.querySelector("[data-testid='memories-tab-content']")).toBeTruthy();
+    // Collapsed sections do not mount children (Collapsible open && children)
     expect(container.querySelector("[data-testid='playground-tab-content']")).toBeNull();
     expect(container.querySelector("[data-testid='engine-tab-content']")).toBeNull();
+    expect(container.querySelector("[data-testid='concept-card']")).toBeNull();
   });
 
-  it("shows playground tab when ?tab=playground", async () => {
-    mockTabValue = "playground";
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
+  it("renders enable toggle", async () => {
+    const { default: MemoryPageClient } = await import(
+      "../../../src/app/(dashboard)/dashboard/memory/MemoryPageClient"
     );
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
-      root.render(<MemoryPage />);
+      root.render(<MemoryPageClient />);
     });
-    expect(container.querySelector("[data-testid='playground-tab-content']")).toBeTruthy();
-    expect(container.querySelector("[data-testid='memories-tab-content']")).toBeNull();
-  });
-
-  it("shows engine tab when ?tab=engine", async () => {
-    mockTabValue = "engine";
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
-    );
-    const container = makeContainer();
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(<MemoryPage />);
-    });
-    expect(container.querySelector("[data-testid='engine-tab-content']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='memory-enabled-toggle']")).toBeTruthy();
   });
 });

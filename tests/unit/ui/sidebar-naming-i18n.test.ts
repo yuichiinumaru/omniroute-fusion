@@ -70,7 +70,8 @@ describe("flat primary sidebar naming", () => {
 
   it("skills triad labels remain disambiguated in en", () => {
     assert.equal(en.sidebar.agentSkills, "Agent Skills");
-    assert.equal(en.sidebar.omniSkills, "Omni Skills");
+    // EPIC-20 0093: Omni Skills → Core Skills (inbound sandbox)
+    assert.equal(en.sidebar.omniSkills, "Core Skills");
     assert.equal(en.sidebar.plugins, "Plugins");
     assert.match(en.sidebar.agentSkillsSubtitle, /outbound|external/i);
     assert.match(en.sidebar.omniSkillsSubtitle, /inbound|sandbox/i);
@@ -105,7 +106,7 @@ describe("flat primary sidebar naming", () => {
     assert.equal(PRIMARY_SIDEBAR_ITEMS.length, 7);
     const ops = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "operations");
     assert.ok(ops);
-    assert.equal(ops.href, "/dashboard/operations");
+    assert.equal(ops.href, "/operations");
     assert.equal(
       PRIMARY_SIDEBAR_ITEMS.some((i) => i.id === "analytics" || i.id === "costs"),
       false

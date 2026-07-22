@@ -74,10 +74,10 @@ describe("flat primary sidebar nav", () => {
     assert.ok(!ids.has("costs"));
   });
 
-  it("Operations primary leaf points at /dashboard/operations hub", () => {
+  it("Operations primary leaf points at /operations hub (EPIC-20 / 0087)", () => {
     const ops = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "operations");
     assert.ok(ops);
-    assert.equal(ops.href, "/dashboard/operations");
+    assert.equal(ops.href, "/operations");
     assert.equal(ops.i18nKey, "operationsNav");
     assert.equal(ops.labelFallback, "Operations");
   });

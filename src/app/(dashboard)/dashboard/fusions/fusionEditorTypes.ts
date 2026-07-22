@@ -3,6 +3,12 @@
  * Keep this free of React so load/save logic is easy to unit-test later.
  */
 
+import {
+  isFusionCognitiveLensId,
+  isFusionJudgeModeId,
+  type FusionCognitiveLensId,
+  type FusionJudgeModeId,
+} from "@/shared/constants/fusionCognitiveLenses";
 import { ROUTING_STRATEGIES } from "@/shared/constants/routingStrategies";
 
 export const FUSION_UI_DEFAULTS = {
@@ -25,6 +31,8 @@ export type TriggerMode = "always" | "tool-call" | "text-match";
  * `connectionId` is optional account pin: load/save round-trip it when set.
  * ModelSelectModal emits value + providerId; the editor plumbs connectionId when
  * the pick includes it or when exactly one active connection matches providerId.
+ * EPIC-22: optional `thinkingMode` + `systemAddon` (panel cognitive lens — not
+ * provider reasoning_effort). Combo-ref units never carry these fields.
  */
 export type FusionModelUnit = {
   kind: "model";
@@ -32,6 +40,10 @@ export type FusionModelUnit = {
   providerId?: string;
   connectionId?: string | null;
   label?: string;
+  /** Closed lens id from FUSION_COGNITIVE_LENS_IDS; omit when empty. */
+  thinkingMode?: FusionCognitiveLensId;
+  /** Operator prose (max 4000 on server); omit when empty. */
+  systemAddon?: string;
 };
 
 export type FusionComboRefUnit = {
@@ -64,6 +76,11 @@ export type FusionEditorForm = {
   triggers: FusionTriggersForm;
   fallbackStrategy: string;
   tuning: FusionTuningForm;
+  /**
+   * EPIC-22 judge synthesis style (config.judgeMode). Empty string = omit on save
+   * (runtime defaults to synthesize).
+   */
+  judgeMode: "" | FusionJudgeModeId;
 };
 
 export type ComboRefOption = {
@@ -103,6 +120,7 @@ export function emptyFusionForm(): FusionEditorForm {
       stragglerGraceMs: "",
       panelHardTimeoutMs: "",
     },
+    judgeMode: "",
   };
 }
 
@@ -161,6 +179,18 @@ export function normalizeFusionUnit(entry: unknown): FusionUnit | null {
     unit.connectionId = rec.connectionId.trim();
   }
   if (typeof rec.label === "string" && rec.label.trim()) unit.label = rec.label.trim();
+
+  // EPIC-22 cognitive lens: keep valid closed ids only; drop unknown modes.
+  if (typeof rec.thinkingMode === "string") {
+    const mode = rec.thinkingMode.trim();
+    if (mode && isFusionCognitiveLensId(mode)) {
+      unit.thinkingMode = mode;
+    }
+  }
+  if (typeof rec.systemAddon === "string") {
+    // Preserve raw string on load (including whitespace); unitToPayload omits empty trim.
+    unit.systemAddon = rec.systemAddon;
+  }
   return unit;
 }
 
@@ -191,14 +221,32 @@ export function unitToPayload(unit: FusionUnit): Record<string, unknown> | strin
       ...(unit.label ? { label: unit.label } : {}),
     };
   }
-  // Prefer structured model step when we have provider metadata; plain string is fine too.
-  if (unit.providerId || unit.connectionId !== undefined || unit.label) {
+  const thinkingMode =
+    unit.thinkingMode && isFusionCognitiveLensId(unit.thinkingMode)
+      ? unit.thinkingMode
+      : undefined;
+  const systemAddon =
+    typeof unit.systemAddon === "string" && unit.systemAddon.trim()
+      ? unit.systemAddon
+      : undefined;
+
+  // Prefer structured model step when we have provider/meta or cognitive fields;
+  // bare model string when nothing else is set (empty mode+addon omit keys).
+  if (
+    unit.providerId ||
+    unit.connectionId !== undefined ||
+    unit.label ||
+    thinkingMode ||
+    systemAddon
+  ) {
     return {
       kind: "model",
       model: unit.model,
       ...(unit.providerId ? { providerId: unit.providerId } : {}),
       ...(unit.connectionId !== undefined ? { connectionId: unit.connectionId } : {}),
       ...(unit.label ? { label: unit.label } : {}),
+      ...(thinkingMode ? { thinkingMode } : {}),
+      ...(systemAddon ? { systemAddon } : {}),
     };
   }
   return unit.model;
@@ -244,6 +292,13 @@ export function formFromCombo(combo: ComboRecord): FusionEditorForm {
 
   const fusionTuning = asRecord(config.fusionTuning) || {};
 
+  // EPIC-22: load closed judgeMode only; unknown → empty (omit on next save).
+  const rawJudgeMode =
+    typeof config.judgeMode === "string" ? config.judgeMode.trim() : "";
+  const judgeMode: "" | FusionJudgeModeId = isFusionJudgeModeId(rawJudgeMode)
+    ? rawJudgeMode
+    : "";
+
   return {
     name: typeof combo.name === "string" ? combo.name : "",
     description: typeof combo.description === "string" ? combo.description : "",
@@ -264,6 +319,7 @@ export function formFromCombo(combo: ComboRecord): FusionEditorForm {
       stragglerGraceMs: optionalNumberString(fusionTuning.stragglerGraceMs),
       panelHardTimeoutMs: optionalNumberString(fusionTuning.panelHardTimeoutMs),
     },
+    judgeMode,
   };
 }
 
@@ -312,6 +368,7 @@ export function buildSavePayload(
   delete baseConfig.fusionTuning;
   delete baseConfig.fallbackStrategy;
   delete baseConfig.judgeModel;
+  delete baseConfig.judgeMode;
 
   const fusionTuning: Record<string, number> = {};
   const minPanel = parseOptionalInt(form.tuning.minPanel);
@@ -349,6 +406,11 @@ export function buildSavePayload(
   // Legacy string path for readers that only understand config.judgeModel.
   if (form.judge?.kind === "model" && form.judge.model) {
     baseConfig.judgeModel = form.judge.model;
+  }
+
+  // EPIC-22: omit judgeMode when empty (runtime defaults to synthesize).
+  if (form.judgeMode && isFusionJudgeModeId(form.judgeMode)) {
+    baseConfig.judgeMode = form.judgeMode;
   }
 
   const payload: FusionSavePayload = {

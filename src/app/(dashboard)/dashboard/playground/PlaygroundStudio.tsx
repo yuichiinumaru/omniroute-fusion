@@ -40,17 +40,28 @@ function resolveTab(value: string | null): StudioTab {
   return "chat";
 }
 
+export type PlaygroundModeChrome = "strip" | "inline";
+
+export type PlaygroundStudioProps = {
+  /**
+   * Mode chrome placement.
+   * - `strip` (default): classic StudioTopBar (standalone / unit tests).
+   * - `inline`: in-block mode buttons for Labs fusion (not a hub-level second topbar).
+   */
+  modeChrome?: PlaygroundModeChrome;
+};
+
 /**
  * PlaygroundStudio — orchestrator component for the Playground Studio.
  * - Manages active tab state (supports ?tab=chat|compare|api|build deep-link)
  * - Manages shared configState for all tabs
- * - Renders StudioTopBar + content + StudioConfigPane
+ * - Renders mode chrome + content + StudioConfigPane
  *
  * F7 SLOTS:
  * - SLOT_PRESETS: F7 will replace the comment in StudioConfigPane with PresetPicker
  * - SLOT_IMPROVE: F7 will replace the comment in StudioConfigPane with ImprovePromptButton
  */
-export function PlaygroundStudio() {
+export function PlaygroundStudio({ modeChrome = "strip" }: PlaygroundStudioProps = {}) {
   const searchParams = useSearchParams();
   // Derive active tab from URL — no effect needed, avoids setState-in-effect lint violation.
   // When URL changes (client nav), searchParams updates, component re-renders with new tab.
@@ -69,20 +80,28 @@ export function PlaygroundStudio() {
     setMetrics(m);
   }
 
+  const exportState = {
+    endpoint: configState.endpoint,
+    baseUrl: configState.baseUrl,
+    model: configState.model,
+    systemPrompt: configState.systemPrompt,
+    params: configState.params,
+  };
+
+  const shellClass =
+    modeChrome === "inline"
+      ? "flex flex-col min-h-[28rem] max-h-[min(70vh,48rem)] overflow-hidden rounded-md border border-border"
+      : "flex flex-col h-[calc(100vh-4rem)] overflow-hidden";
+
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
-      {/* Top bar with tabs + token/cost counter + export button */}
+    <div className={shellClass} data-playground-mode-chrome={modeChrome}>
+      {/* Mode chrome: strip = StudioTopBar; inline = in-block toolbar (Labs) */}
       <StudioTopBar
         activeTab={effectiveTab}
         onTabChange={handleTabChange}
         metrics={metrics}
-        exportState={{
-          endpoint: configState.endpoint,
-          baseUrl: configState.baseUrl,
-          model: configState.model,
-          systemPrompt: configState.systemPrompt,
-          params: configState.params,
-        }}
+        exportState={exportState}
+        variant={modeChrome === "inline" ? "inline" : "strip"}
       />
 
       {/* Main content area: tab content + config pane */}

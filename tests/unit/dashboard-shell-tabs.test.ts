@@ -69,23 +69,29 @@ test("analytics page is redirect shell; storytelling lives on Dashboard hub (008
   assert.equal(topbar.includes('storyTab: "route-trace"'), false);
 });
 
-test("endpoint page uses S5 tabs + protocol homes (not embedded MCP/A2A peers)", () => {
-  // Task 0024 / S5: MCP and A2A are dedicated homes (/dashboard/mcp|a2a), not peer
-  // EndpointTab values. Shell tabs are apis | catalog | context-sources.
+test("endpoint context-sources leave Endpoint; MCP/A2A stay protocol homes", () => {
+  // EPIC-20: context-sources → Integrations (0094); Endpoint fusion is 0088.
+  // MCP/A2A remain dedicated homes — never re-embedded as Endpoint peer tabs.
   const source = readSource("src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.tsx");
+  const endpointPage = readSource("src/app/(dashboard)/dashboard/endpoint/page.tsx");
+  const integrations = readSource(
+    "src/app/(dashboard)/operations/integrations/IntegrationsPageClient.tsx"
+  );
 
   assert.ok(
-    source.includes('type EndpointTab = "apis" | "catalog" | "context-sources"'),
-    "EndpointTab must be S5 catalog shell, not pre-S5 mcp|a2a peers"
+    endpointPage.includes('buildOperationsPath("integrations")') ||
+      endpointPage.includes("buildOperationsPath('integrations')"),
+    "endpoint page must redirect context-sources to Integrations"
   );
-  assert.ok(source.includes("ApiEndpointsTab"));
   assert.ok(
-    source.includes('activeEndpointTab === "catalog" ? <ApiEndpointsTab /> : null') ||
-      source.includes('activeEndpointTab === "catalog"')
+    integrations.includes('data-integrations-section="context-sources"'),
+    "Context Sources live on Integrations stack"
   );
-  // Protocol homes bar — deep links, not embedded dashboard pages as tabs.
-  assert.ok(source.includes('href="/dashboard/mcp"'));
-  assert.ok(source.includes('href="/dashboard/a2a"'));
+  assert.equal(
+    source.includes('activeEndpointTab === "context-sources"'),
+    false,
+    "Endpoint client must not keep dual context-sources body"
+  );
   assert.equal(
     source.includes("<McpDashboardPage") || source.includes("<MCPDashboard"),
     false,

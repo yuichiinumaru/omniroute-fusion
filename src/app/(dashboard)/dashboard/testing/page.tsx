@@ -1,10 +1,11 @@
-import TestingHubClient from "./TestingHubClient";
+import { redirect } from "next/navigation";
+import { TESTING_HUB_CANONICAL_PATH } from "@/shared/constants/testingHub";
 
 /**
- * Testing hub (Task 0060 Option A).
- * Not a primary sidebar leaf — discoverable via command palette, Operations
- * cross-link, and direct URL. Existing target routes remain deep-linkable.
+ * Testing hub — **retired** (EPIC-20 / Task 0099 / T20-N).
+ * Launchpad absorbed into Operations → Labs. Archive-not-delete redirect shell.
+ * Matrix: `/dashboard/testing` → `TESTING_HUB_CANONICAL_PATH` (`/operations/labs`).
  */
-export default function TestingPage() {
-  return <TestingHubClient />;
+export default function TestingHubRedirectPage() {
+  redirect(TESTING_HUB_CANONICAL_PATH);
 }

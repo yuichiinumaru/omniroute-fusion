@@ -326,8 +326,9 @@ const nextConfig = {
     return [
       // Dashboard routes
       {
+        // EPIC-20 0093: alias → fused Skills peer (was /dashboard/omni-skills).
         source: "/dashboard/skills",
-        destination: "/dashboard/omni-skills",
+        destination: "/operations/skills",
         permanent: true,
       },
       // Architecture

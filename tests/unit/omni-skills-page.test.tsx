@@ -50,7 +50,7 @@ describe("File structure — omni-skills directory", () => {
 
 // ─── page.tsx — server component ─────────────────────────────────────────────
 
-describe("page.tsx — server component", () => {
+describe("page.tsx — legacy redirect shell (EPIC-20 / 0093)", () => {
   const src = readFileSync(resolve(join(base, "page.tsx")), "utf-8");
 
   it("is a server component (no 'use client' directive)", () => {
@@ -60,15 +60,22 @@ describe("page.tsx — server component", () => {
     );
   });
 
-  it("imports and renders OmniSkillsPageClient", () => {
-    assert.ok(src.includes("OmniSkillsPageClient"), "page.tsx must reference OmniSkillsPageClient");
+  it("redirects to Operations skills peer via buildOperationsPath", () => {
+    assert.ok(src.includes("redirect("), "page.tsx must redirect");
+    assert.ok(src.includes("buildOperationsPath"), "must use 0086 path builder");
+    assert.ok(
+      src.includes('"skills"') || src.includes("'skills'"),
+      "redirect target must be skills peer"
+    );
+    assert.equal(
+      src.includes("OmniSkillsPageClient"),
+      false,
+      "legacy page must not still render OmniSkillsPageClient (client kept for fused composition)"
+    );
   });
 
-  it("has a default export named Page", () => {
-    assert.ok(
-      src.includes("export default function Page"),
-      "page.tsx must have 'export default function Page'"
-    );
+  it("has a default export", () => {
+    assert.ok(src.includes("export default function"), "page.tsx must have default export");
   });
 });
 

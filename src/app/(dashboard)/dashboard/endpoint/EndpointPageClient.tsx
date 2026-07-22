@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import Link from "next/link";
 import {
   Card,
   Button,
   Input,
   Modal,
   CardSkeleton,
-  SegmentedControl,
-  writeTabSearchParam,
 } from "@/shared/components";
 import Toggle from "@/shared/components/Toggle";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -17,9 +14,7 @@ import { useDisplayBaseUrl } from "@/shared/hooks";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
 import { getProviderDisplayName } from "@/lib/display/names";
 import { useTranslations } from "next-intl";
-import NotionSourceCard from "./components/NotionSourceCard";
 import VscodeTokenAliasCard from "./VscodeTokenAliasCard";
-import ApiEndpointsTab from "./ApiEndpointsTab";
 
 const BUILD_TIME_CLOUD_URL = process.env.NEXT_PUBLIC_CLOUD_URL || null;
 const CLOUD_ACTION_TIMEOUT_MS = 15000;
@@ -87,8 +82,6 @@ type TunnelNotice = {
 
 type APIPageClientProps = {
   machineId: string;
-  /** Deep-link tab from /dashboard/endpoint?tab= (mcp/a2a redirected at page level). */
-  initialTab?: string | null;
 };
 
 type EndpointProviderSummary = {
@@ -116,20 +109,11 @@ type EndpointTunnelVisibility = {
   showNgrokTunnel: boolean;
 };
 
-/** Connect shell tabs (Epic 0005 S5). MCP/A2A are protocol homes, not peer tabs. */
-type EndpointTab = "apis" | "catalog" | "context-sources";
-
-const ENDPOINT_TABS: Array<{ value: EndpointTab; label: string; icon: string }> = [
-  { value: "apis", label: "APIs", icon: "api" },
-  { value: "catalog", label: "API Catalog", icon: "menu_book" },
-  { value: "context-sources", label: "Context Sources", icon: "database" },
-];
-
-function normalizeEndpointTab(tab: string | null | undefined): EndpointTab {
-  if (tab === "catalog" || tab === "api-endpoints" || tab === "openapi") return "catalog";
-  if (tab === "context-sources" || tab === "context") return "context-sources";
-  return "apis";
-}
+/**
+ * EPIC-20 T20-C / Task 0088 — APIs body only.
+ * Dual strip (ENDPOINT_TABS) and connect-protocol-homes removed.
+ * Catalog + API Keys mount via `/operations/endpoints` fusion; Context → Integrations.
+ */
 
 const DEFAULT_TUNNEL_VISIBILITY: EndpointTunnelVisibility = {
   showCloudflaredTunnel: true,
@@ -143,10 +127,7 @@ function runEndpointBackgroundTask(taskName: string, task: () => Promise<unknown
   });
 }
 
-export default function APIPageClient({
-  machineId,
-  initialTab = null,
-}: Readonly<APIPageClientProps>) {
+export default function APIPageClient({ machineId }: Readonly<APIPageClientProps>) {
   const [resolvedMachineId, setResolvedMachineId] = useState(machineId || "");
   const t = useTranslations("endpoint");
   const tc = useTranslations("common");
@@ -168,8 +149,6 @@ export default function APIPageClient({
   const [selectedProvider, setSelectedProvider] = useState(null); // for provider models popup
   const [cloudBaseUrl, setCloudBaseUrl] = useState(BUILD_TIME_CLOUD_URL); // dynamic cloud URL from API response
   const [cloudConfigured, setCloudConfigured] = useState(Boolean(BUILD_TIME_CLOUD_URL));
-  const [mcpStatus, setMcpStatus] = useState<Record<string, unknown> | null>(null);
-  const [a2aStatus, setA2aStatus] = useState<Record<string, unknown> | null>(null);
   const [searchProviders, setSearchProviders] = useState<any[]>([]);
   const [cloudflaredStatus, setCloudflaredStatus] = useState<CloudflaredTunnelStatus | null>(null);
   const [cloudflaredBusy, setCloudflaredBusy] = useState(false);
@@ -191,9 +170,6 @@ export default function APIPageClient({
   const [expandedTunnel, setExpandedTunnel] = useState<string | null>(null);
   const [lanUrls, setLanUrls] = useState<string[]>([]);
   const [tailscaleIpUrl, setTailscaleIpUrl] = useState<string | null>(null);
-  const [activeEndpointTab, setActiveEndpointTab] = useState<EndpointTab>(() =>
-    normalizeEndpointTab(initialTab)
-  );
   const [customSystemPromptEnabled, setCustomSystemPromptEnabled] = useState(false);
   const [customSystemPrompt, setCustomSystemPrompt] = useState("");
 
@@ -331,7 +307,6 @@ export default function APIPageClient({
       setLoading(false);
 
       runEndpointBackgroundTask("models", fetchModels);
-      runEndpointBackgroundTask("protocol-status", fetchProtocolStatus);
       runEndpointBackgroundTask("search-providers", fetchSearchProviders);
       runEndpointBackgroundTask("network-info", async () => {
         try {
@@ -378,24 +353,6 @@ export default function APIPageClient({
       console.log("Error fetching models:", e);
     } finally {
       setModelsLoading(false);
-    }
-  };
-
-  const fetchProtocolStatus = async () => {
-    try {
-      const [mcpRes, a2aRes] = await Promise.allSettled([
-        fetch("/api/mcp/status"),
-        fetch("/api/a2a/status"),
-      ]);
-
-      if (mcpRes.status === "fulfilled" && mcpRes.value.ok) {
-        setMcpStatus(await mcpRes.value.json());
-      }
-      if (a2aRes.status === "fulfilled" && a2aRes.value.ok) {
-        setA2aStatus(await a2aRes.value.json());
-      }
-    } catch {
-      // Ignore status failures; protocols panel has fallback text.
     }
   };
 
@@ -592,7 +549,6 @@ export default function APIPageClient({
 
   useEffect(() => {
     const interval = setInterval(() => {
-      void fetchProtocolStatus();
       if (showCloudflaredTunnel) {
         void fetchCloudflaredStatus(true);
       }
@@ -1134,10 +1090,6 @@ export default function APIPageClient({
     showNgrokTunnel && ngrokStatus?.running,
   ].filter(Boolean).length;
 
-  const mcpOnline = Boolean(mcpStatus?.online);
-  const a2aOnline = a2aStatus?.status === "ok";
-  const mcpToolCount = Number(mcpStatus?.heartbeat?.toolCount || 0);
-  const a2aActiveStreams = Number(a2aStatus?.tasks?.activeStreams || 0);
   const cloudflaredPhase = cloudflaredStatus?.phase || "not_installed";
   const cloudflaredPhaseMeta: Record<CloudflaredTunnelPhase, { label: string; className: string }> =
     {
@@ -1251,88 +1203,10 @@ export default function APIPageClient({
   const ngrokUrlNotice = translateOrFallback("ngrokUrlNotice", "Creates a public ngrok tunnel.");
 
   return (
-    <div className="flex flex-col gap-8">
-      <SegmentedControl
-        options={ENDPOINT_TABS}
-        value={activeEndpointTab}
-        onChange={(value) => {
-          const next = normalizeEndpointTab(value);
-          setActiveEndpointTab(next);
-          writeTabSearchParam("tab", next, { defaultValue: "apis" });
-        }}
-        aria-label="Endpoint sections"
-        className="w-fit"
-      />
-
-      {/* Protocol homes — MCP/A2A SSoT links (sidebar Registry exposures after S6; Epic 0005 S5) */}
-      <div
-        className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2"
-        style={{ borderColor: "var(--color-border)", background: "var(--color-bg-secondary)" }}
-        data-testid="connect-protocol-homes"
-        role="navigation"
-        aria-label="Protocol homes"
-      >
-        <span className="text-xs font-medium text-text-muted mr-1">Protocols</span>
-        <Link
-          href="/dashboard/mcp"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text hover:bg-primary/10 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[14px]" style={{ color: "#8B5CF6" }} aria-hidden="true">
-            hub
-          </span>
-          MCP
-          <span
-            className="inline-block size-1.5 rounded-full"
-            style={{ background: mcpOnline ? "rgb(34,197,94)" : "var(--color-text-muted)" }}
-            role="img"
-            aria-label={
-              mcpOnline
-                ? `MCP online${mcpToolCount ? `, ${mcpToolCount} tools` : ""}`
-                : "MCP offline"
-            }
-            title={
-              mcpOnline ? `Online${mcpToolCount ? ` · ${mcpToolCount} tools` : ""}` : "Offline"
-            }
-          />
-        </Link>
-        <Link
-          href="/dashboard/a2a"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text hover:bg-primary/10 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[14px]" style={{ color: "#06B6D4" }} aria-hidden="true">
-            device_hub
-          </span>
-          A2A
-          <span
-            className="inline-block size-1.5 rounded-full"
-            style={{ background: a2aOnline ? "rgb(34,197,94)" : "var(--color-text-muted)" }}
-            role="img"
-            aria-label={
-              a2aOnline
-                ? `A2A online${a2aActiveStreams ? `, ${a2aActiveStreams} streams` : ""}`
-                : "A2A offline"
-            }
-            title={
-              a2aOnline
-                ? `Online${a2aActiveStreams ? ` · ${a2aActiveStreams} streams` : ""}`
-                : "Offline"
-            }
-          />
-        </Link>
-      </div>
-
-      {activeEndpointTab === "catalog" ? <ApiEndpointsTab /> : null}
-      {activeEndpointTab === "context-sources" ? (
-        <div className="flex flex-col gap-4">
-          <NotionSourceCard />
-        </div>
-      ) : null}
-
-      {activeEndpointTab === "apis" ? (
-        <>
-          {/* Endpoint Card */}
-          <Card>
-            <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
+    <div className="flex flex-col gap-8" data-testid="endpoint-apis-body">
+      {/* Endpoint Card — APIs body only (0088); no dual strip / protocol homes */}
+      <Card>
+        <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
 
             {/* Cloud Status Toast */}
             {cloudStatus && (
@@ -2147,8 +2021,6 @@ export default function APIPageClient({
               <VscodeTokenAliasCard className="mt-4" />
             </div>
           </Card>
-        </>
-      ) : null}
 
       {/* Cloud Enable Modal */}
       <Modal

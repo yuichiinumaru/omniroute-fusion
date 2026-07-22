@@ -147,6 +147,7 @@ export default function FusionUnitsSections({
                 unit={panel}
                 comboRefs={comboRefs}
                 excludeComboName={form.name.trim()}
+                showCognitiveFields
                 onChange={(unit) => {
                   if (!unit) setPanel(index, null);
                   else setPanel(index, unit);

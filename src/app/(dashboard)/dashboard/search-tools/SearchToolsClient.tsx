@@ -30,7 +30,23 @@ const DEFAULT_CONFIG: ConfigState = {
   rerankModel: "",
 };
 
-export default function SearchToolsClient() {
+export type SearchToolsModeChrome = "topbar" | "inline";
+
+export type SearchToolsClientProps = {
+  /**
+   * Mode chrome placement.
+   * - `topbar` (default): classic SearchToolsTopBar (unit tests / dual-serve).
+   * - `inline`: in-block mode control for Labs fusion (not L1 hub strip).
+   */
+  modeChrome?: SearchToolsModeChrome;
+  /** When false, concept card is omitted (Labs bottom explainer stack owns it). */
+  showConceptCard?: boolean;
+};
+
+export default function SearchToolsClient({
+  modeChrome = "topbar",
+  showConceptCard = true,
+}: SearchToolsClientProps = {}) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("search");
   const [configState, setConfigState] = useState<ConfigState>(DEFAULT_CONFIG);
   const [catalogProviders, setCatalogProviders] = useState<SearchProviderCatalogItem[]>([]);
@@ -73,26 +89,43 @@ export default function SearchToolsClient() {
     fetchFormat: configState.fetchFormat as PlaygroundState["fetchFormat"],
   };
 
+  const shellClass =
+    modeChrome === "inline"
+      ? "flex flex-col min-h-[24rem] max-h-[min(70vh,40rem)] rounded-md border border-border overflow-hidden"
+      : "flex flex-col h-[calc(100vh-120px)]";
+
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]" data-testid="search-tools-studio">
-      {/* Top bar: tabs + metrics + export */}
+    <div
+      className={shellClass}
+      data-testid="search-tools-studio"
+      data-search-mode-chrome={modeChrome}
+    >
+      {/* Mode chrome: topbar = L1 strip; inline = in-block (Labs — no search-tools-topbar testid) */}
       <SearchToolsTopBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         latencyMs={latencyMs}
         costUsd={costUsd}
         exportState={exportState}
+        variant={modeChrome === "inline" ? "inline" : "topbar"}
       />
 
-      {/* Concept card — always visible, collapsible */}
-      <div className="px-4 pt-3 pb-0">
-        <SearchConceptCard />
-      </div>
+      {/* Concept card — Labs moves this to page-bottom explainers */}
+      {showConceptCard ? (
+        <div className="px-4 pt-3 pb-0">
+          <SearchConceptCard />
+        </div>
+      ) : null}
 
       {/* Main area: tab content + config pane */}
       <div className="flex flex-1 overflow-hidden">
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto" role="tabpanel" id={`tabpanel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
+        <div
+          className="flex-1 overflow-y-auto"
+          role="tabpanel"
+          id={`tabpanel-${activeTab}`}
+          aria-labelledby={`tab-${activeTab}`}
+        >
           {activeTab === "search" && (
             <SearchTab
               configState={configState}

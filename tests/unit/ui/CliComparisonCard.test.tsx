@@ -108,7 +108,7 @@ describe("CliComparisonCard", () => {
     const container = renderCard("code");
     const links = container.querySelectorAll("a");
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"));
-    expect(hrefs).toContain("/dashboard/cli-agents");
+    expect(hrefs).toContain("/operations/agents#cli-agents");
     expect(hrefs).toContain("/dashboard/acp-agents");
   });
 

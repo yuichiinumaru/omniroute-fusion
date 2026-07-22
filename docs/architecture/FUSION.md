@@ -1,7 +1,7 @@
 ---
 title: "Fusion First-Class"
 version: 3.8.x
-lastUpdated: 2026-07-18
+lastUpdated: 2026-07-22
 ---
 
 # Fusion First-Class
@@ -12,8 +12,10 @@ panel unit in parallel, a judge unit synthesizes a review, and — when configur
 **acting** unit receives that review and produces the answer the client sees. Without acting,
 the judge (or single survivor) is the final voice (legacy Epic 0003).
 
-This document is the canonical architecture reference for Epic 0003 (Fusion First-Class) and
-the acting extension from Epic 0004. It supersedes the historical design sketch
+This document is the canonical architecture reference for Epic 0003 (Fusion First-Class),
+the acting extension from Epic 0004, and **EPIC-22 cognitive diversity** (operator-configured
+panel lenses + judge modes — config on the combo, **not** MCP tools). It supersedes the
+historical design sketch
 [`FUSION-TRIGGERS-CONDITIONAL.md`](../../.archive/docs/architecture/FUSION-TRIGGERS-CONDITIONAL.md)
 (archived, not deleted).
 
@@ -21,14 +23,17 @@ the acting extension from Epic 0004. It supersedes the historical design sketch
 
 | Area | Path |
 |------|------|
-| Runtime | `open-sse/services/fusion.ts` |
+| Runtime | `open-sse/services/fusion.ts` (`applyFusionCognitiveLens`, `buildJudgePrompt`, `handleFusionChatV2`) |
+| Cognitive lens catalog | `src/shared/constants/fusionCognitiveLenses.ts` |
 | Triggers | `open-sse/services/fusionTriggers.ts` |
-| Dispatch | `open-sse/services/combo.ts` (`fusion` / `conditional-fusion` branches) |
-| Schema | `src/shared/validation/schemas/combo.ts` |
+| Dispatch | `open-sse/services/combo.ts` (`fusion` / `conditional-fusion` branches; passes `config.judgeMode`) |
+| Schema | `src/shared/validation/schemas/combo.ts` (`thinkingMode`, `systemAddon`, `judgeMode`) |
 | Step normalization | `src/lib/combos/steps.ts` |
+| System inject | `open-sse/services/systemPrompt.ts` (`injectCustomSystemPrompt`) |
 | Nesting limits | `open-sse/services/combo/comboPredicates.ts` (`MAX_COMBO_DEPTH`) |
 | UI list | `/dashboard/fusions` → `src/app/(dashboard)/dashboard/fusions/page.tsx` |
-| UI editor | `/dashboard/fusions/new`, `/dashboard/fusions/[id]` |
+| UI editor | `/dashboard/fusions/new`, `/dashboard/fusions/[id]` (`FusionUnitRow`, `FusionTuningSection`) |
+| Planning | `docs/tasks/00-planning/EPIC-22-omniroute-cognitive-diversity-fusion.md` |
 
 ---
 
@@ -79,16 +84,25 @@ Panel list is the combo’s `models` array. Each entry is a `comboModelEntry` un
 (`src/shared/validation/schemas/combo.ts`):
 
 - plain string model id (legacy)
-- model step: `{ kind?: "model", model, providerId?, connectionId?, label?, ... }`
-- combo-ref step: `{ kind: "combo-ref", comboName, label?, ... }`
+- model step: `{ kind?: "model", model, providerId?, connectionId?, label?, thinkingMode?, systemAddon?, ... }`
+- combo-ref step: `{ kind: "combo-ref", comboName, label?, ... }` — **no** `thinkingMode` / `systemAddon` in Phase 1
 
 Runtime type after resolution (`ResolvedFusionUnit` in `fusion.ts`):
 
 ```ts
 type ResolvedFusionUnit =
-  | { kind: "model"; model: string; label?: string }
+  | {
+      kind: "model";
+      model: string;
+      label?: string;
+      thinkingMode?: FusionCognitiveLensId;
+      systemAddon?: string;
+    }
   | { kind: "combo-ref"; comboName: string; label?: string };
 ```
+
+Cognitive fields are optional and **default-off**: omit them and panel bodies stay bit-identical
+to pre-EPIC-22 fusion (aside from existing D9 flags). See [Cognitive diversity (EPIC-22)](#cognitive-diversity-epic-22).
 
 ### Trigger miss path (A6)
 
@@ -156,6 +170,31 @@ strategy. Acting-only (when `acting` is set) is the dedicated miss path that ski
 | `minPanel` | `2` | Successful panel answers before straggler grace |
 | `stragglerGraceMs` | `8000` | Wait for remaining panels after quorum |
 | `panelHardTimeoutMs` | `90000` | Absolute per-panel timeout |
+
+### `config.judgeMode` (EPIC-22)
+
+Optional **sibling** of `fusionTuning` (not nested inside it). Closed enum from
+`FUSION_JUDGE_MODE_IDS` in `src/shared/constants/fusionCognitiveLenses.ts`. Controls the
+judge synthesis **directive** only (`buildJudgePrompt(answers, judgeMode)` →
+`resolveJudgeModeDirective`). When omitted or unknown at pure resolve time, runtime uses
+**`synthesize`** (same spirit as pre-EPIC-22 judge text, plus a stable fingerprint for tests).
+
+| `judgeMode` | Role |
+|-------------|------|
+| *(omit)* | Runtime default → `synthesize` directive |
+| `synthesize` | Merge consensus / contradictions / unique insights / blind spots |
+| `dialectical` | Force explicit tension between conflicting sources before synthesis |
+| `security-review` | Prioritize risk, exploitability, safer recommendations |
+| `pick-best` | Select one source (cite Source N) rather than merge prose |
+
+### Panel `thinkingMode` / `systemAddon` (EPIC-22)
+
+Optional fields on **model steps only** (`comboModelStepInputSchema`). Schema:
+`thinkingMode: z.enum(FUSION_COGNITIVE_LENS_IDS).optional()`,
+`systemAddon: z.string().max(FUSION_SYSTEM_ADDON_MAX_CHARS /* 4000 */).optional()`.
+`thinkingMode: "custom"` requires a non-empty trimmed `systemAddon` (Zod `superRefine`).
+
+Full operator guide: [Cognitive diversity (EPIC-22)](#cognitive-diversity-epic-22).
 
 ### Example (conditional tool-call fusion)
 
@@ -238,7 +277,9 @@ relay — see Nested combo base options).
    - Without acting → dispatch that unit with the **original** client body (nothing to fuse).
    - With acting → collect the single panel non-stream (`stream:false`, `tool_choice:"none"`)
      as review context, then **`finalizeWithActing`** (acting is final voice).
-3. Build `panelBody` once (see Panel body ownership).
+3. Build `panelBodyBase` once (see Panel body ownership). **EPIC-22:** each unit gets
+   `applyFusionCognitiveLens(panelBodyBase, unit)` — identity when no lens/addon;
+   otherwise a cloned body with system inject (never mutate the shared base).
 4. Fan out each panel via `dispatchFusionUnit` + `withTimeout(panelHardTimeoutMs, onTimeout → abort)`.
 5. `collectPanel` for quorum-grace collection; after extract, **abort dropped/timed-out
    stragglers** (Task 0070 / H-FUSION-014). Abort is **best-effort**: fusion always
@@ -253,7 +294,8 @@ relay — see Nested combo base options).
      OpenAI-compatible completion (JSON or SSE via `synthesizeOpenAiSseFromJson`) from
      already-collected panel text — **no second upstream re-dispatch** (avoids
      fail-after-success / 2× cost)
-   - 2+ answers → append judge prompt via `appendUserTurn` + `buildJudgePrompt`, dispatch judge
+   - 2+ answers → append judge prompt via `appendUserTurn` + `buildJudgePrompt(answers, judgeMode)`,
+     dispatch judge
 7. **Judge path when acting is set**: judge runs **non-stream** with `tool_choice: "none"`
    so fusion can extract review text for the handoff (`fusion.ts` judge-for-acting branch).
    If the judge fails or returns empty text, fusion concatenates panel answers as the review
@@ -399,6 +441,263 @@ Implementation notes:
   - `tool-call` / `text-match` → `strategy: "conditional-fusion"` + `config.fallbackStrategy`
   - top-level `judge`; legacy `config.judgeModel` mirrored for string judges
   - top-level `acting` when set (Epic 0004)
+  - per-panel model steps: optional `thinkingMode` / `systemAddon` (omit when empty)
+  - `config.judgeMode` when set (omit when empty / default UI selection)
+
+---
+
+## Cognitive diversity (EPIC-22)
+
+> **Tagline:** Cognitive diversity as **config**, not as a tool.
+
+EPIC-22 lets the **operator** (who owns keys, budget, and risk) configure **how each
+fusion panel frames the problem** and **how the judge synthesizes** — without MCP
+“thinking tools,” without client tool schemas, and without depending on the model
+choosing to call a tool.
+
+Phase 2 ideas (auto lens selection, quality metrics, UI template gallery) stay in
+**EPIC-23 (held)** — do not document them as shipped.
+
+### Config, not MCP
+
+| What | Where | Not this |
+|------|-------|----------|
+| Panel cognitive lens | Model step fields `thinkingMode` + optional `systemAddon` | MCP tools / agent “think hardest” tool loops |
+| Judge synthesis style | Combo `config.judgeMode` (sibling of `fusionTuning`) | Provider `reasoning_effort` / thinking budget tokens |
+| Enforcement | Proxy inject on fusion fan-out (`applyFusionCognitiveLens`) | Model goodwill to call tools |
+| Default | **Off** — omit fields ⇒ no extra system text | Silent global mutation of non-fusion routes |
+
+**No MCP tools** were added for lenses. Diversity is combo JSON + editor knobs only.
+
+### Anti-confusion: cognitive lens ≠ provider thinking
+
+| Concept | What it is | Where configured |
+|---------|------------|------------------|
+| **Cognitive lens** (`thinkingMode`) | Short **system framing** appended for a fusion **panel** turn (first-principles, adversarial, security, …) | Fusion editor / combo model step |
+| **`systemAddon`** | Optional operator prose merged with the lens (or alone when mode omit) | Same model step; max **4000** chars (`FUSION_SYSTEM_ADDON_MAX_CHARS`) |
+| **`judgeMode`** | Judge **user-turn directive** style when synthesizing panel answers | `config.judgeMode` |
+| Provider **reasoning / thinking budget** | Upstream knobs such as `reasoning_effort` (`low` / `medium` / `high` / `adaptive`) or provider-native thinking tokens | Provider/model request params — **orthogonal** |
+
+Lens ids intentionally **avoid** `low` / `medium` / `high` / `adaptive` so they never collide
+with reasoning-effort vocabulary (EPIC-22 **D3**).
+
+### Field reference (grep-verified)
+
+| Field | Location | Type / ids | Default | Runtime effect |
+|-------|----------|------------|---------|----------------|
+| `thinkingMode` | `models[]` model step | `FUSION_COGNITIVE_LENS_IDS` | omit | `resolvePanelLensText` → inject via `injectCustomSystemPrompt` when non-empty |
+| `systemAddon` | `models[]` model step | `string` max 4000 | omit / empty | Alone when mode empty; with preset → `preset + "\n\n" + addon`; required for `custom` |
+| `judgeMode` | `config.judgeMode` | `FUSION_JUDGE_MODE_IDS` | omit → runtime `synthesize` | `buildJudgePrompt` / `resolveJudgeModeDirective` only — **never** panel inject |
+
+**Closed lens ids** (`FUSION_COGNITIVE_LENS_IDS`):
+
+| `thinkingMode` | Intent |
+|----------------|--------|
+| *(omit)* | No cognitive inject |
+| `first-principles` | Strip inherited framing; rebuild from fundamentals |
+| `adversarial` | Devil’s advocate — failure modes, weak claims |
+| `security` | Threat-minded — trust boundaries, abuse cases |
+| `systems` | Second-/third-order effects, tradeoffs |
+| `implementation` | Concrete builder — steps, interfaces, PR-shaped detail |
+| `skeptical-evidence` | Separate fact / inference / missing evidence |
+| `custom` | Operator prose only — **requires** non-empty `systemAddon` |
+
+**Closed judge mode ids** (`FUSION_JUDGE_MODE_IDS`): `synthesize` · `dialectical` ·
+`security-review` · `pick-best`. Default constant: `FUSION_JUDGE_MODE_DEFAULT = "synthesize"`.
+
+**Phase 1 scope rules (D6–D8):**
+
+- Cognitive fields apply to **`kind: "model"`** (or legacy string normalized to model) only.
+- **`combo-ref` panels**: no `thinkingMode` / `systemAddon` in schema/UI; nested diversity
+  comes from the child’s own leaf model steps (if that child is itself fusion).
+- Inject runs on fusion **panel** fan-out and the **single-panel** early path when the unit
+  has a lens. **Not** on acting handoff. **Not** on non-fusion strategies.
+- Panel lenses **do not** appear on the judge body; `judgeMode` **does not** alter panel bodies.
+- D9 still holds: panels keep `stream: false`, `tool_choice: "none"`, tools array kept.
+
+### Fingerprints (test / observability contract)
+
+Preset inject strings and judge directives embed stable tokens so anti-bullshit tests can
+assert presence without locking full prose. Defined in
+`src/shared/constants/fusionCognitiveLenses.ts`:
+
+| Helper | Token shape | Example |
+|--------|-------------|---------|
+| `fusionLensFingerprint(id)` | `[omniroute-lens:<id>]` | `[omniroute-lens:adversarial]` |
+| `fusionJudgeFingerprint(id)` | `[omniroute-judge:<id>]` | `[omniroute-judge:pick-best]` |
+
+Changing fingerprint format requires updating
+`tests/unit/fusion-cognitive-diversity.test.ts` in the same change.
+
+### Resolve / inject contract
+
+`resolvePanelLensText(mode, systemAddon)` (catalog module):
+
+| Input | Result |
+|-------|--------|
+| empty/omit mode, empty addon | `""` (identity — no inject) |
+| empty/omit mode, non-empty addon | trimmed addon only |
+| unknown non-empty mode | `""` (ignore addon; Zod already rejects unknowns at write) |
+| `custom` without addon | `""` |
+| `custom` + addon | trimmed addon |
+| preset | catalog English text (includes lens fingerprint) |
+| preset + addon | `preset + "\n\n" + addon` |
+
+Runtime (`applyFusionCognitiveLens` in `fusion.ts`): if composed text is empty, return the
+shared body reference unchanged; otherwise **clone** via `injectCustomSystemPrompt` so
+concurrent panels never mutate a shared `panelBodyBase`.
+
+Plumbing chain:
+
+```
+Zod comboModelStepInputSchema
+  → normalizeComboStep (steps.ts)
+  → resolveFusionUnits / comboStepToFusionUnit
+  → ResolvedFusionUnit.{thinkingMode?, systemAddon?}
+  → applyFusionCognitiveLens(body, unit)
+  → handleSingleModel (model) | handleComboChat (combo-ref, no lens fields)
+```
+
+`config.judgeMode` is read in `combo.ts` and passed as `HandleFusionChatOptionsV2.judgeMode`
+into `handleFusionChatV2` → `buildJudgePrompt(answers, judgeMode)`.
+
+### Operator recipes (docs-only; no UI gallery yet)
+
+These are **copy-paste sketches**. Swap model ids for connections you own. Gallery /
+one-click templates are **EPIC-23 (held)**.
+
+#### Write-safe
+
+Conditional fusion on write/edit tools: builder + critic + security lenses, synthesize judge,
+optional acting as final voice.
+
+```json
+{
+  "name": "fusion-write-safe",
+  "strategy": "conditional-fusion",
+  "models": [
+    {
+      "kind": "model",
+      "model": "opencode-zen/mimo-v2.5-free",
+      "thinkingMode": "implementation"
+    },
+    {
+      "kind": "model",
+      "model": "deepseek-web/deepseek-v4-pro-think",
+      "thinkingMode": "adversarial"
+    },
+    {
+      "kind": "model",
+      "model": "glm/glm-5.1",
+      "thinkingMode": "security"
+    }
+  ],
+  "judge": { "kind": "model", "model": "deepseek-web/deepseek-v4-pro-think" },
+  "acting": { "kind": "model", "model": "opencode-zen/mimo-v2.5-free" },
+  "config": {
+    "triggers": {
+      "mode": "tool-call",
+      "toolPatterns": ["write*", "edit*", "create*", "delete*"],
+      "requireApproval": false
+    },
+    "judgeMode": "synthesize",
+    "fusionTuning": {
+      "minPanel": 2,
+      "stragglerGraceMs": 15000,
+      "panelHardTimeoutMs": 120000
+    },
+    "fallbackStrategy": "priority"
+  }
+}
+```
+
+#### Design-deep
+
+Text-match on architecture language; first-principles + systems + implementation; dialectical
+judge to force tension before merge.
+
+```json
+{
+  "name": "fusion-design-deep",
+  "strategy": "conditional-fusion",
+  "models": [
+    {
+      "kind": "model",
+      "model": "cc/claude-opus-4-7",
+      "thinkingMode": "first-principles"
+    },
+    {
+      "kind": "model",
+      "model": "cx/gpt-5.5",
+      "thinkingMode": "systems"
+    },
+    {
+      "kind": "model",
+      "model": "glm/glm-5.1",
+      "thinkingMode": "implementation",
+      "systemAddon": "Prefer interfaces and module seams over slide-ware."
+    }
+  ],
+  "judge": { "kind": "model", "model": "cc/claude-opus-4-7" },
+  "config": {
+    "triggers": {
+      "mode": "text-match",
+      "textPatterns": ["architect", "design", "tradeoff", "ADR"]
+    },
+    "judgeMode": "dialectical",
+    "fallbackStrategy": "priority"
+  }
+}
+```
+
+#### Cheap-diversity
+
+Same cheap model three times with **different** lenses — diversity comes from framing, not
+provider spend. Useful when budget is tight but correlated answers are the problem.
+
+```json
+{
+  "name": "fusion-cheap-diversity",
+  "strategy": "fusion",
+  "models": [
+    {
+      "kind": "model",
+      "model": "opencode-zen/mimo-v2.5-free",
+      "thinkingMode": "first-principles"
+    },
+    {
+      "kind": "model",
+      "model": "opencode-zen/mimo-v2.5-free",
+      "thinkingMode": "adversarial"
+    },
+    {
+      "kind": "model",
+      "model": "opencode-zen/mimo-v2.5-free",
+      "thinkingMode": "skeptical-evidence"
+    }
+  ],
+  "judge": { "kind": "model", "model": "opencode-zen/mimo-v2.5-free" },
+  "config": {
+    "judgeMode": "synthesize",
+    "fusionTuning": {
+      "minPanel": 2,
+      "stragglerGraceMs": 8000,
+      "panelHardTimeoutMs": 90000
+    }
+  }
+}
+```
+
+### Smoke matrix (operators)
+
+| Check | Expected |
+|-------|----------|
+| Combo with no `thinkingMode` / no `systemAddon` / no `judgeMode` | Same behavior as pre-EPIC-22 fusion |
+| Two panels, two different modes | Distinct system framing per model (fingerprints differ) |
+| `thinkingMode: "custom"` without addon | Save validation error |
+| `judgeMode: "pick-best"` | Judge prompt steers to select one Source N |
+| Combo-ref panel | No cognitive fields on that step; no runtime throw |
+| Non-fusion strategy | Cognitive fields ignored (not injected on non-fusion paths) |
 
 ---
 
@@ -453,7 +752,10 @@ Implementation notes:
 8. Optionally open **Tuning** (min panel quorum, straggler grace, hard timeout). Hard timeout
    **signals abort** on the panel request (0070); stragglers after quorum are also aborted
    after extract (best-effort — see stage 5 residual if leaf fetch ignores the signal).
-9. Save. Clients call `model: "combo/<name>"` on `/api/v1/chat/completions`.
+9. Optionally set **cognitive diversity** (EPIC-22) on each **model** panel: Cognitive lens
+   (`thinkingMode`) and optional system addon; under Tuning, optional **Judge mode**
+   (`config.judgeMode`). Leave empty for default-off (no extra system text; judge synthesizes).
+10. Save. Clients call `model: "combo/<name>"` on `/api/v1/chat/completions`.
 
 ### Choosing panel combos
 
@@ -463,6 +765,9 @@ Implementation notes:
 - Acting is often a strong builder/executor combo-ref; keep it distinct from consultor panels.
 - On the list page, combos with acting show an **Acting · …** chip (`fusion-list-acting`);
   open the editor for full acting configuration.
+- Same model + different `thinkingMode` values is a valid cheap diversity pattern (see recipes).
+- Cognitive lenses are **not** provider thinking budgets — do not expect `reasoning_effort`
+  behavior from `thinkingMode`.
 
 ### Troubleshooting
 
@@ -483,6 +788,10 @@ Implementation notes:
 | Short panel refusals / empty content | Tools stripped incorrectly | Ensure panel path keeps tools + `tool_choice: "none"` (D9) |
 | Validation error on save for fallback | D8 guard | `fallbackStrategy` cannot be fusion / conditional-fusion |
 | Editor cannot clear judge on create | Create schema | Create omits null judge; update sends `judge: null` |
+| Validation: custom lens needs addon | D5 / Zod | `thinkingMode: "custom"` requires non-empty `systemAddon` (max 4000) |
+| Panel answers look identical despite modes | Mode not on model step / combo-ref only | Cognitive fields are model-step only; check saved JSON has `thinkingMode` per panel |
+| Expected “more tokens / deeper think” from lens | Confused with provider thinking | Lenses inject system framing only — set provider reasoning params separately if needed |
+| Judge ignores panel lens text | By design (D8) | Panel fingerprints must not appear on judge body; use `judgeMode` for judge style |
 
 ### Log tags
 
@@ -498,6 +807,8 @@ Logger category strings used by `combo.ts` / `fusion.ts` (not environment variab
 - [Architecture](./ARCHITECTURE.md) — combo strategies overview
 - [Resilience Guide](./RESILIENCE_GUIDE.md) — circuit breaker interaction with combo targets
 - [Auto-Combo](../routing/AUTO-COMBO.md) — scoring strategies often used as fusion fallback
+- EPIC-22 planning: [`docs/tasks/00-planning/EPIC-22-omniroute-cognitive-diversity-fusion.md`](../tasks/00-planning/EPIC-22-omniroute-cognitive-diversity-fusion.md)
+- EPIC-23 (held Phase 2): [`docs/tasks/00-planning/EPIC-23-omniroute-cognitive-diversity-phase2-held.md`](../tasks/00-planning/EPIC-23-omniroute-cognitive-diversity-phase2-held.md)
 - Archived sketch: [`.archive/docs/architecture/FUSION-TRIGGERS-CONDITIONAL.md`](../../.archive/docs/architecture/FUSION-TRIGGERS-CONDITIONAL.md)
 
 ---
@@ -518,6 +829,12 @@ English baseline lives under `src/i18n/messages/en.json`:
   `combos.fusionSelectComboRef`, `combos.fusionUnitNotSet`, `combos.fusionComboRefHint`,
   `combos.fusionModelPlaceholder`, `combos.fusionClearUnit`, `combos.fusionComboRefTitle`,
   `combos.fusionFusionDepthGuarded`, plus shared `combos.moveUp` / `moveDown` / `removeModel`)
+- Cognitive diversity (EPIC-22): `combos.fusionCognitiveLens`, `combos.fusionCognitiveLensHelp`,
+  `combos.fusionCognitiveLensNone`, `combos.fusionCognitiveLens_*` (per lens id),
+  `combos.fusionCognitiveSystemAddon*`, `combos.fusionCognitiveCustomRequiresAddon`,
+  `combos.fusionJudgeMode`, `combos.fusionJudgeModeHelp`, `combos.fusionJudgeModeDefault`,
+  `combos.fusionJudgeMode_*` (per judge mode id)
 
 Other locales (42 message files) still need translation of these keys; only `en.json` is
-required for the baseline gate of this feature.
+required for the baseline gate of this feature. Model-facing inject strings remain English
+technical prose in `fusionCognitiveLenses.ts` (not i18n).

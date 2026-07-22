@@ -87,27 +87,27 @@ describe("CliConceptCard", () => {
     const container = renderCard("code");
     const links = container.querySelectorAll("a");
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"));
-    expect(hrefs).toContain("/dashboard/cli-agents");
+    expect(hrefs).toContain("/operations/agents#cli-agents");
     expect(hrefs).toContain("/dashboard/acp-agents");
-    // Should NOT link to itself
-    expect(hrefs).not.toContain("/dashboard/cli-code");
+    // Should NOT link to itself (code section)
+    expect(hrefs).not.toContain("/operations/agents#cli-code");
   });
 
   it("for currentType=agent, renders chips for code and acp", () => {
     const container = renderCard("agent");
     const links = container.querySelectorAll("a");
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"));
-    expect(hrefs).toContain("/dashboard/cli-code");
+    expect(hrefs).toContain("/operations/agents#cli-code");
     expect(hrefs).toContain("/dashboard/acp-agents");
-    expect(hrefs).not.toContain("/dashboard/cli-agents");
+    expect(hrefs).not.toContain("/operations/agents#cli-agents");
   });
 
   it("for currentType=acp, renders chips for code and agent", () => {
     const container = renderCard("acp");
     const links = container.querySelectorAll("a");
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"));
-    expect(hrefs).toContain("/dashboard/cli-code");
-    expect(hrefs).toContain("/dashboard/cli-agents");
+    expect(hrefs).toContain("/operations/agents#cli-code");
+    expect(hrefs).toContain("/operations/agents#cli-agents");
     expect(hrefs).not.toContain("/dashboard/acp-agents");
   });
 });

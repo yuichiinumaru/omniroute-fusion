@@ -878,3 +878,27 @@ test("createComboSchema rejects unknown keys inside fusionTuning (strict object)
   });
   assert.equal(result.success, false);
 });
+
+// EPIC-22 T22-B: judgeMode is a config sibling of fusionTuning (closed enum).
+test("createComboSchema accepts config.judgeMode and rejects unknowns", () => {
+  const ok = createComboSchema.safeParse({
+    name: "fusion-judge-mode",
+    models: ["a/m1", "b/m2"],
+    strategy: "fusion",
+    config: {
+      judgeModel: "a/m1",
+      judgeMode: "pick-best",
+      fusionTuning: { minPanel: 2 },
+    },
+  });
+  assert.equal(ok.success, true);
+  assert.equal(ok.data.config.judgeMode, "pick-best");
+
+  const bad = createComboSchema.safeParse({
+    name: "fusion-judge-mode-bad",
+    models: ["a/m1", "b/m2"],
+    strategy: "fusion",
+    config: { judgeMode: "turbo" },
+  });
+  assert.equal(bad.success, false);
+});

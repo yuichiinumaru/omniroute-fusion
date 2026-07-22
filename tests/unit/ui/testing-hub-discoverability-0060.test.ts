@@ -1,9 +1,7 @@
 /**
- * Task 0060 — Testing hub IA (reopen: no sidebar chrome for lab routes).
- * Option A: `/dashboard/testing` hub; no new primary sidebar leaf.
- * Translator / Playground / Search Tools must NOT appear in any sidebar section
- * (including debug DEVTOOLS); remain discoverable via Testing hub, command palette,
- * and direct routes.
+ * Task 0060 — Testing hub IA (rewritten for EPIC-20 / 0099 retire).
+ * Labs remain absent from sidebar chrome; discovery is Ops Labs/Media + palette.
+ * `/dashboard/testing` redirects to Labs — not a living product hub.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -18,10 +16,13 @@ import {
   getSectionItems,
 } from "../../../src/shared/constants/sidebarVisibility";
 import {
+  TESTING_HUB_CANONICAL_PATH,
   TESTING_HUB_GROUPS,
   TESTING_HUB_HREFS,
+  TESTING_HUB_LEGACY_HREFS,
 } from "../../../src/shared/constants/testingHub";
 import { OPERATIONS_HUB_HREFS } from "../../../src/shared/constants/operationsHub";
+import { buildOperationsPath } from "../../../src/shared/constants/epic20Operations";
 
 const root = join(import.meta.dirname, "../../..");
 
@@ -32,6 +33,10 @@ const SIDEBAR_ABSENT_LAB_HREFS = [
   "/dashboard/translator",
   "/dashboard/search-tools",
 ] as const;
+
+const LABS = buildOperationsPath("labs");
+const MEDIA = buildOperationsPath("media");
+const INTEGRATIONS = buildOperationsPath("integrations");
 
 function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");
@@ -59,26 +64,15 @@ test("Testing is not a primary sidebar leaf (primary-nav budget)", () => {
 test("Operations primary leaf and count remain intact after Task 0060", () => {
   const ops = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "operations");
   assert.ok(ops);
-  assert.equal(ops.href, "/dashboard/operations");
+  assert.equal(ops.href, "/operations");
   assert.ok(PRIMARY_SIDEBAR_ITEM_IDS.includes("home"));
   const home = PRIMARY_SIDEBAR_ITEMS.find((i) => i.id === "home");
   assert.ok(home);
   assert.equal(home.labelFallback, "Dashboard");
 });
 
-test("Testing hub exposes all seven Task 0060 target routes", () => {
-  const required = [
-    "/dashboard/playground",
-    "/dashboard/cache/media",
-    "/dashboard/translator",
-    "/dashboard/batch",
-    "/dashboard/batch/files",
-    "/dashboard/plugins",
-    "/dashboard/search-tools",
-  ];
-  for (const href of required) {
-    assert.ok(TESTING_HUB_HREFS.includes(href), `Testing hub missing href: ${href}`);
-  }
+test("Testing absorb map (0099) points seven surfaces at Ops Labs/Media/Integrations", () => {
+  assert.equal(TESTING_HUB_CANONICAL_PATH, LABS);
   assert.equal(TESTING_HUB_GROUPS.length, 3);
   assert.deepEqual(
     TESTING_HUB_GROUPS.map((g) => g.id),
@@ -90,24 +84,25 @@ test("Testing hub exposes all seven Task 0060 target routes", () => {
   for (const id of SIDEBAR_ABSENT_LAB_IDS) {
     const link = interactive.links.find((l) => l.id === id);
     assert.ok(link, `missing interactive hub link ${id}`);
-    // Lab badge metadata only — these routes are NOT sidebar items anymore.
     assert.equal(link.isLab, true);
+    assert.equal(link.href, LABS);
   }
+
+  assert.ok(TESTING_HUB_HREFS.includes(LABS));
+  assert.ok(TESTING_HUB_HREFS.includes(MEDIA));
+  assert.ok(TESTING_HUB_HREFS.includes(INTEGRATIONS));
 });
 
-test("testing page and client exist and compose hub groups", () => {
+test("testing page is redirect-only shell to Labs (0099)", () => {
   const page = read("src/app/(dashboard)/dashboard/testing/page.tsx");
-  assert.ok(page.includes("TestingHubClient"));
-  const client = read("src/app/(dashboard)/dashboard/testing/TestingHubClient.tsx");
-  assert.ok(client.includes("TESTING_HUB_GROUPS"));
-  assert.ok(client.includes('data-testid="testing-hub"'));
-  assert.ok(client.includes("data-testing-hub-link"));
-  assert.ok(TESTING_HUB_HREFS.includes("/dashboard/playground"));
-  assert.ok(TESTING_HUB_HREFS.includes("/dashboard/batch"));
-  assert.ok(TESTING_HUB_HREFS.includes("/dashboard/plugins"));
+  assert.ok(page.includes("redirect("));
+  assert.ok(
+    page.includes("TESTING_HUB_CANONICAL_PATH") || page.includes('buildOperationsPath("labs")')
+  );
+  assert.equal(page.includes("TestingHubClient"), false);
 });
 
-test("deep-link target routes still exist as real pages (no redirect-to-testing shells)", () => {
+test("legacy lab routes redirect to Ops (not back to Testing hub)", () => {
   for (const rel of [
     "src/app/(dashboard)/dashboard/playground/page.tsx",
     "src/app/(dashboard)/dashboard/cache/media/page.tsx",
@@ -129,26 +124,30 @@ test("role presets still keep ≤10 primary leaves", () => {
   assert.equal(countPresetVisibleLeaves("admin"), PRIMARY_SIDEBAR_ITEM_IDS.length);
 });
 
-test("CommandPalette includes Testing hub and lab destinations", () => {
+test("CommandPalette discovers Labs/Media via Ops builders (0099)", () => {
   const src = read("src/shared/components/CommandPalette.tsx");
   assert.ok(src.includes("testingHubExtras"));
-  assert.ok(src.includes('href: "/dashboard/testing"'));
-  assert.ok(src.includes('href: "/dashboard/playground"'));
-  assert.ok(src.includes('href: "/dashboard/translator"'));
-  assert.ok(src.includes('href: "/dashboard/search-tools"'));
-  assert.ok(src.includes('href: "/dashboard/batch"'));
-  assert.ok(src.includes('href: "/dashboard/plugins"'));
+  assert.ok(src.includes('buildOperationsPath("labs")'));
+  assert.ok(src.includes('buildOperationsPath("media")'));
+  assert.ok(src.includes('buildOperationsPath("integrations")'));
+  assert.equal(src.includes('href: "/dashboard/testing"'), false);
+  assert.equal(src.includes('href: "/dashboard/playground"'), false);
 });
 
-test("Operations hub cross-links Testing for discoverability", () => {
-  assert.ok(OPERATIONS_HUB_HREFS.includes("/dashboard/testing"));
+test("Operations hub deep-links Labs (not Testing) for discoverability", () => {
+  assert.ok(OPERATIONS_HUB_HREFS.includes(LABS) || OPERATIONS_HUB_HREFS.includes("/operations/labs"));
+  assert.ok(OPERATIONS_HUB_HREFS.includes(MEDIA) || OPERATIONS_HUB_HREFS.includes("/operations/media"));
+  assert.equal(OPERATIONS_HUB_HREFS.includes("/dashboard/testing"), false);
 });
 
-test("Header maps Testing hub deep destinations", () => {
+test("Header maps Labs/Testing deep destinations (TESTING_DEEP_HEADER_META)", () => {
   const src = read("src/shared/components/Header.tsx");
   assert.ok(src.includes("TESTING_DEEP_HEADER_META"));
-  assert.ok(src.includes('titleFallback: "Testing"'));
-  assert.ok(src.includes('match: (p) => p === "/dashboard/testing"'));
+  assert.ok(src.includes('titleFallback: "Labs"') || src.includes('titleFallback: "Testing"'));
+  assert.ok(
+    src.includes("/dashboard/testing") || src.includes("/operations/labs"),
+    "Header must still match testing or labs path"
+  );
 });
 
 test("DEVTOOLS_ITEMS is empty — no lab routes in debug sidebar chrome", () => {
@@ -202,22 +201,12 @@ test("Translator, Playground, Search Tools are absent from all sidebar sections"
   }
 });
 
-test("Testing hub + palette remain the discovery path for lab routes", () => {
-  for (const href of SIDEBAR_ABSENT_LAB_HREFS) {
-    assert.ok(TESTING_HUB_HREFS.includes(href), `hub missing ${href}`);
-  }
+test("Ops Labs + palette remain the discovery path for lab routes (0099)", () => {
+  assert.ok(OPERATIONS_HUB_HREFS.includes(LABS) || OPERATIONS_HUB_HREFS.includes("/operations/labs"));
   const palette = read("src/shared/components/CommandPalette.tsx");
-  for (const href of SIDEBAR_ABSENT_LAB_HREFS) {
-    assert.ok(palette.includes(`href: "${href}"`), `palette missing ${href}`);
-  }
-  const hubClient = read("src/app/(dashboard)/dashboard/testing/TestingHubClient.tsx");
-  assert.ok(hubClient.includes("data-testing-hub-link"));
-  assert.ok(hubClient.includes("link.isLab"), "hub client must render isLab badge");
-  assert.equal(
-    hubClient.includes("debugSidebarOnly"),
-    false,
-    "stale debugSidebarOnly field must not remain in hub client"
-  );
+  assert.ok(palette.includes('buildOperationsPath("labs")'));
+  assert.ok(palette.includes("testingHubExtras"));
+
   const hubConsts = read("src/shared/constants/testingHub.ts");
   assert.equal(
     hubConsts.includes("debugSidebarOnly"),
@@ -225,31 +214,24 @@ test("Testing hub + palette remain the discovery path for lab routes", () => {
     "stale debugSidebarOnly field must not remain in testingHub constants"
   );
   assert.ok(hubConsts.includes("isLab?: boolean") || hubConsts.includes("isLab: true"));
-  // Dead export removed (parity with Task 0059 OPERATIONS_AREA_PATH_PREFIXES cleanup).
+  assert.ok(/RETIRED|retired|0099/i.test(hubConsts));
   assert.equal(
     hubConsts.includes("TESTING_AREA_PATH_PREFIXES"),
     false,
     "TESTING_AREA_PATH_PREFIXES must not be reintroduced unused"
   );
+  assert.ok(TESTING_HUB_LEGACY_HREFS.includes("/dashboard/testing"));
 });
 
-test("Media hub card matches generation playground (not proxy cache inspector)", () => {
+test("Media absorb map matches generation lab (Ops Media peer)", () => {
   const media = TESTING_HUB_GROUPS.flatMap((g) => g.links).find((l) => l.id === "media");
   assert.ok(media);
-  assert.equal(media.href, "/dashboard/cache/media");
+  assert.equal(media.href, MEDIA);
   assert.equal(media.label, "Media");
   assert.equal(media.label.includes("Cache"), false);
   assert.equal(media.description.toLowerCase().includes("cached media"), false);
   assert.equal(media.description.toLowerCase().includes("proxy traffic"), false);
   assert.match(media.description.toLowerCase(), /generat|image|video|music|speech/);
-  // Hub intro must not reintroduce stale "media cache" product copy.
-  const hubClient = read("src/app/(dashboard)/dashboard/testing/TestingHubClient.tsx");
-  assert.equal(
-    /media\s+cache/i.test(hubClient),
-    false,
-    "TestingHubClient intro must not say media cache"
-  );
-  assert.match(hubClient, /media\s+generation/i);
 });
 
 test("Header Testing deep routes have en.json title/description keys", () => {

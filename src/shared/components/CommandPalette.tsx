@@ -17,6 +17,7 @@ import {
   buildProvidersPricingPath,
   buildProvidersQuotaSharePath,
 } from "@/shared/constants/epic19Rebalance";
+import { buildOperationsPath } from "@/shared/constants/epic20Operations";
 
 function isSidebarGroup(
   child: SidebarSectionChild
@@ -285,7 +286,8 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
     const operationsHubExtras: PaletteItem[] = [
       {
         id: "api-manager",
-        href: "/dashboard/api-manager",
+        // EPIC-20 / 0088: Endpoint fusion — keys block under Operations endpoints
+        href: `${buildOperationsPath("endpoints")}#api-keys`,
         icon: "key",
         label: safeTranslate("apiKeysNav", "API Keys"),
         subtitle: safeTranslate("apiManagerSubtitle", "Access · tokens · security"),
@@ -295,7 +297,8 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "endpoints",
-        href: "/dashboard/endpoint",
+        // EPIC-20 / 0088: Endpoint fusion peer (not legacy /dashboard/endpoint)
+        href: buildOperationsPath("endpoints"),
         icon: "api",
         label: safeTranslate("endpoints", "Endpoints"),
         subtitle: safeTranslate("endpointsSubtitle", "Proxy endpoints and protocols"),
@@ -305,9 +308,10 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "mcp",
-        href: "/dashboard/mcp",
+        // EPIC-20 / 0089: CoreMCP at /operations/core-mcp
+        href: buildOperationsPath("core-mcp"),
         icon: "hub",
-        label: safeTranslate("mcp", "MCP Server"),
+        label: safeTranslate("mcp", "CoreMCP"),
         subtitle: safeTranslate("mcpSubtitle", "Model Context Protocol"),
         external: false,
         sectionId: "main",
@@ -325,10 +329,11 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "cli-code",
-        href: "/dashboard/cli-code",
-        icon: "terminal",
-        label: safeTranslate("cliCode", "CLI Code"),
-        subtitle: safeTranslate("cliCodeSubtitle", "Code CLI tools"),
+        // EPIC-20 / 0090 — CLI Agents + CLI Code fused under Operations Agents
+        href: buildOperationsPath("agents"),
+        icon: "smart_toy",
+        label: safeTranslate("operationsAgents", "Agents"),
+        subtitle: safeTranslate("operationsAgentsSubtitle", "CLI Agents · CLI Code"),
         external: false,
         sectionId: "main",
         sectionLabel: safeTranslate("mainNav", "Main"),
@@ -345,22 +350,24 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
     ].filter((item) => !hiddenItems.has(item.id) && !sectionItems.some((s) => s.id === item.id));
 
-    // Testing hub + destinations not primary leaves (Task 0060).
-    // Always surfaces playground/translator/search-tools without requiring debug mode.
+    // Former Testing hub extras → Ops Labs / Media / Integrations (EPIC-20 / 0099).
+    // `testing` id aliases Labs (hideable archive id retained). Not a living Testing hub.
+    // Surfaces playground/translator/search-tools without requiring debug mode.
     const testingHubExtras: PaletteItem[] = [
       {
         id: "testing",
-        href: "/dashboard/testing",
+        // 0099: Testing hub absorbed — palette alias lands on Labs
+        href: buildOperationsPath("labs"),
         icon: "science",
-        label: safeTranslate("testingNav", "Testing"),
-        subtitle: safeTranslate("testingSubtitle", "Labs · batch · media · plugins"),
+        label: safeTranslate("labsNav", "Labs"),
+        subtitle: safeTranslate("labsSubtitle", "Playground · translator · search · batch"),
         external: false,
         sectionId: "main",
         sectionLabel: safeTranslate("mainNav", "Main"),
       },
       {
         id: "playground",
-        href: "/dashboard/playground",
+        href: buildOperationsPath("labs"),
         icon: "science",
         label: safeTranslate("playground", "Playground"),
         subtitle: safeTranslate("playgroundSubtitle", "Interactive chat lab"),
@@ -370,7 +377,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "translator",
-        href: "/dashboard/translator",
+        href: buildOperationsPath("labs"),
         icon: "translate",
         label: safeTranslate("translator", "Translator"),
         subtitle: safeTranslate("translatorSubtitle", "Format translation inspector"),
@@ -380,7 +387,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "search-tools",
-        href: "/dashboard/search-tools",
+        href: buildOperationsPath("labs"),
         icon: "manage_search",
         label: safeTranslate("searchTools", "Search Tools"),
         subtitle: safeTranslate("searchToolsSubtitle", "Web search tool exercise"),
@@ -390,7 +397,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "batch",
-        href: "/dashboard/batch",
+        href: buildOperationsPath("labs"),
         icon: "view_list",
         label: safeTranslate("batch", "Batch"),
         subtitle: safeTranslate("batchSubtitle", "Provider batch jobs"),
@@ -400,7 +407,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "batch-files",
-        href: "/dashboard/batch/files",
+        href: buildOperationsPath("labs"),
         icon: "folder",
         label: safeTranslate("batchFiles", "Batch Files"),
         subtitle: safeTranslate("batchFilesSubtitle", "Batch input files"),
@@ -410,7 +417,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "media",
-        href: "/dashboard/cache/media",
+        href: buildOperationsPath("media"),
         icon: "perm_media",
         label: safeTranslate("media", "Media"),
         subtitle: safeTranslate("mediaSubtitle", "Image · video · music · speech lab"),
@@ -420,7 +427,8 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       },
       {
         id: "plugins",
-        href: "/dashboard/plugins",
+        // EPIC-20 / 0094 + 0099: plugins under Integrations stack
+        href: buildOperationsPath("integrations"),
         icon: "extension",
         label: safeTranslate("plugins", "Plugins"),
         subtitle: safeTranslate("pluginsSubtitle", "Dashboard plugins"),

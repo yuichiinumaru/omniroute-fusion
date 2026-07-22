@@ -43,7 +43,14 @@ function CoverageBarSkeleton(): JSX.Element {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export function AgentSkillsPageClient(): JSX.Element {
+export type AgentSkillsPageClientProps = {
+  /** When true, omit top concept card (fused Ops Skills stack owns explainers at bottom). */
+  hideConceptCard?: boolean;
+};
+
+export function AgentSkillsPageClient({
+  hideConceptCard = false,
+}: AgentSkillsPageClientProps = {}): JSX.Element {
   const t = useTranslations("agentSkills");
 
   // State
@@ -183,9 +190,9 @@ export function AgentSkillsPageClient(): JSX.Element {
   const showGenerateButton = coverageTotal !== null && coverageTotal < 42;
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Concept card — full width */}
-      <SkillsConceptCard variant="agent" />
+    <div className="flex flex-col gap-4" data-testid="agent-skills-page-client">
+      {/* Concept card — suppressed when re-homed under Ops Skills stack (0093) */}
+      {!hideConceptCard && <SkillsConceptCard variant="agent" />}
 
       {/* Header: coverage + MCP/A2A bar + generate button */}
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-bg p-4">

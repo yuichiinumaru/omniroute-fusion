@@ -11,8 +11,9 @@ export interface CliConceptCardProps {
 }
 
 const TYPE_HREFS: Record<CliConceptType, string> = {
-  code: "/dashboard/cli-code",
-  agent: "/dashboard/cli-agents",
+  // EPIC-20 / 0090 — agent + code fused at /operations/agents
+  code: "/operations/agents#cli-code",
+  agent: "/operations/agents#cli-agents",
   acp: "/dashboard/acp-agents",
 };
 

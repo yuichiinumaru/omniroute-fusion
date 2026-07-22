@@ -106,8 +106,9 @@ const mockFetch = vi.fn().mockResolvedValue({
 
 // ── Import after mocks ────────────────────────────────────────────────────────
 
+// EPIC-20 / 0092: page.tsx is redirect shell; body lives in AcpAgentsPageClient
 const { default: AcpAgentsPage } = await import(
-  "@/app/(dashboard)/dashboard/acp-agents/page"
+  "@/app/(dashboard)/dashboard/acp-agents/AcpAgentsPageClient"
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -175,13 +176,15 @@ describe("AcpAgentsPage", () => {
     expect(card?.getAttribute("data-current-type")).toBe("acp");
   });
 
-  it("cross-link points to /dashboard/cli-code (not /dashboard/cli-tools)", async () => {
+  it("cross-link points to Operations Agents CLI Code block (not legacy cli-tools)", async () => {
     const container = await renderPage();
     const links = container.querySelectorAll("a");
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"));
-    const cliCodeLinks = hrefs.filter((h) => h === "/dashboard/cli-code");
+    const agentsLinks = hrefs.filter(
+      (h) => h === "/operations/agents#cli-code" || h === "/operations/agents"
+    );
     const cliToolsLinks = hrefs.filter((h) => h === "/dashboard/cli-tools");
-    expect(cliCodeLinks.length).toBeGreaterThan(0);
+    expect(agentsLinks.length).toBeGreaterThan(0);
     expect(cliToolsLinks).toHaveLength(0);
   });
 

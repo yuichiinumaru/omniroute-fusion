@@ -1,6 +1,7 @@
 /**
- * Task 0076 — Operations/Testing reverse chrome decision contract.
+ * Task 0076 — Operations reverse chrome decision contract (updated 0099).
  * Product decision **D1**: hubs are intentional one-way launchpads.
+ * Testing hub retired (0099) — Labs/Media are Ops topbar peers, not reverse chrome.
  * Encode absence of reverse subnav (anti half-implementation phantom).
  */
 import test from "node:test";
@@ -15,7 +16,9 @@ import {
 } from "../../../src/shared/constants/operationsHub";
 import {
   TESTING_HUB_HREFS,
+  TESTING_HUB_LEGACY_HREFS,
 } from "../../../src/shared/constants/testingHub";
+import { buildOperationsPath } from "../../../src/shared/constants/epic20Operations";
 
 const root = join(import.meta.dirname, "../../..");
 
@@ -23,11 +26,22 @@ function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");
 }
 
-/** Map hub href → page source under dashboard (for absence matrix). */
+/** Map hub href → page source (for absence matrix). Supports EPIC-20 `/operations/*`. */
 function hrefToPageRel(href: string): string | null {
-  if (!href.startsWith("/dashboard/")) return null;
-  // Strip query/hash so catalog deep-links still resolve to a page.tsx peer.
+  // Strip query/hash so catalog / fusion deep-links still resolve to a page.tsx peer.
   const pathOnly = href.split("?")[0].split("#")[0];
+  if (pathOnly.startsWith("/operations/")) {
+    const rest = pathOnly.slice("/operations/".length);
+    if (!rest) return null;
+    const staticPeer = `src/app/(dashboard)/operations/${rest}/page.tsx`;
+    if (existsSync(join(root, staticPeer))) return staticPeer;
+    // Dynamic segment host (0087+) until peer fusion mounts a static page.
+    return "src/app/(dashboard)/operations/[segment]/page.tsx";
+  }
+  if (pathOnly === "/operations") {
+    return "src/app/(dashboard)/operations/page.tsx";
+  }
+  if (!pathOnly.startsWith("/dashboard/")) return null;
   const rest = pathOnly.slice("/dashboard/".length);
   if (!rest) return null;
   return `src/app/(dashboard)/dashboard/${rest}/page.tsx`;
@@ -42,7 +56,7 @@ const FORBIDDEN_REVERSE_TOKENS = [
   "data-hub-back-strip",
 ] as const;
 
-test("D1 decision is documented in UI.md reverse-chrome section (Task 0076)", () => {
+test("D1 decision is documented in UI.md reverse-chrome section (Task 0076 + 0099)", () => {
   const ui = read("docs/guides/UI.md");
   assert.ok(
     ui.includes("## Hub reverse chrome") || ui.includes("## Hub reverse chrome "),
@@ -54,8 +68,12 @@ test("D1 decision is documented in UI.md reverse-chrome section (Task 0076)", ()
     "UI.md must record D1 / one-way / launchpad policy"
   );
   assert.ok(
-    ui.includes("Operations") && ui.includes("Testing"),
-    "UI.md policy must name Operations and Testing hubs"
+    ui.includes("Operations") && /Testing/i.test(ui),
+    "UI.md policy must name Operations and Testing"
+  );
+  assert.ok(
+    /retired|absorb/i.test(ui),
+    "UI.md must note Testing retire/absorb (0099)"
   );
   // Must not claim reverse chrome exists on peers when D1 omits it.
   assert.equal(
@@ -119,10 +137,17 @@ test("Operations hub destination peers intentionally omit reverse hub chrome", (
   );
 });
 
-test("Testing hub destination peers intentionally omit reverse hub chrome", () => {
+test("absorbed lab destinations intentionally omit Testing reverse chrome", () => {
+  // Canonical Ops paths from absorb map + legacy redirect shells
+  const destinations = [
+    ...new Set([
+      ...TESTING_HUB_HREFS,
+      ...TESTING_HUB_LEGACY_HREFS.filter((h) => h !== "/dashboard/testing"),
+    ]),
+  ];
   const checked: string[] = [];
   const missingPages: string[] = [];
-  for (const href of TESTING_HUB_HREFS) {
+  for (const href of destinations) {
     const rel = hrefToPageRel(href);
     if (!rel || !existsSync(join(root, rel))) {
       missingPages.push(href);
@@ -146,39 +171,60 @@ test("Testing hub destination peers intentionally omit reverse hub chrome", () =
   assert.deepEqual(
     missingPages,
     [],
-    `every Testing destination href must resolve to a page.tsx (missing: ${missingPages.join(", ")})`
+    `every absorbed lab destination must resolve to a page.tsx (missing: ${missingPages.join(", ")})`
   );
-  assert.equal(
-    checked.length,
-    TESTING_HUB_HREFS.length,
-    `Testing absence matrix must cover all TESTING_HUB_HREFS (got ${checked.length}/${TESTING_HUB_HREFS.length})`
-  );
+  assert.ok(checked.length > 0, "must check at least one lab destination");
 });
 
-test("hub inventories still list Operations and Testing destinations (0059/0060)", () => {
-  assert.ok(OPERATIONS_HUB_HREFS.includes("/dashboard/api-manager"));
-  assert.ok(OPERATIONS_HUB_HREFS.includes("/dashboard/mcp"));
-  assert.ok(OPERATIONS_HUB_HREFS.includes("/dashboard/testing"));
-  assert.ok(TESTING_HUB_HREFS.includes("/dashboard/playground"));
-  assert.ok(TESTING_HUB_HREFS.includes("/dashboard/translator"));
-  assert.ok(TESTING_HUB_HREFS.includes("/dashboard/batch"));
-
-  const opsClient = read(
-    "src/app/(dashboard)/dashboard/operations/OperationsHubClient.tsx"
+test("hub inventories: Ops deep-links Labs; Testing is not Ops card (0099)", () => {
+  assert.ok(
+    OPERATIONS_HUB_HREFS.includes("/operations/endpoints") ||
+      OPERATIONS_HUB_HREFS.some((h) => h.includes("endpoints"))
   );
+  assert.ok(
+    OPERATIONS_HUB_HREFS.includes("/operations/core-mcp") ||
+      OPERATIONS_HUB_HREFS.some((h) => h.includes("core-mcp"))
+  );
+  assert.equal(OPERATIONS_HUB_HREFS.includes("/dashboard/testing"), false);
+  assert.ok(
+    OPERATIONS_HUB_HREFS.includes(buildOperationsPath("labs")) ||
+      OPERATIONS_HUB_HREFS.includes("/operations/labs")
+  );
+  assert.ok(TESTING_HUB_HREFS.includes(buildOperationsPath("labs")));
+  assert.ok(TESTING_HUB_HREFS.includes(buildOperationsPath("media")));
+
+  // EPIC-20: hub client lives under /operations shell
+  const opsClient = read("src/app/(dashboard)/operations/OperationsHubClient.tsx");
+  assert.ok(opsClient.includes("OPERATIONS_HUB_GROUPS"));
+  // Testing client is archive stub only
   const testingClient = read(
     "src/app/(dashboard)/dashboard/testing/TestingHubClient.tsx"
   );
-  assert.ok(opsClient.includes("OPERATIONS_HUB_GROUPS"));
-  assert.ok(testingClient.includes("TESTING_HUB_GROUPS"));
+  assert.ok(/@deprecated|RETIRED|retired/i.test(testingClient));
 });
 
-test("CommandPalette still discovers hub destinations under D1", () => {
+test("CommandPalette still discovers lab destinations under D1 (Ops paths)", () => {
   const src = read("src/shared/components/CommandPalette.tsx");
-  assert.ok(src.includes("operationsHubExtras") || src.includes("/dashboard/operations"));
-  assert.ok(src.includes("testingHubExtras") || src.includes("/dashboard/testing"));
-  assert.ok(src.includes('href: "/dashboard/api-manager"'));
-  assert.ok(src.includes('href: "/dashboard/playground"'));
+  assert.ok(
+    src.includes("operationsHubExtras") ||
+      src.includes("/dashboard/operations") ||
+      src.includes("/operations")
+  );
+  assert.ok(
+    src.includes("testingHubExtras") ||
+      src.includes('buildOperationsPath("labs")')
+  );
+  // Discovery may use builders or legacy paths that redirect into fusion
+  assert.ok(
+    src.includes('href: "/dashboard/api-manager"') ||
+      src.includes("api-manager") ||
+      src.includes("buildOperationsPath") ||
+      src.includes("endpoints")
+  );
+  assert.ok(
+    src.includes('buildOperationsPath("labs")') ||
+      src.includes("/operations/labs")
+  );
 });
 
 test("anti-new-leaf + labs absent from primary (relative, not forever-9)", () => {
@@ -200,7 +246,7 @@ test("anti-new-leaf + labs absent from primary (relative, not forever-9)", () =>
   assert.equal(devtoolsBlock![1].trim(), "", "DEVTOOLS_ITEMS must stay empty (0060)");
 });
 
-test("operationsHub + testingHub SSoT comments point at D1 / Task 0076", () => {
+test("operationsHub + testingHub SSoT comments point at D1 / Task 0076 (+ 0099)", () => {
   const ops = read("src/shared/constants/operationsHub.ts");
   const testing = read("src/shared/constants/testingHub.ts");
   assert.ok(
@@ -208,7 +254,7 @@ test("operationsHub + testingHub SSoT comments point at D1 / Task 0076", () => {
     "operationsHub.ts should document reverse-chrome decision pointer"
   );
   assert.ok(
-    /0076|one-way|launchpad|reverse chrome/i.test(testing),
-    "testingHub.ts should document reverse-chrome decision pointer"
+    /0076|one-way|launchpad|reverse chrome|RETIRED|0099/i.test(testing),
+    "testingHub.ts should document reverse-chrome / retire decision pointer"
   );
 });

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/shared/utils/cn";
 import { getActiveSidebarHref } from "@/shared/utils/sidebarRouteMatch";
 import { APP_CONFIG } from "@/shared/constants/appConfig";
-import OmniRouteLogo from "./OmniRouteLogo";
+import { Hexagon } from "lucide-react";
 import Button from "./Button";
 import { ConfirmModal } from "./Modal";
 import CloudSyncStatus from "./CloudSyncStatus";
@@ -363,28 +363,40 @@ export default function Sidebar({
           </div>
         )}
 
-        <div className={cn("py-3", collapsed ? "px-2" : "px-4")}>
+        {/* Brand: PM Lens pattern — Hexagon + title (Rajdhani). Default title "Cybernetics Core". */}
+        <div className={cn("border-b border-border/60", collapsed ? "px-2 py-3" : "px-4 py-5")}>
           <Link
             href="/home"
-            className={cn("flex items-center", collapsed ? "justify-center" : "gap-2.5")}
+            className={cn(
+              "flex w-full min-w-0",
+              collapsed ? "items-center justify-center" : "flex-col items-center justify-center gap-2 text-center"
+            )}
+            aria-label={customAppName || "Cybernetics Core"}
           >
-            <div className="flex items-center justify-center size-8 rounded bg-linear-to-br from-[#00FFCC] to-[#00cca3] shrink-0">
-              {customLogo ? (
+            {customLogo ? (
+              <div className="flex size-8 shrink-0 items-center justify-center rounded bg-linear-to-br from-[#00FFCC] to-[#00cca3]">
                 <img
                   src={customLogo}
-                  alt={customAppName || APP_CONFIG.name}
+                  alt={customAppName || "Cybernetics Core"}
                   className="size-5 object-contain"
                 />
-              ) : (
-                <OmniRouteLogo size={18} className="text-white" />
-              )}
-            </div>
+              </div>
+            ) : (
+              <Hexagon
+                className="shrink-0 text-primary drop-shadow-[0_0_8px_#00FFCC]"
+                size={collapsed ? 28 : 32}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            )}
             {!collapsed && (
-              <div className="flex flex-col min-w-0">
-                <h1 className="text-sm font-semibold tracking-tight text-text-main truncate">
-                  {customAppName || APP_CONFIG.name}
+              <div className="flex min-w-0 flex-col items-center">
+                <h1 className="truncate text-[14px] font-bold tracking-[0.18em] text-text-main">
+                  {customAppName || "Cybernetics Core"}
                 </h1>
-                <span className="text-[10px] text-text-muted">v{APP_CONFIG.version}</span>
+                <span className="text-[10px] tracking-[0.2em] text-text-muted">
+                  v{APP_CONFIG.version}
+                </span>
               </div>
             )}
           </Link>

@@ -354,10 +354,24 @@ async function setupMemoryRoutes(
 // Test suite
 // ---------------------------------------------------------------------------
 
-test.describe("Memory Engine Studio — /dashboard/memory", () => {
+/** Expand a Memory single-page collapsible section (0095 — no tab topbar). */
+async function expandMemorySection(
+  page: Page,
+  section: "memories" | "engine" | "playground" | "concept",
+) {
+  const sectionEl = page.getByTestId(`section-${section}`);
+  await expect(sectionEl).toBeVisible({ timeout: 30_000 });
+  const toggle = sectionEl.getByRole("button").first();
+  const expanded = await toggle.getAttribute("aria-expanded");
+  if (expanded !== "true") {
+    await toggle.click();
+  }
+}
+
+test.describe("Memory Engine Studio — /operations/memory", () => {
   test.setTimeout(600_000);
 
-  test("1. /dashboard/memory renders 3 tabs and concept card", async ({ page }) => {
+  test("1. /operations/memory renders stacked sections (no tab topbar)", async ({ page }) => {
     const state = {
       memories: [makeMemory()],
       stats: { totalEntries: 1, tokensUsed: 24, hitRate: 0.75, cacheStats: { hits: 3, misses: 1 } },
@@ -373,12 +387,14 @@ test.describe("Memory Engine Studio — /dashboard/memory", () => {
 
     await setupMemoryRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // All 3 tabs should be visible
-    await expect(page.getByTestId("tab-memories")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("tab-playground")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByTestId("tab-engine")).toBeVisible({ timeout: 10_000 });
+    // Stacked sections (EPIC-20 T20-J — no tab-* L1 chrome)
+    await expect(page.getByTestId("section-memories")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("section-engine")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("section-playground")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("section-concept")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("tab-memories")).toHaveCount(0);
   });
 
   test("2. Memories tab renders table and Total card", async ({ page }) => {
@@ -397,10 +413,10 @@ test.describe("Memory Engine Studio — /dashboard/memory", () => {
 
     await setupMemoryRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // Wait for memories tab (active by default)
-    await expect(page.getByTestId("tab-memories")).toBeVisible({ timeout: 30_000 });
+    // Memories section expanded by default
+    await expect(page.getByTestId("section-memories")).toBeVisible({ timeout: 30_000 });
 
     // The memory key should appear in the table
     await expect(async () => {
@@ -424,10 +440,10 @@ test.describe("Memory Engine Studio — /dashboard/memory", () => {
 
     await setupMemoryRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
     // Wait for the page to be ready (empty state is shown initially)
-    await expect(page.getByTestId("tab-memories")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("section-memories")).toBeVisible({ timeout: 30_000 });
 
     // Click Add Memory
     await expect(async () => {
@@ -474,7 +490,7 @@ test.describe("Memory Engine Studio — /dashboard/memory", () => {
 
     await setupMemoryRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
     // Wait for the memory to appear
     await expect(async () => {
@@ -516,11 +532,10 @@ test.describe("Memory Engine Studio — /dashboard/memory", () => {
 
     await setupMemoryRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // Navigate to Playground tab
-    await expect(page.getByTestId("tab-playground")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("tab-playground").click();
+    // Expand Playground section (single-scroll stack)
+    await expandMemorySection(page, "playground");
 
     // Fill in query
     const queryInput = page.getByTestId("playground-query-input");
@@ -558,11 +573,10 @@ test.describe("Memory Engine Studio — /dashboard/memory", () => {
 
     await setupMemoryRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // Navigate to Engine tab
-    await expect(page.getByTestId("tab-engine")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("tab-engine").click();
+    // Expand Engine section (single-scroll stack)
+    await expandMemorySection(page, "engine");
 
     // Status section should be visible (Reindex Now button is a proxy for the engine panel)
     const reindexBtn = page.getByTestId("reindex-now-button");
@@ -590,11 +604,10 @@ test.describe("Memory Engine Studio — /dashboard/memory", () => {
 
     await setupMemoryRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // Navigate to Engine tab
-    await expect(page.getByTestId("tab-engine")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("tab-engine").click();
+    // Expand Engine section (single-scroll stack)
+    await expandMemorySection(page, "engine");
 
     // Click Reindex Now
     const reindexBtn = page.getByTestId("reindex-now-button");

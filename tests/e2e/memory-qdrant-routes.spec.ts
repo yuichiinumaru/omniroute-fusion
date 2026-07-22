@@ -3,6 +3,21 @@ import { gotoDashboardRoute } from "./helpers/dashboardAuth";
 
 const NAVIGATION_TIMEOUT_MS = 300_000;
 
+
+/** Expand a Memory single-page collapsible section (0095 — no tab topbar). */
+async function expandMemorySection(
+  page: import("@playwright/test").Page,
+  section: "memories" | "engine" | "playground" | "concept",
+) {
+  const sectionEl = page.getByTestId(`section-${section}`);
+  await expect(sectionEl).toBeVisible({ timeout: 30_000 });
+  const toggle = sectionEl.getByRole("button").first();
+  const expanded = await toggle.getAttribute("aria-expanded");
+  if (expanded !== "true") {
+    await toggle.click();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -253,11 +268,10 @@ test.describe("Memory Qdrant routes — Engine tab integration", () => {
 
     await setupQdrantRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // Navigate to Engine tab
-    await expect(page.getByTestId("tab-engine")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("tab-engine").click();
+    // Expand Engine section (single-scroll stack)
+    await expandMemorySection(page, "engine");
 
     // Qdrant section heading should be visible.
     // getByText(/qdrant/i) resolves to multiple elements (label, description, title, etc.),
@@ -285,11 +299,10 @@ test.describe("Memory Qdrant routes — Engine tab integration", () => {
 
     await setupQdrantRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // Navigate to Engine tab
-    await expect(page.getByTestId("tab-engine")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("tab-engine").click();
+    // Expand Engine section (single-scroll stack)
+    await expandMemorySection(page, "engine");
 
     // Find and click the Test Connection button
     const testConnBtn = page.getByTestId("qdrant-test-connection");
@@ -329,11 +342,10 @@ test.describe("Memory Qdrant routes — Engine tab integration", () => {
 
     await setupQdrantRoutes(page, state);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
+    await gotoDashboardRoute(page, "/operations/memory", { timeoutMs: NAVIGATION_TIMEOUT_MS });
 
-    // Navigate to Engine tab
-    await expect(page.getByTestId("tab-engine")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("tab-engine").click();
+    // Expand Engine section (single-scroll stack)
+    await expandMemorySection(page, "engine");
 
     // Find and click the Cleanup button
     const cleanupBtn = page.getByTestId("qdrant-cleanup");

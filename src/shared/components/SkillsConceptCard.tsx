@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { buildOperationsPath } from "@/shared/constants/epic20Operations";
 
 export interface SkillsConceptCardProps {
   variant: "agent" | "omni";
@@ -11,10 +12,15 @@ export interface SkillsConceptCardProps {
 const COMPARISON_ROWS = ["whatIs", "direction", "executor", "storage", "tagline"] as const;
 type ComparisonRow = (typeof COMPARISON_ROWS)[number];
 
+/** Canonical Ops Skills peer (0086/0093) — hash targets stack sections. */
+const SKILLS_PEER = buildOperationsPath("skills");
+
 export function SkillsConceptCard({ variant, className = "" }: SkillsConceptCardProps): JSX.Element {
   const t = useTranslations("agentSkills");
 
-  const crossLinkHref = variant === "agent" ? "/dashboard/omni-skills" : "/dashboard/agent-skills";
+  // Cross-links scroll within the fused Skills stack (Core ↔ Agent sections).
+  const crossLinkHref =
+    variant === "agent" ? `${SKILLS_PEER}#core-skills` : `${SKILLS_PEER}#agent-skills`;
 
   const title = t(`conceptCard.${variant}.title`);
   const crossLinkLabel = t(`conceptCard.${variant}.crossLinkLabel`);

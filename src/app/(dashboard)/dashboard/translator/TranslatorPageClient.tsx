@@ -17,15 +17,24 @@ import { useTranslateDeepLink } from "./hooks/useTranslateDeepLink";
 import { useTranslateSession } from "./hooks/useTranslateSession";
 import type { AdvancedSlug, TranslatorTab } from "./types";
 
-export default function TranslatorPageClient() {
+export type TranslatorPageClientProps = {
+  /** When false, concept card is omitted (Labs bottom explainer stack owns it). */
+  showConceptCard?: boolean;
+};
+
+export default function TranslatorPageClient({
+  showConceptCard = true,
+}: TranslatorPageClientProps = {}) {
   return (
     <Suspense fallback={<div className="p-8 text-text-muted">Loading…</div>}>
-      <TranslatorPageClientInner />
+      <TranslatorPageClientInner showConceptCard={showConceptCard} />
     </Suspense>
   );
 }
 
-function TranslatorPageClientInner() {
+function TranslatorPageClientInner({
+  showConceptCard = true,
+}: TranslatorPageClientProps) {
   const t = useTranslations("translator");
   const [sharedInputContent, setSharedInputContent] = useState("");
   const { state, setTab, setAdvanced } = useTranslateDeepLink();
@@ -154,7 +163,7 @@ function TranslatorPageClientInner() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <TranslatorConceptCard />
+      {showConceptCard ? <TranslatorConceptCard /> : null}
 
       <AutoFeaturesCard />
 

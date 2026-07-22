@@ -181,7 +181,9 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
   const availableModels = getAllAvailableModels();
   const hasActiveProviders = availableModels.length > 0;
 
-  const backCategory = category === "code" ? "/dashboard/cli-code" : "/dashboard/cli-agents";
+  // EPIC-20 / 0090 strategy A: list is fused; detail stays legacy. Back → fusion host.
+  const backCategory =
+    category === "code" ? "/operations/agents#cli-code" : "/operations/agents#cli-agents";
 
   // Common props passed to every specialized card.
   // isExpanded is always true in the detail page (D23).

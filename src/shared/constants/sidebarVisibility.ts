@@ -218,11 +218,18 @@ export function getSectionItems(
 export const CONNECT_EXPOSURE_RETIRED_SIDEBAR_IDS = ["api-endpoints"] as const;
 
 /**
- * Catalog SSoT (Task 0024). Retired `/dashboard/api-endpoints` redirects here.
+ * Catalog SSoT (Task 0024 → EPIC-20 / 0088).
  * Discovery surfaces (Operations hub, palette, Header) must use this href —
  * never re-list the retired path as a peer destination.
+ * Canonical home: Operations Endpoint fusion (`/operations/endpoints`).
  */
-export const CONNECT_CATALOG_SSOT_HREF = "/dashboard/endpoint?tab=catalog" as const;
+export const CONNECT_CATALOG_SSOT_HREF = "/operations/endpoints" as const;
+
+/**
+ * Pre-0088 catalog deep-link (Endpoint tab). Matrix `from` only — not discovery.
+ * @see OPERATIONS_REDIRECT_MATRIX in epic20Operations.ts
+ */
+export const CONNECT_CATALOG_LEGACY_HREF = "/dashboard/endpoint?tab=catalog" as const;
 
 /** Redirect-only legacy path for the catalog surface (not a discovery peer). */
 export const CONNECT_RETIRED_API_ENDPOINTS_HREF = "/dashboard/api-endpoints" as const;
@@ -383,14 +390,14 @@ export const PRIMARY_SIDEBAR_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "timeline",
   },
   /**
-   * Operations hub (Task 0059 Option A).
-   * Absorbs former primary "API Keys" leaf; `/dashboard/api-manager` remains deep-linked
-   * from the hub. Hideable id `api-manager` retained for stored prefs.
-   * Former Operations leaf was `cli-code` → `/dashboard/cli-code`; that route remains.
+   * Operations hub (Task 0059 Option A → EPIC-20 / 0087 self-evident path).
+   * Canonical href: `/operations` (0086 SSoT). Legacy `/dashboard/operations` redirects.
+   * Absorbs former primary "API Keys" leaf; deep destinations fuse under topbar peers (0088+).
+   * Hideable id `api-manager` retained for stored prefs.
    */
   {
     id: "operations",
-    href: "/dashboard/operations",
+    href: "/operations",
     i18nKey: "operationsNav",
     labelFallback: "Operations",
     subtitleFallback: "API · agents · integrations",
@@ -468,7 +475,7 @@ const MINIMAL_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
 /**
  * Developer: ops-focused primary hubs (hide marketing Docs).
  * Lab destinations (translator / playground / search-tools) are NOT sidebar items
- * (Task 0060 reopen) — discover via Testing hub / command palette / direct routes.
+ * (Task 0060 reopen; EPIC-20 / 0099) — discover via Ops topbar Labs/Media + Command Palette.
  * EPIC-19 / 0082: analytics + costs are not primary; storytelling/config live under
  * Dashboard / Providers / Observe (palette extras + redirects).
  */

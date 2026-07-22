@@ -6,10 +6,11 @@ type SidebarLikeItem = {
 };
 
 /**
- * Primary leaf ids that own hub-child sibling trees under `/dashboard/*`.
- * (EPIC-19 T19-G / Task 0084 — path rename deferred to 0085.)
+ * Primary leaf ids that own hub-child sibling trees under `/dashboard/*`
+ * (or self-evident roots like `/operations`).
+ * (EPIC-19 T19-G / Task 0084; EPIC-20 / 0087 Operations canonical path.)
  */
-export type SidebarHubPrimaryLeafId = "combos" | "activity";
+export type SidebarHubPrimaryLeafId = "combos" | "activity" | "operations";
 
 /**
  * SSoT: path prefix → primary sidebar leaf for hub children that do **not** nest
@@ -17,7 +18,9 @@ export type SidebarHubPrimaryLeafId = "combos" | "activity";
  *
  * - Routing (`combos` → `/dashboard/combos`): fusions, compression studio, context/*
  * - Observe (`activity` → `/dashboard/activity`): health (panels/sources share activity path)
+ * - Operations (`operations` → `/operations`): legacy `/dashboard/operations` until fully retired
  *
+ * Note: `/operations/*` lights Operations via primary href prefix match (no alias needed).
  * Longest matching `pathPrefix` wins when prefixes ever nest.
  */
 export const SIDEBAR_ACTIVE_HUB_ALIASES: readonly {
@@ -44,6 +47,19 @@ export const SIDEBAR_ACTIVE_HUB_ALIASES: readonly {
     pathPrefix: "/dashboard/health",
     primaryLeafId: "activity",
     primaryHref: "/dashboard/activity",
+  },
+  {
+    // Legacy Traffic Inspector path (redirects to Observe ?panel=traffic) — 0098.
+    // Canonical `/dashboard/activity` already lights Observe via primary href prefix.
+    pathPrefix: "/dashboard/tools/traffic-inspector",
+    primaryLeafId: "activity",
+    primaryHref: "/dashboard/activity",
+  },
+  {
+    // Legacy hub path (redirects to /operations) — keep active state if hit before redirect.
+    pathPrefix: "/dashboard/operations",
+    primaryLeafId: "operations",
+    primaryHref: "/operations",
   },
 ] as const;
 

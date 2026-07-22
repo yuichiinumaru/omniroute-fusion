@@ -1,9 +1,9 @@
 /**
- * Task 0083 / EPIC-19 T19-F — Tools → Operations verify-only.
- * Wave3 A1–A5 re-check after 0082 primary cutover: labs stay under Ops → Testing;
+ * Task 0083 / EPIC-19 T19-F — Tools → Operations verify-only (rewritten for 0099).
+ * Wave3 A1–A5: labs stay under Ops topbar Labs/Media (not Testing hub);
  * no new Tools/Labs/Testing primary leaf; DEVTOOLS stays empty of labs.
  *
- * Product code is out of scope unless Operations→Testing card is missing (regression).
+ * EPIC-20 / 0099: Testing hub retired → Labs; discovery contracts updated.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -21,20 +21,17 @@ import {
   OPERATIONS_HUB_HREFS,
 } from "../../../src/shared/constants/operationsHub";
 import {
+  TESTING_HUB_CANONICAL_PATH,
   TESTING_HUB_GROUPS,
   TESTING_HUB_HREFS,
 } from "../../../src/shared/constants/testingHub";
 import { EPIC19_FORBIDDEN_PRIMARY_LEAF_IDS } from "../../../src/shared/constants/epic19Rebalance";
+import { buildOperationsPath } from "../../../src/shared/constants/epic20Operations";
 
 const root = join(import.meta.dirname, "../../..");
 
-/** Wave3 A1–A5 lab ids: not primary, not DEVTOOLS; live on Testing hub. */
+/** Wave3 A1–A5 lab ids: not primary, not DEVTOOLS; live on Ops Labs peer. */
 const LAB_IDS = ["playground", "translator", "search-tools"] as const;
-const LAB_HREFS = [
-  "/dashboard/playground",
-  "/dashboard/translator",
-  "/dashboard/search-tools",
-] as const;
 const FORBIDDEN_TOOLS_PRIMARY_IDS = [
   "playground",
   "translator",
@@ -44,48 +41,63 @@ const FORBIDDEN_TOOLS_PRIMARY_IDS = [
   "labs",
 ] as const;
 
+const LABS = buildOperationsPath("labs");
+const MEDIA = buildOperationsPath("media");
+
 function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-// ─── A3 / Ops → Testing discoverability ──────────────────────────────────────
+// ─── A3 / Ops → Labs discoverability (0099 replaces Testing card) ────────────
 
-test("A3: OPERATIONS_HUB_HREFS includes Testing hub (/dashboard/testing)", () => {
+test("A3: OPERATIONS_HUB_HREFS includes Labs peer (Testing retired)", () => {
   assert.ok(
+    OPERATIONS_HUB_HREFS.includes(LABS) || OPERATIONS_HUB_HREFS.includes("/operations/labs"),
+    "Operations hub must deep-link Labs (EPIC-20 Testing retire)"
+  );
+  assert.equal(
     OPERATIONS_HUB_HREFS.includes("/dashboard/testing"),
-    "Operations hub must cross-link Testing (EPIC-19 Tools→Ops interim)"
+    false,
+    "Operations hub must not keep Testing card after 0099"
   );
 
   const integrations = OPERATIONS_HUB_GROUPS.find((g) => g.id === "integrations");
   assert.ok(integrations, "integrations group must exist");
-  const testingCard = integrations.links.find((l) => l.id === "testing");
-  assert.ok(testingCard, "integrations must include testing card");
-  assert.equal(testingCard.href, "/dashboard/testing");
+  const labsCard = integrations.links.find((l) => l.id === "labs");
+  assert.ok(labsCard, "integrations must include labs card");
+  assert.equal(labsCard.href, LABS);
+  assert.equal(
+    integrations.links.some((l) => l.id === "testing"),
+    false,
+    "integrations must not include testing card"
+  );
 });
 
-// ─── A2 / Testing hub lab inventory ──────────────────────────────────────────
+// ─── A2 / Labs absorb inventory ──────────────────────────────────────────────
 
-test("A2: TESTING_HUB_HREFS includes playground, translator, search-tools labs", () => {
-  for (const href of LAB_HREFS) {
-    assert.ok(TESTING_HUB_HREFS.includes(href), `Testing hub missing lab href: ${href}`);
-  }
-
+test("A2: absorb map includes playground, translator, search-tools → Labs", () => {
+  assert.equal(TESTING_HUB_CANONICAL_PATH, LABS);
   const interactive = TESTING_HUB_GROUPS.find((g) => g.id === "interactive");
   assert.ok(interactive, "interactive group must exist");
   for (const id of LAB_IDS) {
     const link = interactive.links.find((l) => l.id === id);
     assert.ok(link, `interactive lab link missing: ${id}`);
     assert.equal(link.isLab, true, `${id} must be marked isLab`);
+    assert.equal(link.href, LABS);
   }
+  assert.ok(TESTING_HUB_HREFS.includes(LABS));
 });
 
-test("Testing hub still exposes batch + media lab destinations (Ops→Testing depth)", () => {
-  for (const href of ["/dashboard/batch", "/dashboard/cache/media"] as const) {
-    assert.ok(
-      TESTING_HUB_HREFS.includes(href),
-      `Testing hub missing batch/media href: ${href}`
-    );
-  }
+test("absorb map still exposes batch + media destinations (Ops Labs/Media)", () => {
+  const batch = TESTING_HUB_GROUPS.flatMap((g) => g.links).find((l) => l.id === "batch");
+  const media = TESTING_HUB_GROUPS.flatMap((g) => g.links).find((l) => l.id === "media");
+  assert.ok(batch);
+  assert.equal(batch.href, LABS);
+  assert.ok(media);
+  assert.equal(media.href, MEDIA);
+  assert.ok(
+    OPERATIONS_HUB_HREFS.includes(MEDIA) || OPERATIONS_HUB_HREFS.includes("/operations/media")
+  );
 });
 
 // ─── A1 / A4 / A5 — no primary Tools / Labs / Testing leaf ───────────────────
@@ -140,51 +152,55 @@ test("hideable ids still include testing + three labs (archive-not-delete prefs)
   }
 });
 
-// ─── Palette discoverability (no orphan path) ────────────────────────────────
+// ─── Palette discoverability (Ops paths — no orphan Testing home) ────────────
 
-test("CommandPalette still surfaces Testing hub + three labs", () => {
+test("CommandPalette surfaces Labs/Media via Ops builders (0099)", () => {
   const palette = read("src/shared/components/CommandPalette.tsx");
   assert.ok(
     palette.includes("testingHubExtras"),
-    "CommandPalette must keep testingHubExtras injection (0060/0083 discoverability)"
+    "CommandPalette must keep testingHubExtras injection (0060 discoverability id)"
   );
   assert.ok(
-    palette.includes('href: "/dashboard/testing"'),
-    "palette missing Testing hub href"
+    palette.includes('buildOperationsPath("labs")'),
+    "palette must deep-link Labs builder"
   );
-  for (const href of LAB_HREFS) {
-    assert.ok(palette.includes(`href: "${href}"`), `palette missing ${href}`);
-  }
+  assert.ok(
+    palette.includes('buildOperationsPath("media")'),
+    "palette must deep-link Media builder"
+  );
+  assert.equal(
+    palette.includes('href: "/dashboard/testing"'),
+    false,
+    "palette must not keep /dashboard/testing as product home"
+  );
 });
 
-// ─── Docs honesty: Tools→Ops interim only ────────────────────────────────────
+// ─── Docs honesty: Tools→Ops absorb (0099 supersedes interim Testing home) ───
 
-test("UI.md has Tools → Operations (interim) honesty (Task 0083)", () => {
+test("UI.md documents Tools → Operations absorb (Labs/Media, Testing retired)", () => {
   const ui = read("docs/guides/UI.md");
   assert.ok(
-    /## Tools\s*→\s*Operations\s*\(interim\)/i.test(ui) ||
-      ui.includes("## Tools → Operations (interim)"),
-    "UI.md must own ## Tools → Operations (interim)"
+    /## Tools\s*→\s*Operations/i.test(ui),
+    "UI.md must own Tools → Operations section"
   );
   assert.ok(
-    /Operations\s*→\s*Testing/i.test(ui) || ui.includes("Operations → Testing"),
-    "UI.md must state Tools interim home is Operations → Testing"
+    /Labs|Media/i.test(ui) && /retired|absorb/i.test(ui),
+    "UI.md must state Labs/Media home and Testing retire/absorb"
   );
   assert.ok(
     /0\s+new\s+primary\s+leaves?|no new primary leaf|not a first-class primary|never re-add/i.test(
       ui
     ),
-    "UI.md Tools interim must forbid new primary Tools/Labs leaf"
+    "UI.md Tools section must forbid new primary Tools/Labs leaf"
   );
-  assert.ok(ui.includes("0083") || ui.includes("EPIC-19"), "cite 0083 or EPIC-19");
+  assert.ok(
+    ui.includes("0083") || ui.includes("EPIC-19") || ui.includes("0099") || ui.includes("EPIC-20"),
+    "cite 0083/0099 or EPIC-19/20"
+  );
 });
 
-test("NAV-TREE states labs under Operations → Testing (not orphan / debug-only only)", () => {
+test("NAV-TREE does not claim labs as L0 primary peers", () => {
   const nav = read("docs/architecture/NAV-TREE-TARGET.md");
-  assert.ok(
-    /Operations\s*→\s*Testing/i.test(nav) || nav.includes("Operations → Testing"),
-    "NAV-TREE must cite Operations → Testing path for tools labs"
-  );
   // Must not claim labs are primary L0 peers.
   assert.equal(
     /L0\s*\|\s*(Playground|Translator|Search Tools|Labs)/i.test(nav),

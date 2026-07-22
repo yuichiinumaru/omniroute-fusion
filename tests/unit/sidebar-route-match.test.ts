@@ -14,7 +14,7 @@ const PRIMARY_ITEMS = [
   { id: "providers", href: "/dashboard/providers" },
   { id: "combos", href: "/dashboard/combos" },
   { id: "activity", href: "/dashboard/activity" },
-  { id: "operations", href: "/dashboard/operations" },
+  { id: "operations", href: "/operations" },
   { id: "settings-general", href: "/dashboard/settings/general" },
   { id: "docs", href: "/docs", external: true },
 ] as const;
@@ -53,6 +53,11 @@ test("SIDEBAR_ACTIVE_HUB_ALIASES is an explicit SSoT table (path → primary lea
   assert.equal(byPrefix.get("/dashboard/context")?.primaryLeafId, "combos");
   assert.equal(byPrefix.get("/dashboard/health")?.primaryLeafId, "activity");
   assert.equal(byPrefix.get("/dashboard/health")?.primaryHref, "/dashboard/activity");
+  assert.equal(byPrefix.get("/dashboard/tools/traffic-inspector")?.primaryLeafId, "activity");
+  assert.equal(
+    byPrefix.get("/dashboard/tools/traffic-inspector")?.primaryHref,
+    "/dashboard/activity"
+  );
 });
 
 // ─── EPIC-19 T19-G / 0084: Routing + Observe deep-route active matrix ────────
@@ -72,6 +77,8 @@ const ROUTING_PATHS = [
 const OBSERVE_PATHS = [
   "/dashboard/health",
   "/dashboard/activity",
+  // Legacy Traffic Inspector path → Observe (0098); query panel= stripped by usePathname
+  "/dashboard/tools/traffic-inspector",
   // pathname only (query panel/source stripped by usePathname) — still Observe hub root
 ] as const;
 
@@ -98,8 +105,12 @@ test("resolveSidebarHubAlias maps Routing pillar siblings → combos", () => {
   });
 });
 
-test("resolveSidebarHubAlias maps Observe health → activity", () => {
+test("resolveSidebarHubAlias maps Observe health + traffic-inspector → activity", () => {
   assert.deepEqual(resolveSidebarHubAlias("/dashboard/health"), {
+    primaryLeafId: "activity",
+    primaryHref: "/dashboard/activity",
+  });
+  assert.deepEqual(resolveSidebarHubAlias("/dashboard/tools/traffic-inspector"), {
     primaryLeafId: "activity",
     primaryHref: "/dashboard/activity",
   });
@@ -136,6 +147,7 @@ test("anti-phantom: Routing/Observe deep routes do not light providers or home",
     "/dashboard/context/settings",
     "/dashboard/health",
     "/dashboard/activity",
+    "/dashboard/tools/traffic-inspector",
     "/dashboard/combos/live",
   ];
 
@@ -143,7 +155,7 @@ test("anti-phantom: Routing/Observe deep routes do not light providers or home",
     const active = getActiveSidebarHref(path, [...PRIMARY_ITEMS]);
     assert.notEqual(active, "/home", `home must not be active for ${path}`);
     assert.notEqual(active, "/dashboard/providers", `providers must not be active for ${path}`);
-    assert.notEqual(active, "/dashboard/operations", `operations must not be active for ${path}`);
+    assert.notEqual(active, "/operations", `operations must not be active for ${path}`);
     assert.notEqual(
       active,
       "/dashboard/settings/general",

@@ -49,10 +49,15 @@ export function buildProvidersQuotaSharePath(): typeof PROVIDERS_QUOTA_SHARE_PAT
 /**
  * Observe operational panel query values.
  * **Not** members of `ObserveSource` / `OBSERVE_SOURCES`.
+ * `traffic` is the Traffic Inspector peer (EPIC-20 T20-M / 0098) — same `?panel=` shape.
  */
-export type ObserveOperationalPanel = "combo-health" | "route-trace";
+export type ObserveOperationalPanel = "combo-health" | "route-trace" | "traffic";
 
-export const OBSERVE_OPERATIONAL_PANELS = ["combo-health", "route-trace"] as const satisfies readonly ObserveOperationalPanel[];
+export const OBSERVE_OPERATIONAL_PANELS = [
+  "combo-health",
+  "route-trace",
+  "traffic",
+] as const satisfies readonly ObserveOperationalPanel[];
 
 const OBSERVE_PANEL_SET: ReadonlySet<string> = new Set(OBSERVE_OPERATIONAL_PANELS);
 
@@ -87,6 +92,15 @@ export function buildObserveComboHealthPath(): string {
  */
 export function buildObserveRouteTracePath(id?: string | null): string {
   return buildObserveOperationalPanelPath("route-trace", { id });
+}
+
+/**
+ * Traffic Inspector surface on Observe hub (`?panel=traffic`).
+ * Canonical freeze string also lives in epic20Operations as EPIC20_TRAFFIC_INSPECTOR_PATH;
+ * both builders must stay equal (asserted by 0098 tests).
+ */
+export function buildObserveTrafficPanelPath(): string {
+  return buildObserveOperationalPanelPath("traffic");
 }
 
 /** Re-export hub path constant for discoverability docs (health stays deep-linked). */
@@ -158,7 +172,7 @@ export const EPIC19_LEAVES_TO_DROP = ["analytics", "costs"] as const;
 
 /**
  * Surfaces that must **never** become primary leaves under EPIC-19
- * (stay under Operations → Testing hub).
+ * (EPIC-20: stay under Operations → Labs; Testing hub retired 0099).
  */
 export const EPIC19_FORBIDDEN_PRIMARY_LEAF_IDS = [
   "playground",

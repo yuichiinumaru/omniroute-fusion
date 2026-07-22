@@ -11,12 +11,20 @@ import type { PlaygroundState } from "@/lib/playground/codeExport";
 
 export type StudioTab = "chat" | "compare" | "api" | "build";
 
+/** `strip` = full-width bar; `inline` = compact in-block mode control (Labs fusion). */
+export type StudioTopBarVariant = "strip" | "inline";
+
 interface StudioTopBarProps {
   activeTab: StudioTab;
   onTabChange: (tab: StudioTab) => void;
   metrics: StreamMetrics;
   /** Optional playground state for the Export code modal. If omitted, a minimal state is used. */
   exportState?: PlaygroundState;
+  /**
+   * Chrome variant. `inline` is for Ops Labs fusion (not a hub-level second topbar).
+   * Defaults to `strip` for standalone / unit tests.
+   */
+  variant?: StudioTopBarVariant;
 }
 
 interface TabConfig {
@@ -36,15 +44,30 @@ const TABS: TabConfig[] = [
  * Top bar with tab switcher, token/cost counter, and export code button.
  * Export code modal uses ExportCodeModal (F7) when exportState is provided.
  */
-export default function StudioTopBar({ activeTab, onTabChange, metrics, exportState }: StudioTopBarProps) {
+export default function StudioTopBar({
+  activeTab,
+  onTabChange,
+  metrics,
+  exportState,
+  variant = "strip",
+}: StudioTopBarProps) {
   const t = useTranslations("playground");
   const [exportOpen, setExportOpen] = useState(false);
+  const isInline = variant === "inline";
 
   return (
     <>
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-bg-alt shrink-0">
-        {/* Tabs */}
-        <div className="flex items-center gap-1" role="tablist">
+      <div
+        className={
+          isInline
+            ? "flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-border bg-surface shrink-0"
+            : "flex items-center justify-between px-4 py-2 border-b border-border bg-bg-alt shrink-0"
+        }
+        data-testid={isInline ? "playground-mode-toolbar" : "playground-studio-topbar"}
+        data-playground-topbar-variant={variant}
+      >
+        {/* Mode buttons — in-block for Labs (inline); strip for standalone */}
+        <div className="flex items-center gap-1" role="tablist" aria-label="Playground modes">
           {TABS.map((tab) => (
             <button
               key={tab.id}

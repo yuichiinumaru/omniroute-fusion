@@ -20,7 +20,14 @@ interface Execution {
   createdAt: string;
 }
 
-export function OmniSkillsPageClient(): JSX.Element {
+export type OmniSkillsPageClientProps = {
+  /** When true, omit top concept card (fused Ops Skills stack owns explainers at bottom). */
+  hideConceptCard?: boolean;
+};
+
+export function OmniSkillsPageClient({
+  hideConceptCard = false,
+}: OmniSkillsPageClientProps = {}): JSX.Element {
   const [skills, setSkills] = useState<OmniSkill[]>([]);
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,9 +203,9 @@ export function OmniSkillsPageClient(): JSX.Element {
   ];
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Concept card */}
-      <SkillsConceptCard variant="omni" />
+    <div className="flex flex-col gap-6" data-testid="omni-skills-page-client">
+      {/* Concept card — suppressed when re-homed under Ops Skills stack (0093) */}
+      {!hideConceptCard && <SkillsConceptCard variant="omni" />}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -7,12 +7,20 @@ import type { PlaygroundState } from "@/lib/playground/codeExport";
 
 export type ActiveTab = "search" | "scrape" | "compare";
 
+/** `topbar` = L1 strip testid; `inline` = in-block Labs mode control (no L1 testid). */
+export type SearchToolsTopBarVariant = "topbar" | "inline";
+
 interface SearchToolsTopBarProps {
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
   latencyMs?: number | null;
   costUsd?: number | null;
   exportState?: PlaygroundState;
+  /**
+   * Chrome variant. `inline` omits `data-testid="search-tools-topbar"` so Labs
+   * does not advertise a competing L1 hub strip under Operations chrome.
+   */
+  variant?: SearchToolsTopBarVariant;
 }
 
 const TABS: { id: ActiveTab; icon: string; labelKey: "tabSearch" | "tabScrape" | "tabCompare" }[] = [
@@ -27,16 +35,24 @@ export default function SearchToolsTopBar({
   latencyMs,
   costUsd,
   exportState,
+  variant = "topbar",
 }: SearchToolsTopBarProps) {
   const t = useTranslations("search");
   const tPlayground = useTranslations("playground");
   const [exportOpen, setExportOpen] = useState(false);
+  const isInline = variant === "inline";
 
   return (
     <>
       <div
-        className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-bg-alt"
-        data-testid="search-tools-topbar"
+        className={
+          isInline
+            ? "flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-border bg-surface"
+            : "flex items-center justify-between px-4 py-2.5 border-b border-border bg-bg-alt"
+        }
+        {...(isInline
+          ? { "data-testid": "search-tools-mode-toolbar", "data-search-topbar-variant": "inline" }
+          : { "data-testid": "search-tools-topbar", "data-search-topbar-variant": "topbar" })}
       >
         {/* Tab switcher */}
         <div className="flex gap-1" role="tablist" aria-label={t("searchTools")}>

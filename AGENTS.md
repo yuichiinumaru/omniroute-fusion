@@ -560,11 +560,101 @@ Cloudflare Quick/Named, ngrok, Tailscale Funnel. See [`docs/ops/TUNNELS_GUIDE.md
 
 ### Adding a New Provider
 
-1. Register in `src/shared/constants/providers.ts`
-2. Add executor in `open-sse/executors/` (if custom logic needed)
-3. Add translator in `open-sse/translator/` (if non-OpenAI format)
-4. Add OAuth config in `src/lib/oauth/constants/oauth.ts` (if OAuth-based)
-5. Add models in `open-sse/config/providerRegistry.ts`
+1. Register in `src/shared/constants/providers.ts` (Zod-validated at load)
+2. Add executor in `open-sse/executors/` if custom logic needed (extend `BaseExecutor`)
+3. Add translator in `open-sse/translator/` if non-OpenAI format
+4. Add OAuth config in `src/lib/oauth/constants/oauth.ts` if OAuth-based — public client_id/secret via `resolvePublicCred()` (`docs/security/PUBLIC_CREDS.md`), **never** as a literal
+5. Register models in `open-sse/config/providerRegistry.ts`
+6. Write tests in `tests/unit/` (include publicCreds shape assertion if you added an embedded default)
+
+### Adding a New API Route
+
+1. Create directory under `src/app/api/v1/your-route/`
+2. Create `route.ts` with `GET`/`POST` handlers
+3. Follow pattern: CORS → Zod body validation → optional auth → handler delegation
+4. Handler goes in `open-sse/handlers/` (import from there, not inline)
+5. Error responses use `buildErrorBody()` / `errorResponse()` from `open-sse/utils/error.ts` — never raw `err.stack` / `err.message` (`docs/security/ERROR_SANITIZATION.md`)
+6. Add tests — including at least one assertion that error responses do not leak stack traces (`!body.error.message.includes("at /")`)
+
+### Adding a New DB Module
+
+1. Create `src/lib/db/yourModule.ts` — import `getDbInstance` from `./core.ts`
+2. Export CRUD for your domain table(s)
+3. Add migration in `src/lib/db/migrations/` if needed
+4. Re-export from `src/lib/localDb.ts` (re-export list only — no logic)
+5. Write tests
+
+### Adding a New MCP Tool
+
+1. Tool definition in `open-sse/mcp-server/tools/` with Zod input schema + async handler
+2. Register in tool set (wired by `createMcpServer()`)
+3. Assign scope(s)
+4. Tests (tool invocation logged to `mcp_audit`)
+
+### Adding a New A2A Skill
+
+1. Skill in `src/lib/a2a/skills/`
+2. Register in `A2A_SKILL_HANDLERS` in `src/lib/a2a/taskExecution.ts`
+3. Expose in `src/app/.well-known/agent.json/route.ts`
+4. Tests + `docs/frameworks/A2A-SERVER.md`
+
+### Adding a New Cloud Agent
+
+1. Class in `src/lib/cloudAgent/agents/` extending `CloudAgentBase`
+2. Implement `createTask`, `getStatus`, `approvePlan`, `sendMessage`, `listSources`
+3. Register in `src/lib/cloudAgent/registry.ts`
+4. Tests + `docs/frameworks/CLOUD_AGENT.md`
+
+### Adding a New Embedded Service
+
+1. Installer in `src/lib/services/installers/{name}.ts` (use `runNpm` — no shell interpolation; Hard Rule #13)
+2. Register in `src/lib/services/bootstrap.ts` (`SERVICES[]` + spawn args)
+3. DB seed in migrations (`version_manager`, `status='not_installed'`)
+4. API under `src/app/api/services/{name}/` — must stay `isLocalOnlyPath()` (Hard Rule #17)
+5. UI tab under providers/services; docs `EMBEDDED-SERVICES.md` + OpenAPI; tests
+
+### Adding a New Guardrail / Eval / Skill / Webhook event
+
+- Guardrail: `src/lib/guardrails/` → `docs/security/GUARDRAILS.md`
+- Eval: `src/lib/evals/` → `docs/frameworks/EVALS.md`
+- Skill: `src/lib/skills/` → `docs/frameworks/SKILLS.md`
+- Webhook: `src/lib/webhookDispatcher.ts` → `docs/frameworks/WEBHOOKS.md`
+
+---
+
+## Resilience Runtime State
+
+Three related temporary-failure mechanisms — keep scopes separate when debugging.
+Diagram: [`docs/diagrams/exported/resilience-3layers.svg`](docs/diagrams/exported/resilience-3layers.svg)
+(source: [`docs/diagrams/resilience-3layers.mmd`](docs/diagrams/resilience-3layers.mmd)).
+Deep dive: [`docs/architecture/RESILIENCE_GUIDE.md`](docs/architecture/RESILIENCE_GUIDE.md).
+
+### Provider Circuit Breaker
+
+**Scope**: whole provider (e.g. `glm`, `openai`).  
+**Purpose**: stop traffic to a provider that is repeatedly failing upstream.  
+**Impl**: `src/shared/utils/circuitBreaker.ts`, chat wiring in `src/sse/handlers/`, table `domain_circuit_breakers`.  
+**States**: `CLOSED` → `OPEN` → `HALF_OPEN` (lazy recovery on read when reset timeout elapsed).  
+**Trip only** on provider-level failures: `(408, 500, 502, 503, 504)`. Do **not** trip the whole provider for most `401`/`403`/`429` — those are connection cooldown or model lockout.
+
+### Connection Cooldown
+
+**Scope**: one connection/account/key.  
+**Purpose**: skip one bad key while other keys for the same provider keep serving.  
+**Impl**: `markAccountUnavailable` / credential selection in `src/sse/services/auth.ts`, `checkFallbackError` in `open-sse/services/accountFallback.ts`.  
+Skip while `rateLimitedUntil > now`. Terminal states (`banned`, `expired`, `credits_exhausted`) are **not** cooldowns — do not overwrite with transient cooldown.
+
+### Model Lockout
+
+**Scope**: provider + connection + model.  
+**Purpose**: one model 429/404 must not disable the whole connection.  
+**Impl**: `open-sse/services/accountFallback.ts`.
+
+### Debugging guidance
+
+- All keys skipped → inspect provider breaker **and** each connection `rateLimitedUntil`/`testStatus`
+- Provider stuck after reset window → code reading raw `state` instead of `getStatus()`/`canExecute()`
+- Prefer connection cooldown over provider breaker; prefer model lockout over connection cooldown when only one model fails
 
 ---
 
@@ -604,6 +694,163 @@ For any non-trivial change, read the matching deep-dive first:
 | Release flow                               | [`docs/ops/RELEASE_CHECKLIST.md`](docs/ops/RELEASE_CHECKLIST.md)                                                |
 | Quality gates (35 gates, allowlist policy) | [`docs/architecture/QUALITY_GATES.md`](docs/architecture/QUALITY_GATES.md)                                      |
 | Cluster opt-in profiles (memory, bifrost)  | [`docs/architecture/cluster-decisions.md`](docs/architecture/cluster-decisions.md)                              |
+| Public upstream credentials                | [`docs/security/PUBLIC_CREDS.md`](docs/security/PUBLIC_CREDS.md)                                                |
+| Error sanitization                         | [`docs/security/ERROR_SANITIZATION.md`](docs/security/ERROR_SANITIZATION.md)                                    |
+| Embedded services                          | [`docs/frameworks/EMBEDDED-SERVICES.md`](docs/frameworks/EMBEDDED-SERVICES.md)                                  |
+| Fusion (panels / judge / conditional)      | [`docs/architecture/FUSION.md`](docs/architecture/FUSION.md)                                                    |
+
+---
+
+## Testing protocol (PR + bugfix)
+
+| What | Command |
+| ---- | ------- |
+| Unit tests | `npm run test:unit` |
+| Single file | `node --import tsx/esm --test tests/unit/file.test.ts` |
+| Vitest (MCP, autoCombo, cache) | `npm run test:vitest` |
+| E2E (Playwright) | `npm run test:e2e` |
+| Protocol E2E (MCP+A2A) | `npm run test:protocols:e2e` |
+| Ecosystem | `npm run test:ecosystem` |
+| Coverage gate | `npm run test:coverage` (60/60/60/60) |
+
+**PR rule**: production code in `src/`, `open-sse/`, `electron/`, or `bin/` must include or update tests in the same PR.
+
+**Both runners**: `test:unit` and `test:vitest` are **non-overlapping** and both CI-blocking.
+
+**Bug fix protocol (Hard Rule #18)** — no exceptions:
+
+1. **TDD (preferred)** — failing test → fix → green (permanent regression guard).  
+2. **Real-environment test** when TDD is impossible — live test on production VPS (`192.168.0.15`) with command + result in PR.  
+3. "It worked locally without a test" is not a fix.
+
+**Coverage**: below 60% on a production-code PR → add tests, rerun gate, report results.
+
+---
+
+## Planning & research artifacts
+
+`_tasks/` is a **separate, isolated git repository** (gitignored by the main repo). Canonical home for plans, specs, research, hand-offs — not under `docs/` or repo root.
+
+Superpowers defaults that point at `docs/superpowers/…` are **overridden**:
+
+| Artifact | Save here |
+| -------- | --------- |
+| Plans | `_tasks/superpowers/plans/YYYY-MM-DD-<feature>.md` |
+| Specs / design | `_tasks/superpowers/specs/YYYY-MM-DD-<topic>-design.md` |
+| Research | `_tasks/research/…` |
+| Hand-offs | `_tasks/hands-off/<YYYY-MM-DD>_<branch>_v<versão>_sess-<id>/` |
+
+Commit those inside `_tasks/` (`git -C _tasks …`), never in the main OmniRoute tree. Executable product tasks still live under `docs/tasks/`.
+
+---
+
+## Git workflow
+
+```bash
+# Never commit directly to main
+git checkout -b feat/your-feature
+git commit -m "feat: describe your change"
+git push -u origin feat/your-feature
+```
+
+**Branch prefixes**: `feat/`, `fix/`, `refactor/`, `docs/`, `test/`, `chore/`  
+**Commits**: Conventional Commits — e.g. `feat(db): add circuit breaker`  
+**Scopes** (examples): `db`, `sse`, `oauth`, `dashboard`, `api`, `cli`, `docker`, `ci`, `mcp`, `a2a`, `memory`, `skills`
+
+**Husky**:
+
+- **pre-commit**: lint-staged + `check-docs-sync` + `check:any-budget:t11`
+- **pre-push**: fast gates (`check:any-budget:t11` + `check:tracked-artifacts`); unit tests live in CI
+
+### Worktree isolation (MANDATORY for every development task)
+
+Multiple sessions/agents share this repo. A `git checkout` on the shared main checkout silently destroys other sessions' uncommitted work (incidents: 2026-06-05, 2026-06-13).
+
+**Why two concerns:**
+
+1. **Isolation (Hard Rule #19):** dedicated worktree + branch per task.  
+2. **Build-scope (incident 2026-06-25):** worktree path must be gitignored **and** in `tsconfig.json` `exclude` + `.dockerignore` or `next build` globs OOM the machine.
+
+**Canonical path (2026-07-22): `.worktrees/<slug>/`**
+
+- Slug = branch leaf without `/` (e.g. `feat/epic22-0107` → `.worktrees/feat-epic22-0107`)
+- Already excluded: `.gitignore`, `tsconfig.json` (`".worktrees"`), `.dockerignore`
+- **Forbidden:** repo-root worktrees or any path outside those excludes
+- **Legacy:** `.claude/worktrees/` may exist from old sessions — do not create *new* worktrees there; do not delete other sessions' trees
+
+```bash
+BASE_BRANCH="release/vX.Y.Z"   # confirm with operator first
+TASK="feat/your-feature"
+SLUG="${TASK//\//-}"
+git fetch origin "$BASE_BRANCH"
+git worktree add ".worktrees/${SLUG}" -b "$TASK" "origin/$BASE_BRANCH"
+cd ".worktrees/${SLUG}"
+ln -s "$(git -C <main_checkout> rev-parse --show-toplevel)/node_modules" node_modules
+```
+
+Confirm **base branch** with the operator before creating the worktree. Tear down only worktrees/branches **you** created. Leave others untouched. End with main checkout on the branch it started on (active `release/vX.Y.Z`, never leave it on a random feature branch unless operator owns that session).
+
+---
+
+## Environment (quick)
+
+- **Runtime**: Node.js `>=22.0.0 <23 || >=24.0.0 <27`, ES Modules  
+- **Aliases**: `@/*` → `src/`, `@omniroute/open-sse` → `open-sse/`  
+- **Default package port**: 20128 (API + dashboard); **this fork**: prod **21000**, test **22000** (see Dev Port Convention above)  
+- **Data**: `DATA_DIR` default `~/.omniroute/`  
+- **Key env**: `PORT`, `JWT_SECRET`, `API_KEY_SECRET`, `INITIAL_PASSWORD`, `REQUIRE_API_KEY`, `APP_LOG_LEVEL`  
+- Setup: `cp .env.example .env`; generate secrets with `openssl`
+
+---
+
+## Quality gates & ratchets
+
+~48 scripts under `scripts/check/` + `scripts/quality/`, wired across CI jobs (`lint`, `quality-gate`, `quality-extended`, `docs-sync-strict`, `i18n*`, `pr-test-policy`, `test-vitest`, `sonarqube`, nightlies). Full inventory: [`docs/architecture/QUALITY_GATES.md`](docs/architecture/QUALITY_GATES.md).
+
+- **lint / docs-sync-strict**: pass/fail — fix or allowlist with justification + tracking issue  
+- **quality-gate**: ratchet vs `quality-baseline.json` — improve via `npm run quality:ratchet -- --update` only when metrics truly improve  
+- **test-vitest**: blocking for MCP/autoCombo/cache  
+
+---
+
+## Hard Rules
+
+1. Never commit secrets or credentials  
+2. Never add logic to `localDb.ts`  
+3. Never use `eval()` / `new Function()` / implied eval  
+4. Never commit directly to `main`  
+5. Never write raw SQL in routes — use `src/lib/db/` modules  
+6. Never silently swallow errors in SSE streams  
+7. Always validate inputs with Zod schemas  
+8. Always include tests when changing production code  
+9. Coverage must not regress below `quality-baseline.json` ratchet; absolute floor 60% (statements/lines/functions/branches)  
+10. Never bypass Husky hooks (`--no-verify`, `--no-gpg-sign`) without explicit operator approval  
+11. Never embed public upstream OAuth client_id/secret or Firebase Web keys as string literals — always `resolvePublicCred()` (`docs/security/PUBLIC_CREDS.md`)  
+12. Never return raw `err.stack` / `err.message` in HTTP / SSE / executor / MCP responses — `buildErrorBody()` / `sanitizeErrorMessage()` (`docs/security/ERROR_SANITIZATION.md`)  
+13. Never string-interpolate external paths/runtime values into shell scripts for `exec()`/`spawn()` — pass via `env` (ref: `src/mitm/cert/install.ts::updateNssDatabases`)  
+14. Never dismiss CodeQL / Secret-Scanning without checking pattern docs and recording technical justification (e.g. `js/stack-trace-exposure` on already-sanitized paths → false positive per `ERROR_SANITIZATION.md`)  
+15. Never expose routes that spawn child processes (`/api/mcp/`, `/api/cli-tools/runtime/`) without `isLocalOnlyPath()` in `src/server/authz/routeGuard.ts`  
+16. Never credit or advertise an AI assistant/LLM/bot in commit/PR/CHANGELOG metadata (`Co-Authored-By` AI, "Generated with Claude Code", etc.). Human collaborators **may** use normal `Co-authored-by` trailers  
+17. Never expose `/api/services/` or `/dashboard/providers/services/*/embed/` without `isLocalOnlyPath()`  
+18. Every bug fix: TDD failing-then-passing test **or** documented VPS live test — see Testing protocol above  
+19. Never develop on the shared main checkout — own git worktree under **`.worktrees/<slug>/`**, confirm base branch with operator first; tear down only your own trees  
+20. PII redaction/sanitization is **opt-in — never on by default**. `PII_REDACTION_ENABLED` and `PII_RESPONSE_SANITIZATION` must keep `defaultValue: "false"` in `featureFlagDefinitions.ts`. Regression: `tests/unit/pii-opt-in-default.test.ts`. See `docs/security/GUARDRAILS.md`  
+21. **Release-freeze**: while a `/generate-release` open issue has label `release-freeze`, do **not** merge campaign PRs into active `release/vX.Y.Z` — hold until freeze lifts. Release captain's own release pushes are exempt  
+22. **Dashboard IA / design system** mandatory for UI tasks — single hub topbar, peer items on destination topbar, sidebar active state, anti-phantom chrome tests. Stop and ask if request conflicts with `docs/guides/UI.md`. See **Dashboard IA** section below  
+23. **Self-evident UI paths** target `/{sidebar-leaf}/{topbar-item}` — phased renames; chrome must still be self-evident before path renames land  
+
+Also non-negotiable (fork ops, restated for agents):
+
+- **`:21000` = production** — no docker rm/restart/mutate without explicit operator command (banner at top of this file)  
+- **`:22000` = test** — agent deploy/smoke target  
+
+---
+
+## PII & stream sanitization learnings
+
+1. **ReDoS**: variable-length regexes (IPv6, cards, etc.) must use strictly bounded, non-overlapping quantifiers (e.g. `{1,7}`).  
+2. **SSE snapshots**: final `done`/`completed` snapshot text must be sanitized as a standalone string (bypass rolling delta buffers) to avoid duplicated tail text.  
+3. **DB handles in tests**: any test that opens SQLite / runs migrations must `resetDbInstance()` and close handles in `test.after(...)` or the Node test runner hangs.
 
 ---
 

@@ -1,3 +1,8 @@
+import {
+  isFusionCognitiveLensId,
+  type FusionCognitiveLensId,
+} from "@/shared/constants/fusionCognitiveLenses";
+
 type JsonRecord = Record<string, unknown>;
 
 export const COMBO_SCHEMA_VERSION = 2;
@@ -17,6 +22,13 @@ export interface ComboModelStep {
   weight: number;
   label?: string;
   tags?: string[];
+  /**
+   * EPIC-22 cognitive diversity: closed lens id for fusion panel framing.
+   * Not provider `reasoning_effort`. Runtime inject is task 0109.
+   */
+  thinkingMode?: FusionCognitiveLensId;
+  /** Operator prose (max 4000 at Zod boundary). May stand alone or compose with preset. */
+  systemAddon?: string;
 }
 
 export interface ComboRefStep {
@@ -281,6 +293,12 @@ export function normalizeComboStep(
         .filter((connId): connId is string => !!connId)
     : undefined;
 
+  // EPIC-22: preserve cognitive fields when present (Zod rejects unknowns on write).
+  const thinkingModeRaw = toTrimmedString(value.thinkingMode);
+  const thinkingMode =
+    thinkingModeRaw && isFusionCognitiveLensId(thinkingModeRaw) ? thinkingModeRaw : undefined;
+  const systemAddon = typeof value.systemAddon === "string" ? value.systemAddon : undefined;
+
   return {
     id:
       explicitId ||
@@ -293,6 +311,8 @@ export function normalizeComboStep(
     ...(label ? { label } : {}),
     ...(tags && tags.length > 0 ? { tags } : {}),
     ...(allowedConnectionIds && allowedConnectionIds.length > 0 ? { allowedConnectionIds } : {}),
+    ...(thinkingMode ? { thinkingMode } : {}),
+    ...(systemAddon !== undefined ? { systemAddon } : {}),
   };
 }
 

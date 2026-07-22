@@ -174,7 +174,7 @@ test.describe("Memory settings", () => {
     );
     await expect.poll(() => state.config.enabled).toBe(false);
 
-    await gotoDashboardRoute(page, "/dashboard/memory", {
+    await gotoDashboardRoute(page, "/operations/memory", {
       timeoutMs: NAVIGATION_TIMEOUT_MS,
     });
 

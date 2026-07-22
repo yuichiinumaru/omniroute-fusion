@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * @deprecated EPIC-20 T20-E / 0090 — list page redirects to `/operations/agents`.
+ * Do **not** mount this client for product list UX. Prefer `AgentsFusionClient`
+ * (explainers bottom-collapsed; no top concept wall). Kept for archive-not-delete
+ * and any residual imports of helpers/types.
+ */
+
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CLI_TOOLS } from "@/shared/constants/cliTools";

@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { CONNECT_CATALOG_SSOT_HREF } from "@/shared/constants/sidebarVisibility";
 
 /**
- * Connect SSoT (Epic 0005 S5) — OpenAPI catalog lives under the endpoint shell.
- * Deep link preserved: retired path → CONNECT_CATALOG_SSOT_HREF (never dual string).
+ * Connect SSoT (Task 0024) + EPIC-20 T20-C / Task 0088.
+ * Retired list path → catalog SSoT (now Operations Endpoint fusion).
+ * Deep link preserved: never dual hardcoded catalog string.
  */
 export default function ApiEndpointsPage() {
   redirect(CONNECT_CATALOG_SSOT_HREF);

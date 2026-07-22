@@ -15,6 +15,7 @@ import Card from "@/shared/components/Card";
 import { CardSkeleton } from "@/shared/components/Loading";
 import RoutingHubSubnav from "@/shared/components/RoutingHubSubnav";
 import { useNotificationStore } from "@/store/notificationStore";
+import { FUSION_SYSTEM_ADDON_MAX_CHARS } from "@/shared/constants/fusionCognitiveLenses";
 import FusionTriggersSection from "./FusionTriggersSection";
 import FusionTuningSection from "./FusionTuningSection";
 import FusionUnitsSections from "./FusionUnitsSections";
@@ -239,11 +240,24 @@ export default function FusionEditorClient({ id }: { id: string }) {
         connectionId = String(matches[0].id);
       }
     }
+
+    // EPIC-22: re-picking a model must not drop thinkingMode / systemAddon / label.
+    const previous: FusionUnit | null =
+      pickerTarget.scope === "judge"
+        ? form.judge
+        : pickerTarget.scope === "acting"
+          ? form.acting
+          : (form.panels[pickerTarget.index] ?? null);
+    const prevModel = previous?.kind === "model" ? previous : null;
+
     const unit: FusionUnit = {
       kind: "model",
       model: qualified,
       ...(providerId ? { providerId } : {}),
       ...(connectionId !== undefined ? { connectionId } : {}),
+      ...(prevModel?.label ? { label: prevModel.label } : {}),
+      ...(prevModel?.thinkingMode ? { thinkingMode: prevModel.thinkingMode } : {}),
+      ...(prevModel?.systemAddon ? { systemAddon: prevModel.systemAddon } : {}),
     };
 
     if (pickerTarget.scope === "judge") {
@@ -296,6 +310,39 @@ export default function FusionEditorClient({ id }: { id: string }) {
     if (form.triggers.mode === "text-match" && form.triggers.textPatterns.length === 0) {
       notify.error(
         tx(t, "fusionTextPatternRequired", "Add at least one text pattern for text-match triggers")
+      );
+      return;
+    }
+    // EPIC-22: mirror Zod — custom lens requires non-empty systemAddon.
+    const customMissingAddon = form.panels.some(
+      (p) =>
+        p.kind === "model" &&
+        p.thinkingMode === "custom" &&
+        !(typeof p.systemAddon === "string" && p.systemAddon.trim())
+    );
+    if (customMissingAddon) {
+      notify.error(
+        tx(
+          t,
+          "fusionCognitiveCustomRequiresAddon",
+          'Cognitive lens "Custom" requires a non-empty system addon'
+        )
+      );
+      return;
+    }
+    const addonTooLong = form.panels.some(
+      (p) =>
+        p.kind === "model" &&
+        typeof p.systemAddon === "string" &&
+        p.systemAddon.length > FUSION_SYSTEM_ADDON_MAX_CHARS
+    );
+    if (addonTooLong) {
+      notify.error(
+        tx(
+          t,
+          "fusionCognitiveSystemAddonTooLong",
+          `System addon must be at most ${FUSION_SYSTEM_ADDON_MAX_CHARS} characters`
+        )
       );
       return;
     }

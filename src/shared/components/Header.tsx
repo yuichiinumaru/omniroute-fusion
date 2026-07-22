@@ -29,6 +29,11 @@ import {
   type SidebarItemDefinition,
   type HideableSidebarItemId,
 } from "@/shared/constants/sidebarVisibility";
+import {
+  OPERATIONS_HUB_PATH,
+  OPERATIONS_TOPBAR_LABELS,
+  buildOperationsPath,
+} from "@/shared/constants/epic20Operations";
 import { useIsElectron } from "@/shared/hooks/useElectron";
 
 const isE2EMode = process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE === "1";
@@ -108,42 +113,170 @@ const HEADER_DESCRIPTIONS: Partial<
   "1proxy": "oneProxyDescription",
 };
 
-/**
- * Deep destinations under Operations (Task 0059) are not primary sidebar leaves.
- * Header still needs coherent titles when users arrive via hub cards or deep links.
- */
-const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<{
+type DeepHeaderMeta = {
   match: (pathname: string) => boolean;
   titleKey: string;
   titleFallback: string;
   descKey: string;
   icon: string;
-}> = [
+};
+
+function matchOpsPeerPath(
+  id: keyof typeof OPERATIONS_TOPBAR_LABELS
+): (p: string) => boolean {
+  const base = buildOperationsPath(id);
+  return (p) => p === base || p.startsWith(`${base}/`);
+}
+
+/**
+ * Deep destinations under Operations (Task 0059 / EPIC-20 Task 0100).
+ * Not primary sidebar leaves. **All 10 topbar peers** have explicit matchers
+ * **before** hub-root. Catch-all must NOT use `p.startsWith("/operations/")`
+ * (that shadowed peer titles). Evaluated **before** primary sidebar prefix
+ * match so `/operations/{peer}` shows peer label, not always "Operations".
+ *
+ * titleFallback mirrors `OPERATIONS_TOPBAR_LABELS` (0086 SSoT).
+ */
+const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<DeepHeaderMeta> = [
   {
-    match: (p) => p === "/dashboard/operations",
+    // EPIC-20 / 0088: Endpoint fusion
+    match: (p) =>
+      matchOpsPeerPath("endpoints")(p) ||
+      p === "/dashboard/endpoint" ||
+      p.startsWith("/dashboard/endpoint/") ||
+      p === "/dashboard/api-manager" ||
+      p.startsWith("/dashboard/api-manager/"),
+    titleKey: "endpoints",
+    titleFallback: OPERATIONS_TOPBAR_LABELS.endpoints,
+    descKey: "endpointDescription",
+    icon: "api",
+  },
+  {
+    // EPIC-20 / 0089: CoreMCP
+    match: (p) =>
+      matchOpsPeerPath("core-mcp")(p) ||
+      p === "/dashboard/mcp" ||
+      p.startsWith("/dashboard/mcp/"),
+    titleKey: "mcp",
+    titleFallback: OPERATIONS_TOPBAR_LABELS["core-mcp"],
+    descKey: "mcpDescription",
+    icon: "hub",
+  },
+  {
+    // EPIC-20 / 0090: Agents fusion
+    match: (p) =>
+      matchOpsPeerPath("agents")(p) ||
+      p === "/dashboard/cli-agents" ||
+      p.startsWith("/dashboard/cli-agents/") ||
+      p === "/dashboard/cli-code" ||
+      p.startsWith("/dashboard/cli-code/"),
+    titleKey: "operationsAgents",
+    titleFallback: OPERATIONS_TOPBAR_LABELS.agents,
+    descKey: "agentsDescription",
+    icon: "smart_toy",
+  },
+  {
+    // EPIC-20 / 0091: Cloud Agents
+    match: (p) =>
+      matchOpsPeerPath("cloud-agents")(p) ||
+      p === "/dashboard/cloud-agents" ||
+      p.startsWith("/dashboard/cloud-agents/"),
+    titleKey: "cloudAgents",
+    titleFallback: OPERATIONS_TOPBAR_LABELS["cloud-agents"],
+    descKey: "cloudAgentsDescription",
+    icon: "cloud",
+  },
+  {
+    // EPIC-20 / 0092: A2A/ACP Bridge
+    match: (p) =>
+      matchOpsPeerPath("a2a-acp-bridge")(p) ||
+      p === "/dashboard/a2a" ||
+      p.startsWith("/dashboard/a2a/") ||
+      p === "/dashboard/acp-agents" ||
+      p.startsWith("/dashboard/acp-agents/") ||
+      p === "/dashboard/tools/agent-bridge" ||
+      p.startsWith("/dashboard/tools/agent-bridge/"),
+    titleKey: "a2aAcpBridge",
+    titleFallback: OPERATIONS_TOPBAR_LABELS["a2a-acp-bridge"],
+    descKey: "a2aDescription",
+    icon: "device_hub",
+  },
+  {
+    // EPIC-20 / 0093: Skills
+    match: (p) =>
+      matchOpsPeerPath("skills")(p) ||
+      p === "/dashboard/skills" ||
+      p.startsWith("/dashboard/skills/") ||
+      p === "/dashboard/omni-skills" ||
+      p.startsWith("/dashboard/omni-skills/") ||
+      p === "/dashboard/agent-skills" ||
+      p.startsWith("/dashboard/agent-skills/"),
+    titleKey: "skills",
+    titleFallback: OPERATIONS_TOPBAR_LABELS.skills,
+    descKey: "skillsDescription",
+    icon: "auto_fix_high",
+  },
+  {
+    // EPIC-20 / 0094: Integrations
+    match: (p) =>
+      matchOpsPeerPath("integrations")(p) ||
+      p === "/dashboard/webhooks" ||
+      p.startsWith("/dashboard/webhooks/") ||
+      p === "/dashboard/plugins" ||
+      p.startsWith("/dashboard/plugins/"),
+    titleKey: "integrationsGroup",
+    titleFallback: OPERATIONS_TOPBAR_LABELS.integrations,
+    descKey: "webhooksDescription",
+    icon: "extension",
+  },
+  {
+    // EPIC-20 / 0095: Memory
+    match: (p) =>
+      matchOpsPeerPath("memory")(p) ||
+      p === "/dashboard/memory" ||
+      p.startsWith("/dashboard/memory/"),
+    titleKey: "memory",
+    titleFallback: OPERATIONS_TOPBAR_LABELS.memory,
+    descKey: "memoryDescription",
+    icon: "psychology",
+  },
+  {
+    // EPIC-20 / 0096 + 0099: Labs (+ Testing absorb).
+    // Prefer titleFallback "Labs" — no dedicated sidebar i18n key for Labs peer.
+    match: (p) =>
+      matchOpsPeerPath("labs")(p) ||
+      p === "/dashboard/testing" ||
+      p.startsWith("/dashboard/testing/"),
+    titleKey: "labsNav",
+    titleFallback: OPERATIONS_TOPBAR_LABELS.labs,
+    descKey: "testingDescription",
+    icon: "science",
+  },
+  {
+    // EPIC-20 / 0097: Media
+    match: (p) =>
+      matchOpsPeerPath("media")(p) ||
+      p === "/dashboard/cache/media" ||
+      p.startsWith("/dashboard/cache/media/"),
+    titleKey: "media",
+    titleFallback: OPERATIONS_TOPBAR_LABELS.media,
+    descKey: "mediaDescription",
+    icon: "perm_media",
+  },
+  {
+    // Hub root only — never `p.startsWith("/operations/")` (shadows peers).
+    match: (p) =>
+      p === OPERATIONS_HUB_PATH ||
+      p === `${OPERATIONS_HUB_PATH}/` ||
+      p === "/dashboard/operations" ||
+      p.startsWith("/dashboard/operations/"),
     titleKey: "operationsNav",
     titleFallback: "Operations",
     descKey: "operationsDescription",
     icon: "manufacturing",
   },
   {
-    match: (p) => p === "/dashboard/api-manager" || p.startsWith("/dashboard/api-manager/"),
-    titleKey: "apiKeysNav",
-    titleFallback: "API Keys",
-    descKey: "apiManagerDescription",
-    icon: "key",
-  },
-  {
-    match: (p) => p === "/dashboard/endpoint" || p.startsWith("/dashboard/endpoint/"),
-    titleKey: "endpoints",
-    titleFallback: "Endpoints",
-    descKey: "endpointDescription",
-    icon: "api",
-  },
-  {
-    // Redirect-only legacy path (Task 0024). Server sends operators to
-    // `/dashboard/endpoint?tab=catalog`. Defensive Header title must alias
-    // catalog SSoT — never a competing "API Endpoints" discovery brand.
+    // Task 0024: retired catalog path — brand as catalog SSoT, not dual product.
     match: (p) => p === "/dashboard/api-endpoints" || p.startsWith("/dashboard/api-endpoints/"),
     titleKey: "endpoints",
     titleFallback: "API Catalog",
@@ -151,63 +284,7 @@ const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<{
     icon: "menu_book",
   },
   {
-    match: (p) => p === "/dashboard/mcp" || p.startsWith("/dashboard/mcp/"),
-    titleKey: "mcp",
-    titleFallback: "MCP Server",
-    descKey: "mcpDescription",
-    icon: "hub",
-  },
-  {
-    match: (p) => p === "/dashboard/a2a" || p.startsWith("/dashboard/a2a/"),
-    titleKey: "a2a",
-    titleFallback: "A2A Server",
-    descKey: "a2aDescription",
-    icon: "device_hub",
-  },
-  {
-    match: (p) => p === "/dashboard/cli-code" || p.startsWith("/dashboard/cli-code/"),
-    titleKey: "cliCode",
-    titleFallback: "CLI Code",
-    descKey: "cliToolsDescription",
-    icon: "terminal",
-  },
-  {
-    match: (p) => p === "/dashboard/cli-agents" || p.startsWith("/dashboard/cli-agents/"),
-    titleKey: "cliAgents",
-    titleFallback: "CLI Agents",
-    descKey: "agentsDescription",
-    icon: "smart_toy",
-  },
-  {
-    match: (p) => p === "/dashboard/cloud-agents" || p.startsWith("/dashboard/cloud-agents/"),
-    titleKey: "cloudAgents",
-    titleFallback: "Cloud Agents",
-    descKey: "cloudAgentsDescription",
-    icon: "cloud",
-  },
-  {
-    match: (p) => p === "/dashboard/acp-agents" || p.startsWith("/dashboard/acp-agents/"),
-    titleKey: "acpAgents",
-    titleFallback: "ACP Agents",
-    descKey: "agentsDescription",
-    icon: "device_hub",
-  },
-  {
-    match: (p) =>
-      p === "/dashboard/tools/agent-bridge" || p.startsWith("/dashboard/tools/agent-bridge/"),
-    titleKey: "agentBridge",
-    titleFallback: "Agent Bridge",
-    descKey: "agentBridgeDescription",
-    icon: "link",
-  },
-  {
-    match: (p) => p === "/dashboard/webhooks" || p.startsWith("/dashboard/webhooks/"),
-    titleKey: "webhooks",
-    titleFallback: "Webhooks",
-    descKey: "webhooksDescription",
-    icon: "webhook",
-  },
-  {
+    // 0098: legacy Traffic Inspector flash title before Observe redirect.
     match: (p) =>
       p === "/dashboard/tools/traffic-inspector" ||
       p.startsWith("/dashboard/tools/traffic-inspector/"),
@@ -216,47 +293,14 @@ const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<{
     descKey: "trafficInspectorDescription",
     icon: "network_check",
   },
-  {
-    match: (p) => p === "/dashboard/memory" || p.startsWith("/dashboard/memory/"),
-    titleKey: "memory",
-    titleFallback: "Memory",
-    descKey: "memoryDescription",
-    icon: "psychology",
-  },
-  {
-    match: (p) => p === "/dashboard/agent-skills" || p.startsWith("/dashboard/agent-skills/"),
-    titleKey: "agentSkills",
-    titleFallback: "Agent Skills",
-    descKey: "agentSkillsDescription",
-    icon: "share",
-  },
-  {
-    match: (p) => p === "/dashboard/omni-skills" || p.startsWith("/dashboard/omni-skills/"),
-    titleKey: "omniSkills",
-    titleFallback: "Omni Skills",
-    descKey: "omniSkillsDescription",
-    icon: "auto_fix_high",
-  },
 ];
 
 /**
- * Testing hub + deep destinations (Task 0060) are not primary sidebar leaves.
- * Header still needs coherent titles when users arrive via hub cards or palette.
+ * Former Testing hub lab deep destinations (Task 0060; retired 0099).
+ * Legacy `/dashboard/*` lab shells only — canonical Labs/Media live in
+ * OPERATIONS_DEEP_HEADER_META (resolved before sidebar prefix match).
  */
-const TESTING_DEEP_HEADER_META: ReadonlyArray<{
-  match: (pathname: string) => boolean;
-  titleKey: string;
-  titleFallback: string;
-  descKey: string;
-  icon: string;
-}> = [
-  {
-    match: (p) => p === "/dashboard/testing",
-    titleKey: "testingNav",
-    titleFallback: "Testing",
-    descKey: "testingDescription",
-    icon: "science",
-  },
+const TESTING_DEEP_HEADER_META: ReadonlyArray<DeepHeaderMeta> = [
   {
     match: (p) => p === "/dashboard/playground" || p.startsWith("/dashboard/playground/"),
     titleKey: "playground",
@@ -292,21 +336,36 @@ const TESTING_DEEP_HEADER_META: ReadonlyArray<{
     descKey: "batchDescription",
     icon: "view_list",
   },
-  {
-    match: (p) => p === "/dashboard/cache/media" || p.startsWith("/dashboard/cache/media/"),
-    titleKey: "media",
-    titleFallback: "Media",
-    descKey: "mediaDescription",
-    icon: "perm_media",
-  },
-  {
-    match: (p) => p === "/dashboard/plugins" || p.startsWith("/dashboard/plugins/"),
-    titleKey: "plugins",
-    titleFallback: "Plugins",
-    descKey: "pluginsDescription",
-    icon: "extension",
-  },
 ];
+
+/**
+ * Pure Header deep-title resolver (EPIC-20 / Task 0100 gate).
+ * Returns titleFallback for Ops/Testing deep destinations; null when Header
+ * should use primary sidebar (or other specials).
+ */
+export function resolveDeepHeaderTitleFallback(
+  pathname: string | null | undefined
+): string | null {
+  if (!pathname) return null;
+  const pathOnly = pathname.split("?")[0] ?? pathname;
+  for (const entry of OPERATIONS_DEEP_HEADER_META) {
+    if (entry.match(pathOnly)) return entry.titleFallback;
+  }
+  for (const entry of TESTING_DEEP_HEADER_META) {
+    if (entry.match(pathOnly)) return entry.titleFallback;
+  }
+  return null;
+}
+
+function resolveDeepHeaderMeta(pathname: string): DeepHeaderMeta | null {
+  for (const entry of OPERATIONS_DEEP_HEADER_META) {
+    if (entry.match(pathname)) return entry;
+  }
+  for (const entry of TESTING_DEEP_HEADER_META) {
+    if (entry.match(pathname)) return entry;
+  }
+  return null;
+}
 
 // Build href → sidebar item lookup (non-external items only)
 const sidebarByHref = new Map<string, SidebarItemDefinition>();
@@ -370,7 +429,26 @@ function usePageInfo(pathname: string | null): PageInfo {
       return { title: th("anthropicCompatible"), description: "", providerId: "anthropic-m" };
   }
 
-  // Derive from sidebar
+  // Deep hub destinations **before** primary sidebar prefix match (EPIC-20 / 0100).
+  // Without this, `/operations/skills` etc. always resolve to leaf "Operations".
+  const deepMeta = resolveDeepHeaderMeta(pathname);
+  if (deepMeta) {
+    let title = deepMeta.titleFallback;
+    try {
+      title = ts(deepMeta.titleKey);
+    } catch {
+      title = deepMeta.titleFallback;
+    }
+    let description = "";
+    try {
+      description = th(deepMeta.descKey);
+    } catch {
+      description = "";
+    }
+    return { title, description, icon: deepMeta.icon };
+  }
+
+  // Derive from primary sidebar leaves (exact / longest prefix)
   const item = getSidebarItem(pathname);
   if (item) {
     const descKey = HEADER_DESCRIPTIONS[item.id];
@@ -385,42 +463,6 @@ function usePageInfo(pathname: string | null): PageInfo {
       description: descKey ? th(descKey) : "",
       icon: item.icon,
     };
-  }
-
-  // Operations deep destinations (not primary leaves after Task 0059)
-  const opsDeep = OPERATIONS_DEEP_HEADER_META.find((entry) => entry.match(pathname));
-  if (opsDeep) {
-    let title = opsDeep.titleFallback;
-    try {
-      title = ts(opsDeep.titleKey);
-    } catch {
-      title = opsDeep.titleFallback;
-    }
-    let description = "";
-    try {
-      description = th(opsDeep.descKey);
-    } catch {
-      description = "";
-    }
-    return { title, description, icon: opsDeep.icon };
-  }
-
-  // Testing hub + deep destinations (not primary leaves after Task 0060)
-  const testingDeep = TESTING_DEEP_HEADER_META.find((entry) => entry.match(pathname));
-  if (testingDeep) {
-    let title = testingDeep.titleFallback;
-    try {
-      title = ts(testingDeep.titleKey);
-    } catch {
-      title = testingDeep.titleFallback;
-    }
-    let description = "";
-    try {
-      description = th(testingDeep.descKey);
-    } catch {
-      description = "";
-    }
-    return { title, description, icon: testingDeep.icon };
   }
 
   // Health dashboard (Task 0061 — not a primary leaf; linked from Observe + palette)

@@ -1,29 +1,37 @@
 /**
- * Testing hub destinations (Task 0060).
- * Hub route: `/dashboard/testing` — discoverability only; no primary sidebar leaf
- * (primary-nav budget stays ~9 leaves after Task 0059).
- * Existing routes remain deep-linkable. Playground / Translator / Search Tools are
- * intentionally NOT listed in any sidebar section (including debug DEVTOOLS);
- * the Testing hub, command palette, and direct URLs are the discovery paths.
+ * Testing hub — **RETIRED** (EPIC-20 / Task 0099 / T20-N).
  *
- * Reverse chrome (Task 0076 **D1**): intentional one-way launchpad. Destination
- * peers do **not** mount a Testing reverse strip / TestingHubSubnav — return via
- * Operations→Testing hub card, CommandPalette, or browser history (no Testing
- * primary leaf). Policy: `docs/guides/UI.md` § Hub reverse chrome.
+ * Canonical discovery for former Testing content is **Operations topbar**:
+ * - Labs → `buildOperationsPath("labs")` (`/operations/labs`)
+ * - Media → `buildOperationsPath("media")` (`/operations/media`)
+ * - Plugins → Integrations peer (`buildOperationsPath("integrations")`)
+ *
+ * Route `/dashboard/testing` is a **redirect shell only** (→ Labs). Do not reintroduce
+ * Testing as a product hub, primary leaf, or intermediate launchpad.
+ *
+ * Hideable preference id `testing` is retained (archive-not-delete).
+ *
+ * Reverse chrome (Task 0076 **D1**, updated 0099): Ops topbar is the L1 return path for
+ * labs/media — not a Testing reverse strip / TestingHubSubnav. Policy: `docs/guides/UI.md`
+ * § Hub reverse chrome + § Tools → Operations (EPIC-20 absorb).
  */
+
+import { buildOperationsPath } from "./epic20Operations";
 
 export type TestingHubGroupId = "interactive" | "batch-media" | "extensions";
 
 export interface TestingHubLink {
   id: string;
+  /**
+   * Canonical Ops destination after 0099 (Labs / Media / Integrations).
+   * Legacy `/dashboard/*` lab URLs remain in `TESTING_HUB_LEGACY_HREFS` + redirect matrix.
+   */
   href: string;
   label: string;
   description: string;
   icon: string;
   /**
-   * When true, the hub card shows a small "lab" badge.
-   * Lab destinations are intentionally absent from all sidebar chrome
-   * (including debug DEVTOOLS); discovery is hub / palette / direct URL only.
+   * When true, the destination is a lab surface (absent from all sidebar chrome).
    */
   isLab?: boolean;
 }
@@ -36,17 +44,26 @@ export interface TestingHubGroup {
   links: readonly TestingHubLink[];
 }
 
-/** Grouped destinations shown on `/dashboard/testing`. */
+/**
+ * Canonical redirect target for the retired Testing hub route.
+ * Matrix: `/dashboard/testing` → Labs (not Media).
+ */
+export const TESTING_HUB_CANONICAL_PATH = buildOperationsPath("labs");
+
+/**
+ * Archive inventory of absorbed Testing destinations → **canonical Ops paths**.
+ * Not rendered as a living hub; used by palette/docs/tests as SSoT of absorb map.
+ */
 export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
   {
     id: "interactive",
     title: "Interactive labs",
-    description: "Request playgrounds and format translators for manual verification",
+    description: "Request playgrounds and format translators (Operations → Labs)",
     icon: "science",
     links: [
       {
         id: "playground",
-        href: "/dashboard/playground",
+        href: buildOperationsPath("labs"),
         label: "Playground",
         description: "Interactive chat / completions lab against routed models",
         icon: "science",
@@ -54,7 +71,7 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
       },
       {
         id: "translator",
-        href: "/dashboard/translator",
+        href: buildOperationsPath("labs"),
         label: "Translator",
         description: "Inspect request/response format translation between APIs",
         icon: "translate",
@@ -62,7 +79,7 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
       },
       {
         id: "search-tools",
-        href: "/dashboard/search-tools",
+        href: buildOperationsPath("labs"),
         label: "Search Tools",
         description: "Exercise web-search tool providers and payloads",
         icon: "manage_search",
@@ -73,28 +90,27 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
   {
     id: "batch-media",
     title: "Batch & media",
-    description: "Async batch jobs, file uploads, and media generation labs",
+    description: "Batch jobs under Labs; media generation under Media peer",
     icon: "view_list",
     links: [
       {
         id: "batch",
-        href: "/dashboard/batch",
+        href: buildOperationsPath("labs"),
         label: "Batch",
         description: "Create and monitor provider batch jobs",
         icon: "view_list",
       },
       {
         id: "batch-files",
-        href: "/dashboard/batch/files",
+        href: buildOperationsPath("labs"),
         label: "Batch Files",
         description: "Upload and manage batch input files",
         icon: "folder",
       },
       {
         id: "media",
-        href: "/dashboard/cache/media",
+        href: buildOperationsPath("media"),
         label: "Media",
-        // Route path is legacy (`/cache/media`); page is generation playground (image/video/music/speech).
         description: "Generate and test image, video, music, speech, and transcription models",
         icon: "perm_media",
       },
@@ -103,12 +119,12 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
   {
     id: "extensions",
     title: "Extensions",
-    description: "Installable dashboard plugins for experimental surfaces",
+    description: "Plugins live under Operations → Integrations",
     icon: "extension",
     links: [
       {
         id: "plugins",
-        href: "/dashboard/plugins",
+        href: buildOperationsPath("integrations"),
         label: "Plugins",
         description: "Marketplace and installed dashboard plugins",
         icon: "extension",
@@ -117,7 +133,22 @@ export const TESTING_HUB_GROUPS: readonly TestingHubGroup[] = [
   },
 ] as const;
 
-/** Flat list of every hub destination href (for tests / palette extras). */
+/** Flat list of every absorbed destination href (canonical Ops paths). */
 export const TESTING_HUB_HREFS: readonly string[] = TESTING_HUB_GROUPS.flatMap((group) =>
   group.links.map((link) => link.href)
 );
+
+/**
+ * Legacy lab/media/plugins paths that still redirect into Ops (0086 matrix `from`).
+ * Kept for redirect-matrix coverage and archive-not-delete bookmarks.
+ */
+export const TESTING_HUB_LEGACY_HREFS: readonly string[] = [
+  "/dashboard/playground",
+  "/dashboard/translator",
+  "/dashboard/search-tools",
+  "/dashboard/batch",
+  "/dashboard/batch/files",
+  "/dashboard/cache/media",
+  "/dashboard/plugins",
+  "/dashboard/testing",
+] as const;

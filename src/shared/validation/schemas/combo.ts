@@ -6,6 +6,11 @@ import {
 import { SUPPORTED_BATCH_ENDPOINTS } from "@/shared/constants/batchEndpoints";
 import { MAX_REQUEST_BODY_LIMIT_MB, MIN_REQUEST_BODY_LIMIT_MB } from "@/shared/constants/bodySize";
 import { COMBO_CONFIG_MODES } from "@/shared/constants/comboConfigMode";
+import {
+  FUSION_COGNITIVE_LENS_IDS,
+  FUSION_JUDGE_MODE_IDS,
+  FUSION_SYSTEM_ADDON_MAX_CHARS,
+} from "@/shared/constants/fusionCognitiveLenses";
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
 import { HIDEABLE_SIDEBAR_ITEM_IDS } from "@/shared/constants/sidebarVisibility";
 import {
@@ -16,21 +21,44 @@ import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
 
 // ──── Combo Schemas ────
 
+/** EPIC-22: re-export catalog max for schema consumers (SSoT in fusionCognitiveLenses). */
+export { FUSION_SYSTEM_ADDON_MAX_CHARS };
+
 export const comboStepMetaSchema = {
   id: z.string().trim().min(1).max(200).optional(),
   weight: z.number().min(0).max(100).optional().default(0),
   label: z.string().trim().min(1).max(200).optional(),
 };
 
-export const comboModelStepInputSchema = z.object({
-  kind: z.literal("model").optional(),
-  provider: z.string().trim().min(1).max(120).optional(),
-  providerId: z.string().trim().min(1).max(120).optional(),
-  model: z.string().trim().min(1).max(300),
-  connectionId: z.string().trim().min(1).max(200).nullable().optional(),
-  tags: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
-  ...comboStepMetaSchema,
-});
+/**
+ * Model step input. EPIC-22 adds optional cognitive diversity fields:
+ * `thinkingMode` (closed lens id) + `systemAddon` (operator prose, max 4000).
+ * `custom` mode requires a non-empty (trimmed) systemAddon.
+ */
+export const comboModelStepInputSchema = z
+  .object({
+    kind: z.literal("model").optional(),
+    provider: z.string().trim().min(1).max(120).optional(),
+    providerId: z.string().trim().min(1).max(120).optional(),
+    model: z.string().trim().min(1).max(300),
+    connectionId: z.string().trim().min(1).max(200).nullable().optional(),
+    tags: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
+    // EPIC-22 cognitive diversity (panel framing — not provider reasoning_effort).
+    thinkingMode: z.enum(FUSION_COGNITIVE_LENS_IDS).optional(),
+    systemAddon: z.string().max(FUSION_SYSTEM_ADDON_MAX_CHARS).optional(),
+    ...comboStepMetaSchema,
+  })
+  .superRefine((step, ctx) => {
+    if (step.thinkingMode !== "custom") return;
+    const addon = typeof step.systemAddon === "string" ? step.systemAddon.trim() : "";
+    if (!addon) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'thinkingMode "custom" requires a non-empty systemAddon',
+        path: ["systemAddon"],
+      });
+    }
+  });
 
 export const comboRefStepInputSchema = z.object({
   kind: z.literal("combo-ref"),
@@ -189,6 +217,9 @@ export const comboRuntimeConfigSchema = z
     // targets; `judgeModel` synthesizes the final answer (defaults to the first
     // panel model when unset); `fusionTuning` controls quorum-grace collection.
     judgeModel: z.string().trim().max(200).optional(),
+    // EPIC-22: judge synthesis style (closed enum). Sibling of fusionTuning —
+    // not inside the strict fusionTuning object. Runtime inject is task 0109.
+    judgeMode: z.enum(FUSION_JUDGE_MODE_IDS).optional(),
     fusionTuning: z
       .object({
         minPanel: z.coerce.number().int().min(1).max(50).optional(),
@@ -277,9 +308,11 @@ export const createComboSchema = z.object({
   context_length: z.number().int().min(1000).max(2000000).optional(),
   // Optional embedding dimensions override for embedding combos.
   // When set, the value is injected into every upstream embedding request as
-  // the `dimensions` field (and translated to `outputDimensionality` for Gemini).
-  // Stored as a string to match the OpenAI API convention; coerced to number
-  // by the embedding handler. Leave unset to use each model's default.
+  // OpenAI-style `dimensions` only (EPIC-21 D2). Gemini OpenAI-compat shim
+  // (`/v1beta/openai/embeddings`) accepts `dimensions` and rejects native
+  // `outputDimensionality` — dialect SSoT never dual-forwards. Stored as a
+  // string to match the OpenAI API convention; coerced to number by the
+  // embedding handler. Leave unset to use each model's default.
   dimensions: z.string().regex(/^\d+$/, "dimensions must be a positive integer string").optional().nullable(),
 });
 

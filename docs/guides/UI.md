@@ -157,49 +157,55 @@ Pre-S6 snapshot: `.archive/sidebar/2026-07-10-seven-pillars/`.
 
 ## Hub reverse chrome
 
-> **Owner**: Task **0076** (this section only). Do not rewrite EPIC-19 planned/live primary tables or Tools→Ops interim paragraphs here.
+> **Owner**: Task **0076** (D1 freeze); **0099** updates Testing absorb into Ops Labs/Media.
 > **Decision date**: 2026-07-19 · **Product decision: D1 — intentional one-way launchpads**
+> **EPIC-20 update (0099)**: Testing hub **retired** — labs/media discovery is Ops topbar peers, not a second Testing launchpad.
 
-### Operations and Testing hubs
+### Operations hub (and retired Testing)
 
-**Operations** (`/dashboard/operations`) and **Testing** (`/dashboard/testing`) are **hub-only launchpads**, not L1 shells that must reappear as reverse chrome on every destination.
+**Operations** (`/operations`, sidebar leaf) is the L1 shell with **one** `OperationsTopbar` for peers (`/operations/{id}`). Destination peers do **not** mount reverse strips / `OperationsHubSubnav`.
 
-| Hub | Primary leaf? | After a hub card jump… | Return path |
-|-----|---------------|------------------------|-------------|
-| Operations | Yes (`operations` → `/dashboard/operations`) | Destination pages (api-manager, mcp, cli-code, webhooks, …) **do not** mount an Operations reverse strip / `OperationsHubSubnav` | Primary **Operations** sidebar leaf · CommandPalette · browser history |
-| Testing | **No** (no `testing` primary leaf; labs stay out of `DEVTOOLS_ITEMS`) | Destination pages (playground, translator, batch, plugins, …) **do not** mount a Testing reverse strip / `TestingHubSubnav` | Operations hub → Testing card · CommandPalette · browser history · deep URL |
+**Testing** (`/dashboard/testing`) is **no longer a living hub** (EPIC-20 / 0099): it **redirects to Labs** (`/operations/labs`). Do not reintroduce Testing reverse chrome, a Testing card on Ops Integrations, or Testing as an intermediate hop.
 
-**Why D1 (not D2 reverse chrome):** mounting reverse chrome on the full `OPERATIONS_HUB_HREFS` + `TESTING_HUB_HREFS` matrix would bloat ~15+ peer pages without a clear operator demand signal, and would recreate dual-nav pressure after Task 0060 removed labs from sidebar chrome. Option A (hub = launchpad) from Tasks 0059/0060 remains product law.
+| Surface | Primary leaf? | After navigation… | Return path |
+|---------|---------------|-------------------|-------------|
+| Operations | Yes (`operations` → `/operations`) | Peers under `/operations/*` use layout-owned Ops topbar only — **not** reverse strips on legacy `/dashboard/*` | Primary **Operations** leaf · Ops topbar · CommandPalette · browser history |
+| Testing (retired) | **No** | Redirect-only shell → Labs; no `TestingHubSubnav` | Ops topbar **Labs** / **Media** · CommandPalette · deep URL |
+
+**Why D1 (not D2 reverse chrome):** mounting reverse chrome on every historical destination would bloat peer pages and recreate dual-nav pressure after Task 0060 removed labs from sidebar chrome. EPIC-20 keeps labs **out of primary/`DEVTOOLS_ITEMS`** and puts continuous chrome only as Ops topbar peers (Labs, Media, …).
 
 **What is still continuous chrome (for contrast):**
 
+- **Operations topbar** (`OperationsTopbar`) — 10 peers on `/operations/*` (EPIC-20 / 0086–0087); Labs/Media are peers, not reverse chrome.
 - **Routing hub** (`RoutingHubSubnav`) — Combos / Fusions / Live / Compression Settings / Studio stay on peer pages (including fusion editor — Task **0075**).
-- **Providers / Observe / Costs** hub strips — own peer matrices; not reopened by 0076.
+- **Providers / Observe** hub strips — own peer matrices; not reopened by 0076/0099.
 
-**Guards (tests):** `tests/unit/ui/ops-testing-reverse-chrome-0076.test.ts` encodes intentional **absence** of reverse subnav components and half-mounted “Back to Operations/Testing” strips on hub destination pages. Discoverability inventories remain in 0059/0060 suites. **0 new sidebar leaves.**
+**Guards (tests):** `tests/unit/ui/ops-testing-reverse-chrome-0076.test.ts` (absence of reverse subnav + anti-new-leaf); `tests/unit/ui/epic20-retire-testing-0099.test.ts` (Testing redirect + Ops Labs/Media deep links). Discoverability: 0059/0060 rewritten for EPIC-20. **0 new sidebar leaves.**
 
-SSoT comments: `src/shared/constants/operationsHub.ts`, `src/shared/constants/testingHub.ts`.
+SSoT: `operationsHub.ts` · `testingHub.ts` (retired redirect + absorb map) · `epic20Operations.ts`.
 
 ---
 
-## Tools → Operations (interim)
+## Tools → Operations (EPIC-20 absorb)
 
-> **Owner**: Task **0083** / EPIC-19 T19-F (this section only). Do **not** rewrite primary leaf tables (§2.1 / 0082), reverse-chrome policy (0076), or EPIC-19 path-builder freeze (0078).
-> **Product law**: [EPIC-19 §2.4](../tasks/00-planning/EPIC-19-omniroute-dashboard-observe-providers-ia-rebalance.md) · wave3 A1–A5 (labs not primary; Testing under Ops Integrations; **no new leaf**).
+> **Owner**: Task **0083** interim (EPIC-19) **superseded for discovery** by **0096 Labs / 0097 Media / 0099 Testing retire**.
+> Do **not** reintroduce Operations → Testing as the product home for labs.
+> **Product law**: EPIC-20 §1–§2 — labs/media under Ops topbar; Testing content only via Labs/Media (or redirects).
 
-**Interim home for Tools / labs:** **Operations → Testing** — not a first-class primary sidebar leaf.
+**Home for Tools / labs:** **Operations topbar → Labs / Media** — not a first-class primary sidebar leaf, and **not** a separate Testing hub.
 
 | Surface | Discovery path | Primary leaf? |
 |---------|----------------|---------------|
-| Testing hub | Operations hub → Integrations → **Testing** (`/dashboard/testing`) · CommandPalette · direct URL | **No** (`testing` is hideable only) |
-| Playground / Translator / Search Tools | Testing hub cards (`isLab: true`) · CommandPalette · deep URL | **No** — never re-add to `PRIMARY_SIDEBAR_ITEMS` or `DEVTOOLS_ITEMS` |
-| Batch / Media lab / Plugins | Same Testing hub groups | **No** as primary Tools peers |
+| Testing hub (retired) | `/dashboard/testing` **redirects** → `/operations/labs` | **No** (`testing` hideable only) |
+| Playground / Translator / Search Tools / Batch | Ops topbar **Labs** · CommandPalette · legacy `/dashboard/*` redirects | **No** — never re-add to `PRIMARY_SIDEBAR_ITEMS` or `DEVTOOLS_ITEMS` |
+| Media lab | Ops topbar **Media** · CommandPalette · legacy `/dashboard/cache/media` redirect | **No** |
+| Plugins | Ops topbar **Integrations** · CommandPalette | **No** as primary Tools peers |
 
-**Why interim (not a Labs L0 leaf):** EPIC-19 freed Analytics/Costs slots for Dashboard / Providers / Observe rebalance — **not** to spend budget on Tools primary peers. Operator decision: Tools stay under Operations for now. A future first-class Labs leaf is **out of EPIC-19** and only if leaf budget + explicit operator ask allow it.
+**Why no Labs L0 leaf:** EPIC-19 freed Analytics/Costs for Dashboard / Providers / Observe — **not** Tools primary peers. EPIC-20 keeps that budget law: Labs/Media are **Ops topbar peers** only.
 
-**SSoT:** `operationsHub.ts` (Testing card) · `testingHub.ts` (lab inventory) · `sidebarVisibility.ts` (`DEVTOOLS_ITEMS = []`; hideable ids retained for prefs).
+**SSoT:** `epic20Operations.ts` (`buildOperationsPath("labs"|"media")`) · `operationsHub.ts` (Labs/Media cards, no Testing card) · `testingHub.ts` (redirect SSoT + absorb archive) · `sidebarVisibility.ts` (`DEVTOOLS_ITEMS = []`; hideable ids retained).
 
-**Guards:** `tests/unit/ui/epic19-tools-ops-verify-0083.test.ts` (A1–A5 re-check) plus discoverability suites 0059/0060. **0 new primary leaves** for Translator / Playground / Search Tools / Testing / Tools / Labs.
+**Guards:** `tests/unit/ui/epic20-retire-testing-0099.test.ts` + 0059/0060 EPIC-20 contracts + `epic19-tools-ops-verify-0083.test.ts` (anti-leaf / DEVTOOLS). **0 new primary leaves** for Translator / Playground / Search Tools / Testing / Tools / Labs.
 
 ---
 
@@ -256,7 +262,7 @@ Import from `src/shared/components/` (verified paths). Prefer these over hand-ro
 | Configure money / quota / price | **Providers** | `providers` | Mutable policy: budget, pricing, quota-share |
 | Debug / ops health | **Observe** | `activity` | Logs (`?source=`), server health, **combo-health** + **route-trace** (`?panel=`) |
 | Data storytelling | **Dashboard** | `home` | Charts / aggregates (usage, evals, search, utilization, compression, costs overview) |
-| Tools / labs | **Operations → Testing** | (not primary) | Playground / Translator / Search Tools — **0** new primary leaves |
+| Tools / labs | **Operations → Labs/Media** (EPIC-20; Testing retired) | (not primary) | Playground / Translator / Search Tools / Batch under Labs; Media peer — **0** new primary leaves |
 
 ### Live primary chrome (0082 cutover)
 
@@ -292,7 +298,7 @@ Dashboard tabs: `overview` \| `evals` \| `search` \| `utilization` \| `compressi
 | `/dashboard/analytics?tab=combo-health` (+ nested) | Observe `panel=combo-health` |
 | `/dashboard/analytics?tab=route-trace` / `route-explain` (+ `id=`) | Observe `panel=route-trace` |
 | Remaining analytics tabs + `/dashboard/costs` overview | `/home?tab=<id>` |
-| Playground / Translator / Search Tools | Operations → Testing (no new leaf) |
+| Playground / Translator / Search Tools | Operations → Labs (EPIC-20; no new leaf) |
 
 Full testable rows: `EPIC19_REDIRECT_MATRIX` in `epic19Rebalance.ts`. Product page `redirect()` wiring landed in **0079–0081**; this section remains destination-shape SSoT (builders + matrix), not a second wiring surface.
 
@@ -305,6 +311,92 @@ Full testable rows: `EPIC19_REDIRECT_MATRIX` in `epic19Rebalance.ts`. Product pa
 
 ---
 
+## EPIC-20 Operations hub reform (planned)
+
+> **Status**: **planned / destination freeze only** (Task **0086** / T20-A, 2026-07-20).  
+> Live Operations chrome remains the **card launchpad** at `/dashboard/operations` until **0087** mounts the single topbar shell.  
+> **Do not** claim live `/operations/*` product routes render content yet.
+>
+> **SSoT code**: `src/shared/constants/epic20Operations.ts` (`OPERATIONS_TOPBAR_IDS`, `buildOperationsPath`, `OPERATIONS_REDIRECT_MATRIX`, Traffic Observe builder).  
+> **Product law**: [`EPIC-20 planning`](../tasks/00-planning/EPIC-20-omniroute-operations-hub-reform.md) §2 topbar (I) + §5 path matrix (II).  
+> **Owners**: matrix freeze **0086**; shell **0087**; fusions **0088–0097**; Traffic→Observe **0098**; Testing absorb **0099**; chrome gate **0100**.
+
+### Chrome law (Hard Rule #22)
+
+- **Exactly one** Operations hub topbar: the **10 peers** below — no second “Endpoint sub-topbar” family (APIs / Catalog / Context) and no MCP/A2A protocol strip as a competing L1 under Endpoint.  
+- Hierarchy: **sidebar (Operations)** → **single topbar** → **vertical collapsibles** on fused pages.  
+- **0 new primary sidebar leaves** for Labs, Testing, CoreMCP, Agents, Media, Memory, etc. Still one leaf: `operations`.  
+- Traffic Inspector is **not** an Operations topbar peer → **Observe** (see freeze below).
+
+### Locked Operations topbar (exactly 10, order frozen)
+
+| # | Topbar id | Label | Canonical path |
+|---|-----------|--------|----------------|
+| 1 | `endpoints` | Endpoint | `/operations/endpoints` |
+| 2 | `core-mcp` | CoreMCP | `/operations/core-mcp` |
+| 3 | `agents` | Agents | `/operations/agents` |
+| 4 | `cloud-agents` | Cloud Agents | `/operations/cloud-agents` |
+| 5 | `a2a-acp-bridge` | A2A/ACP Bridge | `/operations/a2a-acp-bridge` |
+| 6 | `skills` | Skills | `/operations/skills` |
+| 7 | `integrations` | Integrations | `/operations/integrations` |
+| 8 | `memory` | Memory | `/operations/memory` |
+| 9 | `labs` | Labs | `/operations/labs` |
+| 10 | `media` | Media | `/operations/media` |
+
+### Hub root + path builders (one shape — no “or”)
+
+| Concern | Frozen choice |
+|---------|----------------|
+| Hub root | **`/operations`** via `buildOperationsHubPath()` |
+| Peer pages | **`/operations/{id}`** via `buildOperationsPath(id)` |
+| Default topbar **selection** (shell highlight when path is hub root) | `OPERATIONS_DEFAULT_TOPBAR_ID = "endpoints"` — does **not** rewrite hub root to `/operations/endpoints` |
+| Dual host | Forbidden as builder product — no `/dashboard/operations/{id}` canonical |
+
+### Traffic Inspector → Observe (out of Operations)
+
+| Concern | Frozen value |
+|---------|----------------|
+| Destination | **`/dashboard/activity?panel=traffic`** |
+| Constant | `EPIC20_TRAFFIC_INSPECTOR_PATH` / `buildObserveTrafficInspectorPath()` |
+| Owner | Task **0098** (T20-M) mounts the panel |
+| Not | Operations topbar peer; not log `?source=traffic` |
+
+### Redirect matrix summary (legacy → builder)
+
+| From (today) | To (canonical) |
+|--------------|----------------|
+| `/dashboard/operations` | `/operations` (hub root) |
+| `/dashboard/api-manager`, `/dashboard/endpoint` (+ `?tab=apis` / catalog / `api-endpoints`) | `/operations/endpoints` |
+| `/dashboard/endpoint?tab=context-sources` | `/operations/integrations` |
+| `/dashboard/mcp` | `/operations/core-mcp` |
+| `/dashboard/cli-agents`, `/dashboard/cli-code` | `/operations/agents` |
+| `/dashboard/cloud-agents` | `/operations/cloud-agents` |
+| Agent Bridge / A2A / ACP | `/operations/a2a-acp-bridge` |
+| Omni / Agent Skills | `/operations/skills` |
+| Webhooks / Plugins | `/operations/integrations` |
+| `/dashboard/memory` (+ tab aliases) | `/operations/memory` |
+| Playground / Translator / Search Tools / Batch(+files) / Testing | `/operations/labs` |
+| `/dashboard/cache/media` | `/operations/media` |
+| `/dashboard/tools/traffic-inspector` | Observe `?panel=traffic` |
+
+Full testable rows: `OPERATIONS_REDIRECT_MATRIX` in `epic20Operations.ts`. Product `redirect()` wiring is **0087–0099** — this section freezes destinations only.
+
+### Forbidden under EPIC-20
+
+- Primary leaves for topbar ids or Testing/Labs/MCP/Media  
+- Multi-topbar stacks (Endpoint dual strip + protocol strip as peer topbars)  
+- Putting Traffic Inspector on Operations topbar  
+- Ad-hoc `/operations/...` strings outside `epic20Operations.ts` builders (0087+)
+
+### Cross-links
+
+- Invariants §1 + chrome law §1.1 still apply.  
+- Reverse-chrome D1 (0076) remains true **until 0087** replaces the launchpad with the single topbar shell.  
+- EPIC-19 path builders (`epic19Rebalance.ts`) are orthogonal — do not reopen Costs/Analytics here.  
+- Epic source: [`EPIC-20-omniroute-operations-hub-reform.md`](../tasks/00-planning/EPIC-20-omniroute-operations-hub-reform.md).
+
+---
+
 ## 6. Related docs
 
 | Doc | Role |
@@ -312,7 +404,9 @@ Full testable rows: `EPIC19_REDIRECT_MATRIX` in `epic19Rebalance.ts`. Product pa
 | [`design.md`](../../design.md) | Design tokens, grid, phases 1–6 — **visual SSoT** |
 | [Epic 0005](../tasks/00-planning/0005-omniroute-frontend-ia-design-system-epic.md) | Diagnosis, slices S0–S10, success metrics |
 | [EPIC-19](../tasks/00-planning/EPIC-19-omniroute-dashboard-observe-providers-ia-rebalance.md) | Dashboard / Observe / Providers IA rebalance (locked matrix) |
+| [EPIC-20](../tasks/00-planning/EPIC-20-omniroute-operations-hub-reform.md) | Operations hub reform (topbar + fusion + `/operations/{id}` pilot) |
 | `src/shared/constants/epic19Rebalance.ts` | EPIC-19 path builders + redirect matrix (destination freeze SSoT) |
+| `src/shared/constants/epic20Operations.ts` | EPIC-20 Operations topbar ids + path builders + redirect matrix (destination freeze SSoT; Task 0086) |
 | [Self-evident URL Phase-0 plan](../reports/builders/2026-07-19-epic19-self-evident-url-phase0-plan.md) | T19-H target taxonomy, redirect matrix, blast radius (Task 0085) |
 | [`docs/dependency-tree.md`](../dependency-tree.md) | Serial vs parallel Frontend IA tasks |
 | `src/shared/constants/observeHub.ts` | Observe hub path + `?source=` filters + redirect matrix |

@@ -88,18 +88,37 @@ describe("Operations hub does not dual-home catalog (Task 0024 × 0059)", () => 
   });
 
   it("has at most one catalog destination (no dual catalog homes)", () => {
-    const catalogish = OPERATIONS_HUB_HREFS.filter(
-      (href) =>
-        href === CATALOG_SSOT_HREF ||
-        href === RETIRED_API_ENDPOINTS_HREF ||
-        href.includes("tab=catalog") ||
-        href === "/dashboard/api-endpoints"
+    // Catalog-specific discovery only (not every Endpoint fusion hash like #api-keys).
+    const catalogish = [
+      ...new Set(
+        OPERATIONS_HUB_HREFS.filter(
+          (href) =>
+            href === CATALOG_SSOT_HREF ||
+            href === `${CATALOG_SSOT_HREF}#api-catalog` ||
+            href === RETIRED_API_ENDPOINTS_HREF ||
+            href.includes("tab=catalog") ||
+            href === "/dashboard/api-endpoints"
+        )
+      ),
+    ];
+    assert.equal(
+      catalogish.some(
+        (h) =>
+          h === RETIRED_API_ENDPOINTS_HREF ||
+          h.includes("tab=catalog") ||
+          h === "/dashboard/api-endpoints"
+      ),
+      false,
+      "must not dual-home via retired/legacy catalog paths"
     );
-    assert.deepEqual(
-      catalogish,
-      [CATALOG_SSOT_HREF],
-      `expected single catalog home, got: ${catalogish.join(", ")}`
+    assert.ok(
+      catalogish.every(
+        (h) => h === CATALOG_SSOT_HREF || h === `${CATALOG_SSOT_HREF}#api-catalog`
+      ),
+      `catalog discovery must only use SSoT path, got: ${catalogish.join(", ")}`
     );
+    // At most one exact path + optional #api-catalog deep-link
+    assert.ok(catalogish.length <= 2, `expected ≤2 catalog hrefs, got: ${catalogish.join(", ")}`);
   });
 });
 
@@ -176,9 +195,13 @@ describe("Discovery chrome does not dual-brand retired catalog path (Task 0024)"
   });
 
   it("exports CONNECT_CATALOG_SSOT_HREF as single catalog destination constant", () => {
-    assert.equal(CONNECT_CATALOG_SSOT_HREF, "/dashboard/endpoint?tab=catalog");
+    // 0088: catalog SSoT is Endpoint fusion under Operations
+    assert.equal(CONNECT_CATALOG_SSOT_HREF, "/operations/endpoints");
     assert.equal(CONNECT_RETIRED_API_ENDPOINTS_HREF, "/dashboard/api-endpoints");
-    assert.ok(OPERATIONS_HUB_HREFS.includes(CONNECT_CATALOG_SSOT_HREF));
+    assert.ok(
+      OPERATIONS_HUB_HREFS.includes(CONNECT_CATALOG_SSOT_HREF) ||
+        OPERATIONS_HUB_HREFS.some((h) => h.startsWith(`${CONNECT_CATALOG_SSOT_HREF}#`))
+    );
     assert.equal(OPERATIONS_HUB_HREFS.includes(CONNECT_RETIRED_API_ENDPOINTS_HREF), false);
   });
 });

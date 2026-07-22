@@ -269,6 +269,9 @@ test("fusion.ts exports ResolvedFusionUnit and HandleFusionChatOptionsV2 types",
     kind: "model",
     model: "a/m1",
     label: "Panel A",
+    // EPIC-22 optional cognitive fields (plumb only; inject is 0109)
+    thinkingMode: "adversarial",
+    systemAddon: "edge cases",
   };
   const refUnit: ResolvedFusionUnit = {
     kind: "combo-ref",
@@ -276,6 +279,10 @@ test("fusion.ts exports ResolvedFusionUnit and HandleFusionChatOptionsV2 types",
     label: "Pool",
   };
   assert.equal(modelUnit.kind, "model");
+  if (modelUnit.kind === "model") {
+    assert.equal(modelUnit.thinkingMode, "adversarial");
+    assert.equal(modelUnit.systemAddon, "edge cases");
+  }
   assert.equal(refUnit.kind, "combo-ref");
 
   // Shape check for HandleFusionChatOptionsV2 (types-only; no runtime dispatch).

@@ -6,7 +6,7 @@
 > **Project**: omniroute-2  
 > **Author**: architect-orchestrator + operator decision  
 > **Depends on**: Epic 0005 IA baseline; `AGENTS.md` Dashboard IA / Design System law (2026-07-19)  
-> **Does NOT**: rewrite backend; migrate SQLite; Cybernetics/Go  
+> **Does NOT**: rewrite backend; migrate SQLite; Cybernetics/Go; **Operations hub reform** (→ **EPIC-20**)  
 > **Evidence**:  
 > - Operator matrix (destinations) + **chrome correction** (single topbar per hub, 2026-07-19)  
 > - `docs/reports/audits/2026-07-19-wave3-frontend-ia-operator-claims-verification.md`  
@@ -186,6 +186,7 @@ Inventory: `docs/reports/audits/2026-07-19-url-ia-self-evident-path-inventory.md
 | **0084–0085** | T19-G/H active-state + URL path plan (same epic) |
 | **EPIC-13** | Overlaps 0084 if fusions active-state still open |
 | **Favorites / density** | After chrome unify |
+| **EPIC-20** Operations reform | **Out of EPIC-19** — Testing absorb, Ops topbar 10 peers, Labs fusion, Traffic→Observe, `/operations/{id}` pilot. See `EPIC-20-omniroute-operations-hub-reform.md` |
 
 ### Doc section ownership (serial-sensitive SSoT)
 
