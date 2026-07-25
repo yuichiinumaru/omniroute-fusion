@@ -53,6 +53,7 @@ import {
   getUnsupportedReasoningValue,
   hasUnsupportedReasoningSignal,
 } from "./reasoningFields.ts";
+import { createRepetitionGuard } from "../services/streamRepetitionGuard.ts";
 
 /**
  * Race a response body read against a timeout.
@@ -119,6 +120,7 @@ type StreamOptions = {
   copilotCompatibleReasoning?: boolean;
   /** Suppress the `</think>` close marker for clients that render it verbatim (#5245). */
   suppressThinkClose?: boolean;
+  enableRepetitionGuard?: boolean;
   provider?: string | null;
   reqLogger?: StreamLogger | null;
   toolNameMap?: unknown;
@@ -612,6 +614,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     clientResponseFormat = null,
     copilotCompatibleReasoning = false,
     suppressThinkClose = false,
+    enableRepetitionGuard = false,
     provider = null,
     reqLogger = null,
     toolNameMap = null,
@@ -727,6 +730,53 @@ export function createSSEStream(options: StreamOptions = {}) {
   const claudeEmptyResponseLifecycle = createClaudeEmptyResponseLifecycle();
   const passthroughEventPrefix = createSSEEventPrefixBuffer();
   const multilineSseDataLineNormalizer = createSSEDataLineNormalizer();
+
+  const shouldGuardRepetition =
+    enableRepetitionGuard === true ||
+    (body && typeof body === "object" && (body as Record<string, unknown>).enableRepetitionGuard === true);
+  const repetitionGuard = shouldGuardRepetition ? createRepetitionGuard() : null;
+  let repetitionDetected = false;
+
+  const emitRepetitionErrorAndAbort = (
+    controller: TransformStreamDefaultController,
+    decrementPendingRequest = true
+  ) => {
+    if (repetitionDetected) return;
+    repetitionDetected = true;
+    clearIdleTimer();
+    const msg = "repetition_detected";
+    console.warn(
+      `[STREAM] Repetition detected - emitting error (${provider || "provider"}:${model || "unknown"})`
+    );
+    let failureHandled = false;
+    if (onFailure) {
+      try {
+        failureHandled =
+          onFailure({
+            status: 502,
+            message: msg,
+            code: "repetition_detected",
+            type: "repetition_error",
+          }) === true;
+      } catch {}
+    }
+    if (decrementPendingRequest && !failureHandled) {
+      clearPendingRequestFromStream();
+    }
+    const err = new Error(msg);
+    (err as unknown as Record<string, unknown>).statusCode = 502;
+    controller.error(markPendingRequestCleared(err));
+  };
+
+  const checkRepetition = (contentDelta: string, controller: TransformStreamDefaultController): boolean => {
+    if (!shouldGuardRepetition || !repetitionGuard || !contentDelta) return false;
+    const res = repetitionGuard.check(contentDelta);
+    if (res === "repetition_detected") {
+      emitRepetitionErrorAndAbort(controller);
+      return true;
+    }
+    return false;
+  };
 
   const clearIdleTimer = () => {
     if (idleTimer) {
@@ -1291,6 +1341,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                     parsed.type === "response.output_text.delta" &&
                     typeof parsed.delta === "string"
                   ) {
+                    if (checkRepetition(parsed.delta, controller)) return;
                     const incomingDelta = parsed.delta;
                     const bufferedCandidate =
                       passthroughBufferedTextualToolCallContent + incomingDelta;
@@ -1515,7 +1566,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                   updateClaudeEmptyResponseLifecycle(claudeEmptyResponseLifecycle, parsed);
                   const restoredToolName = restoreClaudePassthroughToolUseName(parsed, toolNameMap);
                   // Track content length and accumulate from Claude format
-                  if (parsed.delta?.text) {
+                  if (typeof parsed.delta?.text === "string") {
+                    if (checkRepetition(parsed.delta.text, controller)) return;
                     totalContentLength += parsed.delta.text.length;
                     passthroughAccumulatedContent = appendBoundedText(
                       passthroughAccumulatedContent,
@@ -1710,6 +1762,7 @@ export function createSSEStream(options: StreamOptions = {}) {
 
                   const content = delta?.content;
                   if (typeof content === "string") {
+                    if (checkRepetition(content, controller)) return;
                     totalContentLength += content.length;
 
                     if (!contentAfterToolSeen) {
@@ -1879,10 +1932,11 @@ export function createSSEStream(options: StreamOptions = {}) {
           // Do this before translation so we capture content regardless of translator output shape
 
           // Claude format
-          if (parsed.delta?.text) {
+          if (typeof parsed.delta?.text === "string") {
             const t = parsed.delta.text;
+            if (checkRepetition(t, controller)) return;
             totalContentLength += t.length;
-            if (state?.accumulatedContent !== undefined && typeof t === "string")
+            if (state?.accumulatedContent !== undefined)
               state.accumulatedContent = appendBoundedText(state.accumulatedContent, t);
           }
           if (parsed.delta?.thinking) {
@@ -1896,6 +1950,7 @@ export function createSSEStream(options: StreamOptions = {}) {
           if (parsed.choices?.[0]?.delta?.content) {
             const c = parsed.choices[0].delta.content;
             if (typeof c === "string") {
+              if (checkRepetition(c, controller)) return;
               totalContentLength += c.length;
               if (state?.accumulatedContent !== undefined)
                 state.accumulatedContent = appendBoundedText(state.accumulatedContent, c);

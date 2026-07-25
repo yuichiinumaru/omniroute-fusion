@@ -222,7 +222,8 @@ Each child task lists exact `node --import tsx/esm --test …` patterns.
 ## 7. Promotion note for gt-task-architect
 
 **Historical (2026-07-11):** child tasks promoted to `01-open/` as **0040–0051**.  
-**Current (2026-07-19):** all **0040–0051** are in `docs/tasks/04-completed/`. Do not re-promote. Stretch residuals stay deferred text or re-home under **EPIC-12**.
+**Current (2026-07-19):** all **0040–0051** are in `docs/tasks/04-completed/`. Do not re-promote. Stretch residuals stay deferred text or re-home under **EPIC-12**.  
+**Post-Gortex analysis (2026-07-24):** S1 hook `new Function` residual relocated to **Task 0116** (`docs/tasks/01-open/0116-omniroute-epic08-hook-sandbox-newfunction-residual.md`) — S1 remote RCE surface remains closed; 0116 removes the underlying local-only residual via a sandbox rewrite.
 
 ---
 

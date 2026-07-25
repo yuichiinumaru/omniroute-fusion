@@ -155,9 +155,12 @@ function isPendingRequestClearedError(error: unknown): boolean {
  */
 export function isClientDisconnectError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
+  const message = (error as { message?: unknown }).message;
+  if (typeof message === "string" && /repetition_detected|repetition detected/i.test(message)) {
+    return false;
+  }
   const name = (error as { name?: unknown }).name;
   if (name === "AbortError" || name === "ResponseAborted") return true;
-  const message = (error as { message?: unknown }).message;
   return typeof message === "string" && /Controller is already closed/i.test(message);
 }
 

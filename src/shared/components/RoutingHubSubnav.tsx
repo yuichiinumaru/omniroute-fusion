@@ -19,6 +19,7 @@ export type RoutingHubActive =
   | "combos"
   | "fusions"
   | "live"
+  | "topology"
   | "compression-settings"
   | "compression-studio";
 
@@ -31,6 +32,7 @@ const LINKS: Array<{
   { id: "combos", href: "/dashboard/combos", label: "Combos", icon: "layers" },
   { id: "fusions", href: "/dashboard/fusions", label: "Fusions", icon: "hub" },
   { id: "live", href: "/dashboard/combos/live", label: "Live", icon: "sensors" },
+  { id: "topology", href: "/dashboard/combos/topology", label: "Topology", icon: "account_tree" },
   {
     id: "compression-settings",
     href: "/dashboard/context/settings",

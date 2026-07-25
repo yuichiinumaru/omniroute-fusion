@@ -391,9 +391,12 @@ const CURSOR_MODEL_ALIASES: Record<string, string> = {
   "composer-2-5": "composer-2.5",
   "composer-2.5-sdk": "composer-2.5",
   "composer-latest": "composer-2.5",
+  "composer-v2.5": "composer-2.5",
+  "composer-v2-latest": "composer-2.5",
   "composer-2-5-fast": "composer-2.5-fast",
   "composer-2.5-sdk-fast": "composer-2.5-fast",
   "composer-latest-fast": "composer-2.5-fast",
+  "composer-v2.5-fast": "composer-2.5-fast",
 };
 
 export function normalizeCursorModelId(modelId: string): string {

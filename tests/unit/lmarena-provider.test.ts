@@ -13,6 +13,7 @@ import {
   hasUsableWebSessionCredential,
 } from "../../src/shared/providers/webSessionCredentials.ts";
 import { LMArenaExecutor, parseArenaSSE } from "../../open-sse/executors/lmarena.ts";
+import { __setTlsFetchOverrideForTesting } from "../../open-sse/services/lmarenaTlsClient.ts";
 
 describe("LMArena Provider Definition", () => {
   it("is registered in WEB_COOKIE_PROVIDERS", () => {
@@ -74,11 +75,11 @@ describe("LMArena Executor", () => {
     assert.equal((executor as any).provider, "lmarena");
   });
 
-  it("builds correct URL (arena.ai/nextjs-api/stream)", () => {
+  it("builds correct URL (arena.ai/nextjs-api/stream/create-evaluation)", () => {
     const executor = new LMArenaExecutor();
-    const url = (executor as any).buildUrl("gpt-4", {});
+    const url = (executor as any).buildUrl("gpt-4");
     assert.ok(url.includes("arena.ai"), "URL should include arena.ai");
-    assert.ok(url.includes("/nextjs-api/stream"), "URL should include /nextjs-api/stream");
+    assert.ok(url.includes("/nextjs-api/stream/create-evaluation"), "URL should include /nextjs-api/stream/create-evaluation");
   });
 
   it("builds headers with cookie", () => {
@@ -171,7 +172,7 @@ describe("LMArena Executor", () => {
     assert.equal(result, null, "Should return null for malformed events");
   });
 
-  it("transforms OpenAI messages to LMArena format", () => {
+  it("transforms OpenAI messages to create-evaluation format", () => {
     const executor = new LMArenaExecutor();
     const transformRequest = (executor as any).transformRequest.bind(executor);
 
@@ -182,16 +183,19 @@ describe("LMArena Executor", () => {
         { role: "assistant", content: "Hi there!" },
         { role: "user", content: "How are you?" },
       ],
-      model: "gpt-4",
-      stream: true,
     };
 
-    const arenaBody = transformRequest(openaiBody, "gpt-4");
+    const arenaBody = transformRequest("gpt-4", openaiBody);
 
     assert.ok(arenaBody, "Should transform request body");
-    assert.ok(arenaBody.messages, "Should have messages array");
-    assert.equal(arenaBody.model, "gpt-4", "Should preserve model");
-    assert.equal(arenaBody.stream, true, "Should preserve stream flag");
+    assert.equal(arenaBody.mode, "direct-battle", "Should have mode direct-battle");
+    assert.equal(arenaBody.modelAId, "gpt-4", "Should set modelAId");
+    assert.equal(arenaBody.modality, "chat", "Should have modality chat");
+    assert.ok(arenaBody.id, "Should have id");
+    assert.ok(arenaBody.userMessageId, "Should have userMessageId");
+    assert.ok(arenaBody.modelAMessageId, "Should have modelAMessageId");
+    assert.ok(arenaBody.userMessage, "Should have userMessage");
+    assert.ok(arenaBody.userMessage.content.length > 0, "userMessage.content should not be empty");
   });
 
   it("returns 401 when cookie is missing", async () => {
@@ -200,6 +204,7 @@ describe("LMArena Executor", () => {
     const result = await executor.execute({
       model: "gpt-4",
       body: { messages: [{ role: "user", content: "Hello" }] },
+      stream: false,
       credentials: {},
       signal: new AbortController().signal,
       log: console,
@@ -211,27 +216,23 @@ describe("LMArena Executor", () => {
     assert.ok(errorBody.error.message.includes("cookie"), "Error should mention cookie");
   });
 
-  it("handles streaming response correctly", async () => {
-    const executor = new LMArenaExecutor();
+  it("handles streaming response correctly via TLS mock", async () => {
+    const mockSSE = '0:{"text":"Hello"}\n0:{"text":", world!"}\nd:{}\n';
 
-    const mockSSE = [
-      'data: a0:{"text":"Hello"}\n\n',
-      'data: a0:{"text":", world!"}\n\n',
-      "data: ad:{}\n\n",
-    ].join("");
-
-    const originalFetch = global.fetch;
-    global.fetch = async () =>
-      new Response(mockSSE, {
-        status: 200,
-        headers: { "Content-Type": "text/event-stream" },
-      });
+    __setTlsFetchOverrideForTesting(async () => ({
+      status: 200,
+      headers: new Headers({ "Content-Type": "text/event-stream" }),
+      text: mockSSE,
+      body: null,
+    }));
 
     try {
+      const executor = new LMArenaExecutor();
       const result = await executor.execute({
         model: "gpt-4",
         body: { messages: [{ role: "user", content: "Hello" }], stream: true },
-        credentials: { cookie: "session=test" },
+        stream: true,
+        credentials: { cookie: "session=test" } as any,
         signal: new AbortController().signal,
         log: console,
       });
@@ -239,30 +240,25 @@ describe("LMArena Executor", () => {
       assert.equal(result.response.status, 200, "Should return 200 for successful streaming");
       assert.ok(result.response.body, "Should have response body for streaming");
     } finally {
-      global.fetch = originalFetch;
+      __setTlsFetchOverrideForTesting(null);
     }
   });
 
-  it("handles error response from LMArena API", async () => {
-    const executor = new LMArenaExecutor();
-
-    const originalFetch = global.fetch;
-    global.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          error: { message: "Rate limit exceeded" },
-        }),
-        {
-          status: 429,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+  it("handles error response from LMArena API via TLS mock", async () => {
+    __setTlsFetchOverrideForTesting(async () => ({
+      status: 429,
+      headers: new Headers({ "Content-Type": "application/json" }),
+      text: JSON.stringify({ error: { message: "Rate limit exceeded" } }),
+      body: null,
+    }));
 
     try {
+      const executor = new LMArenaExecutor();
       const result = await executor.execute({
         model: "gpt-4",
         body: { messages: [{ role: "user", content: "Hello" }] },
-        credentials: { cookie: "session=test" },
+        stream: false,
+        credentials: { cookie: "session=test" } as any,
         signal: new AbortController().signal,
         log: console,
       });
@@ -271,7 +267,7 @@ describe("LMArena Executor", () => {
       const errorBody = await result.response.json();
       assert.ok(errorBody.error, "Should have error object");
     } finally {
-      global.fetch = originalFetch;
+      __setTlsFetchOverrideForTesting(null);
     }
   });
 });

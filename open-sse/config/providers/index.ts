@@ -119,6 +119,7 @@ import { xaiProvider } from "./registry/xai/index.ts";
 import { morphProvider } from "./registry/morph/index.ts";
 import { siliconflowProvider } from "./registry/siliconflow/index.ts";
 import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
+import { gitlabProvider } from "./registry/gitlab/index.ts";
 import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
 import { windsurfProvider } from "./registry/windsurf/index.ts";
@@ -291,6 +292,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   morph: morphProvider,
   siliconflow: siliconflowProvider,
   "gitlab-duo": gitlab_duoProvider,
+  gitlab: gitlabProvider,
   "command-code": command_codeProvider,
   novita: novitaProvider,
   windsurf: windsurfProvider,

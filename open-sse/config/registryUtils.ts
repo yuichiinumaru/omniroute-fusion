@@ -17,7 +17,7 @@ export interface BaseProvider<M extends BaseModel = BaseModel> {
   alias?: string;
   baseUrl: string;
   authType: string; // "apikey" | "oauth" | "none"
-  authHeader: string; // "bearer" | "key" | "token" | "xi-api-key" | "x-api-key" | "none"
+  authHeader: string; // "bearer" | "key" | "token" | "xi-api-key" | "x-api-key" | "bare" | "none"
   format?: string;
   models: M[];
 }
@@ -119,6 +119,8 @@ export function buildAuthHeaders(
   }
 
   switch (provider.authHeader) {
+    case "bare":
+      return { Authorization: token };
     case "key":
       return { Authorization: `Key ${token}` };
     case "token":

@@ -42,8 +42,8 @@ services:
       DATA_DIR: /app/data
       PORT: "20128"
       REQUIRE_API_KEY: "false"
-      NODE_OPTIONS: "--max-old-space-size=1024"
-      OMNIROUTE_MEMORY_MB: "1024"
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      OMNIROUTE_MEMORY_MB: "4096"
       STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
     volumes:
       - ./data-test:/app/data

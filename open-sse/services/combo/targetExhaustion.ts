@@ -15,8 +15,7 @@
  * The only standardization is the log MESSAGE wording (round-robin previously dropped the
  * "on remaining targets" suffix) — diagnostic text only, same #code + provider info.
  */
-import { classifyErrorText, hasPerModelQuota, isProviderExhaustedReason } from "../accountFallback.ts";
-import { RateLimitReason } from "../../config/constants.ts";
+import { hasPerModelQuota, isProviderExhaustedReason } from "../accountFallback.ts";
 import { isProviderCircuitOpenResult } from "./comboPredicates.ts";
 import type { ComboLogger, ResolvedComboTarget } from "./types.ts";
 
@@ -32,6 +31,10 @@ const CONNECTION_LEVEL_ERROR_STATUSES = [408, 500, 502, 503, 504, 524];
 // leg, leaving the rest of that provider's legs eligible.
 function isEmptyContentFailure(status: number, errorText: string): boolean {
   return status === 502 && /empty content/i.test(errorText);
+}
+
+export function isRepetitionFailure(status: number, errorText: string): boolean {
+  return status === 502 && /repetition_detected|stream repetition/i.test(errorText);
 }
 
 export type ComboExhaustionSets = {
@@ -77,14 +80,13 @@ export function applyComboTargetExhaustion(
   const { exhaustedProviders, exhaustedConnections, transientRateLimitedProviders } = sets;
   const provider = target.provider;
 
-  // #1731: full provider quota exhausted → skip remaining same-provider targets this request.
+  // #1731: full provider quota / auth exhausted → skip remaining same-provider targets this request.
   // Passthrough/per-model-quota providers multiplex models behind one connection, so a quota
   // 429 for one model must NOT skip fallback targets for another model on the same provider.
   const providerExhausted =
     Boolean(provider && provider !== "unknown") &&
     !hasPerModelQuota(provider, rawModel) &&
     (isProviderExhaustedReason(fallbackResult) ||
-      classifyErrorText(errorText) === RateLimitReason.QUOTA_EXHAUSTED ||
       allAccountsRateLimited);
   if (providerExhausted) {
     exhaustedProviders.add(provider);
@@ -120,7 +122,8 @@ function markConnectionLevelExhaustion(
     // #5085: empty-content 502 is a healthy connection returning no body — model-level, not
     // connection-level. Don't exhaust the provider; let the remaining legs (incl. same-provider)
     // be tried in-request.
-    isEmptyContentFailure(result.status, errorText)
+    isEmptyContentFailure(result.status, errorText) ||
+    isRepetitionFailure(result.status, errorText)
   ) {
     return;
   }

@@ -53,6 +53,7 @@ const DEFAULT_COMBO_CONFIG = {
   nestedComboMode: "flatten",
   trackMetrics: true,
   reasoningTokenBufferEnabled: true,
+  enableRepetitionGuard: false,
   manifestRouting: false,
   // Complexity-aware auto routing (2026): when on, the auto router scores
   // candidates by how well their tier matches the request's classified

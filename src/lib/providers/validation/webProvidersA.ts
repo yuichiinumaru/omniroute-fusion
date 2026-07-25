@@ -633,23 +633,31 @@ export async function validateLMArenaProvider({ apiKey }: any) {
       };
     }
 
-    // Probe the stream endpoint with the cookie. LMArena returns 200 + SSE for
-    // valid sessions, 401/403 for invalid/expired ones.
-    const res = await fetch("https://arena.ai/nextjs-api/stream", {
+    // Probe the create-evaluation stream endpoint with the cookie and new payload.
+    // LMArena returns 200 + SSE for valid sessions, 401/403 for invalid/expired ones.
+    const res = await fetch("https://arena.ai/nextjs-api/stream/create-evaluation", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "text/event-stream",
         "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
         Origin: "https://arena.ai",
         Referer: "https://arena.ai/",
         Cookie: cookieHeader,
       },
       body: JSON.stringify({
-        model: "test",
-        messages: [{ role: "user", content: "test" }],
-        stream: false,
+        id: "01990000-0000-7000-8000-000000000000",
+        mode: "direct-battle",
+        modelAId: "019c7820-5480-78b6-9fef-04c0d7004054", // gemini-3.1-pro-preview
+        userMessageId: "01990000-0000-7000-8000-000000000001",
+        modelAMessageId: "01990000-0000-7000-8000-000000000002",
+        userMessage: {
+          content: "test",
+          experimental_attachments: [],
+          metadata: {},
+        },
+        modality: "chat",
       }),
       signal: AbortSignal.timeout(15_000),
     });

@@ -155,12 +155,14 @@ export function shouldSkipForPredictedTtft(
  */
 export function shouldRecordProviderBreakerFailure(args: {
   isStreamReadinessFailure: boolean;
+  isRepetitionFailure?: boolean;
   status: number;
   sameProviderNext: boolean;
   skipProviderBreaker?: boolean;
 }): boolean {
   return (
     !args.isStreamReadinessFailure &&
+    !args.isRepetitionFailure &&
     isProviderFailureCode(args.status) &&
     !args.sameProviderNext &&
     !args.skipProviderBreaker

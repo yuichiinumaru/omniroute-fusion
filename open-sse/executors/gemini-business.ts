@@ -27,7 +27,8 @@
  * Reference: https://github.com/Sophomoresty/gemini-web2api (gemini_web2api.py)
  * Reference: https://github.com/yukkcat/gemini-business2api
  */
-import { createHash, randomUUID } from "node:crypto";
+import { computeSapisidHash } from "../utils/sapisidHash.ts";
+import { randomUUID } from "node:crypto";
 import { BaseExecutor, mergeAbortSignals, type ExecuteInput } from "./base.ts";
 import { makeExecutorErrorResult as makeErrorResult } from "../utils/error.ts";
 
@@ -430,17 +431,4 @@ function parseEntryUrl(entryUrl: string): { baseOrigin: string; pathPrefix: stri
   } catch {
     return fallback;
   }
-}
-
-/**
- * Compute the SAPISID hash auth header value.
- * Format: SAPISIDHASH {epoch_seconds}_{sha1_hash}
- * The hash is sha1(epoch + " " + sapisid + " " + origin).
- * See: https://developers.google.com/youtube/v3/guides/auth/server-side-apps
- */
-function computeSapisidHash(sapisid: string, origin: string): string {
-  const epoch = Math.floor(Date.now() / 1000);
-  const hashInput = `${epoch} ${sapisid} ${origin}`;
-  const hash = createHash("sha1").update(hashInput).digest("hex");
-  return `SAPISIDHASH ${epoch}_${hash}`;
 }

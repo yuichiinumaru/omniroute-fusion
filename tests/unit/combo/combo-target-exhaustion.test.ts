@@ -41,12 +41,12 @@ const baseOpts = {
   exhaustedLogLevel: "info" as const,
 };
 
-test("marks provider exhausted when the fallback result signals quota exhaustion", () => {
+test("marks provider exhausted when the fallback result signals daily quota exhaustion", () => {
   const s = sets();
   const exhausted = applyComboTargetExhaustion(target(), {
     ...baseOpts,
     result: { status: 429 },
-    fallbackResult: { creditsExhausted: true },
+    fallbackResult: { dailyQuotaExhausted: true },
     sets: s,
   });
   assert.equal(exhausted, true);

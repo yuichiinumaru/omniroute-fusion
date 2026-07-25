@@ -258,6 +258,16 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
         sectionLabel: safeTranslate("mainNav", "Main"),
       },
       {
+        id: "combos-topology",
+        href: "/dashboard/combos/topology",
+        icon: "account_tree",
+        label: safeTranslate("combosTopology", "Topology"),
+        subtitle: safeTranslate("combosTopologySubtitle", "Combo DAG & provider topology visualization"),
+        external: false,
+        sectionId: "main",
+        sectionLabel: safeTranslate("mainNav", "Main"),
+      },
+      {
         id: "compression-settings",
         href: "/dashboard/context/settings",
         icon: "tune",

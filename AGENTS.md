@@ -327,6 +327,19 @@ Zod schemas, and unit tests aligned when editing.
 - **Self-Hosted** (8+): LM Studio, vLLM, Lemonade, Llamafile, Triton, Docker Model Runner, Xinference, Oobabooga
 - **Custom**: OpenAI-compatible (`openai-compatible-*`) and Anthropic-compatible (`anthropic-compatible-*`) prefixes
 
+> [!CAUTION]
+> **Provider name disambiguation — many providers have similar names but different auth modes.**
+> Always verify which provider variant you are investigating before assuming code state. Example: "Kimi" maps to **4 separate providers**:
+>
+> | URL path | Provider ID | Auth | Description |
+> |---|---|---|---|
+> | `/dashboard/providers/kimi` | `kimi` / `moonshot` | API Key (pay-as-you-go) | Standard Moonshot API key provider |
+> | `/dashboard/providers/kimi-coding` | `kimi-coding` | OAuth | Kimi Coding Plan (OAuth-based, tool-trained) |
+> | `/dashboard/providers/kimi-coding-apikey` | `kimi-coding-apikey` | API Key | Kimi Coding Plan (API key variant) |
+> | `/dashboard/providers/kimi-web` | `kimi-web` | Web Cookie/Token | Consumer chat via `www.kimi.com` (Connect-RPC, NOT REST) |
+>
+> Similar disambiguation applies to: Qwen (`qwen`, `qwen-web`, `qwen-coding`), GitLab Duo (`gitlab` = PAT, `gitlab-duo` = OAuth), Cursor (`cursor` = OAuth, `grok-cli` = Grok Builder, different code paths), and others. **Always grep for the exact provider ID before claiming a provider is "broken" or "missing"—you may be looking at the wrong variant.**
+
 Providers are registered in `src/shared/constants/providers.ts` with Zod validation at module load.
 
 ### Executors (`open-sse/executors/`)

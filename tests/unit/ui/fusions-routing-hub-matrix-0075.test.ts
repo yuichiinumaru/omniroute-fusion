@@ -110,10 +110,11 @@ test("fusions editor loading and error branches still reference RoutingHubSubnav
   assert.ok(editor.includes('data-testid="fusion-editor"'));
 });
 
-test("Routing hub top-level mounts remain (no regression of 0025/0058 surfaces)", () => {
+test("Routing hub top-level mounts remain (no regression of 0025/0058/0114 surfaces)", () => {
   const surfaces: Array<{ rel: string; active: string }> = [
     { rel: "src/app/(dashboard)/dashboard/combos/page.tsx", active: "combos" },
     { rel: "src/app/(dashboard)/dashboard/combos/live/page.tsx", active: "live" },
+    { rel: "src/app/(dashboard)/dashboard/combos/topology/ComboTopologyClient.tsx", active: "topology" },
     {
       rel: "src/app/(dashboard)/dashboard/context/settings/page.tsx",
       active: "compression-settings",

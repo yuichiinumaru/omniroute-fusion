@@ -51,7 +51,7 @@ Binding also in root **`AGENTS.md`** (Dashboard IA section) and **CLAUDE.md Hard
 |---------|-------|-------------------------|-----------------------------------------------|
 | `home` | Dashboard | `/home` *or* `/dashboard` (pick one host) | **Home · Overview · Evals · Search · Utilization · Compression · Costs · Cache · Tokens · Leaderboard · Profile** (Home ≠ Overview; one strip) |
 | `providers` | Providers | `/providers` | **Providers · Stats · Services · Quota · Rankings · Free Tiers · Runtime · Budget · Pricing · Quota Sharing** (one strip) |
-| `combos` | Routing | `/routing` | Combos · Fusions · Live · Compression Settings · Compression Studio |
+| `combos` | Routing | `/routing` | Combos · Fusions · Live · Topology · Compression Settings · Compression Studio |
 | `activity` | Observe | `/observe` | Stream `?source=` · ops `?panel=` (never source) · Health nest |
 | `operations` | Operations | `/operations` | Hub launchpad (+ optional nest) |
 | `settings-general` | Settings | `/settings` | Settings tab segments |
@@ -177,7 +177,7 @@ Pre-S6 snapshot: `.archive/sidebar/2026-07-10-seven-pillars/`.
 **What is still continuous chrome (for contrast):**
 
 - **Operations topbar** (`OperationsTopbar`) — 10 peers on `/operations/*` (EPIC-20 / 0086–0087); Labs/Media are peers, not reverse chrome.
-- **Routing hub** (`RoutingHubSubnav`) — Combos / Fusions / Live / Compression Settings / Studio stay on peer pages (including fusion editor — Task **0075**).
+- **Routing hub** (`RoutingHubSubnav`) — Combos / Fusions / Live / Topology / Compression Settings / Studio stay on peer pages (including fusion editor — Task **0075**).
 - **Providers / Observe** hub strips — own peer matrices; not reopened by 0076/0099.
 
 **Guards (tests):** `tests/unit/ui/ops-testing-reverse-chrome-0076.test.ts` (absence of reverse subnav + anti-new-leaf); `tests/unit/ui/epic20-retire-testing-0099.test.ts` (Testing redirect + Ops Labs/Media deep links). Discoverability: 0059/0060 rewritten for EPIC-20. **0 new sidebar leaves.**

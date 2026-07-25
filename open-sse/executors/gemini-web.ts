@@ -22,7 +22,8 @@
 
 import { BaseExecutor, mergeAbortSignals, type ExecuteInput } from "./base.ts";
 import { makeExecutorErrorResult as makeErrorResult } from "../utils/error.ts";
-import { createHash, randomUUID } from "node:crypto";
+import { computeSapisidHash } from "../utils/sapisidHash.ts";
+import { randomUUID } from "node:crypto";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -164,18 +165,6 @@ function extractCookieValue(cookie: string, name: string): string | null {
     if (k === name) return rest.join("=");
   }
   return null;
-}
-
-/**
- * Compute the SAPISID hash auth header value.
- * Format: SAPISIDHASH {epoch_seconds}_{sha1_hash}
- * The hash is sha1(epoch + " " + sapisid + " " + origin).
- */
-function computeSapisidHash(sapisid: string, origin: string): string {
-  const epoch = Math.floor(Date.now() / 1000);
-  const hashInput = `${epoch} ${sapisid} ${origin}`;
-  const hash = createHash("sha1").update(hashInput).digest("hex");
-  return `SAPISIDHASH ${epoch}_${hash}`;
 }
 
 /**

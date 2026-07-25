@@ -39,14 +39,14 @@ function makeSets(): ComboExhaustionSets {
 }
 
 describe("applyComboTargetExhaustion", () => {
-  it("marks provider exhausted when isProviderExhaustedReason is true (quota)", () => {
+  it("marks provider exhausted when isProviderExhaustedReason is true (permanent auth failure)", () => {
     const sets = makeSets();
     const log = makeLogger();
     const exhausted = applyComboTargetExhaustion(makeTarget(), {
-      result: { status: 429 },
-      // isProviderExhaustedReason reads `reason`/`creditsExhausted`/`dailyQuotaExhausted`
-      // (NOT `error.code`), so signal full-account exhaustion via creditsExhausted.
-      fallbackResult: { creditsExhausted: true },
+      result: { status: 401 },
+      // isProviderExhaustedReason now honors `permanent` and AUTH_ERROR reasons, no longer
+      // QUOTA_EXHAUSTED (Task 0118: 402 per-account quota must NOT poison the whole provider).
+      fallbackResult: { reason: "auth_error", permanent: true },
       errorText: "",
       rawModel: "gpt-4",
       isTokenLimitBreach: false,
@@ -62,14 +62,14 @@ describe("applyComboTargetExhaustion", () => {
     expect(sets.transientRateLimitedProviders.has("openai")).toBe(false);
   });
 
-  it("marks provider exhausted when classifyErrorText returns QUOTA_EXHAUSTED", () => {
+  it("does NOT mark provider exhausted for per-account credit exhaustion (Task 0118)", () => {
     const sets = makeSets();
     const log = makeLogger();
     const exhausted = applyComboTargetExhaustion(makeTarget(), {
-      result: { status: 429 },
-      fallbackResult: {} as any,
-      // classifyErrorText flags "quota exceeded" as QUOTA_EXHAUSTED.
-      errorText: "Quota exceeded — please retry later.",
+      result: { status: 402 },
+      // creditsExhausted is a per-account signal — provider-wide exhaustion is NOT implied.
+      fallbackResult: { reason: "quota_exhausted", creditsExhausted: true },
+      errorText: "Insufficient account balance",
       rawModel: "gpt-4",
       isTokenLimitBreach: false,
       allAccountsRateLimited: false,
@@ -78,8 +78,9 @@ describe("applyComboTargetExhaustion", () => {
       tag: "COMBO",
       exhaustedLogLevel: "info",
     });
-    expect(exhausted).toBe(true);
-    expect(sets.exhaustedProviders.has("openai")).toBe(true);
+    expect(exhausted).toBe(false);
+    expect(sets.exhaustedProviders.has("openai")).toBe(false);
+    expect(sets.transientRateLimitedProviders.has("openai")).toBe(false);
   });
 
   it("marks provider exhausted when allAccountsRateLimited is true", () => {

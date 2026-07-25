@@ -945,21 +945,22 @@ export function isProviderFailureCode(status: number): boolean {
 
 /**
  * Returns true when a checkFallbackError result signals that the entire provider
- * quota is exhausted for this request, so the combo router can skip remaining
+ * is exhausted for this request, so the combo router can skip remaining
  * targets from the same provider (#1731).
  *
  * Covers:
- *  - reason === "quota_exhausted"  (subscription, daily, credits)
- *  - creditsExhausted flag
+ *  - permanent account deactivation or terminal auth error
  *  - dailyQuotaExhausted flag
  */
 export function isProviderExhaustedReason(result: {
   reason?: string;
   creditsExhausted?: boolean;
   dailyQuotaExhausted?: boolean;
+  permanent?: boolean;
 }): boolean {
-  if (result.creditsExhausted || result.dailyQuotaExhausted) return true;
-  return result.reason === RateLimitReason.QUOTA_EXHAUSTED;
+  if (result.permanent || result.dailyQuotaExhausted) return true;
+  if (result.reason === RateLimitReason.AUTH_ERROR) return true;
+  return false;
 }
 
 // ─── Retry-After Parsing ────────────────────────────────────────────────────

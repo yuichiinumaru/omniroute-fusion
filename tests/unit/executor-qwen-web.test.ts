@@ -1,19 +1,19 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
+import { __setTlsFetchOverrideForTesting, type TlsFetchOptions, type TlsFetchResult } from "../../open-sse/services/qwenTlsClient.ts";
 const mod = await import("../../open-sse/executors/qwen-web.ts");
 const { REGISTRY } = await import("../../open-sse/config/providerRegistry.ts");
 const { FREE_MODEL_BUDGETS } = await import("../../open-sse/config/freeModelCatalog.data.ts");
 
-type FetchCall = { url: string; init: any };
+type TlsCall = { url: string; options: TlsFetchOptions };
 
-const realFetch = globalThis.fetch;
-let calls: FetchCall[] = [];
+let calls: TlsCall[] = [];
 
-/** Build an SSE Response from an array of v2 "phase" delta events. */
-function sseResponse(events: Array<Record<string, unknown>>): Response {
+/** Build an SSE TlsFetchResult from an array of v2 "phase" delta events. */
+function sseTlsResult(events: Array<Record<string, unknown>>): TlsFetchResult {
   const encoder = new TextEncoder();
-  const stream = new ReadableStream({
+  const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const ev of events) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
@@ -22,36 +22,45 @@ function sseResponse(events: Array<Record<string, unknown>>): Response {
       controller.close();
     },
   });
-  return new Response(stream, {
+  return {
     status: 200,
-    headers: { "content-type": "text/event-stream" },
-  });
+    headers: new Headers({ "content-type": "text/event-stream" }),
+    text: null,
+    body: stream,
+  };
 }
 
-function chatCreatedResponse(id = "chat-abc"): Response {
-  return new Response(JSON.stringify({ success: true, data: { id } }), {
+function chatCreatedTlsResult(id = "chat-abc"): TlsFetchResult {
+  return {
     status: 200,
-    headers: { "content-type": "application/json" },
-  });
+    headers: new Headers({ "content-type": "application/json" }),
+    text: JSON.stringify({ success: true, data: { id } }),
+    body: null,
+  };
 }
 
 /** The 504 + HTML page Alibaba's gateway returns for the retired v1 endpoint
  *  and for WAF-blocked requests. */
-function wafHtmlResponse(status = 504): Response {
-  return new Response(
+function wafHtmlTlsResult(status = 504): TlsFetchResult {
+  const html =
     "<html>\n<head><title>504 Gateway Time-out</title></head>\n<body>\n" +
-      '<center><h1>504 Gateway Time-out</h1></center>\n<hr><center>alibaba-ga</center>\n' +
-      '<meta name="aliyun_waf_aa" content="ff926c7f07e45e2e487a29a6197d3460">\n</body>\n</html>',
-    { status, headers: { "content-type": "text/html; charset=utf-8" } }
-  );
+    '<center><h1>504 Gateway Time-out</h1></center>\n<hr><center>alibaba-ga</center>\n' +
+    '<meta name="aliyun_waf_aa" content="ff926c7f07e45e2e487a29a6197d3460">\n</body>\n</html>';
+  return {
+    status,
+    headers: new Headers({ "content-type": "text/html; charset=utf-8" }),
+    text: html,
+    body: null,
+  };
 }
 
 beforeEach(() => {
   calls = [];
+  __setTlsFetchOverrideForTesting(null);
 });
 
 afterEach(() => {
-  globalThis.fetch = realFetch;
+  __setTlsFetchOverrideForTesting(null);
 });
 
 describe("QwenWebExecutor (v2 migration)", () => {
@@ -60,14 +69,14 @@ describe("QwenWebExecutor (v2 migration)", () => {
   });
 
   it("uses the v2 two-step flow: chats/new then chat/completions?chat_id=", async () => {
-    globalThis.fetch = (async (url: any, init: any = {}) => {
-      calls.push({ url: String(url), init });
-      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse("chat-xyz");
-      return sseResponse([
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult("chat-xyz");
+      return sseTlsResult([
         { choices: [{ delta: { phase: "answer", content: "Hello", status: "typing" } }] },
         { choices: [{ delta: { phase: "answer", content: " world", status: "finished" } }] },
       ]);
-    }) as any;
+    });
 
     const executor = new mod.QwenWebExecutor();
     const result = await executor.execute({
@@ -80,18 +89,18 @@ describe("QwenWebExecutor (v2 migration)", () => {
 
     assert.equal(calls.length, 2, "should make exactly two upstream calls");
     assert.match(calls[0].url, /\/api\/v2\/chats\/new$/);
-    assert.equal(calls[0].init.method, "POST");
+    assert.equal(calls[0].options.method, "POST");
     assert.match(calls[1].url, /\/api\/v2\/chat\/completions\?chat_id=chat-xyz/);
-    assert.equal(calls[1].init.method, "POST");
+    assert.equal(calls[1].options.method, "POST");
 
     // chats/new payload shape
-    const newBody = JSON.parse(calls[0].init.body);
+    const newBody = JSON.parse(calls[0].options.body || "{}");
     assert.deepEqual(newBody.models, ["qwen3.7-max"]);
     assert.equal(newBody.chat_type, "t2t");
     assert.equal(newBody.chat_mode, "normal");
 
     // completion payload references the created chat_id
-    const compBody = JSON.parse(calls[1].init.body);
+    const compBody = JSON.parse(calls[1].options.body || "{}");
     assert.equal(compBody.chat_id, "chat-xyz");
     assert.equal(compBody.model, "qwen3.7-max");
     assert.equal(compBody.messages[0].role, "user");
@@ -102,13 +111,13 @@ describe("QwenWebExecutor (v2 migration)", () => {
   });
 
   it("replays the full cookie jar and the extracted bearer token on every call", async () => {
-    globalThis.fetch = (async (url: any, init: any = {}) => {
-      calls.push({ url: String(url), init });
-      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
-      return sseResponse([
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
         { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
       ]);
-    }) as any;
+    });
 
     const cookieBlob = "token=jwt-secret; cna=CNA1; ssxmod_itna=1-AAA; ssxmod_itna2=1-BBB";
     const executor = new mod.QwenWebExecutor();
@@ -121,7 +130,7 @@ describe("QwenWebExecutor (v2 migration)", () => {
     } as any);
 
     for (const call of calls) {
-      const headers = call.init.headers as Record<string, string>;
+      const headers = (call.options.headers || {}) as Record<string, string>;
       const cookie = headers.Cookie || headers.cookie || "";
       assert.match(cookie, /cna=CNA1/, "full cookie jar must be replayed");
       assert.match(cookie, /ssxmod_itna=1-AAA/, "WAF cookies must be replayed");
@@ -131,13 +140,13 @@ describe("QwenWebExecutor (v2 migration)", () => {
   });
 
   it("sends the anti-bot headers required by the v2 endpoint", async () => {
-    globalThis.fetch = (async (url: any, init: any = {}) => {
-      calls.push({ url: String(url), init });
-      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
-      return sseResponse([
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
         { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
       ]);
-    }) as any;
+    });
 
     const executor = new mod.QwenWebExecutor();
     await executor.execute({
@@ -148,21 +157,128 @@ describe("QwenWebExecutor (v2 migration)", () => {
       signal: null,
     } as any);
 
-    const headers = calls[0].init.headers as Record<string, string>;
+    const headers = (calls[0].options.headers || {}) as Record<string, string>;
     assert.ok(headers["bx-v"], "bx-v header present");
     assert.ok(headers["bx-umidtoken"], "bx-umidtoken header present");
     assert.equal(headers.source || headers.Source, "web", "source: web header present");
   });
 
+  it("sends the SPA version: 0.2.66 header on all requests", async () => {
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
+        { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
+      ]);
+    });
+
+    const executor = new mod.QwenWebExecutor();
+    await executor.execute({
+      model: "qwen3.7-plus",
+      body: { messages: [{ role: "user", content: "hi" }] },
+      stream: false,
+      credentials: { apiKey: "token=t; cna=c" },
+      signal: null,
+    } as any);
+
+    for (const call of calls) {
+      const headers = (call.options.headers || {}) as Record<string, string>;
+      assert.equal(headers.version, "0.2.66", "version header must be 0.2.66");
+    }
+  });
+
+  it("preserves array content without turning parts into [object Object]", async () => {
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
+        { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
+      ]);
+    });
+
+    const executor = new mod.QwenWebExecutor();
+    await executor.execute({
+      model: "qwen3.7-plus",
+      body: {
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "hello world" },
+              { type: "image_url", image_url: { url: "https://example.com/img.png" } },
+            ],
+          },
+        ],
+      },
+      stream: false,
+      credentials: { apiKey: "token=t; cna=c" },
+      signal: null,
+    } as any);
+
+    const compBody = JSON.parse(calls[1].options.body || "{}");
+    const content = compBody.messages[0].content;
+    assert.ok(!content.includes("[object Object]"), "content must not contain [object Object]");
+    assert.match(content, /hello world/, "text parts from array content must be preserved");
+  });
+
+  it("handles simple string content unchanged", async () => {
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
+        { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
+      ]);
+    });
+
+    const executor = new mod.QwenWebExecutor();
+    await executor.execute({
+      model: "qwen3.7-plus",
+      body: { messages: [{ role: "user", content: "simple string prompt" }] },
+      stream: false,
+      credentials: { apiKey: "token=t; cna=c" },
+      signal: null,
+    } as any);
+
+    const compBody = JSON.parse(calls[1].options.body || "{}");
+    assert.equal(compBody.messages[0].content, "simple string prompt");
+  });
+
+  it("handles null and undefined content gracefully without crashing", async () => {
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
+        { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
+      ]);
+    });
+
+    const executor = new mod.QwenWebExecutor();
+    await executor.execute({
+      model: "qwen3.7-plus",
+      body: {
+        messages: [
+          { role: "system", content: null },
+          { role: "user", content: undefined },
+        ],
+      },
+      stream: false,
+      credentials: { apiKey: "token=t; cna=c" },
+      signal: null,
+    } as any);
+
+    const compBody = JSON.parse(calls[1].options.body || "{}");
+    assert.equal(compBody.messages[0].content, "");
+  });
+
   it("maps the thinking phase to reasoning_content, not the answer content", async () => {
-    globalThis.fetch = (async (url: any) => {
-      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
-      return sseResponse([
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
         { choices: [{ delta: { phase: "think", content: "let me think", status: "typing" } }] },
         { choices: [{ delta: { phase: "think", content: "...", status: "finished" } }] },
         { choices: [{ delta: { phase: "answer", content: "Final answer", status: "finished" } }] },
       ]);
-    }) as any;
+    });
 
     const executor = new mod.QwenWebExecutor();
     const result = await executor.execute({
@@ -182,10 +298,10 @@ describe("QwenWebExecutor (v2 migration)", () => {
   });
 
   it("classifies the retired-v1 / WAF 504 HTML page as a clear auth error (not raw HTML)", async () => {
-    globalThis.fetch = (async (url: any) => {
-      if (String(url).includes("/api/v2/chats/new")) return wafHtmlResponse(504);
-      return chatCreatedResponse();
-    }) as any;
+    __setTlsFetchOverrideForTesting(async (url: string) => {
+      if (String(url).includes("/api/v2/chats/new")) return wafHtmlTlsResult(504);
+      return chatCreatedTlsResult();
+    });
 
     const executor = new mod.QwenWebExecutor();
     const result = await executor.execute({
@@ -204,13 +320,13 @@ describe("QwenWebExecutor (v2 migration)", () => {
   });
 
   it("streams answer-phase content as OpenAI chat.completion.chunk deltas", async () => {
-    globalThis.fetch = (async (url: any) => {
-      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
-      return sseResponse([
+    __setTlsFetchOverrideForTesting(async (url: string) => {
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
         { choices: [{ delta: { phase: "answer", content: "Hi", status: "typing" } }] },
         { choices: [{ delta: { phase: "answer", content: " there", status: "finished" } }] },
       ]);
-    }) as any;
+    });
 
     const executor = new mod.QwenWebExecutor();
     const result = await executor.execute({
@@ -229,13 +345,13 @@ describe("QwenWebExecutor (v2 migration)", () => {
   });
 
   it("accepts a bare token (back-compat) without a cookie jar", async () => {
-    globalThis.fetch = (async (url: any, init: any = {}) => {
-      calls.push({ url: String(url), init });
-      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
-      return sseResponse([
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
         { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
       ]);
-    }) as any;
+    });
 
     const executor = new mod.QwenWebExecutor();
     await executor.execute({
@@ -246,7 +362,7 @@ describe("QwenWebExecutor (v2 migration)", () => {
       signal: null,
     } as any);
 
-    const headers = calls[0].init.headers as Record<string, string>;
+    const headers = (calls[0].options.headers || {}) as Record<string, string>;
     assert.equal(headers.Authorization || headers.authorization, "Bearer barejwttoken");
   });
 
@@ -270,13 +386,13 @@ describe("QwenWebExecutor (v2 migration)", () => {
   });
 
   it("maps legacy model ids to the current upstream catalog", async () => {
-    globalThis.fetch = (async (url: any, init: any = {}) => {
-      calls.push({ url: String(url), init });
-      if (String(url).includes("/api/v2/chats/new")) return chatCreatedResponse();
-      return sseResponse([
+    __setTlsFetchOverrideForTesting(async (url: string, options: TlsFetchOptions) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes("/api/v2/chats/new")) return chatCreatedTlsResult();
+      return sseTlsResult([
         { choices: [{ delta: { phase: "answer", content: "ok", status: "finished" } }] },
       ]);
-    }) as any;
+    });
 
     const executor = new mod.QwenWebExecutor();
     await executor.execute({
@@ -287,7 +403,8 @@ describe("QwenWebExecutor (v2 migration)", () => {
       signal: null,
     } as any);
 
-    const newBody = JSON.parse(calls[0].init.body);
+    const newBody = JSON.parse(calls[0].options.body || "{}");
     assert.match(newBody.models[0], /^qwen3\.[67]-/, "legacy qwen3-max maps to a current model id");
   });
 });
+

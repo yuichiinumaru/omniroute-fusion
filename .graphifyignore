@@ -1,0 +1,20 @@
+# graphify ignore — omniroute-2 reference
+# Keep the graph focused on source code, not data/assets/build artifacts
+node_modules
+.git
+.next
+.build
+.archive
+.artifacts
+backup
+data
+data-dev
+data-test
+data-21000
+chromium.strace
+.env
+.env.local
+graphify-out
+tmp
+~docs/codemaps
+*_mono_repo

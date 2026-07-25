@@ -21,6 +21,7 @@ import {
   type HookLogEntry,
   HookPriority,
 } from "./types";
+import { compileHookSandbox } from "./hookSandbox";
 
 // ── State (globalThis singleton) ──────────────────────────────────────────
 
@@ -53,12 +54,7 @@ function getRegistryState() {
 
 function compileHookCode(code: string, hookName: string): HookMiddleware {
   try {
-    // Wrap in async function that returns HookResult
-    // eslint-disable-next-line no-new-func
-    const fn = new Function("context", `return (async () => { ${code} })();`) as (
-      context: PreRequestHookContext
-    ) => Promise<HookResult>;
-    return fn;
+    return compileHookSandbox(code, hookName);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Compilation error";
     throw new Error(`Failed to compile hook "${hookName}": ${message}`);

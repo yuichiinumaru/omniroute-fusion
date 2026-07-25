@@ -964,6 +964,8 @@
     "contextCcr": "CCR",
     "contextLlmlingua": "LLMLingua",
     "combosLive": "Combo Studio",
+    "combosTopology": "Topology",
+    "combosTopologySubtitle": "Combo DAG & provider topology visualization",
     "compressionStudio": "Compression Studio",
     "routingSection": "Routing",
     "protocolsSection": "Protocols",

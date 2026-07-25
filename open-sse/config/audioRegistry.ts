@@ -105,7 +105,7 @@ export const AUDIO_TRANSCRIPTION_PROVIDERS: Record<string, AudioProvider> = {
     id: "assemblyai",
     baseUrl: "https://api.assemblyai.com/v2/transcript",
     authType: "apikey",
-    authHeader: "bearer",
+    authHeader: "bare",
     async: true,
     format: "assemblyai",
     models: [

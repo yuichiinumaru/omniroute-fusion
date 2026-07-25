@@ -121,7 +121,7 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
     textIcon: "GL",
     website: "https://docs.gitlab.com/user/duo_agent_platform/code_suggestions/",
     authHint:
-      "GitLab personal access token for the public Code Suggestions API. Configure a self-hosted base URL when not using gitlab.com.",
+      "GitLab personal access token for the public Code Suggestions API (code completion only, max ~20 tokens). Configure a self-hosted base URL when not using gitlab.com.",
   },
   "voyage-ai": {
     id: "voyage-ai",

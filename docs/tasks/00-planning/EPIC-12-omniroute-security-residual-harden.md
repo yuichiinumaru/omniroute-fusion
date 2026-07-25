@@ -50,6 +50,7 @@ Close **confirmed** security residuals that survived Epic 0008 path-to-100 witho
 | T12-A | Tailscale routeGuard + tests (P1) | serial (routeGuard) |
 | T12-B | Targeted error sanitize residual sweep + tests | parallel-safe vs T12-A if different files |
 | T12-C | Secrets dual-read disposition (doc or migrate) | parallel-safe |
+| **T12-D** | **Weak hash audit and replace (Task 0115)** | parallel-safe; security review required |
 
 ## 7. Source evidence
 

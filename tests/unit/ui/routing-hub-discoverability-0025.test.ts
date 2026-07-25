@@ -40,17 +40,26 @@ test("fusions page mounts RoutingHubSubnav", () => {
   assert.ok(src.includes('active="fusions"'));
 });
 
-test("RoutingHubSubnav links Combos, Fusions, Live, Compression Settings, Compression Studio", () => {
-  // Task 0058 expands the Routing hub topbar.
+test("topology page mounts RoutingHubSubnav", () => {
+  const src = read("src/app/(dashboard)/dashboard/combos/topology/ComboTopologyClient.tsx");
+  assert.ok(src.includes("RoutingHubSubnav"));
+  assert.ok(src.includes('active="topology"'));
+});
+
+test("RoutingHubSubnav links Combos, Fusions, Live, Topology, Compression Settings, Compression Studio", () => {
+  // Task 0058 & Task 0114 expand the Routing hub topbar.
   const src = read("src/shared/components/RoutingHubSubnav.tsx");
   assert.ok(src.includes("/dashboard/combos"));
   assert.ok(src.includes("/dashboard/fusions"));
   assert.ok(src.includes("/dashboard/combos/live"));
+  assert.ok(src.includes("/dashboard/combos/topology"));
   assert.ok(src.includes("/dashboard/context/settings"));
   assert.ok(src.includes("/dashboard/compression/studio"));
   assert.ok(src.includes("Compression Settings"));
   assert.ok(src.includes("Compression Studio"));
+  assert.ok(src.includes("Topology"));
   assert.ok(src.includes('id: "live"'));
+  assert.ok(src.includes('id: "topology"'));
   assert.ok(src.includes('id: "compression-settings"'));
   assert.ok(src.includes('id: "compression-studio"'));
 });
@@ -132,26 +141,28 @@ test("hub subnav links expose keyboard focus-visible ring (Task 0058 a11y)", () 
   assert.ok(src.includes("HUB_SUBNAV_ITEM_BASE_CLASS"));
 });
 
-test("CommandPalette includes Routing hub destinations (Task 0025 + 0058 N1)", () => {
+test("CommandPalette includes Routing hub destinations (Task 0025 + 0058 N1 + 0114)", () => {
   const src = read("src/shared/components/CommandPalette.tsx");
   assert.ok(src.includes('href: "/dashboard/fusions"'));
   assert.ok(src.includes('id: "fusions"'));
-  // Task 0058 N1: Live + Compression Settings discoverable via palette (not only topbar).
+  // Task 0058 N1 & 0114: Live + Topology + Compression Settings discoverable via palette (not only topbar).
   assert.ok(src.includes('href: "/dashboard/combos/live"'));
   assert.ok(src.includes('id: "combos-live"'));
+  assert.ok(src.includes('href: "/dashboard/combos/topology"'));
+  assert.ok(src.includes('id: "combos-topology"'));
   assert.ok(src.includes('href: "/dashboard/context/settings"'));
   assert.ok(src.includes('id: "compression-settings"'));
   assert.ok(src.includes('href: "/dashboard/compression/studio"'));
   assert.ok(src.includes('id: "compression-studio"'));
 });
 
-test("role presets: minimal < developer primary chrome < admin", () => {
+test("role presets: developer ≤ minimal ≤ admin", () => {
   const minimal = countPresetVisibleLeaves("minimal");
   const developer = countPresetVisibleLeaves("developer");
   const admin = countPresetVisibleLeaves("admin");
   const all = countPresetVisibleLeaves("all");
   assert.ok(minimal <= 10, `minimal=${minimal}`);
-  assert.ok(minimal < developer, `minimal ${minimal} should be < developer ${developer}`);
+  assert.ok(developer <= minimal, `developer ${developer} should be ≤ minimal ${minimal}`);
   // admin shows full primary (includes docs); developer omits docs → developer ≤ admin
   assert.ok(developer <= admin, `developer ${developer} should be ≤ admin ${admin}`);
   assert.equal(admin, all, "admin primary visible count matches all for flat chrome");

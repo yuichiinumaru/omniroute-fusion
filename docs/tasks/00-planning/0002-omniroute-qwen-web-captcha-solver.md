@@ -1,10 +1,19 @@
 # Idea: Qwen Web — Aliyun baxia WAF Captcha Solver
 
-> **Status**: Planning (deferred — not worth implementing right now)
+> **Status**: Planning (deferred — captcha solver) · **header fix landed in Task 0123** (captcha solver remains deferred)
 > **Priority**: Low
 > **Author**: GT-Architect
 > **Date**: 2026-07-08
 > **Context**: qwen-web executor works (TLS impersonation + cookie), but Aliyun baxia WAF returns slide captcha challenge for every server-to-server request.
+>
+> ### Truth-up 2026-07-24
+>
+> Forensic investigation on 2026-07-24 found:
+> - The fork's `qwen-web.ts` is **ahead** of upstream in TLS impersonation — the fork has a full `tls-client-node` integration while upstream uses plain `fetch()`.
+> - **WAF challenge detection is already partially implemented** in two layers (executor-level regex + TLS streaming peek). The short-term cleanup proposed in this doc is **done**.
+> - **The actual blocker for valid sessions is the missing `version: 0.2.66` SPA header** (causes silent `Bad_Request` from Qwen v2) and the `contentToText()` array-content bug. Both are addressed in **Task 0123**.
+> - **Captcha solver remains deferred.** The `/home/sephiroth/working/qwencloud-generator/FuckCaptcha/` repo is a curated docs/wiki catalog only — no production-ready Node.js baxia solver exists. The most viable paths (ddddocr Python sidecar, CapSolver paid API, Playwright + stealth) require a Python or external dependency, which is out of scope for this Node-only product.
+> - If the user later wants a captcha solver, this doc should be re-scoped to a Python sidecar service (separate repo) and not retrofitted into OmniRoute.
 
 ---
 

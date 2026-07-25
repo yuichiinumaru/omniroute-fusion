@@ -388,15 +388,22 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
             : "";
         const root = (configuredBaseUrl || "https://gitlab.com").replace(/\/$/, "");
         const res = await validationWrite(
-          `${root}/api/v4/code_suggestions/direct_access`,
+          `${root}/api/v4/code_suggestions/completions`,
           {
             method: "POST",
             headers: buildBearerHeaders(apiKey, providerSpecificData),
-            body: "{}",
+            body: JSON.stringify({
+              current_file: {
+                file_name: "test.py",
+                content_above_cursor: "# test",
+                content_below_cursor: "",
+              },
+              intent: "completion",
+            }),
           },
           isLocal
         );
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 403) {
           return { valid: false, error: "Invalid API key" };
         }
         return { valid: true, error: null };

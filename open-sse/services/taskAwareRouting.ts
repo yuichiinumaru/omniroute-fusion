@@ -440,7 +440,7 @@ function allRoleText(
 function hashConversationSeed(seed: string): string | null {
   const normalized = normalizeFingerprintText(seed);
   if (!normalized) return null;
-  return createHash("sha1").update(normalized).digest("hex").slice(0, 24);
+  return createHash("sha256").update(normalized).digest("hex").slice(0, 24);
 }
 
 /**

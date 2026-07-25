@@ -124,6 +124,8 @@ export interface RegistryEntry {
   passthroughModels?: boolean;
   /** Default context window for all models in this provider (can be overridden per-model) */
   defaultContextLength?: number;
+  /** Optional human-readable note describing platform constraints or features */
+  description?: string;
   /** Optional session pool config for rate limit management */
   poolConfig?: Record<string, unknown>;
   /**
