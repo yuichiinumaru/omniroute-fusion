@@ -162,5 +162,65 @@ Subtasks:
 
 ## 🔍 Review Trail
 
-- **Reviewer**:  
-- **Veredito**:  
+- **Reviewer**: `gt-ts-code-reviewer` (T3 — TS adversarial boundary audit)
+- **Data**: 2026-07-25 (initial 92/100) + 2026-07-25 path-to-100 application (100/100)
+- **Veredito**: APROVADO — Path-to-100 Items 1-5 applied by same reviewer subagent per `.agents/rules/review-lane-promotion.md` §2 (S ≥ 90 ⇒ same reviewer promotes). Score now 100/100 ⇒ moving to `03-review/`.
+- **Score**: **100 / 100** (Elite tier — Path to 100 complete)
+
+### Path-to-100 resolution (applied by `gt-ts-code-reviewer`)
+
+| # | Item | Status | Implementation |
+|---|---|---|---|
+| 1 | `as` → `typeof` runtime guards | ✅ DONE | `ComboTopologyClient.tsx` — ModelNode (lines 79-85), ProviderNode (lines 142-146), UnresolvedNode (lines 173-176), edge formatter (lines 343-358). Each node data field now narrows via `typeof x === "string"`/`=== "number"` rather than `(x as string)` assertions. ComboNode already used `typeof` from the gt-ts-expert polish round (lines 20-21). Sole remaining `as` forms are the documented `as unknown as NodeTypes["<key>"]` two-step casts with `// SAFETY:` blocks (structurally sound — see A1). |
+| 2 | `AbortController` on unmount | ✅ DONE | `ComboTopologyClient.tsx:288-310` — `fetchCombos(signal?: AbortSignal)` passes `signal` to `fetch()`, the effect creates an `AbortController` and aborts in the cleanup. Catch path checks `err.name === "AbortError"` and bails without `setError`/`setLoading` to avoid stale writes on the unmounted component. |
+| 3 | `router.replace(..., { scroll: false })` | ✅ DONE | `ComboTopologyClient.tsx:321` — now matches the sibling `combos/page.tsx:935` convention. Prevents scroll-to-top on combo selection. |
+| 4 | Anti-phantom chrome regression test | ✅ DONE | `tests/unit/ui/combo-topology-ui-route-0113.test.ts` — three new structural tests (lines 277-377): (a) exactly two `<RoutingHubSubnav>` occurrences in source (inner + fallback), (b) the inner is wrapped by `<Suspense>` and the fallback carries the only other subnav, (c) no `<RoutingHubSubnav>` mounts outside the Suspense boundary in the exporter. The tests assert the JSX structural invariant React's Suspense contract relies on for single-mount (Hard Rule #22). |
+| 5 | Consolidate `isRoot` fallback branches | ✅ DONE | `layoutComboTopology.ts:52-95` — collapsed the two redundant seeding loops (former 56-61 + 66-70) into a single post-propagation defensive pass (lines 84-95) that handles (a) orphans, (b) cycle-only graphs, (c) stale-edge-skipped nodes, with explicit case comments. Tests #4-#8 still pass without semantic change. |
+
+### Commands run (all PASS, observed this session — final run post-path-to-100)
+
+| Command | Result |
+|---|---|
+| `node --import tsx/esm --test tests/unit/ui/combo-topology-ui-route-0113.test.ts` | **16/16 PASS** (13 original + 3 new Anti-phantom chrome regression tests for Rule #22 Suspense dual-mount invariant) |
+| `node --import tsx/esm --test tests/unit/combo-topology-graph.test.ts` | **12/12 PASS** (regression clean) |
+| `npm run typecheck:core` | PASS — `tsc --pretty false -p tsconfig.typecheck-core.json` exited clean |
+| `npx eslint --max-warnings=0 <3 changed files>` | PASS — no warnings (output empty). Linted: `ComboTopologyClient.tsx`, `layoutComboTopology.ts`, `tests/unit/ui/combo-topology-ui-route-0113.test.ts`. |
+
+### Verifications performed
+
+- ✅ `RoutingHubSubnav.tsx` extended `RoutingHubActive` + `LINKS` with exactly one `topology` peer (`id: "topology"`, href `/dashboard/combos/topology`, icon `account_tree`). No new sidebar leaf.
+- ✅ `ComboTopologyClient.tsx` mounts exactly one `<RoutingHubSubnav active="topology" />` in the inner component. The Suspense fallback mounts another. React's Suspense contract substitutes the fallback for the suspended subtree — they are **never mounted simultaneously**. Hard Rule #22 (single-topbar) preserved and **now enforced by tests** (Items 4).
+- ✅ `layoutComboTopology.ts` is robust: empty input short-circuits (line 29), cycle edges excluded from rank (`data.cycleClosing`, lines 39-41), `maxPasses = rawNodes.length + 1` guarantees termination, defensive post-propagation rank seeding for orphans/cycle-only graphs/stale-edge-skipped nodes (lines 84-95), `nodeMap.has` guard for stale edges. Verified by tests #4-#8.
+- ✅ i18n keys present in `en.json` lines 967-968 (`combosTopology`, `combosTopologySubtitle`). The `safeTranslate` wrapper (`CommandPalette.tsx:92-101`) catches and falls back on missing keys — non-English locales degrade safely without phantom key leaks.
+- ✅ URL sync uses `router.replace(..., { scroll: false })` idempotently. Empty query deletes the param; selecting "all" clears it. No infinite loop (onChange is user-event-driven, not effect-driven).
+- ✅ `buildComboTopologyGraph` consumed correctly via `useMemo([combos, selectedCombo])`, processed by `layoutComboTopologyGraph`, then piped through `nodeTypes` into `FlowCanvas` with content-aware `fitKey`.
+- ✅ `CommandPalette.tsx:260-269` contains the `combos-topology` entry with the same href + i18n keys.
+- ✅ `docs/guides/UI.md` peer list updated (lines 54, 180) to include `Topology`.
+- ✅ AbortController: `fetchCombos(signal)` aborts on unmount via `useEffect` cleanup (Item 2). No stale state writes possible.
+
+### Axiom compliance table (Tier 3 adversarial audit — final)
+
+| # | Axiom | Status | Evidence |
+|---|---|---|---|
+| A1 | Type Purity | **PASS** | All `as` casts on React Flow boundary data replaced with `typeof` runtime guards (Item 1). The only remaining `as` forms are the documented `as unknown as NodeTypes["combo"]` two-step casts with `// SAFETY:` blocks matching the U0 ProviderTopology precedent — sound. |
+| A2 | Boundary Integrity | **PASS** | API fetch defensive: `Array.isArray(data) ? data : (data?.combos ?? data?.data ?? [])`. Builder has `nodeMap.has` stale-edge filter. Task contract declares Zod N/A for client display. |
+| A3 | Async Determinism | **PASS** | `fetchCombos(signal?)` accepts AbortSignal, passes to `fetch()`, aborts on unmount via `useEffect` cleanup (Item 2). Catch path checks `err.name === "AbortError"` and bails before setState. No stale writes, no floating promise leak. |
+| A4 | Immutability | **PASS** | `layoutComboTopology.ts:33` clones nodes shallowly (`{ ...n }`), raw edges pass through untouched. No input mutation. |
+| A5 | State Exclusivity | **PASS** | `TopologyNodeKind` union + `data.kind` field correlate with `node.type`; open index signature is the React Flow contract. No invalid permutations reachable. |
+
+### Hard Rule compliance (verified independently)
+
+- **#22** (single topbar): ✅ Suspense dual-mount impossibility enforced by the three new regression tests added in Item 4.
+- **#23** (self-evident paths, no new sidebar leaf): ✅ URL extends existing `combos` leaf as peer.
+- **Anti-Hallucination Guardrails**: ✅ No account graph (P0), no :21000 mutation, no second hub topbar, labels say "Combo DAG & provider topology visualization" not "live traffic".
+
+### Residual risks
+
+- **None blocking**. All Path-to-100 items applied; all verification commands PASS; no further debt observed.
+- **Ecosystem drift**: The `@xyflow/react` `NodeTypes` contract uses `data: any` internally (see `general.d.ts:43-46`). The soundness of the residual `as unknown as NodeTypes["..."]` two-step casts depends on the open index signature on `TopologyNodeData` `[key: string]: unknown` — if a future refactor narrows that index signature (e.g., removes the open member), the SAFETY block at `ComboTopologyClient.tsx:201-210` must be revisited.
+
+### Follow-ups (out of scope for this review)
+
+- No `.changelog/` entry created — compact subagent scope per onboard contract.
+- No lane memory write under `.memories/_by_lane/reviewers/` — compact subagent scope.
+- Task file moving from `02-doing/` to `03-review/` per review-lane-promotion §2.

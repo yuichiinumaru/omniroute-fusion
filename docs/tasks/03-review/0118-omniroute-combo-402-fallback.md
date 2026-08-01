@@ -188,9 +188,17 @@ The 402 fallback bug means that when one Kiro account runs out of credits, ALL K
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role — DEVE ser diferente do executor]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: APROVADO / REJEITADO
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based, citar arquivos/linhas + confirmar regressão do 401]
-- **Se REJEITADO**: mover para `02-doing/` com motivo documentado no topo.
+- **Reviewer**: gt-ts-code-reviewer (reviewers lane)
+- **Data da review**: 2026-07-27
+- **Verdict**: APROVADO
+- **Score (path to 100)**: 95/100
+- **Notas**:
+  - All checks executed and passed:
+    - `node --import tsx/esm --test tests/unit/combo-402-fallback.test.ts` → 5/5 pass
+    - `npm run typecheck:core` → PASS (zero errors)
+    - `npx eslint --max-warnings=0 open-sse/services/accountFallback.ts open-sse/services/combo/targetExhaustion.ts tests/unit/combo-402-fallback.test.ts` → PASS (zero warnings)
+  - Fix path is coherent: `checkFallbackError(402, "You have reached the limit.", ...)` falls through to the generic fallback branch and returns `reason: RateLimitReason.UNKNOWN`, which `isProviderExhaustedReason` now no longer treats as provider-exhausting because it only reacts to `permanent | dailyQuotaExhausted | reason === AUTH_ERROR` (`open-sse/services/accountFallback.ts:955-964`).
+  - `targetExhaustion.ts:83-90` now relies solely on `isProviderExhaustedReason(fallbackResult)` instead of string-matching `RateLimitReason.QUOTA_EXHAUSTED`, correctly removing the 402 false-provider-exhaustion path.
+  - Regression guard confirmed: 401 with `account_deactivated` returns `permanent: true` + `reason: AUTH_ERROR`, so Requirement 5 still exhausts provider.
+  - ⚠️ Test-only type issue: `tests/unit/combo-402-fallback.test.ts:35` stubs a `ResolvedComboTarget` via `as unknown as ResolvedComboTarget`, bypassing the compiler without a `// SAFETY:` justification. Production changes are clean; this is the only thing keeping the score below 100.
+- **Path to 100**: Replace the `as unknown as ResolvedComboTarget` stub in `tests/unit/combo-402-fallback.test.ts:35` with a type-conformant minimal target (or add a proven `// SAFETY:` comment explaining why the partial shape is sufficient), then re-run the three checks above.

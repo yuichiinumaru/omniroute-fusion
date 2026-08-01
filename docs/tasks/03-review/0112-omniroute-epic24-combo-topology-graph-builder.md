@@ -215,3 +215,66 @@ Nested combos are invisible; pure graph is the product truth layer.
 
 - **Reviewer** (polish pass): `gt-ts-expert` · 2026-07-25
 - **Veredito** (polish pass): **APROVADO (path-to-100 = 100/100)** — type-boundary leak eliminated, provider-id precedence aligned, depth-cap divergence documented, cycle-closing edge metadata added, falsy-selection tightened, sentinels hoisted, and 2 additional production-case tests added beyond the original 10. All three validation gates green. Task **stays in `02-doing/`** pending the original agent's wave-level promotion decision; this polish pass does not move the task to `03-review/` or `04-completed/`.
+
+### Independent reviewer (`gt-ts-code-reviewer` · 2026-07-25)
+
+- **Veredito**: **APROVADO — Score S = 100/100** (independent, non-overlapping with the polish pass).
+
+**Audit conducted** (Tier 3 deep reasoning — anti-phantom-protocol observed):
+- Read full task file + builder (`src/lib/combos/comboTopologyGraph.ts`, 413 lines) + test file (`tests/unit/combo-topology-graph.test.ts`, 426 lines) + dependency `src/lib/combos/steps.ts` + sibling `builderOptions.ts` + Zod schema `src/shared/validation/schemas/combo.ts`.
+- Loaded the `ts-rules` skill (5 axioms) and ran the full protocol.
+
+**Axiom compliance** (all PASS):
+
+| Axiom | Verdict | Evidence |
+|-------|---------|----------|
+| 1. Zero `any` | PASS | `grep -E ":\s*any(\b\|\[)\|<any>\|as any\|any\[\]"` on both files → `NO_ANY_FOUND`. Boundary typed via `ComboTopologyInput`; index sigs are `[key:string]: unknown` with `// SAFETY:`. |
+| 2. No unsafe `as T` | PASS | Zero `as` assertions. All narrowing via `typeof`/`Array.isArray`/`isRecord`. |
+| 3. Async safety | N/A | Pure synchronous function; zero event-loop suspension points. |
+| 4. Prototype pollution | PASS | No `Object.assign`/`merge` on untrusted data; `Map`/`Set` used; guarded split parsing. |
+| 5. Error handling | PASS | No silent failures; empty/invalid inputs return `{nodes:[],edges:[]}` deterministically. |
+
+**Cycle / depth / fusion — independent verification** (re-derived, not trusted from the polish pass):
+- *Cycle* (`comboTopologyGraph.ts:316-333`): `visitedPath.has(childName)` flags `cycleClosing:true` and halts recursion. Self-loop handled identically (`visited` seeds with root name at `:392`). Test #4 passes both directions.
+- *Depth cap* (`:345-347`): `depth + 1 >= maxDepth` is the documented "descend-then-stop" off-by-one vs runtime's enter-then-bail; inline cross-ref to `comboStructure.ts` present. Test #5 verifies Level3 appears / Level4 does not.
+- *Fusion branches* (`:202-203, 380-386`): `effectiveRole` preserves `judge`/`acting` slot semantics for `combo-ref` steps in those slots (only `role==="model"` is overridden to `combo-ref`). Tests #6 (model judge) and #11 (combo-ref judge) both pass.
+- *Selection modes* (`:143-155`): `undefined`/`"all"` → forest; explicit (incl. empty string) → match-or-empty. Test #7 covers id+name+all.
+- *Provider-id precedence* (`:215-217`): `step.providerId \|\| parse(modelStr)` aligns with `steps.ts:269-272`/`comboStructure.ts::normalizeRuntimeStep`. Test #10 locks precedence.
+
+**Hotspot contract checks**:
+- Ssole import in builder is `./steps.ts` (sibling) — does NOT import the high-fan-out `open-sse/services/combo.ts`. ✅
+- No React, no `next/*`, no API, no DB, no zustand — pure module. ✅
+- No `any` in public API: `BuildComboTopologyGraphOptions`, `ComboTopologyInput`, `ComboTopologyGraphResult` all concrete. ✅
+
+**Validation gates re-run this session** (independent, not relayed from the polish pass):
+
+| Gate | Command | Result |
+|------|---------|--------|
+| Unit (Node native) | `node --import tsx/esm --test tests/unit/combo-topology-graph.test.ts` | **12/12 PASS** (~100ms, exit 0) |
+| Typecheck (core) | `npm run typecheck:core` | **clean** (no diagnostics, exit 0) |
+| Lint (touched files) | `npx eslint --max-warnings=0 src/lib/combos/comboTopologyGraph.ts tests/unit/combo-topology-graph.test.ts` | **clean** (exit 0, 0 errors, 0 warnings) |
+
+**Findings (independent — 2 × LOW, non-blocking):**
+
+| # | Severity | Finding | Real impact | Blocks? |
+|---|----------|---------|-------------|---------|
+| R1 | 🟢 LOW (doc accuracy) | `comboTopologyGraph.ts:106-110` SAFETY comment justifies sentinel `JUDGE_STEP_INDEX=9999`/`ACTING_STEP_INDEX=9998` as "impossible under the upstream Zod combo schema". Verified `models[]` at `src/shared/validation/schemas/combo.ts:295` has **no `.max()` cap** (unlike `targets` at `:79` which is `.max(20)`). The cited justification is inaccurate. **However, the underlying invariant still holds** — for a different reason the comment does not state: a `models[]` step is processed with role `"model"` (or `"combo-ref"` via the `effectiveRole` override), never `judge`/`acting`. Since the edge-id format `"${source}->${target}:${role}:${stepIndex}"` includes the role and `judge`/`acting` roles are only assigned to `combo.judge`/`combo.acting` slots, a `models[]` step at index 9999 cannot collide with a judge edge even if both share `(source, target, stepIndex)`. Recommend fixing the SAFETY comment to cite the role-separation invariant instead of the (false) array-length cap. | None — graph fidelity preserved; no crash, no infinite-loop, no security issue. The follow-up is a comment-accuracy edit only. | **No** |
+| R2 | 🟢 LOW (evidence staleness) | Task Completion Evidence: line 129 claims "244 lines" — actual 413; line 130 claims "10 TDD cases" — actual 12. (Polish section line 192 correctly states 12/12.) Code is unaffected. | None — evidence field only. | **No** |
+
+**Anti-phantom-completion check**:
+- Test results above were observed directly from the runner output (`pass 12, fail 0`), not relayed from the executor's claim.
+- Typecheck/lint exit codes observed directly (empty diagnostics / `EXIT=0`).
+- Import-graph hotspot (`open-sse/services/combo.ts` non-import) verified by literal `grep -nE "from\s+['\"]"` against the builder — only `./steps.ts` matched.
+- Comment justification R1 was re-verified against the actual Zod source (`models`, `targets`, `tags` caps checked) — finding surfaced independently of the polish pass.
+
+**Path-tiers**:
+- 71-85 (Good) → 86-99 (Elite) delta: zero. All required gates green; no `any`; no `as`; no PROT; cycle/depth/fusion/selection/precedence all guarded by tests; no scope creep (no React/API/DB wiring). The 2 LOW findings are comment/evidence prose only, not code defects.
+- Elite → 100 gap: 0 (none actionable without leaving the task's pure-helper contract).
+
+**Promotion action**: file moved from `docs/tasks/02-doing/` to `docs/tasks/03-review/` per the review protocol (S=100). Wave-level `04-completed/` promotion + `.changelog/` ledger remains deferred to the operator/0113-wire wave step (per task charter exit matrix line 54).
+
+**Residual risks for the 0113 UI consumer** (carried forward from the polish pass, independently confirmed):
+1. Depth-cap off-by-one is the product contract — a UI consumer that wants runtime-parity depth must re-walk, not consume this builder. Guarded by test #5.
+2. Model-node id collapses on same-model/different-connectionId (per TR #9). Per-step routing distinctness is preserved at the edge layer (test #12). A future UI wanting per-account model nodes must revisit the node-id contract and test #12.
+3. `addNode` first-occurrence-wins merge (only `isRoot` promoted on revisit) is documented inline; future merge-policy changes must be intentional.
+4. `cycleClosing` edge flag is additive metadata; consumers must handle `undefined` for forward edges (asserted in test #4).

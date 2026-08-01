@@ -1,6 +1,7 @@
 # Task 0120: Add `composer-v2.5` to CURSOR_MODEL_ALIASES normalization map
 
-> **Status**: `[ ]` Open
+ > **Status**: `[x]` Open
+
 > **Priority**: 🔴 P0
 > **Type**: `remediation`
 > **Origin**: User report (2026-07-24) — Cursor provider model `composer-v2.5` (with the literal "v") does not work through OpenCode harness via OmniRoute. Root cause confirmed by forensic investigation (codebase-investigator session 2026-07-24).
@@ -182,9 +183,15 @@ This is a one-line fix that unblocks the `composer-v2.5` model for every client.
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role — DEVE ser diferente do executor]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: APROVADO / REJEITADO
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based, citar arquivos/linhas]
-- **Se REJEITADO**: mover para `02-doing/` com motivo documentado no topo.
+- **Reviewer**: gt-ts-code-reviewer (omniroute/reviewer)
+- **Data da review**: 2026-07-26
+- **Veredito**: APROVADO
+- **Score (path to 100)**: 100/100
+- **Notas**:
+  - Alias table `CURSOR_MODEL_ALIASES` em `open-sse/utils/cursorAgentProtobuf.ts:389-400` inclui corretamente `"composer-v2.5"`, `"composer-v2-latest"` e `"composer-v2.5-fast"` apontando para os canônicos.
+  - Teste TDD `tests/unit/cursor-model-aliases.test.ts` passa com 3/3 (fail→pass documentado pelo executor).
+  - Path-to-100 aplicado pelo reviewer: import corrigido de `.js` para `.ts` e adicionada asserção de case-insensitivity (`Composer-V2.5` → `composer-2.5`).
+  - `npm run typecheck:core`: 0 erros.
+  - `npx eslint --max-warnings=0 ...`: 0 erros/avisos.
+  - Regressão cursor: `tests/unit/cursor*.test.ts tests/unit/executor-cursor*.test.ts` => 169 pass / 0 fail.
+- **Se REJEITADO**: —

@@ -175,8 +175,15 @@ Weak hashes are accepted in codebase only when a protocol forces them. Every oth
 
 ## 🔍 Review Trail
 
-- **Reviewer**:
-- **Data da review**:
-- **Veredito**:
-- **Score (path to 100)**:
+- **Reviewer**: Security Reviewer (`reviewer` model)
+- **Data da review**: 2026-07-28
+- **Veredito**: APROVADO
+- **Score (path to 100)**: 100/100
 - **Notas**:
+  - Audit de hashes fracos (MD5 e SHA-1) verificado independentemente na totalidade do código fonte.
+  - O inventário em `Completion Evidence` e `docs/security/WEAK_HASH_RESIDUALS.md` cobre 100% das ocorrências de MD5/SHA-1 no código de produção (4 callsites protocol-required + 1 helper `computeSapisidHash` reutilizado por 2 executores = 5 callsites mantidos sob justificativa técnica/protocolar válida).
+  - 1 ocorrência de hashing fraco interno substituída com sucesso por SHA-256 (`open-sse/services/taskAwareRouting.ts:443`).
+  - Testes de regressão dedicados executados (`tests/unit/weak-hash-replacement.test.ts` e `tests/unit/combo-task-aware.test.ts`) com 100% de sucesso.
+  - Typecheck (`npm run typecheck:core`) sem erros.
+  - ESLint sem erros nos arquivos modificados/criados.
+  - Todas as condições de saída e evidências verificadas e validadas. Task movida para `03-review/`.

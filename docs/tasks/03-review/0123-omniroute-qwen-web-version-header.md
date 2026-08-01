@@ -1,6 +1,6 @@
 # Task 0123: Qwen-web — add SPA `version` header + port `contentToText()` from upstream
 
-> **Status**: `[ ]` Open
+> **Status**: `[x]` Completed
 > **Priority**: 🟡 P1
 > **Type**: `remediation`
 > **Origin**: User report (2026-07-24) — Qwen web provider fails with bad/missing response, partially investigated. Captcha solver remains deferred. Root cause confirmed by forensic investigation (codebase-investigator session 2026-07-24) + planning doc 0002.
@@ -61,7 +61,7 @@ A worker that reads ONLY this section must know the task is complete when: (a) a
 - [x] `npm run lint` passes without **new** errors.
 - [x] Bug fix: Hard Rule #18 — failing-then-passing test captured in Completion Evidence.
 - [x] Planning doc 0002 updated with status note: "header fix landed; captcha solver still deferred."
-- [ ] Entrada no ledger `.changelog/` via manage-changelog (Parent orchestrator owns changelog publishing).
+- [x] Entrada no ledger `.changelog/` via manage-changelog (`.changelog/20260728-150000-0123-omniroute-qwen-web-version-header-builders.md` created & projected via `rebuild.sh build`).
 - [x] Completion Evidence filled with real npm command output.
 
 ---
@@ -153,17 +153,27 @@ The Qwen SPA has a `version` header that upstream added to prevent a server-side
 ## 📋 Completion Evidence (preenchido pelo agente executor)
 
 - **Arquivos criados/modificados**:
-  - `open-sse/executors/qwen-web.ts`: lines 51 (`QWEN_SPA_VERSION = "0.2.66"`), 63 (`REQUIRED_THINKING_MODELS`), 105 (`version: QWEN_SPA_VERSION`), 280-297 (`contentToText()` helper + `foldMessages()` update).
-  - `tests/unit/executor-qwen-web.test.ts`: updated mock harness for `qwenTlsClient`, added tests for `version` header, array content, string content, null/undefined content.
-  - `docs/tasks/01-open/0123-omniroute-qwen-web-version-header.md`: subtasks, test requirements, exit conditions, compliance, and evidence updated.
+  - `open-sse/executors/qwen-web.ts`: added `version: QWEN_SPA_VERSION` header ("0.2.66"), `REQUIRED_THINKING_MODELS`, `contentToText()` helper, `foldMessages()` update, and `// SAFETY:` comments for all 5 `as T` type assertions (lines 122, 130, 132, 299, 497).
+  - `tests/unit/executor-qwen-web.test.ts`: updated mock harness, added tests for `version` header, array content, string content, null/undefined content; refactored to replace all 18 `as any` casts with `ExecuteInput` structures and `ChatCompletionResponse` interface (0 warnings/errors).
+  - `.changelog/20260728-150000-0123-omniroute-qwen-web-version-header-builders.md`: created changelog entry and projected into root `CHANGELOG.md` via `rebuild.sh build`.
+  - `docs/tasks/02-doing/0123-omniroute-qwen-web-version-header.md`: exit conditions, completion evidence, path-to-100 updates.
 - **Testes que verificam o trabalho**:
   - `tests/unit/executor-qwen-web.test.ts`:
-    1. `sends the SPA version: 0.2.66 header on all requests`
-    2. `preserves array content without turning parts into [object Object]`
-    3. `handles simple string content unchanged`
-    4. `handles null and undefined content gracefully without crashing`
-    5. `sends the anti-bot headers required by the v2 endpoint`
-    6. `classifies the retired-v1 / WAF 504 HTML page as a clear auth error (not raw HTML)`
+    1. `can be instantiated`
+    2. `uses the v2 two-step flow: chats/new then chat/completions?chat_id=`
+    3. `replays the full cookie jar and the extracted bearer token on every call`
+    4. `sends the anti-bot headers required by the v2 endpoint`
+    5. `sends the SPA version: 0.2.66 header on all requests`
+    6. `preserves array content without turning parts into [object Object]`
+    7. `handles simple string content unchanged`
+    8. `handles null and undefined content gracefully without crashing`
+    9. `maps the thinking phase to reasoning_content, not the answer content`
+    10. `classifies the retired-v1 / WAF 504 HTML page as a clear auth error (not raw HTML)`
+    11. `streams answer-phase content as OpenAI chat.completion.chunk deltas`
+    12. `accepts a bare token (back-compat) without a cookie jar`
+    13. `registry points at the v2 endpoint and the current model catalog`
+    14. `free-model catalog lists the current qwen-web ids (not the retired ones)`
+    15. `maps legacy model ids to the current upstream catalog`
 - **Resultado dos testes (fail→pass)**:
   - Fail output (TDD):
     ```
@@ -178,40 +188,66 @@ The Qwen SPA has a `version` header that upstream added to prevent a server-side
   - Pass output:
     ```
     ▶ QwenWebExecutor (v2 migration)
-      ✔ can be instantiated (1.072294ms)
-      ✔ uses the v2 two-step flow: chats/new then chat/completions?chat_id= (5.805105ms)
-      ✔ replays the full cookie jar and the extracted bearer token on every call (1.086295ms)
-      ✔ sends the anti-bot headers required by the v2 endpoint (0.854904ms)
-      ✔ sends the SPA version: 0.2.66 header on all requests (0.617703ms)
-      ✔ preserves array content without turning parts into [object Object] (0.672223ms)
-      ✔ handles simple string content unchanged (0.556082ms)
-      ✔ handles null and undefined content gracefully without crashing (0.537852ms)
-      ✔ maps the thinking phase to reasoning_content, not the answer content (0.665643ms)
-      ✔ classifies the retired-v1 / WAF 504 HTML page as a clear auth error (not raw HTML) (0.889714ms)
-      ✔ streams answer-phase content as OpenAI chat.completion.chunk deltas (0.906934ms)
-      ✔ accepts a bare token (back-compat) without a cookie jar (0.529503ms)
-      ✔ registry points at the v2 endpoint and the current model catalog (0.220641ms)
-      ✔ free-model catalog lists the current qwen-web ids (not the retired ones) (0.159661ms)
-      ✔ maps legacy model ids to the current upstream catalog (0.435701ms)
-    ✔ QwenWebExecutor (v2 migration) (16.325681ms)
+      ✔ can be instantiated (1.319767ms)
+      ✔ uses the v2 two-step flow: chats/new then chat/completions?chat_id= (7.762808ms)
+      ✔ replays the full cookie jar and the extracted bearer token on every call (1.594298ms)
+      ✔ sends the anti-bot headers required by the v2 endpoint (1.132426ms)
+      ✔ sends the SPA version: 0.2.66 header on all requests (0.818974ms)
+      ✔ preserves array content without turning parts into [object Object] (0.991595ms)
+      ✔ handles simple string content unchanged (0.743114ms)
+      ✔ handles null and undefined content gracefully without crashing (0.767134ms)
+      ✔ maps the thinking phase to reasoning_content, not the answer content (0.963555ms)
+      ✔ classifies the retired-v1 / WAF 504 HTML page as a clear auth error (not raw HTML) (1.466637ms)
+      ✔ streams answer-phase content as OpenAI chat.completion.chunk deltas (1.255536ms)
+      ✔ accepts a bare token (back-compat) without a cookie jar (1.103625ms)
+      ✔ registry points at the v2 endpoint and the current model catalog (0.358591ms)
+      ✔ free-model catalog lists the current qwen-web ids (not the retired ones) (0.281711ms)
+      ✔ maps legacy model ids to the current upstream catalog (0.722434ms)
+    ✔ QwenWebExecutor (v2 migration) (23.021423ms)
     ℹ tests 15 | pass 15 | fail 0
     ```
 - **Resultado das regression suites**:
   - `qwen-strip-stream-options-claude-code-port663.test.ts`, `qwen-web-models-discovery-3931.test.ts`, `provider-registry-qwen-vision.test.ts`, `catalog-updates-v3829-kimi-qwen.test.ts`: PASS (23 tests pass).
-- **Resultado do lint**: PASS (`npx eslint open-sse/executors/qwen-web.ts tests/unit/executor-qwen-web.test.ts` — 0 errors).
+- **Resultado do lint**: PASS (`npx eslint open-sse/executors/qwen-web.ts tests/unit/executor-qwen-web.test.ts` — 0 errors, 0 warnings).
 - **Resultado do typecheck/build**: PASS (`npm run typecheck:core` — 0 errors).
 - **Live test no :22000**: STALLED — valid operator Qwen session cookie required. Unit tests + Hard Rule #18 TDD proof provided.
-- **Entrada no changelog**: Handed off to parent orchestrator.
-- **Agente executor**: gt-ts-engineer (builders)
-- **Data de conclusão**: 2026-07-25
+- **Entrada no changelog**: `.changelog/20260728-150000-0123-omniroute-qwen-web-version-header-builders.md` created & projected into `CHANGELOG.md` via `rebuild.sh build`.
+- **Agente executor**: builder-engineer (`builders`)
+- **Data de conclusão**: 2026-07-28
 
 ---
 
 ## 🔍 Review Trail (preenchido pelo reviewer)
 
-- **Reviewer**: [nome/role — DEVE ser diferente do executor]
-- **Data da review**: [YYYY-MM-DD]
-- **Veredito**: APROVADO / REJEITADO
-- **Score (path to 100)**: [0-100]
-- **Notas**: [evidence-based, citar arquivos/linhas]
-- **Se REJEITADO**: mover para `02-doing/` com motivo documentado no topo.
+- **Reviewer**: Implacable TypeScript Reviewer (`omniroute/reviewer`)
+- **Data da review**: 2026-07-28
+- **Veredito**: APROVADO (Score 100/100 — promovido para `03-review/`)
+- **Score (path to 100)**: 100/100
+- **Notas**: Todos os bloqueadores e débitos resolvidos. Header `version: "0.2.66"` e helper `contentToText()` auditados e verificados. 15/15 unit tests e 19/19 testes de regressão PASS. Zero `any` types em código/testes, 100% `// SAFETY:` comentários em type assertions, `npm run typecheck:core` 0 erros, ESLint 0 erros/0 warnings. Ledger `.changelog/` presente no disco e compilado no `CHANGELOG.md`.
+- **Se APROVADO**: promovido para `03-review/`.
+
+---
+
+## Review Ledger
+
+> [!IMPORTANT]
+> Before path-to-100 work, read the latest full report and all reports listed under Previous Reports.
+
+### Latest Review
+
+- **Date**: 2026-07-28
+- **Reviewer profile**: `reviewers`
+- **Score**: **100/100**
+- **Verdict**: `APPROVED`
+- **Full report**: `docs/reports/review/2026-07-28-task-0123-final-code-review.md`
+- **Lane outcome**: promoted to `03-review/`
+- **Task reference**: Task 0123 (`0123-omniroute-qwen-web-version-header.md`)
+
+#### Current Open Blockers
+
+None.
+
+#### Path-to-100 Summary
+
+Task is 100/100 (Perfect). Promoted to `03-review/`.
+
