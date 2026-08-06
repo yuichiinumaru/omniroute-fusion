@@ -118,6 +118,7 @@ export class QwenWebExecutor extends BaseExecutor {
 
   async execute(input: ExecuteInput) {
     const { body, credentials, signal, stream: wantStream } = input;
+    // SAFETY: body is verified/coerced to an object before field extraction.
     const bodyObj = (body || {}) as Record<string, unknown>;
 
     const rawCred = String(credentials?.apiKey ?? "").trim();
@@ -125,7 +126,9 @@ export class QwenWebExecutor extends BaseExecutor {
     let token = extractQwenToken(rawCred);
     if (!token && credentials?.accessToken) token = String(credentials.accessToken).trim();
 
+    // SAFETY: messages property is expected to be an array of message objects from OpenAI request format.
     const messages = (bodyObj.messages as Array<{ role: string; content: string }>) || [];
+    // SAFETY: model property is expected to be a string model identifier from OpenAI request format.
     const requestedModel = (bodyObj.model as string) || DEFAULT_MODEL;
     const modelId = mapModel(requestedModel);
 
@@ -292,6 +295,7 @@ export class QwenWebExecutor extends BaseExecutor {
         .map((part) => {
           if (typeof part === "string") return part;
           if (part && typeof part === "object") {
+            // SAFETY: part is verified to be a non-null object before accessing optional text properties.
             const p = part as { type?: unknown; text?: unknown };
             if (typeof p.text === "string") return p.text;
           }
@@ -489,6 +493,7 @@ export class QwenWebExecutor extends BaseExecutor {
         { headers: { "Content-Type": "application/json" } }
       ),
       url,
+      // SAFETY: Empty object cast to Record<string, string> to satisfy non-streaming result interface.
       headers: {} as Record<string, string>,
       transformedBody,
     };
@@ -496,7 +501,7 @@ export class QwenWebExecutor extends BaseExecutor {
 }
 
 /** Parse one SSE line into a typed delta, or null if it carries no content. */
-function parseSseDelta(line: string): { kind: "answer" | "think"; text: string } | null {
+export function parseSseDelta(line: string): { kind: "answer" | "think"; text: string } | null {
   if (!line.startsWith("data:")) return null;
   const payload = line.slice(5).trim();
   if (!payload || payload === "[DONE]") return null;

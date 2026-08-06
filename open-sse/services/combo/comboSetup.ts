@@ -65,6 +65,7 @@ function resolveContextCachePin(ctx: ComboContext): {
   if (
     combo.context_cache_protection &&
     effectiveSessionId &&
+    // SAFETY: ctx.body is checked for existence before property access via Record cast.
     !(ctx.body as Record<string, unknown>)?.[SKIP_UNIVERSAL_HANDOFF_FLAG]
   ) {
     const pinned = getLastSessionModel(effectiveSessionId, combo.name);
@@ -113,6 +114,9 @@ export function phaseComboSetup(ctx: ComboContext): ComboSetup {
   // Use config cascade before dispatch so all strategies, pinned context routes,
   // and round-robin targets share the same timeout policy.
   const config = resolveComboSetupConfig(combo, settings);
+  if (config.enableRepetitionGuard === true && ctx.body && typeof ctx.body === "object") {
+    ctx.body = { ...ctx.body, enableRepetitionGuard: true };
+  }
   const comboTargetTimeoutMs = resolveComboTargetTimeoutMs(
     config,
     FETCH_TIMEOUT_MS,

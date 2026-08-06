@@ -7,11 +7,11 @@ export const kimi_webProvider: RegistryEntry = {
   alias: "kimi-web",
   format: "openai",
   executor: "kimi-web",
-  baseUrl: "https://kimi.moonshot.cn/api/chat",
-  authType: "apikey",
-  authHeader: "cookie",
+  baseUrl: "https://www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat",
+  authType: "bearer",
+  authHeader: "authorization",
   models: [
-    { id: "kimi-default", name: "Kimi Default" },
-    { id: "kimi-128k", name: "Kimi 128K (Long Context)" },
+    { id: "k3", name: "Kimi k3 (Reasoning)", toolCalling: true },
+    { id: "k2d6", name: "Kimi k2d6 (Reasoning)", toolCalling: true },
   ],
 };

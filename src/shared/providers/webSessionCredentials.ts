@@ -151,11 +151,11 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     storageKeys: ["cookie", "__vercel_session"],
   },
   "kimi-web": {
-    kind: "cookie",
-    credentialName: "session",
-    placeholder: "session=... or full Cookie header from kimi.moonshot.cn",
-    acceptsFullCookieHeader: true,
-    storageKeys: ["cookie", "session"],
+    kind: "token",
+    credentialName: "access_token",
+    placeholder: "access_token=... or Bearer token from www.kimi.com (Local Storage → access_token or kimi-auth cookie)",
+    acceptsFullCookieHeader: false,
+    storageKeys: ["access_token", "kimi-auth", "kimi_token", "token", "cookie"],
   },
   "doubao-web": {
     kind: "cookie",

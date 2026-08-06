@@ -23,6 +23,7 @@ import {
   resolveGitLabOAuthBaseUrl,
 } from "@/lib/oauth/gitlab";
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
+import { resolveProviderAlias } from "@omniroute/open-sse/services/model.ts";
 import { removeConnectionHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import {
   connectionUsesOAuthRefresh,
@@ -773,7 +774,8 @@ export async function testSingleConnection(connectionId: string, validationModel
     return { valid: false, error: "Connection not found", diagnosis: null, latencyMs: 0 };
   }
 
-  const provider = typeof connection.provider === "string" ? connection.provider : "";
+  const rawProvider = typeof connection.provider === "string" ? connection.provider : "";
+  const provider = resolveProviderAlias(rawProvider) || rawProvider;
   if (!provider) {
     return {
       valid: false,
@@ -787,6 +789,7 @@ export async function testSingleConnection(connectionId: string, validationModel
       latencyMs: 0,
     };
   }
+  const normalizedConnection = { ...connection, provider };
 
   // Resolve proxy for this connection (key → combo → provider → global → direct)
   let proxyInfo: any = null;
@@ -798,7 +801,7 @@ export async function testSingleConnection(connectionId: string, validationModel
 
   let result;
   const startTime = Date.now();
-  const runtime = await getProviderRuntimeStatus(connection);
+  const runtime = await getProviderRuntimeStatus(normalizedConnection);
 
   if ((runtime as any)?.diagnosis) {
     result = {
@@ -810,24 +813,24 @@ export async function testSingleConnection(connectionId: string, validationModel
   } else if (
     // Dual-mode: normalize api_key/api-key → apikey; blank+apiKey is non-OAuth.
     // Never run OAuth refresh diagnostics for static credentials.
-    normalizeAuthType(connection.authType) === "apikey" ||
-    !connectionUsesOAuthRefresh(connection)
+    normalizeAuthType(normalizedConnection.authType) === "apikey" ||
+    !connectionUsesOAuthRefresh(normalizedConnection)
   ) {
     const enrichedConnection = validationModelId
       ? {
-          ...connection,
+          ...normalizedConnection,
           providerSpecificData: {
-            ...((connection.providerSpecificData as any) || {}),
+            ...((normalizedConnection.providerSpecificData as any) || {}),
             validationModelId,
           },
         }
-      : connection;
+      : normalizedConnection;
     result = await runWithProxyContext(proxyInfo?.proxy || null, () =>
       testApiKeyConnection(enrichedConnection)
     );
   } else {
     result = await runWithProxyContext(proxyInfo?.proxy || null, () =>
-      testOAuthConnection(connection)
+      testOAuthConnection(normalizedConnection)
     );
   }
 

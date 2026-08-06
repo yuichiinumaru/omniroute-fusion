@@ -106,6 +106,42 @@ export function extractQwenToken(rawValue: string): string {
   return match ? match[1] : "";
 }
 
+/**
+ * Extract Kimi access token from pasted string (bare token, Bearer token, or Cookie header).
+ * Handles access_token, kimi-auth, kimi_token, session cookies or bare token.
+ */
+export function extractKimiAccessToken(rawValue: string | null | undefined): string | null {
+  if (!rawValue) return null;
+  const trimmed = stripCookieInputPrefix(rawValue);
+  if (!trimmed) return null;
+
+  if (trimmed.includes(";")) {
+    const accessToken = extractCookieValue(trimmed, "access_token");
+    if (accessToken && accessToken !== trimmed) return accessToken;
+    const kimiAuth = extractCookieValue(trimmed, "kimi-auth");
+    if (kimiAuth && kimiAuth !== trimmed) return kimiAuth;
+    const kimiToken = extractCookieValue(trimmed, "kimi_token");
+    if (kimiToken && kimiToken !== trimmed) return kimiToken;
+    const session = extractCookieValue(trimmed, "session");
+    if (session && session !== trimmed) return session;
+  }
+
+  if (trimmed.startsWith("access_token=")) {
+    return trimmed.slice("access_token=".length);
+  }
+  if (trimmed.startsWith("kimi-auth=")) {
+    return trimmed.slice("kimi-auth=".length);
+  }
+  if (trimmed.startsWith("kimi_token=")) {
+    return trimmed.slice("kimi_token=".length);
+  }
+  if (trimmed.startsWith("session=")) {
+    return trimmed.slice("session=".length);
+  }
+
+  return trimmed || null;
+}
+
 export function normalizeSessionCookieHeaders(
   rawValues: Array<string | null | undefined>,
   defaultCookieName: string

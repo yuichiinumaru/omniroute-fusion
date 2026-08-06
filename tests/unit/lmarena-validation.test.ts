@@ -16,24 +16,24 @@ describe("validateLMArenaProvider", () => {
   it("probes new endpoint create-evaluation with new body shape", async () => {
     const originalFetch = global.fetch;
     let probedUrl = "";
-    let probedBody: any = null;
+    let probedBody: Record<string, unknown> | null = null;
 
-    global.fetch = (async (url: string, opts: any) => {
-      probedUrl = url;
-      probedBody = JSON.parse(opts.body);
+    global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      probedUrl = typeof input === "string" ? input : input.toString();
+      probedBody = typeof init?.body === "string" ? JSON.parse(init.body) : null;
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
-    }) as any;
+    };
 
     try {
       const res = await validateLMArenaProvider({ apiKey: "arena-auth-prod-v1=test" });
       assert.equal(res.valid, true);
       assert.equal(probedUrl, "https://arena.ai/nextjs-api/stream/create-evaluation");
-      assert.equal(probedBody.mode, "direct-battle");
-      assert.equal(probedBody.modality, "chat");
-      assert.ok(probedBody.id);
-      assert.ok(probedBody.userMessageId);
-      assert.ok(probedBody.modelAMessageId);
-      assert.ok(probedBody.userMessage?.content);
+      assert.equal(probedBody?.mode, "direct-battle");
+      assert.equal(probedBody?.modality, "chat");
+      assert.ok(probedBody?.id);
+      assert.ok(probedBody?.userMessageId);
+      assert.ok(probedBody?.modelAMessageId);
+      assert.ok((probedBody?.userMessage as Record<string, unknown> | undefined)?.content);
     } finally {
       global.fetch = originalFetch;
     }

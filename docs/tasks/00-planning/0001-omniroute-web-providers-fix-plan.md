@@ -28,35 +28,25 @@ O fusion mode chama modelos em paralelo via painel com `stream: false`. Provider
 
 ---
 
-## Fix 1: LMArena — "validation not supported" (Baixa Complexidade)
+## Fix 1: LMArena — Port Modernization PR #6280 (Task 0121)
 
-### Root Cause
+### Root Cause & Resolution (Truth-up 2026-07-24 / Task 0121)
 
-O executor `LMArenaExecutor` existe e está registrado em `open-sse/executors/index.ts`, mas o provider **não tem registry entry** em `open-sse/config/providers/index.ts`. Quando a UI tenta validar:
+O registry entry `open-sse/config/providers/registry/lmarena/` já existe no repositório. O problema real era o **executor legado** `LMArenaExecutor` que apontava para o endpoint descontinuado `/nextjs-api/stream` com payload JSON simples.
 
-```
-validateProviderApiKey("lmarena", cookie)
-  → SPECIALTY_VALIDATORS["lmarena"] → não existe
-  → WEB_COOKIE_PROVIDERS["lmarena"] → existe
-    → getRegistryEntry("lmarena") → null
-    → { unsupported: true }
-  → HTTP 400 "Provider validation not supported"
-```
-
-### Arquivos a Modificar
-
-| Ação | Arquivo | Descrição |
-|------|---------|-----------|
-| CRIAR | `open-sse/config/providers/registry/lmarena/index.ts` | Registry entry: `id: "lmarena"`, `authType: "cookie"`, `executor: "lmarena"`, baseUrl `https://arena.ai`, models iniciais |
-| MODIFICAR | `open-sse/config/providers/index.ts` | Importar `lmarenaProvider` + adicionar ao objeto `REGISTRY` |
-| MODIFICAR (opcional) | `src/lib/providers/validation/webProvidersA.ts` | Função `validateLMArenaProvider()` que envia cookie real e valida contra endpoint conhecido |
+A solução foi portar a modernização do PR #6280 do upstream (Task 0121):
+- Endpoint atualizado para `/nextjs-api/stream/create-evaluation` (Connect-RPC/battle payload com `mode: "direct-battle"`, UUIDs v7, modality chat).
+- TLS impersonation via `tls-client-node` com perfil Chrome para bypass de Cloudflare WAF (`open-sse/services/lmarenaTlsClient.ts`).
+- Catálogo estático de UUIDs de modelos Direct-chat (`open-sse/config/providers/registry/lmarena/directModels.ts`).
+- Suporte a cookies chunked do Supabase SSR (`reconstructLMArenaCookie`).
+- Validador probe atualizado em `src/lib/providers/validation/webProvidersA.ts`.
 
 ### Critérios de Aceite
 
-- [ ] `getRegistryEntry("lmarena")` retorna entry válida
-- [ ] UI mostra campo de cookie para LMArena
-- [ ] `POST /api/providers/validate` não retorna mais `unsupported`
-- [ ] `npm run typecheck:core` passa sem erros
+- [x] `open-sse/executors/lmarena.ts` atualizado com suporte a `create-evaluation` e TLS impersonation.
+- [x] Módulos auxiliares `cookie.ts`, `models.ts`, `stream.ts`, `response.ts` e `directModels.ts` presentes.
+- [x] Suíte de testes de unidade em `tests/unit/lmarena-*.test.ts` (38/38 PASS).
+- [x] `npm run typecheck:core` passa sem erros.
 
 ### Referência
 

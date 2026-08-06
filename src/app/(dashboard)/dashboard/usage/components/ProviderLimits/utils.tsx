@@ -1,4 +1,4 @@
-export { parseQuotaData } from "./quotaParsing";
+export { parseQuotaData, groupAntigravityQuotas } from "./quotaParsing";
 
 const PROVIDER_PLAN_FALLBACKS = new Set([
   "claude code",
@@ -25,6 +25,9 @@ const QUOTA_LABEL_MAP: Record<string, string> = {
   credits: "AI Credits",
   models: "Models",
   mcp_monthly: "Monthly",
+  claude: "Claude",
+  gemini_3x: "Gemini 3.x (Flash/Pro)",
+  gemini_legacy: "Gemini Legacy (2.x/Lite)",
   "search-prime": "Web Search",
   "web-reader": "Web Reader",
   zread: "Zread",
@@ -457,6 +460,18 @@ export function filterHiddenModelQuotas(
 
   return quotas.filter((quota) => {
     if (!quota || quota.isCredits) return true;
+
+    if (quota.isFamilyBar && Array.isArray(quota.modelKeys)) {
+      const visibleKeys = quota.modelKeys.filter((mKey: string) => {
+        const candidates = new Set<string>();
+        addQuotaModelIdVariants(candidates, provider, mKey);
+        return !Array.from(candidates).some((cand) => hidden.has(cand));
+      });
+      if (visibleKeys.length === 0) return false;
+      quota.modelKeys = visibleKeys;
+      return true;
+    }
+
     const modelId =
       typeof quota.modelKey === "string"
         ? quota.modelKey

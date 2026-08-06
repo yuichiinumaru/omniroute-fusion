@@ -260,3 +260,168 @@ test("layoutComboTopologyGraph: preserves edge identity and count from rawGraph"
     assert.ok(layoutEdgeIds.has(e.id), `Edge ${e.id} preserved in layout output`);
   }
 });
+
+// ── Anti-phantom chrome (Hard Rule #22) regression suite ─────────────────────
+// React's <Suspense> contract substitutes the `fallback` for the suspended
+// subtree. The fallback and the inner subtree are NEVER mounted simultaneously
+// — they are mutually exclusive render branches chosen by the Suspense
+// state machine. The single-topbar invariant (Hard Rule #22) therefore holds
+// if and only if:
+//
+//   (a) the inner component mounts exactly one <RoutingHubSubnav>, and
+//   (b) the Suspense fallback mounts exactly one <RoutingHubSubnav>, and
+//   (c) the exported component's top-level return is the <Suspense> wrapper
+//       itself (no sibling <RoutingHubSubnav> outside the Suspense boundary).
+//
+// These tests verify the structural invariant mechanically. A future
+// regression that adds an additional <RoutingHubSubnav> outside <Suspense>
+// (e.g. above the wrapper, or as a sibling of the exporter's return) will
+// fail test (c) or (a)+(c) — turning this verification-by-reasoning into
+// verification-by-test.
+
+test("Anti-phantom chrome (Rule #22): inner component mounts exactly one RoutingHubSubnav", () => {
+  const src = read("src/app/(dashboard)/dashboard/combos/topology/ComboTopologyClient.tsx");
+
+  // Count occurrences of the literal <RoutingHubSubnav active="topology" /> JSX.
+  // The combo-topology client must mount the hub subnav exactly once in the
+  // inner render path (the interactive client body); a second mount inside
+  // the inner component would already violate the single-topbar rule without
+  // Suspense even participating.
+  const innerMatches = src.match(/<RoutingHubSubnav active="topology"\s*\/>/g) || [];
+  assert.equal(
+    innerMatches.length,
+    2,
+    "ComboTopologyClient must mount <RoutingHubSubnav active=\"topology\" /> exactly twice in source: once in the inner component, once in the Suspense fallback. Found: " + innerMatches.length
+  );
+});
+
+test("Anti-phantom chrome (Rule #22): inner subtree is wrapped by <Suspense> with the fallback carrying the only other subnav", () => {
+  const src = read("src/app/(dashboard)/dashboard/combos/topology/ComboTopologyClient.tsx");
+
+  // The exported default must return a <Suspense> at the top level. We assert
+  // the existence of the Suspense wrapper around the inner component.
+  assert.ok(
+    src.includes("<Suspense") && src.includes("<ComboTopologyClientInner />"),
+    "Exported component must wrap <ComboTopologyClientInner /> in <Suspense>"
+  );
+
+  // The Suspense fallback must contain the second <RoutingHubSubnav> so the
+  // subnav still renders during the inner suspension. We locate the Suspense
+  // fallback block and count the subnav inside it.
+  const suspenseOpen = src.indexOf("<Suspense");
+  assert.ok(suspenseOpen >= 0, "<Suspense> must be present");
+  const fallbackStart = src.indexOf("fallback=", suspenseOpen);
+  assert.ok(fallbackStart >= 0, "Suspense must carry a fallback= prop");
+  // Derive the end of the fallback expression by matching the JSX block.
+  // We use the simple heuristic: the fallback block opens with `{` (curly)
+  // because the fallback is a multi-line JSX expression, and ends at the
+  // matching `}` before `>`. We lazy-match via brace counting from the
+  // first `{` after `fallback=`.
+  const fbBraceOpen = src.indexOf("{", fallbackStart);
+  let depth = 0;
+  let fbBraceClose = -1;
+  for (let i = fbBraceOpen; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        fbBraceClose = i;
+        break;
+      }
+    }
+  }
+  assert.ok(fbBraceClose > fbBraceOpen, "Suspense fallback block must be a balanced JSX expression");
+  const fallbackBlock = src.slice(fbBraceOpen, fbBraceClose + 1);
+  const fallbackSubnavMatches = fallbackBlock.match(/<RoutingHubSubnav active="topology"\s*\/>/g) || [];
+  assert.equal(
+    fallbackSubnavMatches.length,
+    1,
+    "Suspense fallback must mount exactly one <RoutingHubSubnav active=\"topology\" />. Found: " + fallbackSubnavMatches.length
+  );
+
+  // Total subnav occurrences in the whole file must equal exactly 2 (one in
+  // the inner component, one in the fallback). A third mount (e.g. outside
+  // the Suspense boundary, at the exporter's top level, or in a sibling) is
+  // a Hard Rule #22 regression that would permit two simultaneous hubs.
+  const totalMatches = src.match(/<RoutingHubSubnav active="topology"\s*\/>/g) || [];
+  assert.equal(
+    totalMatches.length,
+    2,
+    "ComboTopologyClient.tsx must contain exactly two <RoutingHubSubnav> occurrences (inner + fallback); a third would risk simultaneous mount. Found: " + totalMatches.length
+  );
+});
+
+test("Anti-phantom chrome (Rule #22): no RoutingHubSubnav mount outside the Suspense boundary", () => {
+  const src = read("src/app/(dashboard)/dashboard/combos/topology/ComboTopologyClient.tsx");
+
+  // Find the exported default's body. The file has only one
+  // `export default function ComboTopologyClient()`, and its return is the
+  // <Suspense> wrapper. We assert it returns exactly the <Suspense> and
+  // contains no <RoutingHubSubnav> at the exporter's top level outside the
+  // Suspense wrapper. The exporter's body begins after the function
+  // declaration line.
+  const exporterMatch = src.match(/export\s+default\s+function\s+ComboTopologyClient\s*\(\s*\)\s*\{/);
+  assert.ok(exporterMatch, "Exported default function ComboTopologyClient must be present");
+  const exporterStart = src.indexOf(exporterMatch[0]) + exporterMatch[0].length;
+
+  // The exporter's body ends at the function's closing brace. We count braces
+  // starting from exporterStart to locate the body.
+  let depth = 1;
+  let exporterEnd = -1;
+  for (let i = exporterStart; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        exporterEnd = i;
+        break;
+      }
+    }
+  }
+  assert.ok(exporterEnd > exporterStart, "Exporter body must be balanced");
+  const exporterBody = src.slice(exporterStart, exporterEnd + 1);
+
+  // The exporter body must contain exactly the <Suspense> wrapper. We assert
+  // the body's only <RoutingHubSubnav> occurrences are inside the Suspense
+  // fallback block (already verified by the prior test). To prove no extra
+  // subnav mounts at the exporter's top level (outside Suspense), we strip
+  // the <Suspense>...</Suspense> block and assert zero occurrences remain
+  // in the rest of the exporter body.
+  const suspenseOpen = exporterBody.indexOf("<Suspense");
+  assert.ok(suspenseOpen >= 0, "Exporter must open <Suspense>");
+  // Match the <Suspense ... >...</Suspense> by counting <Suspense ...> against
+  // </Suspense>. We treat <Suspense as the open token and </Suspense> as the
+  // close token.
+  let sDepth = 0;
+  let suspenseIdx = suspenseOpen;
+  let suspenseEnd = -1;
+  for (let i = suspenseOpen; i < exporterBody.length; i++) {
+    const tail = exporterBody.slice(i, i + 9);
+    if (tail.startsWith("<Suspense")) {
+      sDepth++;
+      i += 8;
+    } else if (exporterBody.slice(i, i + 10) === "</Suspense") {
+      sDepth--;
+      if (sDepth === 0) {
+        // Skip to the closing '>' of </Suspense>.
+        const gt = exporterBody.indexOf(">", i);
+        suspenseEnd = gt;
+        break;
+      }
+      i += 9;
+    }
+  }
+  assert.ok(suspenseEnd > suspenseOpen, "Exporter's <Suspense> block must be balanced");
+
+  const outsideSuspense =
+    exporterBody.slice(0, suspenseOpen) +
+    exporterBody.slice(suspenseEnd + 1);
+  const outsideMatches = outsideSuspense.match(/<RoutingHubSubnav/g) || [];
+  assert.equal(
+    outsideMatches.length,
+    0,
+    "No <RoutingHubSubnav> may mount outside the <Suspense> boundary in the exported component. Found: " + outsideMatches.length
+  );
+});

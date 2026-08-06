@@ -55,12 +55,12 @@ interface OpenAIMessage {
 function readRecaptchaToken(credentials: unknown, body: unknown): string | null {
   const fromObj = (v: unknown): string | null => {
     if (!v || typeof v !== "object") return null;
-    const rec = v as Record<string, unknown>;
+    const rec = v as Record<string, unknown>; // SAFETY: guarded by typeof v === "object"
     const direct = rec.recaptchaV3Token ?? rec.recaptchaToken;
     if (typeof direct === "string" && direct.trim()) return direct.trim();
     const psd = rec.providerSpecificData;
     if (psd && typeof psd === "object") {
-      const nested = psd as Record<string, unknown>;
+      const nested = psd as Record<string, unknown>; // SAFETY: guarded by typeof psd === "object"
       const t = nested.recaptchaV3Token ?? nested.recaptchaToken;
       if (typeof t === "string" && t.trim()) return t.trim();
     }
@@ -103,9 +103,9 @@ export class LMArenaExecutor extends BaseExecutor {
     credentials?: ProviderCredentials
   ): unknown {
     void stream;
-    const openaiBody = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+    const openaiBody = body && typeof body === "object" ? (body as Record<string, unknown>) : {}; // SAFETY: guarded by typeof body === "object"
     const messages = Array.isArray(openaiBody.messages)
-      ? (openaiBody.messages as OpenAIMessage[])
+      ? (openaiBody.messages as OpenAIMessage[]) // SAFETY: guarded by Array.isArray check
       : [];
     return {
       id: uuidv7(),
@@ -125,16 +125,16 @@ export class LMArenaExecutor extends BaseExecutor {
 
   async execute(input: ExecuteInput) {
     const { model, body, stream, credentials, signal, log } = input;
-    const url = this.buildUrl(model, !!stream, 0, credentials as ProviderCredentials);
+    const url = this.buildUrl(model, !!stream, 0, credentials as ProviderCredentials); // SAFETY: input.credentials is ProviderCredentials
     const headers = this.buildHeaders(model, credentials, body);
     const cookie = readLMArenaCookie(credentials);
 
     if (!cookie) {
-      return missingCookieResult(url, headers, this.transformRequest(model, body, !!stream, credentials as ProviderCredentials));
+      return missingCookieResult(url, headers, this.transformRequest(model, body, !!stream, credentials as ProviderCredentials)); // SAFETY: input.credentials is ProviderCredentials
     }
 
     const arenaModelId = await resolveLMArenaModelId(model, log);
-    const transformedBody = this.transformRequest(arenaModelId, body, !!stream, credentials as ProviderCredentials) as Record<
+    const transformedBody = this.transformRequest(arenaModelId, body, !!stream, credentials as ProviderCredentials) as Record< // SAFETY: transformRequest returns JSON object
       string,
       unknown
     >;

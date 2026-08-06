@@ -139,6 +139,7 @@ function isPendingRequestClearedError(error: unknown): boolean {
   return (
     !!error &&
     typeof error === "object" &&
+    // SAFETY: line 140 verified error is a truthy object; Record cast is structural type narrowing.
     (error as Record<string, unknown>)[PENDING_REQUEST_CLEARED_MARKER] === true
   );
 }
@@ -155,10 +156,12 @@ function isPendingRequestClearedError(error: unknown): boolean {
  */
 export function isClientDisconnectError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
+  // SAFETY: line 157 verified error is a truthy object; property access cast is structural.
   const message = (error as { message?: unknown }).message;
   if (typeof message === "string" && /repetition_detected|repetition detected/i.test(message)) {
     return false;
   }
+  // SAFETY: line 157 verified error is a truthy object; property access cast is structural.
   const name = (error as { name?: unknown }).name;
   if (name === "AbortError" || name === "ResponseAborted") return true;
   return typeof message === "string" && /Controller is already closed/i.test(message);
@@ -175,6 +178,7 @@ function getErrorMessage(error: unknown): string {
 
 function getErrorStatusCode(error: unknown): number {
   if (error && typeof error === "object" && "statusCode" in error) {
+    // SAFETY: line 177 verified error has statusCode property; cast extracts it safely.
     const statusCode = Number((error as { statusCode?: unknown }).statusCode);
     if (Number.isFinite(statusCode) && statusCode >= 400 && statusCode <= 599) {
       return statusCode;

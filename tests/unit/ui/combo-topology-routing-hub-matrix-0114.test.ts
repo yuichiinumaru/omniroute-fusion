@@ -71,6 +71,16 @@ test("Topology is discoverable in CommandPalette options", () => {
 });
 
 test("anti-new-leaf: topology is NOT added as a primary sidebar leaf", () => {
+  // SAFETY: `PRIMARY_SIDEBAR_ITEM_IDS` is a `readonly` tuple literal whose
+  // narrow element type excludes "topology". We need a runtime `.includes()`
+  // probe to assert absence, but TypeScript refuses `readonly tuple.includes(string)`
+  // because the element type is too narrow. The `as unknown as <element>` hop is
+  // sound (string -> unknown -> element type does not bypass a real runtime guard
+  // — the value "topology" is the literal under test and `.includes()` performs
+  // a strict-equality scan over the actual tuple elements at runtime). The cast
+  // exists to satisfy the parameter type of `ReadonlyArray<T>.includes()`, not to
+  // smuggle an unsafe value into the test; the assertion verifies the EXACT
+  // opposite — that "topology" is NOT a member.
   assert.equal(
     PRIMARY_SIDEBAR_ITEM_IDS.includes("topology" as unknown as typeof PRIMARY_SIDEBAR_ITEM_IDS[number]),
     false,

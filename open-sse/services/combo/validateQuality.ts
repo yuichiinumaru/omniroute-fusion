@@ -6,10 +6,7 @@
  * / Fase 9). Logic unchanged; re-exported from combo.ts for compatibility.
  */
 
-import {
-  createSSEDataLineNormalizer,
-  isKnownNonClaudeStreamPayload,
-} from "../../utils/streamHelpers.ts";
+import { createSSEDataLineNormalizer } from "../../utils/streamHelpers.ts";
 import { getReasoningTokens } from "../../../src/lib/usage/tokenAccounting.ts";
 import type { ComboRetryAfter } from "./types.ts";
 
@@ -21,11 +18,16 @@ export function toRetryAfterDisplayValue(value: ComboRetryAfter): string | Date 
   return new Date(value);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
 function responsesApiOutputHasContent(output: unknown): boolean {
   return (
     Array.isArray(output) &&
     output.some((item) => {
       if (!item || typeof item !== "object") return false;
+      // SAFETY: line 29 verified item is a truthy object; Record cast is structural type narrowing.
       const record = item as Record<string, unknown>;
       if (record.type !== "message") return Boolean(record.type);
       const content = record.content;
@@ -35,7 +37,9 @@ function responsesApiOutputHasContent(output: unknown): boolean {
           (part) =>
             !!part &&
             typeof part === "object" &&
+            // SAFETY: line 38 verified part is a truthy object; Record cast is structural type narrowing.
             typeof (part as Record<string, unknown>).text === "string" &&
+            // SAFETY: line 39 verified part.text is string; Record cast is structural type narrowing.
             ((part as Record<string, string>).text as string).length > 0
         )
       );
@@ -44,15 +48,22 @@ function responsesApiOutputHasContent(output: unknown): boolean {
 }
 
 /**
- * Validate that a successful (HTTP 200) non-streaming response actually contains
- * meaningful content. Returns { valid: true } or { valid: false, reason }.
+ * Validate that a successful (HTTP 200) response actually contains meaningful content.
+ * Returns { valid: true, clonedResponse } or { valid: false, reason }.
  *
- * Only inspects non-streaming JSON responses — streaming responses are passed through
- * because buffering the full stream would defeat the purpose of streaming.
+ * Streaming path: bounded SSE peek — reads just enough of the event stream to detect
+ * content (content_block_*, delta.content, tool_calls, reasoning_content) without
+ * de-streaming non-empty responses. On content found, returns a clonedResponse that
+ * replays the buffered prefix + forwards the original reader tail.
  *
- * Checks:
- * 1. Body is valid JSON
- * 2. Has at least one choice with non-empty content or tool_calls
+ * Empty-content detection (streaming): when the stream ends without any meaningful
+ * content (accumulatedContentText.trim().length === 0, no reasoning, no tool_calls,
+ * no structural output), returns `{ valid: false, reason: "empty_streaming_content" }`.
+ * Claude-specific path additionally checks for `message_start` → `message_stop` with
+ * zero `content_block_*` events (e.g. content_filter stop_reason).
+ *
+ * Non-streaming path: validates JSON body has at least one choice with non-empty
+ * content, tool_calls, or reasoning_content.
  */
 export async function validateResponseQuality(
   response: Response,
@@ -90,19 +101,92 @@ export async function validateResponseQuality(
     // between iterations (incomplete lines are deferred to the next chunk).
     let decodedSoFar = "";
 
-    // SSE lifecycle state.
+    // SSE lifecycle & content state.
     let hasMessageStart = false;
     let hasContentBlock = false;
     let hasLifecycleEnd = false;
+    let accumulatedContentText = "";
+    let hasReasoningContent = false;
+    let hasToolCalls = false;
+    let hasOtherStructuralOutput = false;
     const sseLineNormalizer = createSSEDataLineNormalizer();
     let pendingEventType = "";
+
+    function inspectParsedStreamPayload(parsed: Record<string, unknown>, eventType: string): void {
+      if (Array.isArray(parsed.choices)) {
+        for (const choice of parsed.choices) {
+          if (!isRecord(choice)) continue;
+          const delta = isRecord(choice.delta) ? choice.delta : null;
+          if (!delta) continue;
+          if (typeof delta.content === "string") {
+            accumulatedContentText += delta.content;
+          }
+          const reasoning = delta.reasoning_content ?? delta.reasoning ?? delta.reasoning_text;
+          if (typeof reasoning === "string" && reasoning.trim().length > 0) {
+            hasReasoningContent = true;
+          }
+          if (Array.isArray(delta.tool_calls) && delta.tool_calls.length > 0) {
+            hasToolCalls = true;
+          }
+        }
+      }
+
+      const type = typeof parsed.type === "string" ? parsed.type : eventType;
+      if (type.startsWith("response.")) {
+        if (
+          type === "response.output_text.delta" ||
+          type === "response.reasoning_text.delta" ||
+          type === "response.reasoning_summary_text.delta" ||
+          type === "response.function_call_arguments.delta"
+        ) {
+          if (typeof parsed.delta === "string") accumulatedContentText += parsed.delta;
+          if (typeof parsed.text === "string") accumulatedContentText += parsed.text;
+          if (typeof parsed.arguments === "string" && parsed.arguments.trim().length > 0) {
+            hasToolCalls = true;
+          }
+        } else if (
+          type === "response.output_item.added" ||
+          type === "response.output_item.done" ||
+          type === "response.content_part.added"
+        ) {
+          hasOtherStructuralOutput = true;
+        } else if (type === "response.completed" && isRecord(parsed.response)) {
+          const output = parsed.response.output;
+          if (Array.isArray(output) && output.length > 0) {
+            hasOtherStructuralOutput = true;
+          }
+        }
+      }
+
+      const candidates = Array.isArray(parsed.candidates)
+        ? parsed.candidates
+        : isRecord(parsed.response) && Array.isArray(parsed.response.candidates)
+          ? parsed.response.candidates
+          : null;
+      if (candidates) {
+        for (const candidate of candidates) {
+          if (!isRecord(candidate)) continue;
+          const content = isRecord(candidate.content) ? candidate.content : null;
+          const parts = Array.isArray(content?.parts) ? content.parts : null;
+          if (parts) {
+            for (const part of parts) {
+              if (!isRecord(part)) continue;
+              if (typeof part.text === "string") accumulatedContentText += part.text;
+              if (isRecord(part.functionCall) || isRecord(part.executableCode)) {
+                hasToolCalls = true;
+              }
+            }
+          }
+        }
+      }
+    }
 
     /**
      * Parse any complete SSE lines from `decodedSoFar`, updating lifecycle
      * flags in the closure. The last (potentially incomplete) line is kept in
      * `decodedSoFar` for the next iteration.
      *
-     * Returns true when a content_block_* event is detected — the caller
+     * Returns true when content or structural events are detected — the caller
      * should stop peeking and treat the stream as non-empty.
      */
     function parseAccumulatedSse(): boolean {
@@ -130,16 +214,16 @@ export async function validateResponseQuality(
         try {
           parsed = JSON.parse(data);
         } catch {
+          if (!data.startsWith("{") && !data.startsWith("[")) {
+            accumulatedContentText += data;
+            if (accumulatedContentText.trim().length > 0) return true;
+          }
           continue;
         }
 
         const eventType =
           (typeof parsed.type === "string" ? parsed.type : null) || pendingEventType || "";
         pendingEventType = "";
-
-        if (isKnownNonClaudeStreamPayload(parsed, eventType)) {
-          return true;
-        }
 
         switch (eventType) {
           case "message_start":
@@ -159,6 +243,7 @@ export async function validateResponseQuality(
             if (
               delta &&
               typeof delta === "object" &&
+              // SAFETY: line 244-245 verified delta is truthy object.
               (delta as Record<string, unknown>).stop_reason != null
             ) {
               hasLifecycleEnd = true;
@@ -167,6 +252,17 @@ export async function validateResponseQuality(
           }
           default:
             break;
+        }
+
+        inspectParsedStreamPayload(parsed, eventType);
+
+        if (
+          accumulatedContentText.trim().length > 0 ||
+          hasReasoningContent ||
+          hasToolCalls ||
+          hasOtherStructuralOutput
+        ) {
+          return true;
         }
       }
       return false;
@@ -231,8 +327,26 @@ export async function validateResponseQuality(
             return { valid: false, reason: "streaming empty content block" };
           }
 
-          // Incomplete lifecycle or non-Claude stream — replay all buffered
-          // bytes. The reader is exhausted so the forwarding reader will
+          // Issue #5171: OpenAI-compatible streaming responses (NVIDIA NIM, etc.)
+          // may return 200 OK with zero output tokens — only [DONE], no content
+          // deltas. Detect this and trigger combo fallback instead of silently
+          // terminating the chain. Whitespace-only content counts as empty.
+          const hasMeaningfulContent =
+            accumulatedContentText.trim().length > 0 ||
+            hasReasoningContent ||
+            hasToolCalls ||
+            hasOtherStructuralOutput;
+
+          if (!hasMeaningfulContent) {
+            log.warn?.(
+              "COMBO",
+              "Streaming response completed with zero meaningful content (empty_streaming_content) — marking as invalid for combo failover"
+            );
+            return { valid: false, reason: "empty_streaming_content" };
+          }
+
+          // Valid stream with content — replay all buffered bytes.
+          // The reader is exhausted so the forwarding reader will
           // immediately signal done.
           const clonedResponse = buildReplayResponse(reader);
           return { valid: true, clonedResponse };
@@ -312,6 +426,7 @@ export async function validateResponseQuality(
   if (!Array.isArray(choices) || choices.length === 0) {
     if (json?.output || json?.result || json?.data || json?.response) return { valid: true };
     if (json?.error) {
+      // SAFETY: line 427 verified json.error is truthy.
       const err = json.error as Record<string, unknown>;
       return {
         valid: false,
@@ -351,6 +466,7 @@ export async function validateResponseQuality(
   // tokens or falls back to a non-reasoning model.
   const contentIsEmpty = content === null || content === undefined || content === "";
   if (contentIsEmpty && hasReasoningContent && !hasToolCalls) {
+    // SAFETY: line 467 json?.usage assertion is for type narrowing on optional object.
     const usage = json?.usage as Record<string, unknown> | undefined;
     if (usage) {
       const completionTokens = Number(usage.completion_tokens) || 0;

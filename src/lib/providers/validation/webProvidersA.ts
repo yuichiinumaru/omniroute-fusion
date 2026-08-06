@@ -8,6 +8,7 @@ import {
   buildGrokCookieHeader,
   buildQwenCookieHeader,
   extractCookieValue,
+  extractKimiAccessToken,
   extractQwenToken,
   normalizeSessionCookieHeader,
 } from "@/lib/providers/webCookieAuth";
@@ -785,6 +786,54 @@ export async function validateBlackboxWebProvider({ apiKey, providerSpecificData
 
     return { valid: false, error: `Validation failed: ${subscriptionResponse.status}` };
   } catch (error: any) {
+    return toValidationErrorResult(error);
+  }
+}
+
+export async function validateKimiWebProvider({ apiKey }: { apiKey?: string }) {
+  if (!apiKey) {
+    return {
+      valid: false,
+      error: "Missing Kimi access_token — paste your access_token, session cookie or local storage token",
+    };
+  }
+
+  const token = extractKimiAccessToken(apiKey);
+  if (!token) {
+    return {
+      valid: false,
+      error: "Could not extract a Kimi access_token from the pasted value",
+    };
+  }
+
+  try {
+    const resp = await fetch("https://www.kimi.com/api/user", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+        Origin: "https://www.kimi.com",
+        Referer: "https://www.kimi.com/",
+      },
+    });
+
+    if (resp.status === 401 || resp.status === 403) {
+      return {
+        valid: false,
+        error: "Kimi access token is invalid or expired",
+      };
+    }
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      return {
+        valid: false,
+        error: `Kimi validation failed (HTTP ${resp.status}): ${text.slice(0, 100)}`,
+      };
+    }
+
+    return { valid: true, error: null };
+  } catch (error: unknown) {
     return toValidationErrorResult(error);
   }
 }

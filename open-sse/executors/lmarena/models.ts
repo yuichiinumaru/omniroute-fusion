@@ -245,7 +245,7 @@ export function parseLMArenaInitialModels(html: string): LMArenaModelMetadata[] 
   const rawArray = html.slice(arrayStart, endIndex + 1).replace(/\\"/g, '"');
   try {
     const parsed = JSON.parse(rawArray);
-    return Array.isArray(parsed) ? (parsed as LMArenaModelMetadata[]) : [];
+    return Array.isArray(parsed) ? (parsed as LMArenaModelMetadata[]) : []; // SAFETY: guarded by Array.isArray check
   } catch {
     return [];
   }

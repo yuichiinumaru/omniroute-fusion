@@ -221,7 +221,7 @@ test("hidden provider models are filtered from per-model quota rows", () => {
 
   assert.deepEqual(
     visible.map((quota) => quota.modelKey || quota.name),
-    ["gemini-3.5-pro", "credits"]
+    ["gemini_3x", "credits"]
   );
 });
 

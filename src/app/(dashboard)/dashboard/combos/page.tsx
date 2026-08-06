@@ -14,6 +14,7 @@ import Toggle from "@/shared/components/Toggle";
 import Tooltip from "@/shared/components/Tooltip";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { FieldLabelWithHelp, WeightTotalBar } from "./parts";
+import { ADVANCED_FIELD_HELP_FALLBACK } from "./advancedHelpFallback";
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
@@ -150,29 +151,6 @@ const STRATEGY_GUIDANCE_FALLBACK = {
     avoid: "Avoid when models have similar context lengths or simple tasks.",
     example: "Example: Distribute long conversations across models with large context windows.",
   },
-};
-
-const ADVANCED_FIELD_HELP_FALLBACK = {
-  maxRetries: "How many retries are attempted before failing the request.",
-  retryDelay: "Initial delay between retries. Higher values reduce burst pressure.",
-  concurrencyPerModel:
-    "Round-robin combo/model limit: max simultaneous requests sent to each model target. This is separate from any provider account-only cap.",
-  queueTimeout:
-    "How long a request can wait for a round-robin model slot before timing out. This queue is separate from any account-only concurrency cap.",
-  stickyLimit:
-    "Round-robin sticky batch size: consecutive successful requests sent to one target before rotating to the next. Empty inherits the global Sticky Limit setting; 1 disables batching (pure one-request rotation).",
-  stickyWeightedLimit:
-    "Weighted sticky batch size: consecutive successful requests sent to the selected weighted target before drawing again. Empty or 1 keeps the current per-request weighted draw.",
-  failoverBeforeRetry:
-    "When enabled, a 429 from the upstream triggers immediate target failover instead of retrying the same URL first.",
-  targetTimeoutMs:
-    "Optional combo target timeout. Empty inherits the current request timeout; larger values are capped to that timeout.",
-  maxSetRetries:
-    "Number of times to retry the full target set when every target fails. 0 = no set-level retry.",
-  setRetryDelayMs:
-    "Delay between set-level retry attempts, giving transient issues time to resolve.",
-  nestedComboMode:
-    "How references to other combos are handled. Flatten expands a combo ref into this combo's target list (legacy). Execute treats a combo ref as a black-box target: the parent strategy selects the child combo, then the child runs its own strategy and retries.",
 };
 
 const LEGACY_COMBO_RESILIENCE_KEYS = new Set([
@@ -844,7 +822,7 @@ export default function CombosPage() {
 
   const handleDuplicate = async (combo) => {
     const baseName = combo.name.replace(/-copy(-\d+)?$/, "");
-    const existingNames = combos.map((c) => c.name);
+    const existingNames = combos.map((c: any) => c.name);
     let newName = `${baseName}-copy`;
     let counter = 1;
     while (existingNames.includes(newName)) {
@@ -852,11 +830,26 @@ export default function CombosPage() {
       newName = `${baseName}-copy-${counter}`;
     }
 
+    const srcIndex = combos.findIndex((c: any) => c.id === combo.id);
+    let sortOrder: number | undefined = undefined;
+
+    if (srcIndex !== -1) {
+      const sourceSortOrder = typeof combo.sortOrder === "number" ? combo.sortOrder : 1;
+      if (srcIndex < combos.length - 1) {
+        const nextCombo: any = combos[srcIndex + 1];
+        const nextSortOrder = typeof nextCombo?.sortOrder === "number" ? nextCombo.sortOrder : (sourceSortOrder + 1);
+        sortOrder = (sourceSortOrder + nextSortOrder) / 2;
+      } else {
+        sortOrder = sourceSortOrder + 1;
+      }
+    }
+
     const data = {
       name: newName,
       models: combo.models,
       strategy: combo.strategy || "priority",
       config: sanitizeComboRuntimeConfig(combo.config),
+      sortOrder,
     };
 
     await handleCreate(data);

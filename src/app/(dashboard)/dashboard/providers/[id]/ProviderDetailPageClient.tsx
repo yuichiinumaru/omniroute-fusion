@@ -52,6 +52,7 @@ import EmptyConnectionsPlaceholder from "./components/EmptyConnectionsPlaceholde
 import UpstreamProxyCard from "./components/UpstreamProxyCard";
 import SearchProviderCard from "./components/SearchProviderCard";
 import NoAuthProviderControls from "./components/NoAuthProviderControls";
+import PeakHoursPlaceholderCard from "./components/PeakHoursPlaceholderCard";
 // providerText used by UpstreamProxyCard (Phase 1t.7)
 
 export default function ProviderDetailPageClient() {
@@ -691,6 +692,9 @@ export default function ProviderDetailPageClient() {
 
       {/* Search provider info */}
       {isSearchProvider && <SearchProviderCard providerId={providerId} t={t} />}
+
+      {/* Peak hours placeholder per Task 0137 */}
+      {providerId === "zai" && <PeakHoursPlaceholderCard t={t} />}
 
       {/* Playground panel — rendered for providers that declare serviceKinds */}
       <ProviderPlaygroundPanel providerId={providerId} />

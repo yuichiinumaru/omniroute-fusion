@@ -48,6 +48,9 @@ export async function POST(request: Request) {
     if (result.status === "ok") {
       return NextResponse.json({
         status: "ok",
+        providerId: result.providerId,
+        resolvedProvider: result.resolvedProvider,
+        resolvedModel: result.resolvedModel,
         latencyMs: result.latencyMs,
         responseText: result.responseText,
       });
@@ -55,6 +58,9 @@ export async function POST(request: Request) {
 
     const body: Record<string, unknown> = {
       status: "error",
+      providerId: result.providerId,
+      resolvedProvider: result.resolvedProvider,
+      resolvedModel: result.resolvedModel,
       latencyMs: result.latencyMs,
       error: result.error || "Unknown error",
     };

@@ -2476,7 +2476,7 @@
     "contextRelayProviderNote": "Context Relay currently generates handoffs for Codex account rotation. Pair it with multiple accounts of the same provider for the best continuity.",
     "advancedHint": "Hagyja üresen a globális alapértelmezések használatához. Ezek felülbírálják a szolgáltatónkénti beállításokat.",
     "failoverBeforeRetry": "Feladatátvétel az újrapróbálkozás előtt",
-    "maxSetRetries": "Max Set Retries",
+    "maxSetRetries": "Retries for whole set",
     "setRetryDelayMs": "Újrapróbálkozási késleltetés beállítása (ms)",
     "moveUp": "Lépj felfelé",
     "moveDown": "Mozgás lefelé",

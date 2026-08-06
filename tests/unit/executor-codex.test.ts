@@ -185,10 +185,12 @@ test("CodexExecutor.buildHeaders binds workspace ids and disables SSE accept for
   assert.equal(standardHeaders.Authorization, "Bearer codex-token");
   assert.equal(standardHeaders.Accept, "text/event-stream");
   assert.equal(standardHeaders["chatgpt-account-id"], "workspace-1");
-  assert.equal(standardHeaders.Version, "0.142.0");
+  // Task 0126: Codex client identity version bumped 0.142.0 → 0.144.1 to
+  // match the verified upstream reference fork.
+  assert.equal(standardHeaders.Version, "0.144.1");
   assert.equal(standardHeaders["Openai-Beta"], "responses=experimental");
   assert.equal(standardHeaders["X-Codex-Beta-Features"], "responses_websockets");
-  assert.equal(standardHeaders["User-Agent"], "codex-cli/0.142.0 (Windows 10.0.26200; x64)");
+  assert.equal(standardHeaders["User-Agent"], "codex-cli/0.144.1 (Windows 10.0.26200; x64)");
   assert.equal(compactHeaders.Accept, "application/json");
 });
 
@@ -214,7 +216,8 @@ test("CodexExecutor.buildHeaders honors safe env overrides for Version and User-
     },
     () => {
       const headers = executor.buildHeaders({ accessToken: "codex-token" }, true);
-      assert.equal(headers.Version, "0.142.0");
+      // Task 0126: invalid env override falls back to the new default constant.
+      assert.equal(headers.Version, "0.144.1");
       assert.equal(headers["User-Agent"], "custom-codex/9.9.9");
     }
   );

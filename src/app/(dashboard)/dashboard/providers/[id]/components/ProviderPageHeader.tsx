@@ -3,7 +3,7 @@
 // Phase 1t.1 extraction — Issue #3501
 import Link from "next/link";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import { getHeaderIconProviderId } from "../providerPageHelpers";
+import { getHeaderIconProviderId, providerText } from "../providerPageHelpers";
 import type { ProviderMessageTranslator } from "../providerPageHelpers";
 
 interface ProviderInfo {
@@ -85,6 +85,15 @@ export default function ProviderPageHeader({
               >
                 Tutorial
               </button>
+            )}
+            {providerId === "zai" && (
+              <a
+                href="#peak-hours"
+                className="text-sm font-medium underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity"
+                style={{ color: providerInfo.color }}
+              >
+                {providerText(t, "peakHoursTitle", "Peak Hours")}
+              </a>
             )}
           </div>
         </div>

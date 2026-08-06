@@ -43,6 +43,7 @@ function parseArenaErrorBody(text: string | null | undefined, status: number): s
   const fallback = `Arena API error: ${status}`;
   if (!text) return fallback;
   try {
+    // SAFETY: JSON.parse result structurally typed to expected error payload.
     const errorJson = JSON.parse(text) as { error?: { message?: string }; message?: string };
     return errorJson.error?.message || errorJson.message || fallback;
   } catch {
@@ -236,6 +237,15 @@ export function createOpenAIArenaStream(opts: {
             return;
           }
           const { done, value } = await reader.read();
+          // Abort can land while read() is pending; Node resolves a pending
+          // read with { done: true } when the reader is cancelled, so re-check
+          // before treating it as a clean upstream EOF. An aborted stream must
+          // terminate without emitting stop/[DONE] completion data.
+          if (signal?.aborted) {
+            await reader.cancel().catch(() => undefined);
+            controller.close();
+            return;
+          }
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });

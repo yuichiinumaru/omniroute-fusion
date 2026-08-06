@@ -291,6 +291,17 @@ export const updateSettingsSchema = z.object({
   cliproxyapi_fallback_codes: z.string().max(200).optional(),
   // CLIProxyAPI model mapping (Record<string, string>)
   cliproxyapi_model_mapping: z.record(z.string(), z.string()).optional(),
+  // OAuth browser popup auto-open (Task 0135). When true (default), the
+  // authorization-code modal opens the provider's auth URL in a popup window
+  // automatically. When false, the modal skips `window.open(...)` and lands on
+  // the manual paste-URL input step so operators in remote / popup-restricted
+  // environments can copy the URL and paste the callback themselves.
+  // Device-code flows intentionally keep opening the verification URL (the
+  // user must reach the provider's verifier page to type a code), and the
+  // Codex PKCE callback server still runs in the background so localhost
+  // completions are not blocked. This key is client-safe and never carries
+  // secrets — the toggle only changes UX, not the OAuth protocol.
+  oauthAutoOpen: z.boolean().optional(),
   // Model lockout settings
   modelLockout: z
     .object({

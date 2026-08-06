@@ -2,7 +2,7 @@
 
 > **Note**: Auto-generated view for project `legacy` from `.changelog/` entries.
 > **Do NOT edit manually** - use the changelog skill/subcommands.
-> **Last rebuilt**: 2026-07-22 02:06:05 UTC
+> **Last rebuilt**: 2026-08-06 00:38:43 UTC
 
 ---
 

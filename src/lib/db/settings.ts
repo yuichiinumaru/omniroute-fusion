@@ -153,6 +153,14 @@ export async function getSettings() {
     perKeyProxyEnabled: false,
     customSystemPromptEnabled: false,
     customSystemPrompt: "",
+    // OAuth browser popup auto-open (Task 0135). When true (default), the
+    // OAuthModal auto-launches the provider's auth URL in a popup window.
+    // When false, the modal skips `window.open(...)` and shows the manual
+    // paste-URL input step. This preference only changes UX — device-code
+    // and import-token flows always keep their provider-specific behavior.
+    // The key is intentionally additive and defaults to true to preserve
+    // current behavior on upgrade.
+    oauthAutoOpen: true,
   };
   for (const row of rows) {
     const record = toRecord(row);

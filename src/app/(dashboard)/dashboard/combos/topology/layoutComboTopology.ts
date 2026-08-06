@@ -60,15 +60,6 @@ export function layoutComboTopologyGraph(
     }
   }
 
-  // Final fallback: if no roots were identified (e.g. all nodes have incoming
-  // edges but none carries `isRoot` — a cycle-only graph), anchor every node
-  // at rank 0 so the layout still produces finite, non-NaN coordinates.
-  if (rankMap.size === 0) {
-    for (const n of rawNodes) {
-      rankMap.set(n.id, 0);
-    }
-  }
-
   // Step 4: Propagate ranks along structural edges (longest path). A target's
   // rank is the maximum of `sourceRank + 1` over all incoming structural edges.
   // We check for `undefined` explicitly (rather than a `-1` sentinel) so the
@@ -90,11 +81,22 @@ export function layoutComboTopologyGraph(
     }
   }
 
-  // Guarantee every node has a rank (defensive: orphan nodes that somehow
-  // escaped both the seed and the propagation get rank 0).
-  for (const n of rawNodes) {
-    if (!rankMap.has(n.id)) {
-      rankMap.set(n.id, 0);
+  // Defensive rank assignment (consolidated). Covers three cases in one pass:
+  //   (a) Orphan nodes that escaped both the seed and the propagation.
+  //   (b) Cycle-only graphs where every node has incoming edges but none
+  //       carries `isRoot` — the seed loop above left `rankMap` empty, so
+  //       propagation had nothing to advance; we anchor every node at 0.
+  //   (c) Nodes that participated in propagation but, due to a stale edge
+  //       filter skipping all their incoming edges, ended up unranked.
+  // Folding the "if rankMap.size === 0" pre-check into this single
+  // post-propagation pass removes the redundant seeding branch (Path-to-100
+  // Item 5) without changing semantics: the prior code executed both branches
+  // in the cycle-only case, each set rank 0; here we run once.
+  if (rankMap.size === 0) {
+    for (const n of rawNodes) rankMap.set(n.id, 0);
+  } else {
+    for (const n of rawNodes) {
+      if (!rankMap.has(n.id)) rankMap.set(n.id, 0);
     }
   }
 

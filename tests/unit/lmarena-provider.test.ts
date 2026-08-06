@@ -2,7 +2,9 @@
  * LMArena Provider — Unit Tests (Phase 2A of issue #3368)
  *
  * Run: node --import tsx/esm --test tests/unit/lmarena-provider.test.ts
+ * Uses loose casts to exercise protected executor methods.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

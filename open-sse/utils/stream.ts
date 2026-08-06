@@ -733,6 +733,7 @@ export function createSSEStream(options: StreamOptions = {}) {
 
   const shouldGuardRepetition =
     enableRepetitionGuard === true ||
+    // SAFETY: line 736 verified body is a truthy object; Record cast is structural type narrowing.
     (body && typeof body === "object" && (body as Record<string, unknown>).enableRepetitionGuard === true);
   const repetitionGuard = shouldGuardRepetition ? createRepetitionGuard() : null;
   let repetitionDetected = false;
@@ -764,6 +765,7 @@ export function createSSEStream(options: StreamOptions = {}) {
       clearPendingRequestFromStream();
     }
     const err = new Error(msg);
+    // SAFETY: Error object is extended with custom statusCode property for 502 status propagation.
     (err as unknown as Record<string, unknown>).statusCode = 502;
     controller.error(markPendingRequestCleared(err));
   };

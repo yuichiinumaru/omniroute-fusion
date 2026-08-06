@@ -103,7 +103,7 @@ Operators configure nested combos (`combo-ref` → combo → model → provider)
 
 ## 5. Epic DoD
 
-- [ ] 0112–0114 done + reviewed  
+- [x] 0112–0114 done + reviewed  
 - [x] Topology usable for a nested combo-ref chain down to provider  
 - [x] Hub matrix green  
 - [x] Changelog ledger entry  

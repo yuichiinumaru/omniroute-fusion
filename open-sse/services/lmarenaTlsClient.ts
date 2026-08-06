@@ -42,6 +42,7 @@ function installExitHook(): void {
   const stop = async () => {
     if (clientPromise === null) return;
     try {
+      // SAFETY: clientPromise resolves to object with optional stop method.
       const c = (await clientPromise) as { stop?: () => Promise<unknown> };
       await c.stop?.();
     } catch {
@@ -127,11 +128,13 @@ async function getClient(): Promise<{
     clientPromise = (async () => {
       try {
         const mod = await import("tls-client-node");
+        // SAFETY: dynamic import of tls-client-node exports TLSClient constructor.
         const TLSClient = (mod as { TLSClient: new (opts?: Record<string, unknown>) => unknown })
           .TLSClient;
         // Native mode loads the shared library directly via koffi, avoiding the
         // managed sidecar's localhost HTTP calls that OmniRoute's global fetch
         // proxy patch interferes with.
+        // SAFETY: native TLSClient instance conforms to start/request interface.
         const client = new TLSClient({ runtimeMode: "native" }) as {
           start: () => Promise<void>;
           request: (url: string, opts: Record<string, unknown>) => Promise<TlsResponseLike>;
@@ -150,7 +153,7 @@ async function getClient(): Promise<{
       }
     })();
   }
-  return clientPromise as Promise<{
+  return clientPromise as Promise<{ // SAFETY: clientPromise is initialized by getClient() with the expected request() shape
     request: (url: string, opts: Record<string, unknown>) => Promise<TlsResponseLike>;
   }>;
 }
@@ -392,7 +395,7 @@ async function tlsFetchStreaming(
   const ready = await waitForContent(path, 5_000, requestPromise);
   if (!ready) {
     const r = await requestPromise.catch(
-      (e) => ({ status: 502, headers: {}, body: String(e) }) as TlsResponseLike
+      (e) => ({ status: 502, headers: {}, body: String(e) }) as TlsResponseLike // SAFETY: synthetic fallback response matching TlsResponseLike shape
     );
     await cleanupTempPath(path);
     return {

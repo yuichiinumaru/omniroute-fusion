@@ -2,11 +2,23 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { __setTlsFetchOverrideForTesting, type TlsFetchOptions, type TlsFetchResult } from "../../open-sse/services/qwenTlsClient.ts";
+import type { ExecuteInput } from "../../open-sse/executors/base.ts";
 const mod = await import("../../open-sse/executors/qwen-web.ts");
 const { REGISTRY } = await import("../../open-sse/config/providerRegistry.ts");
 const { FREE_MODEL_BUDGETS } = await import("../../open-sse/config/freeModelCatalog.data.ts");
 
 type TlsCall = { url: string; options: TlsFetchOptions };
+
+interface ChatCompletionResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+}
 
 let calls: TlsCall[] = [];
 
@@ -79,13 +91,14 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    const result = await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-max",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: "token=jwt-tok; cna=abc; ssxmod_itna=1-xyz" },
       signal: null,
-    } as any);
+    };
+    const result = await executor.execute(input);
 
     assert.equal(calls.length, 2, "should make exactly two upstream calls");
     assert.match(calls[0].url, /\/api\/v2\/chats\/new$/);
@@ -106,8 +119,8 @@ describe("QwenWebExecutor (v2 migration)", () => {
     assert.equal(compBody.messages[0].role, "user");
     assert.equal(compBody.messages[0].content, "hi");
 
-    const json = (await result.response.json()) as any;
-    assert.equal(json.choices[0].message.content, "Hello world");
+    const json = (await result.response.json()) as ChatCompletionResponse;
+    assert.equal(json.choices?.[0]?.message?.content, "Hello world");
   });
 
   it("replays the full cookie jar and the extracted bearer token on every call", async () => {
@@ -121,13 +134,14 @@ describe("QwenWebExecutor (v2 migration)", () => {
 
     const cookieBlob = "token=jwt-secret; cna=CNA1; ssxmod_itna=1-AAA; ssxmod_itna2=1-BBB";
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-plus",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: cookieBlob },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     for (const call of calls) {
       const headers = (call.options.headers || {}) as Record<string, string>;
@@ -149,13 +163,14 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-plus",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     const headers = (calls[0].options.headers || {}) as Record<string, string>;
     assert.ok(headers["bx-v"], "bx-v header present");
@@ -173,13 +188,14 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-plus",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     for (const call of calls) {
       const headers = (call.options.headers || {}) as Record<string, string>;
@@ -197,7 +213,7 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-plus",
       body: {
         messages: [
@@ -213,7 +229,8 @@ describe("QwenWebExecutor (v2 migration)", () => {
       stream: false,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     const compBody = JSON.parse(calls[1].options.body || "{}");
     const content = compBody.messages[0].content;
@@ -231,13 +248,14 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-plus",
       body: { messages: [{ role: "user", content: "simple string prompt" }] },
       stream: false,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     const compBody = JSON.parse(calls[1].options.body || "{}");
     assert.equal(compBody.messages[0].content, "simple string prompt");
@@ -253,7 +271,7 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-plus",
       body: {
         messages: [
@@ -264,7 +282,8 @@ describe("QwenWebExecutor (v2 migration)", () => {
       stream: false,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     const compBody = JSON.parse(calls[1].options.body || "{}");
     assert.equal(compBody.messages[0].content, "");
@@ -281,18 +300,19 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    const result = await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-max",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    const result = await executor.execute(input);
 
-    const json = (await result.response.json()) as any;
-    assert.equal(json.choices[0].message.content, "Final answer");
+    const json = (await result.response.json()) as ChatCompletionResponse;
+    assert.equal(json.choices?.[0]?.message?.content, "Final answer");
     assert.ok(
-      !String(json.choices[0].message.content).includes("let me think"),
+      !String(json.choices?.[0]?.message?.content).includes("let me think"),
       "thinking content must not leak into the answer"
     );
   });
@@ -304,16 +324,17 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    const result = await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-max",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: "token=stale; cna=c" },
       signal: null,
-    } as any);
+    };
+    const result = await executor.execute(input);
 
     assert.ok([401, 403].includes(result.response.status), "should map to an auth status");
-    const json = (await result.response.json()) as any;
+    const json = (await result.response.json()) as ChatCompletionResponse;
     const msg = String(json.error?.message || "");
     assert.ok(!msg.includes("<html"), "raw HTML must not be returned to the client");
     assert.match(msg, /session|expired|WAF|re-?login|cookie/i, "actionable error message");
@@ -329,13 +350,14 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    const result = await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-max",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: true,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    const result = await executor.execute(input);
 
     const text = await result.response.text();
     assert.match(text, /chat\.completion\.chunk/);
@@ -354,28 +376,29 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3.7-plus",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: "barejwttoken" },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     const headers = (calls[0].options.headers || {}) as Record<string, string>;
     assert.equal(headers.Authorization || headers.authorization, "Bearer barejwttoken");
   });
 
   it("registry points at the v2 endpoint and the current model catalog", () => {
-    const provider = (REGISTRY as any)["qwen-web"];
+    const provider = REGISTRY["qwen-web"];
     assert.ok(provider, "qwen-web must be registered");
     assert.match(provider.baseUrl, /\/api\/v2\/chat\/completions$/, "registry must use v2 endpoint");
-    const ids = provider.models.map((m: any) => m.id);
+    const ids = provider.models.map((m) => m.id);
     assert.deepEqual(ids.sort(), ["qwen3.6-plus", "qwen3.7-max", "qwen3.7-plus"]);
   });
 
   it("free-model catalog lists the current qwen-web ids (not the retired ones)", () => {
-    const qwenModels = (FREE_MODEL_BUDGETS as any[]).filter((m) => m.provider === "qwen-web");
+    const qwenModels = FREE_MODEL_BUDGETS.filter((m) => m.provider === "qwen-web");
     const ids = qwenModels.map((m) => m.modelId);
     assert.ok(ids.includes("qwen3.7-max"), "catalog must list qwen3.7-max");
     assert.ok(!ids.includes("qwen-plus"), "retired qwen-plus must be gone");
@@ -395,16 +418,44 @@ describe("QwenWebExecutor (v2 migration)", () => {
     });
 
     const executor = new mod.QwenWebExecutor();
-    await executor.execute({
+    const input: ExecuteInput = {
       model: "qwen3-max",
       body: { messages: [{ role: "user", content: "hi" }] },
       stream: false,
       credentials: { apiKey: "token=t; cna=c" },
       signal: null,
-    } as any);
+    };
+    await executor.execute(input);
 
     const newBody = JSON.parse(calls[0].options.body || "{}");
     assert.match(newBody.models[0], /^qwen3\.[67]-/, "legacy qwen3-max maps to a current model id");
   });
-});
 
+  describe("parseSseDelta phase mapping", () => {
+    it("maps thinking_summary and think phases to kind: think", () => {
+      const line1 = 'data: {"choices":[{"delta":{"phase":"thinking_summary","content":"reasoning summary"}}]}';
+      const line2 = 'data: {"choices":[{"delta":{"phase":"think","content":"deep thought"}}]}';
+      assert.deepEqual(mod.parseSseDelta(line1), { kind: "think", text: "reasoning summary" });
+      assert.deepEqual(mod.parseSseDelta(line2), { kind: "think", text: "deep thought" });
+    });
+
+    it("maps answer, null, and undefined phases to kind: answer", () => {
+      const lineAnswer = 'data: {"choices":[{"delta":{"phase":"answer","content":"hello"}}]}';
+      const lineNull = 'data: {"choices":[{"delta":{"phase":null,"content":"hello null"}}]}';
+      const lineUndefined = 'data: {"choices":[{"delta":{"content":"hello undefined"}}]}';
+
+      assert.deepEqual(mod.parseSseDelta(lineAnswer), { kind: "answer", text: "hello" });
+      assert.deepEqual(mod.parseSseDelta(lineNull), { kind: "answer", text: "hello null" });
+      assert.deepEqual(mod.parseSseDelta(lineUndefined), { kind: "answer", text: "hello undefined" });
+    });
+
+    it("returns null for non-data lines, [DONE], malformed JSON, and unknown phases", () => {
+      assert.equal(mod.parseSseDelta("event: ping"), null);
+      assert.equal(mod.parseSseDelta("data: [DONE]"), null);
+      assert.equal(mod.parseSseDelta("data: "), null);
+      assert.equal(mod.parseSseDelta("data: {invalid json}"), null);
+      assert.equal(mod.parseSseDelta('data: {"choices":[{"delta":{"phase":"unrecognized_phase","content":"test"}}]}'), null);
+      assert.equal(mod.parseSseDelta('data: {"other_shape": true}'), null);
+    });
+  });
+});

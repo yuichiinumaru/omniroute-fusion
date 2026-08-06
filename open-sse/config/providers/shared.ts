@@ -57,6 +57,17 @@ export interface RegistryModel {
   /** Maximum context window in tokens */
   contextLength?: number;
   /**
+   * Explicit maximum input-token budget, when it is smaller than the full
+   * context window (e.g. OAuth backends that reserve part of the window for
+   * output). When set, catalog/capability builders prefer this over deriving
+   * max_input_tokens from contextLength. Introduced for the Codex gpt-5.6
+   * family which advertises a 272K input budget distinct from the public-API
+   * 1.05M context window (#6191 mirror).
+   */
+  maxInputTokens?: number;
+  /** Per-model upstream header-response timeout override (ms). */
+  timeoutMs?: number;
+  /**
    * Interleaved-reasoning signal, mirroring models.dev's `interleaved_field`.
    * Set to "reasoning_content" for models whose upstream runs DeepSeek thinking
    * mode (e.g. OpenCode `big-pickle`) so follow-up/tool-use turns replay
@@ -267,6 +278,25 @@ export const GPT_5_4_CODEX_CAPABILITIES = {
   supportsVision: true,
   supportsXHighEffort: true,
   contextLength: 200000,
+  maxOutputTokens: 128000,
+} as const;
+
+// Codex's live catalog reports a 272K input context window for the gpt-5.6
+// family (#6191 mirror). Keep the input cap explicit because the OAuth
+// backend reserves part of the raw window for output. Target format is
+// "openai-responses" to keep Codex OAuth routing consistent with the
+// upstream fork reference.
+//
+// Reference (verified against ../legacy/diegosouzapw-omniroute, Task 0126):
+//   open-sse/config/providers/shared.ts:258-266
+export const GPT_5_6_CODEX_CAPABILITIES = {
+  targetFormat: "openai-responses",
+  toolCalling: true,
+  supportsReasoning: true,
+  supportsVision: true,
+  supportsXHighEffort: true,
+  contextLength: 272000,
+  maxInputTokens: 272000,
   maxOutputTokens: 128000,
 } as const;
 

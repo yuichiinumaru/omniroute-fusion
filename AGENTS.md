@@ -1,18 +1,20 @@
-# PORT 21000 = PRODUÇÃO — NÃO MEXER SOB NENHUMA HIPÓTESE!
+# PORT 22000 = PRODUÇÃO — NÃO MEXER SOB NENHUMA HIPÓTESE!
 
-> **localhost:21000 é server de PRODUÇÃO, e NÃO É PRA MEXER SOB ABSOLUTAMENTE NENHUMA HIPÓTESE, MUITO MENOS DAR DOCKER RM, sob pena de tiro no cu, pq é o que está sendo usado.**
+> **localhost:22000 é server de PRODUÇÃO, e NÃO É PRA MEXER SOB ABSOLUTAMENTE NENHUMA HIPÓTESE, MUITO MENOS DAR DOCKER RM, sob pena de tiro no cu, pq é o que está sendo usado.**
 >
-> **localhost:22000 é o server de TESTES, qualquer coisa que modificar aqui tem que subir lá e SOMENTE LÁ.**
+> **localhost:23456 é o server de TESTES, qualquer coisa que modificar aqui tem que subir lá e SOMENTE LÁ.**
 >
-> **A conexão do user passa pelo 21000 e se vc mexer nele vai interromper a sessão no meio por isso, então não mexa.**
+> **A conexão do user passa pelo 22000 e se vc mexer nele vai interromper a sessão no meio por isso, então não mexa.**
 >
 > **Desrespeitar essa regra => user vai BANIR o modelo desse workspace permanentemente.**
+>
+> **Nota de transição (2026-07-25)**: A convenção anterior (21000=prod / 22000=test) mudou. `21000` foi desativado/liberado. `22000` passou a ser PRODUÇÃO. `23456` passou a ser TESTES. Referências históricas em tasks/docs devem ser lidas com esse mapeamento: 22000=PROD (nunca tocar), 23456=TEST (deploy/smoke target).
 
 ---
 
 # omniroute — Agent Guidelines
 
-> **Workspace**: Você está trabalhando em `~/working/ganthritor/omniroute-2/`. **Proibido visitar, ler, ou modificar arquivos fora deste workspace** a menos que explicitamente autorizado pelo usuário. Isso inclui `~/working/ganthritor/`, `~/.config/opencode/`, e qualquer outro diretório.
+> **Workspace**: Você está em `~/working/ganthritor/cybernetics-core/omniroute-2/`. Seu escopo de trabalho é este repo — **o opencode bloqueia o acesso direto fora do workspace** (é isso que o enunciado "não sair" quer dizer), então não adianta tentar visitar `~/working/ganthritor/` ou `~/.config/opencode/`. O que se mantém acessível **aqui dentro** são os symlinks montados no workspace: `.agents/` (harness compartilhado), `.memories/` (memória/lane do projeto) e `references/` (repositórios de referência — ex.: `diegosouzapw-omniroute`, o repo original deste projeto que estamos forkando). Acesse sempre **pelo symlink**, nunca pelo caminho original. Fora dos symlinks, para qualquer acesso adicional peça autorização ao operador.
 
 ## Project
 
@@ -81,14 +83,14 @@ codebase. Run it locally before pushing docs; it runs in CI via `npm run check:d
 
 | Port  | Mode   | How to run                                                                                  | When to use                                                                                            |
 | ----- | ------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 21000 | **prod** (stable) | `npm run build && PORT=21000 npm run start`                                                  | Default runtime. Serves from `.build/next/standalone/` (≈150–250 MB RSS). **Always use this when you just want the app running** — coexists peacefully with other workloads. |
-| 22000 | **dev** (RAM-expensive) | `PORT=22000 npm run dev`                                                                     | Only when actively editing code and need HMR. Turbopack dev server can hit 8 GB+ RSS. Pre-flight RAM check before launching. |
+| 22000 | **prod** (stable) | `npm run build && PORT=22000 npm run start`                                                  | Default runtime. Serves from `.build/next/standalone/` (≈150–250 MB RSS). **Always use this when you just want the app running** — coexists peacefully with other workloads. **PRODUÇÃO — nunca docker rm/restart/mutate sem comando explícito do operador.** |
+| 23456 | **test** (RAM-expensive) | `PORT=23456 npm run dev`                                                                     | Deploy/smoke target. Turbopack dev server can hit 8 GB+ RSS. Pre-flight RAM check before launching. |
 
 **When to rebuild prod (`npm run build`):**
 
 - When an epic / vertical slice closes (not after every task).
 - A full prod build takes ~6–10 min and peaks at ~6–7 GB RSS — schedule it when no other heavy build is running.
-- After a theme migration or major refactor, rebuild once and re-validate on `21000` (prod) rather than spinning up `22000` (dev).
+- After a theme migration or major refactor, rebuild once and re-validate on `22000` (prod) rather than spinning up `23456` (dev).
 
 **Kill zombies before launching**: if a previous `next-server` or `run-standalone.mjs` is still in the process table without a listening port, kill it — they accumulate RSS and starve the next dev start.
 
@@ -742,18 +744,7 @@ For any non-trivial change, read the matching deep-dive first:
 
 ## Planning & research artifacts
 
-`_tasks/` is a **separate, isolated git repository** (gitignored by the main repo). Canonical home for plans, specs, research, hand-offs — not under `docs/` or repo root.
-
-Superpowers defaults that point at `docs/superpowers/…` are **overridden**:
-
-| Artifact | Save here |
-| -------- | --------- |
-| Plans | `_tasks/superpowers/plans/YYYY-MM-DD-<feature>.md` |
-| Specs / design | `_tasks/superpowers/specs/YYYY-MM-DD-<topic>-design.md` |
-| Research | `_tasks/research/…` |
-| Hand-offs | `_tasks/hands-off/<YYYY-MM-DD>_<branch>_v<versão>_sess-<id>/` |
-
-Commit those inside `_tasks/` (`git -C _tasks …`), never in the main OmniRoute tree. Executable product tasks still live under `docs/tasks/`.
+This fork follows the **Ganthritor constitution** for planning artifacts: planning/reports under `docs/`, and product tasks under `docs/tasks/` when in the flow. There is **no `_tasks/` repository and no superpowers** in this fork — those came from the upstream OmniRoute harness and are not used.
 
 ---
 
@@ -775,33 +766,9 @@ git push -u origin feat/your-feature
 - **pre-commit**: lint-staged + `check-docs-sync` + `check:any-budget:t11`
 - **pre-push**: fast gates (`check:any-budget:t11` + `check:tracked-artifacts`); unit tests live in CI
 
-### Worktree isolation (MANDATORY for every development task)
+### Branch workflow (no worktrees)
 
-Multiple sessions/agents share this repo. A `git checkout` on the shared main checkout silently destroys other sessions' uncommitted work (incidents: 2026-06-05, 2026-06-13).
-
-**Why two concerns:**
-
-1. **Isolation (Hard Rule #19):** dedicated worktree + branch per task.  
-2. **Build-scope (incident 2026-06-25):** worktree path must be gitignored **and** in `tsconfig.json` `exclude` + `.dockerignore` or `next build` globs OOM the machine.
-
-**Canonical path (2026-07-22): `.worktrees/<slug>/`**
-
-- Slug = branch leaf without `/` (e.g. `feat/epic22-0107` → `.worktrees/feat-epic22-0107`)
-- Already excluded: `.gitignore`, `tsconfig.json` (`".worktrees"`), `.dockerignore`
-- **Forbidden:** repo-root worktrees or any path outside those excludes
-- **Legacy:** `.claude/worktrees/` may exist from old sessions — do not create *new* worktrees there; do not delete other sessions' trees
-
-```bash
-BASE_BRANCH="release/vX.Y.Z"   # confirm with operator first
-TASK="feat/your-feature"
-SLUG="${TASK//\//-}"
-git fetch origin "$BASE_BRANCH"
-git worktree add ".worktrees/${SLUG}" -b "$TASK" "origin/$BASE_BRANCH"
-cd ".worktrees/${SLUG}"
-ln -s "$(git -C <main_checkout> rev-parse --show-toplevel)/node_modules" node_modules
-```
-
-Confirm **base branch** with the operator before creating the worktree. Tear down only worktrees/branches **you** created. Leave others untouched. End with main checkout on the branch it started on (active `release/vX.Y.Z`, never leave it on a random feature branch unless operator owns that session).
+This fork does **not** use git worktrees. Develop on a branch (`feat/`, `fix/`, `refactor/`, `docs/`, `test/`, `chore/`) and push to GitHub; when working from other machines or via cloud/remote agents, work through a branch + PR/remote. Never commit directly to `main`. The `.worktrees/` path referenced in `.gitignore`/`tsconfig.json` is left in place only for compatibility — do **not** create new worktrees here.
 
 ---
 
@@ -809,7 +776,7 @@ Confirm **base branch** with the operator before creating the worktree. Tear dow
 
 - **Runtime**: Node.js `>=22.0.0 <23 || >=24.0.0 <27`, ES Modules  
 - **Aliases**: `@/*` → `src/`, `@omniroute/open-sse` → `open-sse/`  
-- **Default package port**: 20128 (API + dashboard); **this fork**: prod **21000**, test **22000** (see Dev Port Convention above)  
+- **Default package port**: 20128 (API + dashboard); **this fork**: prod **22000**, test **23456** (see Dev Port Convention above)  
 - **Data**: `DATA_DIR` default `~/.omniroute/`  
 - **Key env**: `PORT`, `JWT_SECRET`, `API_KEY_SECRET`, `INITIAL_PASSWORD`, `REQUIRE_API_KEY`, `APP_LOG_LEVEL`  
 - Setup: `cp .env.example .env`; generate secrets with `openssl`
@@ -846,7 +813,7 @@ Confirm **base branch** with the operator before creating the worktree. Tear dow
 16. Never credit or advertise an AI assistant/LLM/bot in commit/PR/CHANGELOG metadata (`Co-Authored-By` AI, "Generated with Claude Code", etc.). Human collaborators **may** use normal `Co-authored-by` trailers  
 17. Never expose `/api/services/` or `/dashboard/providers/services/*/embed/` without `isLocalOnlyPath()`  
 18. Every bug fix: TDD failing-then-passing test **or** documented VPS live test — see Testing protocol above  
-19. Never develop on the shared main checkout — own git worktree under **`.worktrees/<slug>/`**, confirm base branch with operator first; tear down only your own trees  
+19. Never commit directly to `main` — always develop on a feature branch and push to GitHub (branch + PR when working from other machines/cloud agents). No git worktrees in this fork (see **Branch workflow** above)  
 20. PII redaction/sanitization is **opt-in — never on by default**. `PII_REDACTION_ENABLED` and `PII_RESPONSE_SANITIZATION` must keep `defaultValue: "false"` in `featureFlagDefinitions.ts`. Regression: `tests/unit/pii-opt-in-default.test.ts`. See `docs/security/GUARDRAILS.md`  
 21. **Release-freeze**: while a `/generate-release` open issue has label `release-freeze`, do **not** merge campaign PRs into active `release/vX.Y.Z` — hold until freeze lifts. Release captain's own release pushes are exempt  
 22. **Dashboard IA / design system** mandatory for UI tasks — single hub topbar, peer items on destination topbar, sidebar active state, anti-phantom chrome tests. Stop and ask if request conflicts with `docs/guides/UI.md`. See **Dashboard IA** section below  
@@ -854,8 +821,8 @@ Confirm **base branch** with the operator before creating the worktree. Tear dow
 
 Also non-negotiable (fork ops, restated for agents):
 
-- **`:21000` = production** — no docker rm/restart/mutate without explicit operator command (banner at top of this file)  
-- **`:22000` = test** — agent deploy/smoke target  
+- **`:22000` = production** — no docker rm/restart/mutate without explicit operator command (banner at top of this file)  
+- **`:23456` = test** — agent deploy/smoke target  
 
 ---
 

@@ -10,6 +10,7 @@ import { shouldRecordProviderBreakerFailure } from "../../open-sse/services/comb
 import { isClientDisconnectError } from "../../open-sse/utils/streamHandler.ts";
 import { getDefaultComboConfig } from "../../open-sse/services/comboConfig.ts";
 import { comboRuntimeConfigSchema } from "../../src/shared/validation/schemas/combo.ts";
+import type { ResolvedComboTarget, ComboLogger } from "../../open-sse/services/combo/types.ts";
 
 test("isRepetitionFailure identifies 502 repetition_detected errors", () => {
   assert.strictEqual(isRepetitionFailure(502, "repetition_detected"), true);
@@ -25,21 +26,26 @@ test("applyComboTargetExhaustion does not exhaust provider on repetition failure
     transientRateLimitedProviders: new Set(),
   };
 
-  const dummyTarget = {
+  const dummyTarget: ResolvedComboTarget = {
+    kind: "model",
+    stepId: "step-1",
+    executionKey: "key-1",
     provider: "dahl",
-    model: "kimi-k2.6",
-    account: null,
-    credentials: null,
+    providerId: "dahl",
+    modelStr: "kimi-k2.6",
+    connectionId: null,
+    weight: 1,
+    label: null,
   };
 
-  const dummyLog = {
+  const dummyLog: ComboLogger = {
     info() {},
     warn() {},
     error() {},
     debug() {},
   };
 
-  const providerExhausted = applyComboTargetExhaustion(dummyTarget as any, {
+  const providerExhausted = applyComboTargetExhaustion(dummyTarget, {
     result: { status: 502, headers: null },
     fallbackResult: { reason: "transient", creditsExhausted: false, dailyQuotaExhausted: false },
     errorText: "repetition_detected",
@@ -47,7 +53,7 @@ test("applyComboTargetExhaustion does not exhaust provider on repetition failure
     isTokenLimitBreach: false,
     allAccountsRateLimited: false,
     sets,
-    log: dummyLog as any,
+    log: dummyLog,
     tag: "TEST",
     exhaustedLogLevel: "info",
   });
@@ -86,4 +92,19 @@ test("combo config defaults enableRepetitionGuard to false (opt-in)", () => {
   if (parsed.success) {
     assert.strictEqual(parsed.data.enableRepetitionGuard, true);
   }
+});
+
+test("phaseComboSetup propagates enableRepetitionGuard from combo config to body", async () => {
+  const { phaseComboSetup } = await import("../../open-sse/services/combo/comboSetup.ts");
+  const dummyCtx = {
+    combo: {
+      name: "test-combo",
+      config: { enableRepetitionGuard: true },
+    },
+    body: { messages: [{ role: "user", content: "test" }] },
+    settings: null,
+    relayOptions: null,
+  };
+  phaseComboSetup(dummyCtx as unknown as Parameters<typeof phaseComboSetup>[0]);
+  assert.strictEqual((dummyCtx.body as Record<string, unknown>).enableRepetitionGuard, true);
 });

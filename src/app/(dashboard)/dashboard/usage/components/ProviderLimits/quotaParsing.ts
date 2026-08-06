@@ -1,7 +1,149 @@
 import { getModelsByProviderId } from "@omniroute/open-sse/config/providerModels.ts";
+import { getAntigravityUiQuotaFamily } from "@omniroute/open-sse/services/antigravityQuotaFamily.ts";
 import { safePercentage } from "@/shared/utils/formatting";
 
 const GLM_QUOTA_ORDER: Record<string, number> = { session: 0, weekly: 1, mcp_monthly: 2 };
+
+const ANTIGRAVITY_FAMILY_CONFIG: Record<
+  "claude" | "gemini_3x" | "gemini_legacy",
+  { name: string; displayName: string }
+> = {
+  claude: { name: "claude", displayName: "Claude" },
+  gemini_3x: { name: "gemini_3x", displayName: "Gemini 3.x (Flash/Pro)" },
+  gemini_legacy: { name: "gemini_legacy", displayName: "Gemini Legacy (2.x/Lite)" },
+};
+
+function formatModelLabel(name: string) {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) return "";
+  return trimmed
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function groupAntigravityQuotas(quotas: any[]): any[] {
+  if (!Array.isArray(quotas) || quotas.length === 0) return [];
+
+  const familyMap = new Map<
+    "claude" | "gemini_3x" | "gemini_legacy",
+    {
+      items: any[];
+      staleAfterReset: boolean;
+      sources: Set<string>;
+      fractionReportedCount: number;
+    }
+  >();
+
+  const remaining: any[] = [];
+
+  for (const q of quotas) {
+    if (!q) continue;
+    if (q.isCredits || q.name === "credits") {
+      remaining.push(q);
+      continue;
+    }
+
+    const modelKey = q.modelKey || q.name;
+    const uiFamily = getAntigravityUiQuotaFamily(modelKey);
+
+    if (uiFamily === "claude" || uiFamily === "gemini_3x" || uiFamily === "gemini_legacy") {
+      let entry = familyMap.get(uiFamily);
+      if (!entry) {
+        entry = {
+          items: [],
+          staleAfterReset: false,
+          sources: new Set(),
+          fractionReportedCount: 0,
+        };
+        familyMap.set(uiFamily, entry);
+      }
+      entry.items.push(q);
+      if (q.staleAfterReset) entry.staleAfterReset = true;
+      if (q.quotaSource) entry.sources.add(q.quotaSource);
+      if (q.fractionReported || q.isPercentageOnly) entry.fractionReportedCount++;
+    } else {
+      remaining.push(q);
+    }
+  }
+
+  const groupedFamilyBars: any[] = [];
+  const familyOrder: Array<"claude" | "gemini_3x" | "gemini_legacy"> = [
+    "claude",
+    "gemini_3x",
+    "gemini_legacy",
+  ];
+
+  for (const famKey of familyOrder) {
+    const entry = familyMap.get(famKey);
+    if (!entry || entry.items.length === 0) continue;
+
+    const { items, staleAfterReset, sources, fractionReportedCount } = entry;
+    const config = ANTIGRAVITY_FAMILY_CONFIG[famKey];
+
+    let minPct = 100;
+    let allUnlimited = true;
+    const modelKeys: string[] = [];
+    const tooltipParts: string[] = [];
+    let soonestResetTime: number | null = null;
+    let soonestResetIso: string | null = null;
+    const now = Date.now();
+
+    for (const q of items) {
+      const modelId = q.modelKey || q.name;
+      modelKeys.push(modelId);
+
+      const pct = q.unlimited
+        ? 100
+        : Number(q.remainingPercentage ?? safePercentage(q.remainingPercentage) ?? 0);
+      if (!q.unlimited) {
+        allUnlimited = false;
+        if (pct < minPct) minPct = pct;
+      }
+
+      const label = q.displayName || formatModelLabel(modelId || "");
+      const pctStr = q.unlimited ? "∞" : `${Math.round(pct)}%`;
+      tooltipParts.push(`${label}: ${pctStr}`);
+
+      if (q.resetAt) {
+        const ts = new Date(q.resetAt).getTime();
+        if (Number.isFinite(ts) && ts > now) {
+          if (soonestResetTime === null || ts < soonestResetTime) {
+            soonestResetTime = ts;
+            soonestResetIso = typeof q.resetAt === "string" ? q.resetAt : new Date(ts).toISOString();
+          }
+        }
+      }
+    }
+
+    const quotaSource = sources.has("retrieveUserQuota")
+      ? "retrieveUserQuota"
+      : sources.has("fetchAvailableModels")
+        ? "fetchAvailableModels"
+        : undefined;
+
+    groupedFamilyBars.push({
+      name: config.name,
+      displayName: config.displayName,
+      familyKey: famKey,
+      isFamilyBar: true,
+      used: 0,
+      total: allUnlimited ? 0 : 100,
+      remainingPercentage: allUnlimited ? 100 : minPct,
+      unlimited: allUnlimited,
+      isPercentageOnly: true,
+      fractionReported: fractionReportedCount > 0,
+      resetAt: soonestResetIso,
+      staleAfterReset,
+      modelKeys,
+      modelTooltip: tooltipParts.join(", "),
+      ...(quotaSource ? { quotaSource } : {}),
+    });
+  }
+
+  return [...groupedFamilyBars, ...remaining];
+}
 
 function quotaEntries(data: any): Array<[string, any]> {
   return data?.quotas && typeof data.quotas === "object" ? Object.entries(data.quotas) : [];
@@ -105,9 +247,10 @@ function parseAntigravityQuota(modelKey: string, quota: any) {
 }
 
 function parseAntigravity(data: any) {
-  return quotaEntries(data)
+  const rawQuotas = quotaEntries(data)
     .map(([modelKey, quota]) => parseAntigravityQuota(modelKey, quota))
     .filter(Boolean);
+  return groupAntigravityQuotas(rawQuotas);
 }
 
 function parseCodex(data: any) {

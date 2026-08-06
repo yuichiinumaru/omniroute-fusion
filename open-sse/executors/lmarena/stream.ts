@@ -18,7 +18,7 @@ function parseJsonValue(raw: string): unknown {
 function pickString(value: unknown, keys: string[]): string {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
-  const data = value as Record<string, unknown>;
+  const data = value as Record<string, unknown>; // SAFETY: guarded by typeof value === "object"
   for (const key of keys) {
     const candidate = data[key];
     if (typeof candidate === "string") return candidate;
@@ -68,7 +68,7 @@ export function parseArenaSSE(line: string): ArenaSSEEvent | null {
       if (
         value &&
         typeof value === "object" &&
-        (value as Record<string, unknown>).finishReason === "error"
+        (value as Record<string, unknown>).finishReason === "error" // SAFETY: guarded by typeof value === "object"
       ) {
         return { type: "error", content: "Arena stream finished with an error" };
       }
@@ -91,7 +91,7 @@ function contentToText(content: unknown): string {
       .map((part) => {
         if (typeof part === "string") return part;
         if (!part || typeof part !== "object") return "";
-        const data = part as Record<string, unknown>;
+        const data = part as Record<string, unknown>; // SAFETY: guarded by typeof part === "object"
         if (typeof data.text === "string") return data.text;
         if (data.type === "image_url") return "[image]";
         return "";
@@ -100,7 +100,7 @@ function contentToText(content: unknown): string {
       .join("\n");
   }
   if (content && typeof content === "object") {
-    const data = content as Record<string, unknown>;
+    const data = content as Record<string, unknown>; // SAFETY: guarded by typeof content === "object"
     if (typeof data.text === "string") return data.text;
   }
   return content == null ? "" : String(content);

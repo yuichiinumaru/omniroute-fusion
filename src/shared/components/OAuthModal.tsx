@@ -54,6 +54,22 @@ export default function OAuthModal({
   const [isDeviceCode, setIsDeviceCode] = useState(false);
   const [deviceData, setDeviceData] = useState(null);
   const [polling, setPolling] = useState(false);
+  // Task 0135: operator-controlled UX toggle. Defaults to true so the modal
+  // behaves exactly as before. When false, the modal still spins up the
+  // authorization-code flow + Codex PKCE callback server, but skips the
+  // automatic `window.open(...)` call and forces the manual paste step so
+  // operators in remote / popup-restricted environments can copy the auth
+  // URL into a browser of their choice. Device-code and import-token flows
+  // intentionally stay untouched — their window.open is informational
+  // (verification URL) or not present at all (import-token).
+  const [oauthAutoOpen, setOauthAutoOpen] = useState(true);
+  // Mirror into a ref so the startOAuthFlow closure always sees the latest
+  // value without forcing the callback identity to change (which would
+  // re-trigger the mount-effect). The fetch effect updates both atomically.
+  const oauthAutoOpenRef = useRef(true);
+  useEffect(() => {
+    oauthAutoOpenRef.current = oauthAutoOpen;
+  }, [oauthAutoOpen]);
   // API-key paste mode: for providers that accept a token directly (windsurf, devin-cli)
   const [showPasteToken, setShowPasteToken] = useState(
     provider === "windsurf" || provider === "devin-cli" || provider === "grok-cli"
@@ -340,11 +356,21 @@ export default function OAuthModal({
               );
 
             setAuthData({ ...serverData, redirectUri: serverData.redirectUri });
-            setStep("waiting");
-            popupRef.current = window.open(serverData.authUrl, "oauth_auth");
-
-            // If browser blocked the popup, switch to manual input step immediately
-            if (!popupRef.current) {
+            // Task 0135: only auto-open the popup when the operator has not
+            // disabled automatic popup behaviour. When disabled, we still
+            // expose the URL + step into the manual paste UI, but the
+            // callback-server polling continues in the background — if the
+            // user completes the flow in a different browser on the same
+            // localhost (Codex's 1455 port), the poll loop still catches the
+            // success and triggers onSuccess().
+            if (oauthAutoOpenRef.current) {
+              setStep("waiting");
+              popupRef.current = window.open(serverData.authUrl, "oauth_auth");
+              // If browser blocked the popup, switch to manual input step immediately
+              if (!popupRef.current) {
+                setStep("input");
+              }
+            } else {
               setStep("input");
             }
 
@@ -447,14 +473,25 @@ export default function OAuthModal({
       // For non-true-localhost (LAN IPs, remote) or manual fallback: use manual input mode (user pastes callback URL)
       if (!isTrueLocalhost || forceManual) {
         setStep("input");
-        window.open(data.authUrl, "oauth_auth");
+        if (oauthAutoOpenRef.current) {
+          window.open(data.authUrl, "oauth_auth");
+        }
       } else {
-        // Localhost: Open popup and wait for message
-        setStep("waiting");
-        popupRef.current = window.open(data.authUrl, "oauth_popup", "width=600,height=700");
+        // Localhost: Open popup and wait for message — unless the operator
+        // disabled automatic popup open via the security-tab toggle
+        // (Task 0135). The same-origin postMessage listener is wired up
+        // unconditionally, so a manually-opened popup still drives
+        // success. We always keep `authData` set so the manual paste step
+        // remains meaningful even when no popup was launched.
+        if (oauthAutoOpenRef.current) {
+          setStep("waiting");
+          popupRef.current = window.open(data.authUrl, "oauth_popup", "width=600,height=700");
 
-        // Check if popup was blocked
-        if (!popupRef.current) {
+          // Check if popup was blocked
+          if (!popupRef.current) {
+            setStep("input");
+          }
+        } else {
           setStep("input");
         }
       }
@@ -478,6 +515,35 @@ export default function OAuthModal({
       flowStartedRef.current = false;
     }
   }, [isOpen]);
+
+  // Task 0135: fetch the operator's `oauthAutoOpen` preference from the
+  // settings store once per mount. The route already filters out secrets, so
+  // reading this value is safe in the dashboard. If the request fails
+  // (network blip, offline load), we fall back to true (current behaviour)
+  // so a transient failure never locks the user out of OAuth.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/settings", { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { oauthAutoOpen?: unknown };
+        if (cancelled) return;
+        if (typeof data.oauthAutoOpen === "boolean") {
+          // Update both state (for re-render) and the ref (for the
+          // startOAuthFlow closure that may have captured a stale value).
+          setOauthAutoOpen(data.oauthAutoOpen);
+          oauthAutoOpenRef.current = data.oauthAutoOpen;
+        }
+      } catch {
+        // Network failure / unmounted modal: keep default (true). Do not throw
+        // — the OAuth flow must continue regardless of settings availability.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Reset state and start OAuth when modal opens
   useEffect(() => {

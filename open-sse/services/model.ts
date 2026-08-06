@@ -32,6 +32,8 @@ for (const [id, alias] of Object.entries(PROVIDER_ID_TO_ALIAS)) {
 // or backward-compatible slug changes, not a single provider's display name.
 // opencode/ → opencode-zen (the main free/open tier; opencode-go is a separate paid tier)
 ALIAS_TO_PROVIDER_ID["opencode"] = "opencode-zen";
+ALIAS_TO_PROVIDER_ID["nv"] = "nvidia";
+ALIAS_TO_PROVIDER_ID["cl"] = "cline";
 
 // Manual aliases for external compatibility not covered by PROVIDER_ID_TO_ALIAS.
 // OpenCode's Zen provider now uses the "opencode" slug, but OmniRoute registers
@@ -102,10 +104,16 @@ const CROSS_PROXY_MODEL_ALIASES_LOWER = Object.fromEntries(
   ])
 );
 
+import { getPassthroughProviders } from "../config/providerRegistry.ts";
+
 // Reverse index: modelId -> providerIds that expose this model
 const MODEL_TO_PROVIDERS = new Map<string, string[]>();
+const NON_PASSTHROUGH_MODEL_IDS = new Set<string>();
+const passthroughSet = getPassthroughProviders();
+
 for (const [aliasOrId, models] of Object.entries(PROVIDER_MODELS)) {
   const providerId = ALIAS_TO_PROVIDER_ID[aliasOrId] || aliasOrId;
+  const isPassthrough = passthroughSet.has(providerId);
   for (const modelEntry of models || []) {
     const modelId = modelEntry?.id;
     if (!modelId) continue;
@@ -113,6 +121,9 @@ for (const [aliasOrId, models] of Object.entries(PROVIDER_MODELS)) {
     if (!providers.includes(providerId)) {
       providers.push(providerId);
       MODEL_TO_PROVIDERS.set(modelId, providers);
+    }
+    if (!isPassthrough) {
+      NON_PASSTHROUGH_MODEL_IDS.add(modelId);
     }
   }
 }
@@ -332,7 +343,7 @@ function shouldPreferClaudeCodeForUnprefixedClaudeModel(
 
 function shouldTreatAsExactModelId(modelStr: string | null) {
   if (!modelStr || typeof modelStr !== "string" || !modelStr.includes("/")) return false;
-  if (!KNOWN_MODEL_IDS.has(modelStr)) return false;
+  if (!NON_PASSTHROUGH_MODEL_IDS.has(modelStr)) return false;
 
   const firstSlash = modelStr.indexOf("/");
   const providerOrAlias = modelStr.slice(0, firstSlash).trim();

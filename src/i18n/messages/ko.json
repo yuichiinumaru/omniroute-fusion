@@ -2562,7 +2562,7 @@
       }
     },
     "advancedHelp": {
-      "maxRetries": "How many retries are attempted before failing a request.",
+      "maxRetries": "maxRetries applies to one combo target (single model). N = N extra attempts after the first (N+1 total on that target); only transient errors are retried, never token-limit 429s. Default 1.",
       "retryDelay": "Initial wait between retries. Higher values reduce burst pressure.",
       "timeout": "Maximum request duration before aborting.",
       "healthcheck": "Skips unhealthy models/providers from routing decisions.",

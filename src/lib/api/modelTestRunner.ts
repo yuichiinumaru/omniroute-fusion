@@ -6,6 +6,7 @@ import { buildComboTestRequestBody, extractComboTestResponseText } from "@/lib/c
 import { getCustomModels } from "@/lib/localDb";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { withRateLimit } from "@omniroute/open-sse/services/rateLimitManager";
+import { getModelInfoCore, resolveProviderAlias } from "@omniroute/open-sse/services/model.ts";
 
 const INTERNAL_ORIGIN = "http://omniroute.internal";
 const DEFAULT_TEST_TIMEOUT_MS = 10_000;
@@ -141,6 +142,9 @@ export interface RunSingleModelTestOptions {
 
 export interface SingleModelTestResult {
   modelId: string;
+  providerId?: string;
+  resolvedProvider?: string;
+  resolvedModel?: string;
   status: "ok" | "error" | "rate_limited";
   latencyMs: number;
   responseText?: string;
@@ -163,10 +167,27 @@ export async function runSingleModelTest(
 ): Promise<SingleModelTestResult> {
   const { providerId, modelId, connectionId, timeoutMs = DEFAULT_TEST_TIMEOUT_MS } = options;
 
+  const canonicalProviderId = resolveProviderAlias(providerId) || providerId;
+
   let fullModelStr = modelId;
   if (!fullModelStr.includes("/")) {
-    fullModelStr = `${providerId}/${modelId}`;
+    fullModelStr = `${canonicalProviderId}/${modelId}`;
+  } else if (
+    !fullModelStr.startsWith(`${canonicalProviderId}/`) &&
+    !fullModelStr.startsWith(`${providerId}/`)
+  ) {
+    fullModelStr = `${canonicalProviderId}/${modelId}`;
   }
+
+  const resolvedInfo = await getModelInfoCore(fullModelStr, null);
+  const resolvedProvider = resolvedInfo.provider || canonicalProviderId;
+  const resolvedModel = resolvedInfo.model || fullModelStr;
+
+  const identityFields = {
+    providerId: canonicalProviderId,
+    resolvedProvider,
+    resolvedModel,
+  };
 
   const startTime = Date.now();
   const customModel = await findCustomModelMetadata(providerId, fullModelStr);
@@ -227,6 +248,7 @@ export async function runSingleModelTest(
     if (errorName === "AbortError") {
       if (timedOut) {
         return {
+          ...identityFields,
           modelId: fullModelStr,
           status: "error",
           latencyMs,
@@ -238,6 +260,7 @@ export async function runSingleModelTest(
       // AbortError without timeout = withRateLimit queue rejection / abort.
       // Surface as rate_limited so the batch endpoint can stop the loop.
       return {
+        ...identityFields,
         modelId: fullModelStr,
         status: "rate_limited",
         latencyMs,
@@ -247,6 +270,7 @@ export async function runSingleModelTest(
       };
     }
     return {
+      ...identityFields,
       modelId: fullModelStr,
       status: "error",
       latencyMs,
@@ -269,6 +293,7 @@ export async function runSingleModelTest(
       errorMsg = res.statusText || errorMsg;
     }
     return {
+      ...identityFields,
       modelId: fullModelStr,
       status: "rate_limited",
       latencyMs,
@@ -291,6 +316,7 @@ export async function runSingleModelTest(
     const responseText = extractComboTestResponseText(responseBody);
     if (isRerank) {
       return {
+        ...identityFields,
         modelId: fullModelStr,
         status: "ok",
         latencyMs,
@@ -300,6 +326,7 @@ export async function runSingleModelTest(
     }
     if (!responseText && !isEmbedding) {
       return {
+        ...identityFields,
         modelId: fullModelStr,
         status: "error",
         latencyMs,
@@ -309,6 +336,7 @@ export async function runSingleModelTest(
       };
     }
     return {
+      ...identityFields,
       modelId: fullModelStr,
       status: "ok",
       latencyMs,
@@ -325,6 +353,7 @@ export async function runSingleModelTest(
     errorMsg = res.statusText;
   }
   return {
+    ...identityFields,
     modelId: fullModelStr,
     status: "error",
     latencyMs,

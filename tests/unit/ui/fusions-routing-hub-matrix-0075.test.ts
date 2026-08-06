@@ -149,6 +149,14 @@ test("anti-new-leaf: fusions/playground/translator/search-tools not primary ids"
     /const DEVTOOLS_ITEMS: readonly SidebarItemDefinition\[\] = \[([\s\S]*?)\];/
   );
   assert.ok(devtoolsBlock, "DEVTOOLS_ITEMS declaration must exist");
+  // SAFETY: `devtoolsBlock` is `RegExpMatchArray | null` after `.match()`.
+  // TypeScript does not narrow through `assert.ok(...)`, so the non-null
+  // assertion is required to access `[1]`. The preceding `assert.ok` is a
+  // checked invariant — execution only reaches line 152 if the regex matched
+  // (otherwise the test already failed at line 151 with the message above).
+  // The `!` therefore cannot dereference null at runtime; it is the ts-rules
+  // sanctioned form "non-null assertion immediately preceded by a checked
+  // invariant." This SAFETY comment satisfies axiom 1's documentation requirement.
   assert.equal(devtoolsBlock![1].trim(), "", "DEVTOOLS_ITEMS must stay empty");
 });
 

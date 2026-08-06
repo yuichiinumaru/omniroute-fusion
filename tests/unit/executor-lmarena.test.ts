@@ -1,6 +1,8 @@
 /**
  * Unit tests for LMArenaExecutor (new API contract & tlsFetch override)
+ * Test file intentionally uses loose `any` casts to exercise internal APIs.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

@@ -307,6 +307,7 @@ export const createComboSchema = z.object({
   tool_filter_regex: z.string().max(1000).optional(),
   context_cache_protection: z.boolean().optional(),
   context_length: z.number().int().min(1000).max(2000000).optional(),
+  sortOrder: z.number().optional(),
   // Optional embedding dimensions override for embedding combos.
   // When set, the value is injected into every upstream embedding request as
   // OpenAI-style `dimensions` only (EPIC-21 D2). Gemini OpenAI-compat shim

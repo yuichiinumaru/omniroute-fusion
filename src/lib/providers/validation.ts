@@ -1,6 +1,7 @@
 import { getEmbeddingProvider } from "@omniroute/open-sse/config/embeddingRegistry.ts";
 import { getRerankProvider } from "@omniroute/open-sse/config/rerankRegistry.ts";
 import { getRegistryEntry } from "@omniroute/open-sse/config/providerRegistry.ts";
+import { resolveProviderAlias } from "@omniroute/open-sse/services/model.ts";
 import {
   isClaudeCodeCompatibleProvider,
   isAnthropicCompatibleProvider,
@@ -33,6 +34,7 @@ import {
   validatePerplexityWebProvider,
   validateBlackboxWebProvider,
   validateLMArenaProvider,
+  validateKimiWebProvider,
 } from "./validation/webProvidersA";
 import {
   validateMuseSparkWebProvider,
@@ -186,14 +188,15 @@ export async function validateBytezProvider({ apiKey, providerSpecificData = {} 
 }
 
 export async function validateProviderApiKey({ provider, apiKey, providerSpecificData = {} }: any) {
-  const requiresApiKey = !providerAllowsOptionalApiKey(provider);
-  const isLocal = isLocalProvider(provider);
+  const canonicalProvider = resolveProviderAlias(provider) || provider;
+  const requiresApiKey = !providerAllowsOptionalApiKey(canonicalProvider);
+  const isLocal = isLocalProvider(canonicalProvider);
 
-  if (!provider || (requiresApiKey && !apiKey)) {
+  if (!canonicalProvider || (requiresApiKey && !apiKey)) {
     return { valid: false, error: "Provider and API key required", unsupported: false };
   }
 
-  if (isOpenAICompatibleProvider(provider)) {
+  if (isOpenAICompatibleProvider(canonicalProvider)) {
     try {
       return await validateOpenAICompatibleProvider({ apiKey, providerSpecificData });
     } catch (error: any) {
@@ -201,9 +204,9 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     }
   }
 
-  if (isAnthropicCompatibleProvider(provider)) {
+  if (isAnthropicCompatibleProvider(canonicalProvider)) {
     try {
-      if (isClaudeCodeCompatibleProvider(provider)) {
+      if (isClaudeCodeCompatibleProvider(canonicalProvider)) {
         return await validateClaudeCodeCompatibleProvider({ apiKey, providerSpecificData });
       }
       return await validateAnthropicCompatibleProvider({
@@ -353,6 +356,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     "chatgpt-web": validateChatGptWebProvider,
     "perplexity-web": validatePerplexityWebProvider,
     "blackbox-web": validateBlackboxWebProvider,
+    "kimi-web": validateKimiWebProvider,
     "muse-spark-web": validateMuseSparkWebProvider,
     "inner-ai": validateInnerAiProvider,
     "adapta-web": validateAdaptaWebProvider,
@@ -380,7 +384,13 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
         modelId: rerankProvider?.models?.[0]?.id || "jina-reranker-v3",
       });
     },
-    gitlab: async ({ apiKey, providerSpecificData }: any) => {
+    gitlab: async ({
+      apiKey,
+      providerSpecificData,
+    }: {
+      apiKey?: string;
+      providerSpecificData?: Record<string, unknown>;
+    }) => {
       try {
         const configuredBaseUrl =
           typeof providerSpecificData?.baseUrl === "string"
@@ -407,7 +417,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
           return { valid: false, error: "Invalid API key" };
         }
         return { valid: true, error: null };
-      } catch (error: any) {
+      } catch (error: unknown) {
         return toValidationErrorResult(error);
       }
     },
@@ -605,9 +615,9 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     ),
   };
 
-  if (SPECIALTY_VALIDATORS[provider]) {
+  if (SPECIALTY_VALIDATORS[canonicalProvider]) {
     try {
-      return await SPECIALTY_VALIDATORS[provider]({ apiKey, providerSpecificData });
+      return await SPECIALTY_VALIDATORS[canonicalProvider]({ apiKey, providerSpecificData });
     } catch (error: any) {
       return toValidationErrorResult(error);
     }
@@ -618,19 +628,19 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
   // per-provider validator (grok-web, chatgpt-web, claude-web, …) are handled by
   // SPECIALTY_VALIDATORS first and must not be shadowed by this generic probe (issue: the
   // #4023 dispatch was placed too early and intercepted every web-cookie provider).
-  if (WEB_COOKIE_PROVIDERS[provider]) {
+  if (WEB_COOKIE_PROVIDERS[canonicalProvider]) {
     try {
-      return await validateWebCookieProvider({ provider, apiKey, providerSpecificData });
+      return await validateWebCookieProvider({ provider: canonicalProvider, apiKey, providerSpecificData });
     } catch (error: any) {
       return toValidationErrorResult(error);
     }
   }
 
-  const entry = getRegistryEntry(provider);
+  const entry = getRegistryEntry(canonicalProvider);
   if (!entry) {
-    if (isSelfHostedChatProvider(provider)) {
+    if (isSelfHostedChatProvider(canonicalProvider)) {
       return await validateOpenAILikeProvider({
-        provider,
+        provider: canonicalProvider,
         apiKey,
         baseUrl: resolveBaseUrl(null, providerSpecificData),
         providerSpecificData,

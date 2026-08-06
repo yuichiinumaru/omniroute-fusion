@@ -55,7 +55,7 @@ function installExitHook(): void {
  * reference lets a fresh TLSClient (and a fresh koffi load) take over without
  * a process restart.
  */
-function resetClientCache(): void {
+export function resetClientCache(): void {
   clientPromise = null;
 }
 
@@ -547,7 +547,7 @@ function tailFile(
 }
 
 /** Detect Alibaba's WAF / baxia challenge pages. */
-function isWafChallenge(text: string | null | undefined): boolean {
+export function isWafChallenge(text: string | null | undefined): boolean {
   if (!text) return false;
   return /aliyun_waf|baxia|attention required/i.test(text);
 }

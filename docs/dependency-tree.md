@@ -1,8 +1,8 @@
 # Dependency tree — OmniRoute Fusion tasks
 
 > **Purpose**: prevent *carro na frente do boi* — know what is **serial**, what is **parallel**, and what **blocks** what.  
-> **Updated**: 2026-07-10 (S0–S10 closeout — IA guide at `docs/guides/UI.md`; Wave 2 report: `docs/reports/builders/2026-07-10-wave2-closeout.md`)  
-> **Scope**: Epic 0005 (Frontend IA) + reference to completed Fusion wave (Epic 0003).  
+> **Updated**: 2026-08-04 (current provider, routing, UI, and reliability task wave appended; historical DAG retained below)  
+> **Scope**: Current open/review dependency wave + Epic 0005 (Frontend IA) + reference to completed Fusion wave (Epic 0003).  
 > **Identity**: tasks use lane-neutral `Task NNNN`. Resolve live path under `docs/tasks/<lane>/`.
 
 ---
@@ -16,6 +16,94 @@
 | → | Hard dependency (must finish before) |
 | ∥ | Parallel-safe (no hard edge) |
 | ⚠ | Soft dependency / merge coordination (can start, careful on shared files) |
+
+---
+
+## Current OmniRoute task wave — 2026-08-04
+
+This section is the active dispatch map for tasks currently in `01-open/` and
+the immediately relevant reviewed predecessor in `03-review/`. The older Epic
+0005 DAG below is retained as historical IA evidence and is not the current
+provider/routing wave.
+
+### Current hard and soft edges
+
+```
+0117–0124 (03-review reliability/provider fixes)
+0125 (03-review stream repetition guard)
+  └──→ 0131 (bounded repetition sanity retry)
+
+0138 (NVIDIA test identity) ∥ 0139 (NVIDIA runtime contract)
+0139 ⚠── 0119 (generic empty-stream fallback review)
+0145 (Kimi core coverage) ──→ final approval of 0122
+0146 (Qwen TLS-client coverage) ⚠── 0123 follow-up
+0147 (LM Arena error-path coverage) ⚠── 0121 follow-up
+0140 (reasoning resolution contract)
+  └──→ 0141 (reasoning UI/API controls)
+0142 (retry control labels) ⚠── 0127/0130 (combo UI/schema)
+0143 (account-aware breaker fallback) ∥ provider/UI tasks
+0144 (Antigravity quota family bars) ∥ backend/reasoning tasks
+
+0128 (Home degraded warnings) ⚠── 0136 (Home quota summary)
+
+0129 (model auto-sync) ⚠── 0132 (timeout resolver/runtime/test consumers)
+0129 (model auto-sync) ⚠── 0134 (Settings/Routing consolidation)
+0132 (timeout resolver/runtime/test consumers) ⚠── 0130 (combo prompt modes)
+0132 (timeout resolver/runtime/test consumers) ⚠── 0133 (conditional fusion rules)
+0130 (combo prompt modes) ⚠── 0133 (conditional fusion rules)
+
+0126 (Codex gpt-5.6) ∥ 0127 (combo copy order) ∥ 0135 (OAuth popup)
+0137 (Peak Hours placeholder) ∥ provider/backend tasks
+0036 (22000 verification) operator-hold; never parallel with production access
+```
+
+### Active task table
+
+| Task | Lane | Title | Hard dependency | Coordination / collision | Dispatch note |
+|------|------|-------|-----------------|--------------------------|---------------|
+| 0036 | 🔓 | 22000 dual-mode auth verification | 0033, 0034 | **operator-hold**; production `:22000` | Dry-run by default; `:23456` is test |
+| 0117–0124 | review | Provider/reliability fixes | — | Resolve review outcomes before dependent work | Historical current wave; do not duplicate |
+| 0125 | review | Stream repetition guard | — | Owns repetition failure contract | Predecessor for 0131 |
+| 0126 | 🔓 | Codex gpt-5.6 compatibility | — | Codex files only | Parallel-safe |
+| 0127 | 🔓 | Combo copy order | — | Combo list page/order tests | Parallel-safe |
+| 0128 | 🔓 | Home degraded warnings | — | Home client/topology/tests | Serialize with 0136 |
+| 0129 | 🔓 | Provider model auto-sync | — | Settings, provider add route, sync service | Coordinate with 0132/0134 |
+| 0130 | 🔓 | Combo system prompt modes | — | Combo schema/page/middleware | Serialize with 0132/0133 |
+| 0131 | 🔓 | Repetition sanity retry | 0125 | Stream/combo failure path | Start after 0125 review/acceptance |
+| 0132 | 🔓 | Fine-grained timeouts | — | Combo/settings/runtime/test surfaces | Resolver phase gates consumer/UI phases |
+| 0133 | 🔓 | Conditional fusion AND/OR rules | 0014, 0018, 0110 | Fusion schema/evaluator/editor | Serialize with 0130/0132 |
+| 0134 | 🔓 | Settings/Routing consolidation | 0054, 0075, 0110 | Settings hub/layout/i18n/chrome | Coordinate with 0129/0132/0135 |
+| 0135 | 🔓 | OAuth popup toggle | — | OAuth modal/security settings | Serialize with shared Security settings edits |
+| 0136 | 🔓 | Home provider quota summary | — | Home client/quota/topology/tests | Serialize with 0128 |
+| 0137 | 🔓 | Provider Peak Hours placeholder | — | Provider detail header/routes/tests | Parallel-safe after route verification |
+| 0138 | 🔓 | NVIDIA test target identity | — | Provider test route/model-test result attribution | Parallel-safe; serialize with provider-test edits |
+| 0139 | 🔓 | NVIDIA runtime failure contract | 0119 review/verification | Combo/stream failure paths | Serialize with 0119 |
+| 0140 | 🔓 | Reasoning resolution contract | — | Thinking budget, translator, combo policy contract | Blocks 0141 |
+| 0141 | 🔓 | Reasoning UI/API controls | 0140 | Settings/Routing/combo UI and persistence | Serialize with 0129/0130/0132/0134 |
+| 0142 | 🔓 | Combo retry control labels | — | Combo page/i18n/help | Serialize with 0127/0130 |
+| 0143 | 🔓 | Account-aware provider breaker | — | Breaker/chat/account eligibility | Serialize with resilience edits and 0139 |
+| 0144 | 🔓 | Antigravity quota family bars | — | ProviderLimits quota parser/cards | Serialize with ProviderLimits edits |
+| 0145 | 🔓 | Kimi-web core response/stream coverage | 0122 implementation | Kimi executor/validator tests | Blocks final 0122 approval |
+| 0146 | 🔓 | Qwen TLS-client coverage | 0123 implementation | Qwen TLS/parser tests | Follow-up, not 0123 reopen |
+| 0147 | 🔓 | LM Arena error-path coverage | 0121 implementation | LM Arena executor/response/TLS tests | Follow-up, not 0121 reopen |
+
+### Recommended dispatch waves
+
+1. **Wave A — isolated**: 0126, 0127, 0135, 0137, 0138, 0142, 0144, 0146, 0147.
+2. **Wave B — Home**: choose 0128 → 0136, or bundle them under one owner/review.
+3. **Wave C — combo contract**: 0130, 0132, 0133; run resolver/schema work before overlapping UI/runtime work.
+4. **Wave D — reasoning contract**: 0140, then 0141 after the runtime contract is accepted.
+5. **Wave E — settings/model sync**: 0129 and 0134/0141, serialized on shared settings/Routing files.
+6. **Wave F — provider resilience**: 0139 after 0119 review, then 0143 with resilience review.
+7. **Wave G — Kimi review hardening**: 0145 before final approval of 0122.
+8. **Wave H — repetition**: 0131 only after Task 0125 review acceptance or explicit contract verification.
+9. **Operator lane**: 0036 only with explicit production approval; never dispatch as ordinary builder work.
+
+### Maintenance rule for the active wave
+
+When an active task gains or loses a dependency, update both its task header and
+this section. Do not promote or move lanes from the dependency tree; lane moves
+remain owned by the appropriate builder/reviewer workflow.
 
 ---
 

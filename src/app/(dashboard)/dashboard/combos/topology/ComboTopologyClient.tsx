@@ -17,8 +17,8 @@ import { cn } from "@/shared/utils/cn";
 
 function ComboNode({ data }: { data: Record<string, unknown> }) {
   const isRoot = Boolean(data.isRoot);
-  const strategy = (data.strategy as string) || "priority";
-  const label = (data.label as string) || (data.name as string) || "Combo";
+  const strategy = typeof data.strategy === "string" ? data.strategy : "priority";
+  const label = typeof data.label === "string" ? data.label : typeof data.name === "string" ? data.name : "Combo";
 
   return (
     <div
@@ -70,10 +70,19 @@ function ComboNode({ data }: { data: Record<string, unknown> }) {
 }
 
 function ModelNode({ data }: { data: Record<string, unknown> }) {
-  const providerId = (data.providerId as string | null) || null;
-  const label = (data.label as string) || (data.model as string) || "Model";
-  const connectionId = data.connectionId as string | null;
-  const weight = data.weight as number | undefined;
+  // SAFETY: `data` is React Flow's open `Record<string, unknown>` contract. We
+  // narrow with `typeof` guards rather than `as` casts so that a non-string
+  // runtime value (e.g. a number or object) cannot leak into the rendered label
+  // or get forwarded to `ProviderIcon`/`Handle` as a malformed id. This is the
+  // A1 (Type Purity) polish from the path-to-100 — the prior `as string | null`
+  // assertions combined `|| null` shortcuts were safe by accident, not by proof.
+  const providerId = typeof data.providerId === "string" ? data.providerId : null;
+  const label =
+    typeof data.label === "string" ? data.label
+    : typeof data.model === "string" ? data.model
+    : "Model";
+  const connectionId = typeof data.connectionId === "string" ? data.connectionId : null;
+  const weight = typeof data.weight === "number" ? data.weight : undefined;
 
   return (
     <div
@@ -127,8 +136,14 @@ function ModelNode({ data }: { data: Record<string, unknown> }) {
 }
 
 function ProviderNode({ data }: { data: Record<string, unknown> }) {
-  const providerId = (data.providerId as string | null) || (data.label as string) || "provider";
-  const label = (data.label as string) || providerId;
+  // SAFETY: typeof guards (see ModelNode for the rationale). ProviderId may
+  // be null; label falls back to providerId, then to a stable default so
+  // ProviderIcon never receives a non-string id.
+  const providerId =
+    typeof data.providerId === "string" ? data.providerId
+    : typeof data.label === "string" ? data.label
+    : "provider";
+  const label = typeof data.label === "string" ? data.label : providerId;
 
   return (
     <div
@@ -154,7 +169,11 @@ function ProviderNode({ data }: { data: Record<string, unknown> }) {
 }
 
 function UnresolvedNode({ data }: { data: Record<string, unknown> }) {
-  const name = (data.name as string) || (data.label as string) || "unresolved";
+  // SAFETY: typeof guards; see ModelNode note above.
+  const name =
+    typeof data.name === "string" ? data.name
+    : typeof data.label === "string" ? data.label
+    : "unresolved";
 
   return (
     <div
@@ -266,11 +285,11 @@ function ComboTopologyClientInner() {
 
   const selectedCombo = searchParams.get("combo") || "all";
 
-  const fetchCombos = async () => {
+  const fetchCombos = async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/combos");
+      const res = await fetch("/api/combos", { signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const list: ComboTopologyInput[] = Array.isArray(data)
@@ -278,6 +297,7 @@ function ComboTopologyClientInner() {
         : (data?.combos ?? data?.data ?? []);
       setCombos(list);
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Failed to load combos");
     } finally {
       setLoading(false);
@@ -285,7 +305,9 @@ function ComboTopologyClientInner() {
   };
 
   useEffect(() => {
-    fetchCombos();
+    const controller = new AbortController();
+    fetchCombos(controller.signal);
+    return () => controller.abort();
   }, []);
 
   const handleComboSelection = (comboNameOrId: string) => {
@@ -296,7 +318,7 @@ function ComboTopologyClientInner() {
       params.set("combo", comboNameOrId);
     }
     const queryStr = params.toString();
-    router.replace(queryStr ? `/dashboard/combos/topology?${queryStr}` : "/dashboard/combos/topology");
+    router.replace(queryStr ? `/dashboard/combos/topology?${queryStr}` : "/dashboard/combos/topology", { scroll: false });
   };
 
   const { nodes: flowNodes, edges: flowEdges } = useMemo(() => {
@@ -318,15 +340,22 @@ function ComboTopologyClientInner() {
 
     const formattedEdges: Edge[] = layout.edges.map((e) => {
       const isCycle = Boolean(e.data?.cycleClosing);
-      const role = e.data?.role as string | undefined;
-      const weight = e.data?.weight as number | undefined;
-      const edgeStyleResolved = resolveEdgeStyle(role, isCycle);
+      const role = e.data?.role;
+      const weight = e.data?.weight;
+      const edgeStyleResolved = resolveEdgeStyle(
+        typeof role === "string" ? role : undefined,
+        isCycle
+      );
 
       return {
         id: e.id,
         source: e.source,
         target: e.target,
-        label: resolveEdgeLabel(e.label, weight, role),
+        label: resolveEdgeLabel(
+          e.label,
+          typeof weight === "number" ? weight : undefined,
+          typeof role === "string" ? role : undefined
+        ),
         animated: edgeStyleResolved.animated,
         style: {
           stroke: edgeStyleResolved.stroke,
@@ -414,7 +443,7 @@ function ComboTopologyClientInner() {
             <span className="material-symbols-outlined text-[32px]">error</span>
             <p>{error}</p>
             <button
-              onClick={fetchCombos}
+              onClick={() => fetchCombos()}
               className="mt-2 rounded-lg bg-surface border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-black/5 dark:hover:bg-white/5"
             >
               Retry

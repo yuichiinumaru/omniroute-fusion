@@ -2,7 +2,466 @@
 
 > **Note**: Auto-generated from individual entries in `.changelog/`.
 > **Do NOT edit manually** - use the changelog skill/subcommands.
-> **Last rebuilt**: 2026-07-22 02:06:05 UTC
+> **Last rebuilt**: 2026-08-06 00:38:43 UTC
+
+---
+
+# Task 0145-0147: gortex-review-follow-up-coverage
+
+## Summary
+
+Gortex blast-radius review converted into evidence-backed follow-up tasks.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Codex review evidence is restricted to gpt-5.6-luna for runtime proof.
+- [x] Qwen and LM Arena executor coverage was confirmed; follow-ups target downstream/error-path gaps.
+- [x] Kimi core response/stream/validator coverage remains a final-approval blocker for Task 0122.
+
+---
+
+# Task 0138-0144: provider-reasoning-quota-task-wave
+
+## Summary
+
+New provider reliability, reasoning control, and quota clarity task wave.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] All tasks 0138-0144 use the OmniRoute npm exit matrix and template sections.
+- [x] docs/dependency-tree.md records dependencies and collision waves.
+- [x] No production container or :22000 state was mutated.
+
+---
+
+# Task 0127: Insert duplicated combo below source
+
+## Summary
+
+Duplicating a combo now renders the copy immediately below the source combo in the current sort order, instead of receiving the next global `sort_Order` and appearing at the end of the list.
+
+### What changed
+
+- **UI** (`.../dashboard/combos/page.tsx` `handleDuplicate`): compute the source-relative float ordering before POST. When a source combo has a neighbor below it, the duplicate gets the midpoint between source and next. When the source is last, the duplicate gets `source + 1`.
+- **Schema** (`src/shared/validation/schemas/combo.ts`): `createComboSchema` already accepted an explicit `sortOrder` field (verified no change needed — pre-existing support).
+- **DB** (`src/lib/db/combos.ts`): `createCombo` already respects an explicit `sortOrder` in the payload (verified no change needed — pre-existing support).
+- **Regression tests** (`tests/unit/combo-duplicate-order.test.ts`): 6 tests covering explicit sort-order DB persistence, route-level preservation, end-to-end source-relative placement, config fidelity, reorder normalization, and failure/no-partial-record behavior.
+
+### What did NOT change
+
+- No new copy route — the existing POST `/api/combos` path was used.
+- No new DB fields or migrations — `sort_order` column already existed from migration `020_combo_sort_order.sql`.
+- No production `:22000` access — tests run against in-memory SQLite fixtures.
+
+## Verification
+
+- `npm run typecheck:core`: PASS (no Emit errors)
+- `tests/unit/combo-duplicate-order.test.ts`: PASS 6/6
+- `tests/unit/db-combos-crud.test.ts`: PASS 6/6 (no regressions)
+- `npm run lint`: PASS (0 errors, 0 warnings on changed files)
+- UI smoke proof: fixture-only (`:23456`)
+
+**Author**: gt-ts-code-reviewer (path-to-100 — missing changelog entry added by reviewer)
+
+---
+
+# Task 0126-0137: open-task-review-corrections
+
+## Summary
+
+Task governance corrections and active dependency tree refresh.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task 0036 no longer instructs agents to treat 21000 as production or 22000 as a test canary.
+- [x] Task 0126 uses an exact codex-gpt56-compat test path and ../legacy reference path.
+- [x] docs/dependency-tree.md includes current tasks 0126-0137 and collision edges.
+
+---
+
+# Task 0126: task-wave-created
+
+## Summary
+
+The wave contains 12 template-compliant tasks with explicit dependencies, file ownership, false-gap notes, npm exits, and review routing. No product implementation is claimed by this entry.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] 12 new task files verified in docs/tasks/01-open; each is 122+ lines and has the required template sections
+- [x] IDs 0126-0137 are unique and tasklist.md was not modified
+
+---
+
+# Task 0116: Hook middleware sandbox eliminates residual new Function
+
+## Summary
+
+Introduced HookSandboxSecurityError, FORBIDDEN_IDENTIFIERS, MAX_EXECUTION_STEPS=5000, and compileHookSandbox to replace the residual new Function compilation in src/lib/middleware/registry.ts. The sandbox is dependency-free (zero native/WASM deps) and blocks process, require, globalThis, constructor, __proto__, import/export, fetch, Buffer, timers, and eval/Function constructor at tokenization and evaluation time. Added JSON Rule DSL and restricted AST interpreter. Added tests/unit/hook-sandbox.test.ts with 16 tests covering standard execution, exploit-negative confinement, performance baseline, JSON DSL, registry integration, and static absence of new Function/eval/Function constructor. Regression tests for authz route guard and DB/plugin hooks pass.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/hook-sandbox.test.ts PASS 16/16
+- [x] node --import tsx/esm --test tests/unit/authz/middleware-hooks-route-guard.test.ts tests/unit/db-middleware.test.ts tests/unit/plugins-hooks*.test.ts PASS 34/34
+- [x] npm run typecheck:core PASS
+- [x] npx eslint src/lib/middleware/ tests/unit/hook-sandbox.test.ts PASS 0/0
+- [x] npx ripgrep -n 'new Function\(|eval\(|Function\(' src/lib/middleware/ returns 0 live code hits
+
+---
+
+# Task 0123: Qwen-web — add SPA `version` header, contentToText helper, and type cleanup
+
+## Summary
+
+Implemented SPA `version: "0.2.66"` header in `open-sse/executors/qwen-web.ts`, ported `contentToText()` helper to fix array-content `[object Object]` serialization, added `// SAFETY:` comments on all `as T` casts, and eliminated all 18 `as any` casts in `tests/unit/executor-qwen-web.test.ts`.
+
+## Changes
+
+- `open-sse/executors/qwen-web.ts`: Added `version: "0.2.66"` header, ported `contentToText()` helper, and annotated all `as T` casts with `// SAFETY:` comments.
+- `tests/unit/executor-qwen-web.test.ts`: Refactored test suite to replace all 18 `as any` usages with typed `ExecuteInput` structures and `ChatCompletionResponse` interface.
+- `.changelog/20260728-150000-0123-omniroute-qwen-web-version-header-builders.md`: Created changelog entry.
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/executor-qwen-web.test.ts`: 15/15 tests PASS.
+- `npm run typecheck:core`: PASSED (0 errors).
+- `npx eslint open-sse/executors/qwen-web.ts tests/unit/executor-qwen-web.test.ts`: PASSED (0 errors, 0 warnings).
+
+---
+
+# Task 0124: Fix GitLab Duo PAT validation endpoint, add registry entry, and document platform constraint
+
+## Summary
+
+Fixed the GitLab Duo PAT provider by updating `validateGitLabPatProvider` in `src/lib/providers/validation.ts` to probe the PAT-accessible `/api/v4/code_suggestions/completions` endpoint instead of the OAuth-only `direct_access` endpoint. Added a dedicated PAT registry entry at `open-sse/config/providers/registry/gitlab/index.ts` with model definitions, default context length, and human-readable description noting the platform constraint ("code completion only, max ~20 tokens"). Documented caveat in `specialty-media.ts` authHint.
+
+## Changes
+
+- `src/lib/providers/validation.ts`: Updated `gitlab` validator to probe `/api/v4/code_suggestions/completions` with PAT bearer token and completion payload. Cleaned up type signature.
+- `open-sse/config/providers/registry/gitlab/index.ts`: Created PAT registry entry (`id: "gitlab"`, model catalog, context length, description).
+- `open-sse/config/providers/shared.ts`: Added `description?: string` to `RegistryEntry` interface.
+- `open-sse/config/providers/index.ts`: Added `gitlab` to provider registry map.
+- `src/shared/constants/providers/apikey/specialty-media.ts`: Updated UI `authHint` with platform constraint caveat.
+- `tests/unit/validation-gitlab-pat.test.ts`: Created unit test suite covering PAT validation endpoint probe, wrong PAT failure, no direct_access hit, and registry entry properties.
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/validation-gitlab-pat.test.ts tests/unit/executor-gitlab.test.ts`: 10 tests passed, 0 failed.
+- `npm run typecheck:core`: PASSED (0 errors).
+- `npx eslint`: PASSED (0 errors, 0 warnings).
+
+---
+
+# Task 0122: Port Kimi-web executor from upstream (Connect-RPC, www.kimi.com, bearer token)
+
+## Summary
+
+Ported the upstream Kimi-web executor targeting `www.kimi.com` Connect-RPC API (`https://www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat`). Updated model resolution (`k3`, `k2d6`), added bearer token extraction helper `extractKimiAccessToken()`, updated `validateKimiWebProvider` with clean type annotations, added `// SAFETY:` comments across all `as T` casts, and set provider affiliate URL in `web-cookie.ts`.
+
+## Changes
+
+- `open-sse/executors/kimi-web.ts`: Ported Connect-RPC executor and added `// SAFETY:` comments to all `as T` type assertions.
+- `open-sse/config/providers/registry/kimi/web/runtime.ts`: Created runtime model resolver (`k3`, `k2d6`).
+- `open-sse/config/providers/registry/kimi/web/index.ts`: Updated registry model definitions.
+- `src/lib/providers/webCookieAuth.ts`: Added `extractKimiAccessToken()`.
+- `src/lib/providers/validation/webProvidersA.ts`: Added `validateKimiWebProvider` probe and cleaned up type annotations (`{ apiKey }: { apiKey?: string }` and `catch (error: unknown)`).
+- `src/shared/constants/providers/web-cookie.ts`: Updated `website` URL to `https://www.kimi.com/code?aff=omniroute`.
+- `tests/unit/executor-kimi-web.test.ts`, `executor-kimi-web-decoder.test.ts`, `kimi-web-models-discovery.test.ts`: Created/updated test suites.
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/executor-kimi-web.test.ts tests/unit/executor-kimi-web-decoder.test.ts tests/unit/kimi-web-models-discovery.test.ts`: 22 tests passed, 0 failed.
+- `node --import tsx/esm --test tests/unit/kimi*.test.ts tests/unit/executor-kimi*.test.ts`: 35 tests passed, 0 failed (full Kimi regression suite).
+- `npm run typecheck:core`: PASSED (0 errors).
+- `npx eslint`: PASSED (0 errors, 0 warnings).
+
+---
+
+# Task 0122: Port Kimi-web executor from upstream (Connect-RPC)
+
+## Summary
+Ported the `kimi-web` provider to target `www.kimi.com`'s Connect-RPC API using binary frame encoding/decoding and token extraction.
+
+## Changes
+- `open-sse/executors/kimi-web.ts`: Replaced executor with Connect-RPC implementation targeting `www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat`.
+- `open-sse/config/providers/registry/kimi/web/runtime.ts`: Added `k3` and `k2d6` model resolution catalog.
+- `open-sse/config/providers/registry/kimi/web/index.ts`: Updated model IDs to `k3` and `k2d6`.
+- `src/lib/providers/webCookieAuth.ts`: Added `extractKimiAccessToken()`.
+- `src/lib/providers/validation/webProvidersA.ts`: Added `validateKimiWebProvider`.
+- `tests/unit/executor-kimi-web.test.ts`: Rewrote tests targeting `www.kimi.com` without bare try/catch swallowing errors.
+- `tests/unit/kimi-web-models-discovery.test.ts`: Created model discovery and catalog tests.
+
+## Verification
+- Run `node --import tsx/esm --test tests/unit/executor-kimi-web*.test.ts tests/unit/kimi-web-models-discovery.test.ts` (22/22 PASS)
+- Run `npm run typecheck:core` (PASS)
+- Run `npx eslint --max-warnings=0` on touched files (0 errors, 0 warnings)
+
+---
+
+# Task 0121: Port LM Arena executor modernization (PR #6280) from upstream
+
+## Summary
+
+Ported the upstream LM Arena executor modernization (PR #6280) to target arena.ai's current `/nextjs-api/stream/create-evaluation` endpoint, integrating Chrome TLS impersonation (`lmarenaTlsClient.ts`), Supabase SSR chunked cookie reconstruction, static UUID model catalog (`directModels.ts`), updated provider validation, and `// SAFETY:` comments across all `as T` casts.
+
+## Changes
+
+- `open-sse/executors/lmarena.ts`: Replaced executor with upstream `create-evaluation` contract and `BaseExecutor` integration. All `as T` casts carry `// SAFETY:` comments.
+- `open-sse/executors/lmarena/{cookie,models,stream,response}.ts`: Added helper modules for chunked cookie parsing, UUID model resolution, SSE parsing, and response mapping.
+- `open-sse/services/lmarenaTlsClient.ts`: Added TLS impersonation client using `tls-client-node` with Chrome profile.
+- `open-sse/config/providers/registry/lmarena/directModels.ts`: Added static direct-chat seed catalog (737 lines).
+- `src/lib/providers/validation/webProvidersA.ts`: Updated `validateLMArenaProvider` to probe `/nextjs-api/stream/create-evaluation`.
+- `tests/unit/lmarena-validation.test.ts`: Removed explicit `any` types.
+- `docs/tasks/00-planning/0001-omniroute-web-providers-fix-plan.md`: Updated Fix 1 to align with ported PR #6280 architecture.
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/lmarena-*.test.ts tests/unit/executor-lmarena.test.ts`: 38 tests passed, 0 failed across 9 suites.
+- `npm run typecheck:core`: PASSED (0 errors).
+- `npx eslint`: PASSED on all touched production and test files.
+
+---
+
+# Task 0119: Fix NVIDIA NIM combo fallback when response has 0 output tokens
+
+## Summary
+
+Fixed the streaming response quality validator to detect empty content (0 output tokens) in OpenAI-compatible SSE streams (NVIDIA NIM, OpenAI, Groq, xAI, etc.). Previously, a 200 OK response with only `[DONE]` and no content deltas was treated as valid, silently terminating the combo chain. Now it correctly triggers combo fallback to the next target.
+
+## Changes
+
+- `open-sse/services/combo/validateQuality.ts`:
+  - Lines 322-338: Added empty-streaming-content detection for OpenAI-compatible streams.
+  - Lines 1-10: Removed unused import `isKnownNonClaudeStreamPayload`.
+  - Lines 50-66: Updated TSDoc header to document bounded SSE peek + empty-streaming detection.
+- `tests/unit/validate-quality-empty-streaming.test.ts`: Created test suite covering:
+  - Streaming response with only `[DONE]` → invalid.
+  - Streaming response with role delta but no content → invalid.
+  - Streaming response with whitespace-only delta → invalid.
+  - Streaming response with whitespace prefix + real content → valid.
+  - Streaming response with reasoning_content but no content → valid.
+  - Non-streaming empty content → invalid (regression).
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/validate-quality-empty-streaming.test.ts tests/unit/combo-quality-validator-reasoning.test.ts`: 18 tests, 18 passed, 0 failed.
+- `npm run typecheck:core`: PASSED.
+- `npx eslint open-sse/services/combo/validateQuality.ts tests/unit/validate-quality-empty-streaming.test.ts`: PASSED.
+
+## Author
+
+builder-engineer
+
+---
+
+# Task 0125: Stream repetition guard — abort requests when model loops
+
+## Summary
+
+Implemented a per-request content-level streaming repetition guard that detects when an LLM enters an infinite content loop (emitting 3+ consecutive identical content blocks of length ≥50 characters) and aborts the stream with a `repetition_detected` 502 error. Wired this into combo target failure handling so the combo engine advances to the next target without marking the provider or connection as exhausted. The feature is opt-in via the combo config setting `enableRepetitionGuard` (default `false`).
+
+## Changes
+
+- Created `open-sse/services/streamRepetitionGuard.ts`:
+  - Implements sliding window detection logic (`createRepetitionGuard`).
+  - Ignores short deltas (<50 chars), whitespace-only chunks, and tool-call argument streams.
+- Updated `open-sse/utils/stream.ts`:
+  - Integrated `streamRepetitionGuard` into SSE content delta processing loops.
+  - Emits `repetition_detected` 502 error and aborts stream upon repetition detection.
+- Updated `open-sse/utils/streamHandler.ts`:
+  - Ensures `repetition_detected` is recognized as an upstream 502 error and not misclassified as a client disconnect.
+- Updated `open-sse/services/combo.ts`, `open-sse/services/combo/targetExhaustion.ts`, and `open-sse/services/combo/comboPredicates.ts`:
+  - Classified `repetition_detected` failures so combo fallback advances to next target without exhausting the provider or connection.
+- Updated `open-sse/services/comboConfig.ts` & `src/shared/validation/schemas/combo.ts`:
+  - Added Zod-validated `enableRepetitionGuard` boolean setting to combo runtime config (default `false`).
+- Created unit test suites:
+  - `tests/unit/stream-repetition-guard.test.ts` (100% pass covering repetitions, non-repetitions, short whitespace chunks, tool-call streams, reset).
+  - `tests/unit/combo-repetition-fallback.test.ts` (100% pass covering non-exhaustion, circuit breaker bypass, client disconnect handling, combo config default).
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/stream-repetition-guard.test.ts tests/unit/combo-repetition-fallback.test.ts`: 11 tests, 11 passed, 0 failed.
+- `npm run typecheck:core`: PASSED with 0 type errors.
+- `npx eslint open-sse/services/streamRepetitionGuard.ts open-sse/utils/stream.ts open-sse/utils/streamHandler.ts open-sse/services/combo.ts tests/unit/stream-repetition-guard.test.ts tests/unit/combo-repetition-fallback.test.ts`: 0 errors.
+
+## Author
+
+builder-engineer
+
+---
+
+# Task 0000: Port Convention Change (21000 removed / 22000=prod / 23456=test)
+
+## Summary
+
+Operator-mandated change in OmniRoute dev/runtime port convention. `21000` was
+released for other projects; `22000` is now the production server (operator
+session passes through it — never touch) and `23456` is the new test/dev target
+for agent deploy and smoke tests.
+
+## Changes
+
+- `AGENTS.md` (workspace root) — banner, Dev Port Convention table, build
+  revalidation guidance, environment quick reference, and Hard Rules updated
+  to the new mapping. Added a "Nota de transição (2026-07-25)" so historical
+  task/doc references to `21000`/`22000` can be interpreted correctly.
+- Historical `21000` references in `docs/tasks/` and `docs/` are NOT being
+  rewritten in this entry. Per the transition note, agents must read them as:
+  `21000` = (removed, ignore), `22000` = PRODUCTION (never touch),
+  `23456` = TEST (deploy/smoke target).
+
+## Verification
+
+- [x] `rg -n "21000|22000|23456" AGENTS.md` — all occurrences consistent with
+      the new convention; `21000` only appears in the historical transition
+      note, not as an active rule.
+- [x] Banner at top of `AGENTS.md` reflects `22000` = PRODUÇÃO.
+- [x] Hard Rules restated: `:22000` = production, `:23456` = test.
+
+## Author
+
+Operator (explicit authorization on 2026-07-25). Recorded by builder-orchestrator parent.
+
+---
+
+# Task 0114: EPIC-24 T24-C — Hub discoverability tests + polish
+
+## Summary
+
+Completed the final task of EPIC-24 (Combo Topology). Extended existing discoverability tests, created a new dedicated Routing hub matrix test for Combo Topology, verified the anti-phantom chrome constraint (single `RoutingHubSubnav` topbar), and updated `docs/guides/UI.md` to include Topology in the Routing hub topbar peer list.
+
+## Changes
+
+- Updated `tests/unit/ui/routing-hub-discoverability-0025.test.ts` to assert Topology presence in `RoutingHubSubnav` and `CommandPalette`.
+- Updated `tests/unit/ui/fusions-routing-hub-matrix-0075.test.ts` to include Topology in top-level hub mount assertions.
+- Created `tests/unit/ui/combo-topology-routing-hub-matrix-0114.test.ts` for dedicated EPIC-24 hub matrix & anti-phantom chrome validation.
+- Updated `docs/guides/UI.md` to list `Topology` in the Routing hub segment-2 peer list.
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/ui/combo-topology-routing-hub-matrix-0114.test.ts`
+- `node --import tsx/esm --test tests/unit/ui/routing-hub-discoverability-0025.test.ts`
+- `node --import tsx/esm --test tests/unit/ui/fusions-routing-hub-matrix-0075.test.ts`
+- `node --import tsx/esm --test tests/unit/combo-topology-graph.test.ts`
+- `node --import tsx/esm --test tests/unit/ui/combo-topology-ui-route-0113.test.ts`
+- `npm run typecheck:core`
+- `npx eslint --max-warnings=0` on modified/created files
+
+---
+
+# Docs: single agent constitution surface (`AGENTS.md`)
+
+## Summary
+
+Root already had both `AGENTS.md` (architecture + fork laws) and `CLAUDE.md` (Hard Rules,
+worktrees, testing protocol, resilience, quality gates). Operator asked to consolidate:
+keep `AGENTS.md`, archive the full Claude file, stub redirect for tools that only load
+`CLAUDE.md`.
+
+## Changes
+
+- Expanded root `AGENTS.md` with CLAUDE-only material:
+  - Common modification scenarios (API/DB/MCP/A2A/cloud/embedded)
+  - Resilience runtime state (breaker / cooldown / lockout)
+  - Testing protocol + Hard Rule #18
+  - Planning `_tasks/` override
+  - Git workflow + worktree isolation (`.worktrees/<slug>/`)
+  - Environment, quality gates, Hard Rules 1–23, PII learnings
+- Moved full prior `CLAUDE.md` → `.archive/docs/CLAUDE.md-merged-into-AGENTS-20260722.md`
+- Root `CLAUDE.md` is now a short pointer to `AGENTS.md`
+- `docs/tasks/AGENTS.md` pointer updated
+
+## Verification
+
+- `test -f AGENTS.md && test -f CLAUDE.md && test -f .archive/docs/CLAUDE.md-merged-into-AGENTS-20260722.md`
+- `rg -n 'Hard Rules|Worktree isolation|Resilience Runtime' AGENTS.md` hits present
+
+---
+
+# Chore: worktree canonical path → `.worktrees/<slug>/`
+
+## Summary
+
+Operator-requested clarification and path change for Hard Rule #19 worktree location.
+Isolation rule stays; only the on-disk root changes.
+
+## Changes
+
+- `CLAUDE.md`: Worktree isolation + Hard Rule #19 now mandate **`.worktrees/<slug>/`**
+- Explains *why*: (1) shared-checkout clobber incidents 2026-06-05/13, (2) build-scope OOM
+  2026-06-25 if worktrees escape `tsconfig`/`dockerignore` excludes
+- Notes `.worktrees` was already excluded in `tsconfig.json` / `.gitignore` / `.dockerignore`
+- Legacy `.claude/worktrees/` tolerated for existing sessions; no new worktrees there
+- `docs/tasks/AGENTS.md`: pointer updated
+
+## Verification
+
+- `rg -n '\\.worktrees|"\\.claude"' tsconfig.json .gitignore .dockerignore` — `.worktrees` present in excludes
+- No code/runtime change
+
+---
+
+# Tasks 0107–0111: EPIC-22 Cognitive diversity as config (promote)
+
+## Summary
+
+Promoted Phase 1 epic **Cognitive diversity as config, not as tool** from planning into executable open tasks. Phase 2 remains held as EPIC-23 until Phase 1 renders in production use. No runtime code in this change — task governance only.
+
+## Changes
+
+- Added `docs/tasks/01-open/0107-omniroute-epic22-cognitive-lenses-catalog-contracts.md`
+- Added `docs/tasks/01-open/0108-omniroute-epic22-cognitive-schema-normalize-plumb.md`
+- Added `docs/tasks/01-open/0109-omniroute-epic22-cognitive-runtime-inject.md`
+- Added `docs/tasks/01-open/0110-omniroute-epic22-cognitive-fusion-editor-ui.md`
+- Added `docs/tasks/01-open/0111-omniroute-epic22-cognitive-docs-presets-changelog.md`
+- Updated `docs/tasks/00-planning/EPIC-22-omniroute-cognitive-diversity-fusion.md` status → Children open
+- Planning siblings (already present): EPIC-22 fail-first contract, EPIC-23 held
+
+## Verification
+
+- All five task files ≥50 lines (template-compliant)
+- Gate documented: 0107 → 0108 → 0109; 0110 parallel after 0108; 0111 last
+- EPIC-23 remains held in `00-planning/`
+
+---
+
+# Task 0109: EPIC-22 T22-C cognitive runtime inject + judgeMode
+
+## Summary
+
+Wire operator `thinkingMode` / `systemAddon` into fusion panel fan-out bodies via `applyFusionCognitiveLens` + `injectCustomSystemPrompt`, and optional `judgeMode` into the judge user-turn directive. Panel lenses stay isolated from judge; D9 panel invariants preserved.
+
+## Changes
+
+- **MOD** `open-sse/services/fusion.ts` — `applyFusionCognitiveLens`; per-unit inject on multi-panel fan-out + single-panel early path; `buildJudgePrompt(answers, judgeMode?)` uses `resolveJudgeModeDirective`; `HandleFusionChatOptionsV2.judgeMode`
+- **MOD** `open-sse/services/combo.ts` — pass `config.judgeMode` into `handleFusionChatV2`
+- **MOD** `tests/unit/fusion-cognitive-diversity.test.ts` — unskipped 0109 runtime anti-bullshit body-capture suite (diversity, composition, custom, judge isolation, judgeMode, single-panel, combo-ref D9)
+
+## Verification
+
+- [x] `node --import tsx/esm --test tests/unit/fusion-cognitive-diversity.test.ts tests/unit/fusion-panel-tools-none.test.ts tests/unit/fusion-acting.test.ts tests/unit/fusion-timeout-abort.test.ts` — 49 pass, 1 skip (0110), 0 fail
+- [x] `node --import tsx/esm --test tests/unit/fusion-combo-ref-dispatch.test.ts` — 19 pass
+- [x] `npm run typecheck:core` — clean
+- [x] `npx eslint --max-warnings=0` on touched files — clean
 
 ---
 
@@ -42,6 +501,135 @@ Reviewer hardening for fail-closed pure-helper semantics and type purity.
 - [x] `node --import tsx/esm --test tests/unit/embedding-mrl-truncate.test.ts tests/unit/embeddings-gemini-dimensions.test.ts tests/unit/embeddings-matryoshka.test.ts tests/unit/embeddings-dimension-dialect.test.ts tests/unit/embeddings-handler.test.ts` (64 pass)
 - [x] `npx eslint --max-warnings=0 open-sse/utils/embeddingMrl.ts open-sse/handlers/embeddings.ts tests/unit/embedding-mrl-truncate.test.ts`
 - [x] `npm run typecheck:core`
+
+---
+
+# Task 0111: EPIC-22 T22-E cognitive docs + recipes + changelog closeout
+
+## Summary
+
+Document operator-facing cognitive diversity for fusion: lenses are **combo config** (panel
+`thinkingMode` / `systemAddon`, config `judgeMode`), not MCP tools; field tables, fingerprints,
+Write-safe / Design-deep / Cheap-diversity recipes, and anti-confusion vs provider thinking.
+EPIC-22 status note updated to Phase 1 children complete pending review trail; EPIC-23 remains held.
+No hand-edit of generated root `CHANGELOG.md`.
+
+## Changes
+
+- **MOD** `docs/architecture/FUSION.md` — primary sources, ResolvedFusionUnit cognitive fields,
+  `config.judgeMode` + panel field tables, full **Cognitive diversity (EPIC-22)** section
+  (config-not-MCP, anti-confusion, fingerprints, resolve/inject, recipes, smoke matrix),
+  operator guide + troubleshooting + i18n keys
+- **MOD** `docs/routing/AUTO-COMBO.md` — one-line FUSION pointer + config table rows for
+  `judgeMode` / `thinkingMode` / `systemAddon`
+- **MOD** `docs/tasks/00-planning/EPIC-22-omniroute-cognitive-diversity-fusion.md` — status note
+  (Phase 1 children complete pending review; EPIC-23 held; SSoT pointer)
+- **ADD** this ledger entry under `.changelog/`
+
+## Verification
+
+- [x] Grep field names exist in `src/` / `open-sse/`: `thinkingMode`, `systemAddon`, `judgeMode`,
+  `FUSION_COGNITIVE_LENS_IDS`, `FUSION_JUDGE_MODE_IDS`, `FUSION_SYSTEM_ADDON_MAX_CHARS`,
+  `applyFusionCognitiveLens`, `resolvePanelLensText`, `resolveJudgeModeDirective`,
+  fingerprints `[omniroute-lens:…]` / `[omniroute-judge:…]`
+- [x] Lens ids: `first-principles`, `adversarial`, `security`, `systems`, `implementation`,
+  `skeptical-evidence`, `custom`
+- [x] Judge modes: `synthesize`, `dialectical`, `security-review`, `pick-best`
+- [x] Strategies in recipes: `fusion` | `conditional-fusion` only
+- [x] No MCP thinking tools claimed as shipped
+- [x] EPIC-23 not promoted
+- [x] `npm run check:fabricated-docs` — repo-wide pre-existing drift (838); **no** `FUSION.md` hits for this change; manual greps are the accuracy gate
+
+---
+
+# Task 0110 review path-to-100
+
+## Summary
+
+Formal frontend-quality review scored 100 after in-session fixes. Task promoted to `03-review/`.
+
+## Changes (reviewer)
+
+- **MOD** `FusionUnitRow.tsx` — htmlFor/id, aria-describedby, aria-invalid, maxLength on systemAddon
+- **MOD** `FusionTuningSection.tsx` — judge mode label association
+- **MOD** `FusionEditorClient.tsx` — systemAddon length save guard
+- **MOD** `fusionCognitiveLenses.ts` — SSoT `FUSION_SYSTEM_ADDON_MAX_CHARS = 4000`
+- **MOD** `combo.ts` — re-export max constant from catalog
+- **MOD** `en.json` — `fusionCognitiveSystemAddonTooLong`
+- **ADD** `docs/reports/reviews/2026-07-22-task-0110-epic22-cognitive-fusion-editor-ui-review.md`
+
+## Verification
+
+- [x] 47 pure tests pass
+- [x] typecheck:core + eslint clean
+- [x] Task moved to `docs/tasks/03-review/`
+
+---
+
+# Task 0110: EPIC-22 T22-D cognitive fusion editor UI
+
+## Summary
+
+Operators can set per-panel cognitive lens + systemAddon and combo-level judgeMode in the Fusion editor. Pure helpers round-trip through `unitToPayload` / `formFromCombo` / `createComboSchema`. No new topbar or sidebar leaf.
+
+## Changes
+
+- **MOD** `src/app/(dashboard)/dashboard/fusions/fusionEditorTypes.ts` — `FusionModelUnit.thinkingMode` / `systemAddon`; form `judgeMode`; normalize/payload/buildSave/formFromCombo
+- **MOD** `src/app/(dashboard)/dashboard/fusions/FusionUnitRow.tsx` — lens select + systemAddon textarea when `showCognitiveFields` (panels only); combo-ref clears cognitive
+- **MOD** `src/app/(dashboard)/dashboard/fusions/FusionUnitsSections.tsx` — `showCognitiveFields` on panel rows
+- **MOD** `src/app/(dashboard)/dashboard/fusions/FusionTuningSection.tsx` — judge mode select
+- **MOD** `src/app/(dashboard)/dashboard/fusions/FusionEditorClient.tsx` — preserve cognitive on model re-pick; custom-requires-addon client validation
+- **MOD** `src/i18n/messages/en.json` — `fusionCognitive*` / `fusionJudgeMode*` keys
+- **MOD** `tests/unit/fusion-editor-types.test.ts` — 0110 pure contracts
+- **MOD** `tests/unit/fusion-cognitive-diversity.test.ts` — unskipped 0110 editor round-trip
+
+## Verification
+
+- [x] `node --import tsx/esm --test tests/unit/fusion-cognitive-diversity.test.ts tests/unit/fusion-editor-types.test.ts` — 47 pass, 0 fail, 0 skip
+- [x] `npm run typecheck:core` — clean
+- [x] `npx eslint` on touched fusion UI files — clean
+
+---
+
+# Task 0108: EPIC-22 T22-B cognitive schema + normalize + ResolvedFusionUnit plumb
+
+## Summary
+
+Make fusion cognitive diversity fields survive Zod parse → `normalizeComboStep` → `resolveFusionUnits` / `comboStepToFusionUnit`. No panel body inject (0109) and no editor UI (0110).
+
+## Changes
+
+- **MOD** `src/shared/validation/schemas/combo.ts` — optional `thinkingMode` (`FUSION_COGNITIVE_LENS_IDS`), `systemAddon` (max 4000), superRefine `custom` requires non-empty addon; optional `config.judgeMode` (`FUSION_JUDGE_MODE_IDS`) sibling of `fusionTuning`
+- **MOD** `src/lib/combos/steps.ts` — `ComboModelStep` + `normalizeComboStep` preserve mode/addon
+- **MOD** `open-sse/services/fusion.ts` — model arm of `ResolvedFusionUnit` + `comboStepToFusionUnit` plumb fields
+- **MOD** `tests/unit/fusion-cognitive-diversity.test.ts` — unskipped 0108 schema/normalize/resolve contracts + round-trip
+- **MOD** `tests/unit/combo-config.test.ts` — judgeMode accept/reject
+- **MOD** `tests/unit/fusion-contracts.test.ts` — optional cognitive fields on unit type smoke
+
+## Verification
+
+- [x] `node --import tsx/esm --test tests/unit/fusion-cognitive-diversity.test.ts tests/unit/fusion-contracts.test.ts tests/unit/combo-config.test.ts` — 81 pass, 6 skip (0109/0110), 0 fail
+- [x] `npm run typecheck:core` — clean
+- [x] `npx eslint` on touched files — clean
+
+---
+
+# Task 0107: EPIC-22 T22-A cognitive lens catalog SSoT + fail-first contracts
+
+## Summary
+
+EPIC-22 gate: pure cognitive lens catalog with `[omniroute-lens:<id>]` fingerprints and `resolvePanelLensText` composition; `fusion-cognitive-diversity.test.ts` catalog section green; runtime/schema/editor contracts `test.skip` until 0108–0110. No runtime wire into `fusion.ts` (0109).
+
+## Changes
+
+- **NEW** `src/shared/constants/fusionCognitiveLenses.ts` — closed `FUSION_COGNITIVE_LENS_IDS` (7 ids, no low/medium/high), preset inject text + fingerprints, `resolvePanelLensText`, `isFusionCognitiveLensId`, judge mode ids + `resolveJudgeModeDirective` pure stubs for 0109
+- **NEW** `tests/unit/fusion-cognitive-diversity.test.ts` — pure catalog contracts green; schema/runtime/editor skeletons skipped with EPIC-22/0108|0109|0110 tags
+
+## Verification
+
+- [x] `node --import tsx/esm --test tests/unit/fusion-cognitive-diversity.test.ts` — 8 pass, 9 skip, 0 fail
+- [x] `npm run typecheck:core` — clean
+- [x] `npx eslint` on touched files — clean
 
 ---
 

@@ -25,7 +25,15 @@ import { getWebSessionCredentialRequirement } from "../../src/shared/providers/w
 
 function cookieHeaderFor(credentials: unknown): string | undefined {
   const executor = new LMArenaExecutor();
-  const headers = (executor as any).buildHeaders("gpt-4", credentials, {});
+  const headers = (
+    executor as unknown as {
+      buildHeaders: (
+        model: string,
+        credentials: unknown,
+        opts: Record<string, string>
+      ) => Record<string, string>;
+    }
+  ).buildHeaders("gpt-4", credentials, {});
   return headers.Cookie;
 }
 

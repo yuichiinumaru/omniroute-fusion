@@ -40,8 +40,13 @@ test("Claude CLI is pinned to the captured 2.1.195 release", () => {
   assert.equal(id.CLAUDE_CODE_VERSION, "2.1.195");
 });
 
-test("Codex client is pinned to the captured 0.142.0 release", () => {
-  assert.equal(codexCfg.getCodexClientVersion(), "0.142.0");
-  assert.equal(codexCfg.getCodexUserAgent(), "codex-cli/0.142.0 (Windows 10.0.26200; x64)");
-  assert.equal(codexCfg.getCodexDefaultHeaders().Version, "0.142.0");
+test("Codex client is pinned to the captured 0.144.1 release", () => {
+  // Task 0126 bumps the Codex client identity version to align with the
+  // verified upstream reference fork (../legacy/diegosouzapw-omniroute).
+  // The lockstep test guards the same constant; if a future bump re-bases
+  // to a newer value, update both codexClient.ts DEFAULT_CODEX_CLIENT_VERSION
+  // AND this assertion in the same change.
+  assert.equal(codexCfg.getCodexClientVersion(), "0.144.1");
+  assert.equal(codexCfg.getCodexUserAgent(), "codex-cli/0.144.1 (Windows 10.0.26200; x64)");
+  assert.equal(codexCfg.getCodexDefaultHeaders().Version, "0.144.1");
 });

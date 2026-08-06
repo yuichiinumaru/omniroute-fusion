@@ -319,6 +319,35 @@ export default function SecurityTab() {
             />
           </div>
 
+          {/* Task 0135: OAuth popup auto-open toggle. Default true so existing
+              operator workflows (popup-based) keep working. When false, the
+              OAuthModal skips `window.open(...)` and lands on the manual
+              paste-URL step — useful for remote / popup-restricted
+              environments. Device-code and import-token flows are NOT
+              affected; only authorization-code + Codex PKCE popup open is
+              gated. The toggle writes through the standard PATCH /api/settings
+              path so it benefits from the audit row + no-store cache header. */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">
+                {getSettingsLabel("oauthAutoOpenTitle", "Auto-open OAuth popup")}
+              </p>
+              <p className="text-sm text-text-muted">
+                {getSettingsLabel(
+                  "oauthAutoOpenDesc",
+                  "When ON, the OAuth modal opens the provider's authorization page in a popup window automatically. When OFF, the modal shows the URL so you can paste the callback manually — useful for remote / popup-restricted setups. Device-code and import-token flows are unaffected."
+                )}
+              </p>
+            </div>
+            <Toggle
+              checked={settings.oauthAutoOpen !== false}
+              onChange={() =>
+                updateSetting("oauthAutoOpen", !(settings.oauthAutoOpen !== false))
+              }
+              disabled={loading}
+            />
+          </div>
+
           <div>
             <div className="mb-2">
               <p className="font-medium">{t("corsAllowedOrigins")}</p>

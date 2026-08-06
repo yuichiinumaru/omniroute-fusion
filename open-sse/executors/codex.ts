@@ -217,9 +217,30 @@ export function getCodexDualWindowCooldownMs(
   return { cooldownMs: 0, window: "none" };
 }
 
-// Ordered list of effort levels from lowest to highest
-const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh"] as const;
+// Ordered list of effort levels from lowest to highest.
+// Task 0126 (Codex gpt-5.6 compat): adds `max` and `ultra` tier aliases used
+// by Codex-internal client coordination. The upstream wire only accepts `max`
+// (see transformRequest effort wiring below); `ultra` is the client-side
+// tier label for sol/terra.
+//
+// Reference:
+//   ../legacy/diegosouzapw-omniroute/open-sse/executors/codex.ts:121-200
+const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max", "ultra"] as const;
 type EffortLevel = (typeof EFFORT_ORDER)[number];
+// Standard (non-gpt-5.6) suffixes keep their original tried order — `splitCodexReasoningSuffix`
+// consults GPT_5_6_*_ALIAS_MODELS before falling back to this list so legacy
+// gpt-5.5-xhigh / gpt-5.4-high / etc. continue to resolve unchanged.
+const STANDARD_EFFORT_SUFFIXES = ["none", "low", "medium", "high", "xhigh"] as const;
+// gpt-5.6 family: which base model id accepts which alias?
+//   • sol   & terra: ultra + max
+//   • luna         : max only  (no upstream `ultra` tier)
+// Mirrors the upstream fork's MAX_EFFORT_BY_MODEL table and IsCodexDelegationDependentModel helper.
+const GPT_5_6_MAX_ALIAS_MODELS = new Set([
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
+]);
+const GPT_5_6_ULTRA_ALIAS_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra"]);
 const CODEX_FAST_WIRE_VALUE = "priority";
 const CODEX_RESPONSES_WS_URL = "wss://chatgpt.com/backend-api/codex/responses";
 
@@ -228,7 +249,19 @@ function splitCodexReasoningSuffix(model: unknown): {
   effort: EffortLevel | null;
 } {
   const modelId = typeof model === "string" ? model : "";
-  for (const level of EFFORT_ORDER) {
+  // Match gpt-5.6-<sol|terra|luna>-<max|ultra> explicitly so the alias only
+  // resolves when the base model is in the supported-models set.
+  const gpt56AliasMatch = /^(gpt-5\.6-(?:sol|terra|luna))-(max|ultra)$/.exec(modelId);
+  if (gpt56AliasMatch) {
+    const [, baseModel, alias] = gpt56AliasMatch;
+    const supportedModels =
+      alias === "ultra" ? GPT_5_6_ULTRA_ALIAS_MODELS : GPT_5_6_MAX_ALIAS_MODELS;
+    if (supportedModels.has(baseModel)) {
+      return { baseModel, effort: alias as EffortLevel };
+    }
+  }
+
+  for (const level of STANDARD_EFFORT_SUFFIXES) {
     if (modelId.endsWith(`-${level}`)) {
       return {
         baseModel: modelId.slice(0, -`-${level}`.length),
@@ -604,8 +637,15 @@ function normalizeServiceTierValue(value: unknown): string | undefined {
  * Maximum reasoning effort allowed per Codex model.
  * Models not listed here default to "xhigh" (unrestricted).
  * Update this table when Codex releases new models with different caps.
+ *
+ * Task 0126 (Codex gpt-5.6 compat): the upstream fork surfaces three new
+ * caps derived from the Codex-internal tier table — sol/terra accept up to
+ * `ultra`, luna accepts up to `max`.
  */
 const MAX_EFFORT_BY_MODEL: Record<string, EffortLevel> = {
+  "gpt-5.6-sol": "ultra",
+  "gpt-5.6-terra": "ultra",
+  "gpt-5.6-luna": "max",
   "gpt-5.3-codex": "xhigh",
   "gpt-5.1-codex-max": "xhigh",
   "gpt-5-mini": "high",
@@ -1435,9 +1475,14 @@ export class CodexExecutor extends BaseExecutor {
       modelEffort || explicitReasoning || requestReasoningEffort || fallbackReasoningEffort;
 
     if (rawEffort) {
+      // Task 0126: the Codex client uses `ultra` to coordinate delegation,
+      // but the upstream Codex wire only accepts `max` for the highest tier.
+      // Map `ultra → max` before sending so the upstream Responses schema
+      // does not reject with 400 ("unsupported reasoning effort").
+      const clampedEffort = clampEffort(cleanModel, rawEffort);
       body.reasoning = {
         ...(reasoningRecord || {}),
-        effort: clampEffort(cleanModel, rawEffort),
+        effort: clampedEffort === "ultra" ? "max" : clampedEffort,
       };
     }
     ensureCodexReasoningSummary(body);

@@ -84,7 +84,7 @@ function buildLMArenaCookieFromStoredFields(data: Record<string, unknown>): stri
 
 export function readLMArenaCookie(credentials: unknown): string {
   if (!credentials || typeof credentials !== "object") return "";
-  const c = credentials as Record<string, unknown>;
+  const c = credentials as Record<string, unknown>; // SAFETY: guarded by typeof credentials === "object"
   const direct = typeof c.cookie === "string" ? c.cookie : "";
   if (direct.trim()) return reconstructLMArenaCookie(direct);
   const apiKey = typeof c.apiKey === "string" ? c.apiKey : "";
@@ -93,7 +93,7 @@ export function readLMArenaCookie(credentials: unknown): string {
   if (topLevelChunks) return topLevelChunks;
   const psd = c.providerSpecificData;
   if (psd && typeof psd === "object") {
-    const nestedData = psd as Record<string, unknown>;
+    const nestedData = psd as Record<string, unknown>; // SAFETY: guarded by typeof psd === "object"
     const nested = nestedData.cookie;
     if (typeof nested === "string" && nested.trim()) return reconstructLMArenaCookie(nested);
     const nestedChunks = buildLMArenaCookieFromStoredFields(nestedData);

@@ -1,3 +1,7 @@
+---
+title: "Weak Hash Residuals & Protocol Exceptions (MD5 / SHA-1)"
+---
+
 # Weak Hash Residuals & Protocol Exceptions (MD5 / SHA-1)
 
 > **Status**: Active  

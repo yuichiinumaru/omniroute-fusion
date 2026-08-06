@@ -692,7 +692,7 @@ export const LMARENA_DIRECT_MODEL_ENTRIES: readonly LmarenaDirectModelEntry[] = 
     vision: false,
     category: "Search",
   },
-] as LmarenaDirectModelEntry[]);
+] as LmarenaDirectModelEntry[]); // SAFETY: Object.freeze array literal matching LmarenaDirectModelEntry shape
 
 /** Chat-completions catalog (Text + Search). Image rows are excluded. */
 export const LMARENA_DIRECT_CHAT_ENTRIES: readonly LmarenaDirectModelEntry[] =
