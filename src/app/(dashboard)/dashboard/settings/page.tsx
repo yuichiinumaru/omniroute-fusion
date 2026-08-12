@@ -11,12 +11,12 @@ import {
  */
 const LEGACY_TAB_ROUTES = {
   advanced: buildSettingsPath("advanced"),
-  ai: buildSettingsPath("ai"),
+  ai: buildSettingsPath("routing"),
   appearance: buildSettingsPath("appearance"),
   featureFlags: buildSettingsPath("feature-flags"),
   "feature-flags": buildSettingsPath("feature-flags"),
   general: buildSettingsPath("general"),
-  resilience: buildSettingsPath("resilience"),
+  resilience: buildSettingsPath("routing"),
   routing: buildSettingsPath("routing"),
   security: buildSettingsPath("security"),
   sidebar: buildSettingsPath("sidebar"),

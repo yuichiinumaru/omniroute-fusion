@@ -3,7 +3,7 @@
 > **Purpose**: Copy-pasteable **Exit Conditions** block for Task Architects promoting drafts into `01-open/` in this child repo.  
 > **Stack**: Node / Next / TypeScript / npm / SQLite — **not** cargo.  
 > **Template SSoT**: [`000-template.md`](./000-template.md)  
-> **DoD SSoT**: [`.agents/rules/definition-of-done-omniroute.md`](../../.agents/rules/definition-of-done-omniroute.md)  
+> **DoD SSoT**: [`cybernetics-core/AGENTS-definition-of-done-omniroute.md`](../../../AGENTS-definition-of-done-omniroute.md) (relocated Task 4586 from `.agents/rules/`; archive at `.archive/rules/definition-of-done-omniroute.md`)  
 > **Lane constitution**: [`AGENTS.md`](./AGENTS.md)  
 > **Origin**: EPIC-14 / Task **0065** (H-HARNESS-04 overlay)
 
@@ -88,7 +88,7 @@ If the agent’s mental model is “I am closing TypeScript work in OmniRoute”
 | Run targeted `node --import tsx/esm --test …` | Claim cargo test PASS |
 | Run `npm run test:vitest` when vitest surfaces change | Treat parent DoD cargo rows as mandatory |
 | Write `.changelog/` entry + `rebuild.sh build` | Hand-edit root `CHANGELOG.md` Unreleased |
-| Use `.agents/rules/definition-of-done-omniroute.md` | Copy-only parent `definition-of-done.md` cargo checklist |
+| Use `cybernetics-core/AGENTS-definition-of-done-omniroute.md` | Copy-only parent `definition-of-done.md` cargo checklist |
 
 ---
 
@@ -96,7 +96,7 @@ If the agent’s mental model is “I am closing TypeScript work in OmniRoute”
 
 | Path | Role |
 |------|------|
-| [`.agents/rules/definition-of-done-omniroute.md`](../../.agents/rules/definition-of-done-omniroute.md) | Full DoD checklist |
+| [`cybernetics-core/AGENTS-definition-of-done-omniroute.md`](../../../AGENTS-definition-of-done-omniroute.md) | Full DoD checklist (relocated Task 4586) |
 | [`.agents/rules/definition-of-done.md`](../../.agents/rules/definition-of-done.md) | Parent cargo DoD (non-authoritative here) |
 | [`000-template.md`](./000-template.md) | Task shape + npm exit notes |
 | [`AGENTS.md`](./AGENTS.md) | Lanes + exit matrix summary |

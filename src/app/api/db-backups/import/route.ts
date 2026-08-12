@@ -16,18 +16,18 @@ import { getSettings } from "@/lib/db/settings";
 import { setSystemPromptConfig } from "@omniroute/open-sse/services/systemPrompt.ts";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
-const DEFAULT_MAX_UPLOAD_MB = 100;
+const DEFAULT_MAX_UPLOAD_MB = 1000;
 // Hard ceiling so a misconfigured/hostile value can't ask the route to buffer an
 // unbounded file into memory.
-const MAX_UPLOAD_MB_CEILING = 4096;
+const MAX_UPLOAD_MB_CEILING = 1000;
 
 /**
  * Resolve the maximum accepted backup size (bytes) from the environment.
  *
  * Real databases bloat well past the historical 100 MB cap (#4719 — a 156 MB file that
  * VACUUMs down to 5 MB still can't be re-imported), so the limit is now operator-tunable
- * via `OMNIROUTE_DB_IMPORT_MAX_MB`. Invalid / out-of-range values fall back to the 100 MB
- * default and are clamped to a 4 GB ceiling.
+ * via `OMNIROUTE_DB_IMPORT_MAX_MB`. Invalid / out-of-range values fall back to the 1000 MB
+ * default and are clamped to a 1000 MB ceiling.
  */
 export function resolveMaxUploadSizeBytes(
   env: NodeJS.ProcessEnv = process.env

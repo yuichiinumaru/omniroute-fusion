@@ -1,7 +1,10 @@
 import { CORS_HEADERS } from "./cors.ts";
 import { getDefaultErrorMessage, getErrorInfo } from "../config/errorConfig.ts";
+import { sanitizeErrorMessage } from "./errorSanitizer.ts";
 import { normalizePayloadForLog } from "@/lib/logPayloads";
 import type { ModelCooldownErrorPayload } from "@/types";
+
+export { sanitizeErrorMessage };
 
 /**
  * Sanitize an error message to prevent stack trace exposure in API responses.
@@ -15,74 +18,6 @@ interface ErrorResponseBody {
     code?: string;
   };
   upstream_details?: Record<string, unknown> | null; // sanitized upstream provider body
-}
-
-// Length cap protects against pathological inputs even before tokenization.
-const MAX_ERROR_LEN = 4096;
-const SOURCE_EXT = ["ts", "tsx", "js", "jsx", "mjs", "cjs"] as const;
-
-function looksLikeAbsolutePath(tok: string): boolean {
-  // POSIX: "/<...>.ts" (optionally followed by :line[:col]).
-  // Windows: "C:\<...>.ts" or "C:/<...>.ts".
-  if (tok.length < 4 || tok.length > 2048) return false;
-  const isPosix = tok.charCodeAt(0) === 0x2f; // '/'
-  const isWindows = tok.length > 2 && tok.charCodeAt(1) === 0x3a && /[A-Za-z]/.test(tok[0]);
-  if (!isPosix && !isWindows) return false;
-  const dot = tok.lastIndexOf(".");
-  if (dot <= 0 || dot === tok.length - 1) return false;
-  const ext = tok
-    .slice(dot + 1)
-    .split(":", 1)[0]
-    .toLowerCase();
-  return (SOURCE_EXT as readonly string[]).includes(ext);
-}
-
-/** Absolute path token without requiring a source extension (stack-frame tails). */
-function looksLikeAbsolutePathLoose(tok: string): boolean {
-  if (tok.length < 2 || tok.length > 2048) return false;
-  if (tok.charCodeAt(0) === 0x2f) return true; // POSIX
-  return tok.length > 2 && tok.charCodeAt(1) === 0x3a && /[A-Za-z]/.test(tok[0]);
-}
-
-/**
- * Strip stack-trace tail and absolute source paths from error messages.
- *
- * Implemented via simple whitespace tokenization (linear time) instead of a
- * single complex regex, so CodeQL `js/polynomial-redos` stays clean even when
- * the runtime error message is attacker-controlled.
- */
-export function sanitizeErrorMessage(message: unknown): string {
-  let str = typeof message === "string" ? message : String(message ?? "");
-  if (str.length > MAX_ERROR_LEN) str = str.slice(0, MAX_ERROR_LEN);
-  const nl = str.indexOf("\n");
-  const firstLine = nl >= 0 ? str.slice(0, nl) : str;
-
-  // Pure stack-frame first lines (e.g. "at /tmp/x" or "at foo (/app/x.ts:1:1)")
-  // must not reach clients — collapse to a stable generic message.
-  // Deliberately does NOT match product copy like "at least one model required".
-  if (/^\s*at\s+(?:.*\()?(\/|[A-Za-z]:[\\/])/.test(firstLine)) {
-    return "Internal error";
-  }
-
-  // Preserve original whitespace by splitting on captured separator.
-  const parts = firstLine.split(/(\s+)/);
-  for (let i = 0; i < parts.length; i++) {
-    if (looksLikeAbsolutePath(parts[i])) {
-      parts[i] = "<path>";
-      continue;
-    }
-    // Redact absolute path tokens that follow a bare "at" (stack-frame fragment).
-    // Example: "boom at /tmp/x" → "boom at <path>"
-    if (
-      i >= 2 &&
-      parts[i - 2] === "at" &&
-      /^\s+$/.test(parts[i - 1] || "") &&
-      looksLikeAbsolutePathLoose(parts[i])
-    ) {
-      parts[i] = "<path>";
-    }
-  }
-  return parts.join("");
 }
 
 const BLOCKED_KEYS = /stack|trace|path|file|cwd|dir|password|secret|token|key/i;
@@ -374,11 +309,88 @@ export function createErrorResult(
   return result;
 }
 
+// Token-shape pre-redaction shared by error helpers so a leaked upstream message
+// carrying an API-key / secret-shaped fragment cannot reach the client. We
+// intentionally only blank HIGH-CONFIDENCE shapes (long hex/alnum token prefixes
+// commonly emitted by cloud providers + uppercase-with-separator common patterns
+// like "AKIA-DEMO-SECRET") so the helper does not over-redact normal error text.
+// The downstream sanitizeErrorMessage() handles stack-trace/absolute-path tokens;
+// this is purely the secret-shaped layer the task review demanded.
+const TOKEN_SHAPE_REDACT_PATTERNS: readonly RegExp[] = [
+  /\bAKIA[0-9A-Z]{4,}\b/gi, // AWS access key id + AWS-style demo secrets like "AKIA-DEMO-SECRET"
+  /\bsk-[A-Za-z0-9_-]{8,}\b/g, // OpenAI / Anthropic-style secret key prefix (relaxed to catch sk-XYZ123)
+  /\bghp_[A-Za-z0-9]{8,}\b/gi, // GitHub personal access token
+  /\bxox[baprs]-[A-Za-z0-9-]{8,}\b/gi, // Slack tokens
+  // Demo-style SECRET / TOKEN / PASSWORD / API_KEY trailing 4+ chars (relaxed
+  // from 8+ to also catch short demo tokens like "AKIA-DEMO-SECRET").
+  /\b(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY)[_:\-\s=]+[A-Za-z0-9_.\-]{4,}\b/gi,
+  // Uppercase-with-hyphen phrases (≥3 segments of ≥3 chars each) — catches
+  // "AKIA-DEMO-SECRET" / "DEMO-LEAK-CODE" / "VENDOR-PRODUCT-KEY" patterns that
+  // downstream providers and demo environments commonly emit.
+  /\b(?:[A-Z][A-Z0-9]{2,}[-_]){2,}[A-Z][A-Z0-9]{2,}\b/g,
+  /\b[A-Fa-f0-9]{32,}\b/g, // long hex strings (≥32 chars) — captures raw sha/sha256 hashes
+  // Authorization-header fragment emitted by hostile / leaked upstream error
+  // bodies (e.g. "Bearer eyJ…", "Basic dXNlcjpwYXNz", "Token abc123def456").
+  // Match the scheme + ≥8 char value; redacts the value, leaves the literal.
+  /\b(?:Bearer|Basic|Token)\s+[A-Za-z0-9._\-+/=]{8,}\b/g,
+  // Session cookie fragments carried in upstream error bodies
+  // ("session=abcd1234", "sid=…; Path=/"). Stop at ; or end of string.
+  /\b(?:session|sid|cookie|auth)=[A-Za-z0-9._\-]{4,}/gi,
+];
+
+const TOKEN_REDACT_PLACEHOLDER = "<token>";
+const MAX_UNAVAILABLE_MESSAGE_CHARS = 240;
+
+function redactTokenShapedText(input: string): string {
+  if (!input) return input;
+  let redacted = input;
+  for (const pattern of TOKEN_SHAPE_REDACT_PATTERNS) {
+    redacted = redacted.replace(pattern, TOKEN_REDACT_PLACEHOLDER);
+  }
+  return redacted;
+}
+
 /**
- * Create unavailable response when all accounts are rate limited
+ * Compose the full response-safe error message: stack-trace + absolute-path
+ * stripping via `sanitizeErrorMessage`, then credential / token-shape
+ * redaction. Exposed for executor paths that surface upstream text directly
+ * to clients without going through `buildErrorBody` (e.g. mid-stream SSE
+ * error chunks and Cursor's `err.details[0].debug.details.*` debug fields).
+ */
+export function sanitizeErrorMessageForResponse(message: unknown): string {
+  const sanitized = sanitizeErrorMessage(message);
+  return redactTokenShapedText(sanitized);
+}
+
+function buildUnavailableMessage(
+  message: string,
+  retryAfterHuman?: string
+): string {
+  // Sanitize first (strips stack traces / absolute paths), then redact any
+  // remaining token-shaped fragments, then truncate so the Retry-After suffix
+  // still fits within a sane upper bound. Order matters: sanitize before
+  // truncation so a 4KB upstream message can't push the Retry-After info off
+  // the wire silently.
+  const sanitized = sanitizeErrorMessage(message);
+  const redacted = redactTokenShapedText(sanitized);
+  const composed = retryAfterHuman ? `${redacted} (${retryAfterHuman})` : redacted;
+  if (composed.length <= MAX_UNAVAILABLE_MESSAGE_CHARS) return composed;
+  return `${composed.slice(0, MAX_UNAVAILABLE_MESSAGE_CHARS)}…`;
+}
+
+/**
+ * Create unavailable response when all accounts are rate limited.
+ *
+ * The message is sanitized (stack traces + absolute paths stripped via
+ * `sanitizeErrorMessage`), then token-shaped fragments (AWS/secret-like strings,
+ * long hex sequences) are redacted with `<token>`, and the composed message is
+ * length-bounded so the Retry-After suffix is always present on the wire. The
+ * body is built through the same `buildErrorBody` helper used by non-retry-after
+ * paths so the OpenAI-compatible `{type, code}` shape stays consistent.
+ *
  * @param {number} statusCode - Original error status code
  * @param {string} message - Error message (without retry info)
- * @param {string} retryAfter - ISO timestamp when earliest account becomes available
+ * @param {string|number|Date|null} retryAfter - ISO timestamp when earliest account becomes available
  * @param {string} retryAfterHuman - Human-readable retry info e.g. "reset after 30s"
  * @returns {Response}
  */
@@ -389,8 +401,11 @@ export function unavailableResponse(
   retryAfterHuman?: string
 ) {
   const retryAfterSec = normalizeRetryAfterSeconds(retryAfter);
-  const msg = retryAfterHuman ? `${message} (${retryAfterHuman})` : message;
-  return new Response(JSON.stringify({ error: { message: msg } }), {
+  const composedMessage = buildUnavailableMessage(message, retryAfterHuman);
+  const body = buildErrorBody(statusCode, composedMessage);
+  // `buildErrorBody` already sanitizes its message; pass it `composedMessage` so
+  // the layer agreement is uniform across both `errorResponse` and this helper.
+  return new Response(JSON.stringify(body), {
     status: statusCode,
     headers: {
       "Content-Type": "application/json",

@@ -160,6 +160,8 @@ export function translateRequest(
     /** UA-detected GitHub Copilot client. Forwarded to translators via the
      *  transient `_copilotClient` credential flag (see openai-responses → openai). */
     copilotClient?: boolean;
+    comboConfig?: Record<string, unknown> | null;
+    reasoningPolicy?: import("../services/thinkingBudget.ts").ReasoningPolicy | null;
   }
 ) {
   let result = body;
@@ -167,7 +169,13 @@ export function translateRequest(
   const preserveDeveloperRole = options?.preserveDeveloperRole;
 
   // Phase 2: Apply thinking budget control before normalization
-  result = applyThinkingBudget(result);
+  result = applyThinkingBudget(result, {
+    model,
+    provider,
+    credentials,
+    comboConfig: options?.comboConfig,
+    ...(options?.reasoningPolicy ? { reasoningPolicy: options.reasoningPolicy } : {}),
+  });
 
   // Normalize thinking config: remove if lastMessage is not user
   normalizeThinkingConfig(result);

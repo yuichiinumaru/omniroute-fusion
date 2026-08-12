@@ -125,6 +125,9 @@ test("decodeExecServerEvent recognizes shell_args (field 2) with command + worki
     execId: "exec-s",
     command: "ls -la",
     workingDir: "/tmp",
+    timeout: 0,
+    isBackground: false,
+    hardTimeout: 0,
   });
 });
 
@@ -138,6 +141,9 @@ test("decodeExecServerEvent recognizes shell_stream_args (field 14)", () => {
     execId: "exec-ss",
     command: "tail -f x",
     workingDir: "/var/log",
+    timeout: 0,
+    isBackground: false,
+    hardTimeout: 0,
   });
 });
 
@@ -151,6 +157,9 @@ test("decodeExecServerEvent recognizes background_shell_spawn (field 16)", () =>
     execId: "exec-bg",
     command: "node server",
     workingDir: "/app",
+    timeout: 0,
+    isBackground: false,
+    hardTimeout: 0,
   });
 });
 

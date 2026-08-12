@@ -451,7 +451,7 @@ test("F-03-001: shouldRecordProviderBreakerFailure is true for RR-style 502", ()
 
 // ─── F-03-003 / F-03-004: canExecute pre-gates ───────────────────────────────
 
-test("F-03-003: isProviderCircuitBlocking is true when HALF_OPEN budget exhausted", () => {
+test("F-03-003: isProviderCircuitBlocking is true when HALF_OPEN budget exhausted", async () => {
   const provider = `block-half-${Date.now()}`;
   const breaker = getCircuitBreaker(provider, {
     failureThreshold: 1,
@@ -461,16 +461,16 @@ test("F-03-003: isProviderCircuitBlocking is true when HALF_OPEN budget exhauste
   breaker._onFailure();
   breaker.lastFailureTime = Date.now() - 20;
   assert.equal(breaker.getStatus().state, STATE.HALF_OPEN);
-  assert.equal(isProviderCircuitBlocking(provider), false, "probe still available");
+  assert.equal(await isProviderCircuitBlocking(provider), false, "probe still available");
   assert.equal(breaker.tryReserveExecution(), true);
   assert.equal(
-    isProviderCircuitBlocking(provider),
+    await isProviderCircuitBlocking(provider),
     true,
     "HALF_OPEN with 0 slots must block (not just OPEN)"
   );
 });
 
-test("F-03-003: isProviderCircuitBlocking is true when OPEN", () => {
+test("F-03-003: isProviderCircuitBlocking is true when OPEN", async () => {
   const provider = `block-open-${Date.now()}`;
   const breaker = getCircuitBreaker(provider, {
     failureThreshold: 1,
@@ -478,7 +478,7 @@ test("F-03-003: isProviderCircuitBlocking is true when OPEN", () => {
   });
   breaker._onFailure();
   assert.equal(breaker.getStatus().state, STATE.OPEN);
-  assert.equal(isProviderCircuitBlocking(provider), true);
+  assert.equal(await isProviderCircuitBlocking(provider), true);
 });
 
 test("F-03-004: model lockout is detectable for RR pre-skip", () => {
@@ -846,7 +846,7 @@ test("F-03-004: RR pre-skips OPEN provider before calling handleSingleModel (no 
   });
   breaker._onFailure();
   assert.equal(breaker.getStatus().state, STATE.OPEN);
-  assert.equal(isProviderCircuitBlocking(provider), true);
+  assert.equal(await isProviderCircuitBlocking(provider), true);
 
   const calls: string[] = [];
   const logs: string[] = [];

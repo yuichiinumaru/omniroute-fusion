@@ -29,8 +29,8 @@ const CONNECTION_LEVEL_ERROR_STATUSES = [408, 500, 502, 503, 504, 524];
 // failure (which would exhaust the whole provider/connection and skip every remaining
 // same-provider leg via #1731v2). It is a model-level transient failure: advance to the next
 // leg, leaving the rest of that provider's legs eligible.
-function isEmptyContentFailure(status: number, errorText: string): boolean {
-  return status === 502 && /empty content/i.test(errorText);
+export function isEmptyContentFailure(status: number, errorText: string): boolean {
+  return status === 502 && /empty[_\s]content|empty_streaming_content/i.test(errorText);
 }
 
 export function isRepetitionFailure(status: number, errorText: string): boolean {

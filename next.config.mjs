@@ -2,6 +2,10 @@ import createNextIntlPlugin from "next-intl/plugin";
 import { createMDX } from "fumadocs-mdx/next";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  DEFAULT_BUILD_CPUS,
+  resolveBuildCpus,
+} from "./scripts/build/buildConcurrency.mjs";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const distDir = process.env.NEXT_DIST_DIR || ".build/next";
@@ -82,6 +86,10 @@ const minimalBuildAliases = isMinimalBuild
     }
   : {};
 
+export { DEFAULT_BUILD_CPUS, resolveBuildCpus };
+
+const buildCpus = resolveBuildCpus();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir,
@@ -107,6 +115,10 @@ const nextConfig = {
   // accept for image-bearing requests; tune via env if a deployment needs
   // more.
   experimental: {
+    // Limit static-generation worker concurrency to mitigate EMFILE file descriptor exhaustion.
+    // Automatic mode uses up to 80% of logical CPUs, bounded by memory and nofile; override with
+    // OMNIROUTE_BUILD_CPUS when an operator needs a fixed value.
+    cpus: buildCpus,
     serverActions: {
       bodySizeLimit: process.env.OMNIROUTE_SERVER_ACTIONS_BODY_LIMIT || "50mb",
     },

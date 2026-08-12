@@ -115,9 +115,9 @@ test("settings root redirects to section pages instead of rendering a tab shell"
     "general route must use buildSettingsPath('general') or literal /dashboard/settings/general"
   );
   assert.ok(
-    /resilience:\s*buildSettingsPath\(\s*["']resilience["']\s*\)/.test(pageSource) ||
-      pageSource.includes('resilience: "/dashboard/settings/resilience"'),
-    "resilience route must use buildSettingsPath('resilience') or literal path"
+    /resilience:\s*buildSettingsPath\(\s*["']routing["']\s*\)/.test(pageSource) ||
+      pageSource.includes('resilience: "/dashboard/settings/routing"'),
+    "resilience route must use buildSettingsPath('routing') or literal path"
   );
   assert.ok(pageSource.includes("redirect(resolveSettingsRoute(tab))"));
 });

@@ -682,6 +682,7 @@ export function shouldMarkAccountExhaustedFrom429(
 export function classifyLockoutReason(status: number): string {
   if (status === 429) return "rate_limit";
   if (status === 403) return "quota_exhausted";
+  if (status === 404) return "model_not_found";
   return "unknown";
 }
 
@@ -1784,4 +1785,106 @@ export function getAccountHealth(
   if (account.lastError) score -= 20;
   if (account.rateLimitedUntil && isAccountUnavailable(account.rateLimitedUntil)) score -= 30;
   return Math.max(0, score);
+}
+
+/**
+ * Check if a provider has at least one healthy account eligible for dispatch.
+ * Prevents an open provider circuit breaker from hiding unrelated healthy accounts
+ * with available quota (Task 0143).
+ */
+export async function hasHealthyAccount(
+  provider: string | null | undefined,
+  model?: string | null,
+  options: {
+    connectionId?: string | null;
+    allowedConnections?: string[] | null;
+    excludeConnectionIds?: string[] | Set<string> | null;
+    connections?: Array<Record<string, unknown>> | null;
+  } = {}
+): Promise<boolean> {
+  if (!provider || provider === "unknown") return false;
+
+  let connections: Array<Record<string, unknown>> = [];
+  if (Array.isArray(options.connections)) {
+    connections = options.connections;
+  } else {
+    try {
+      const { getCachedProviderConnections } = await import("../../src/lib/db/readCache");
+      const allConns = (await getCachedProviderConnections().catch(() => [])) as Array<
+        Record<string, unknown>
+      >;
+      connections = Array.isArray(allConns)
+        ? allConns.filter(
+            (c) =>
+              (c.provider === provider || c.providerId === provider) &&
+              (c.isActive === true || c.isActive === 1 || c.isActive === undefined)
+          )
+        : [];
+    } catch {
+      try {
+        const { getProviderConnections } = await import("../../src/lib/db/providers");
+        const conns = await getProviderConnections({ provider, isActive: true });
+        connections = Array.isArray(conns) ? (conns as Array<Record<string, unknown>>) : [];
+      } catch {
+        connections = [];
+      }
+    }
+  }
+
+  if (connections.length === 0) return false;
+
+  const excluded = new Set<string>();
+  if (options.excludeConnectionIds) {
+    for (const id of options.excludeConnectionIds) {
+      if (id) excluded.add(String(id));
+    }
+  }
+
+  let candidates = connections;
+  if (options.connectionId) {
+    candidates = candidates.filter((c) => String(c.id) === String(options.connectionId));
+  } else if (Array.isArray(options.allowedConnections) && options.allowedConnections.length > 0) {
+    const allowedSet = new Set(options.allowedConnections.map((id) => String(id)));
+    candidates = candidates.filter((c) => allowedSet.has(String(c.id)));
+  }
+
+  let isAccountQuotaExhaustedFn: ((id: string) => boolean) | null = null;
+  try {
+    const mod = await import("../../src/domain/quotaCache");
+    isAccountQuotaExhaustedFn = mod.isAccountQuotaExhausted;
+  } catch {
+    isAccountQuotaExhaustedFn = null;
+  }
+
+  const rawModel = model ? (model.includes("/") ? model.split("/")[1] : model) : null;
+
+  for (const c of candidates) {
+    const connId = String(c.id || "");
+    if (!connId || excluded.has(connId)) continue;
+
+    // Check terminal status (banned, expired, credits_exhausted)
+    const testStatus = String(c.testStatus || "").trim().toLowerCase();
+    if (testStatus === "credits_exhausted" || testStatus === "banned" || testStatus === "expired") {
+      continue;
+    }
+
+    // Check connection cooldown (rateLimitedUntil)
+    if (c.rateLimitedUntil && isAccountUnavailable(c.rateLimitedUntil as string | Date)) {
+      continue;
+    }
+
+    // Check model lockout (if model provided)
+    if (rawModel && isModelLocked(provider, connId, rawModel)) {
+      continue;
+    }
+
+    // Check quota exhaustion
+    if (isAccountQuotaExhaustedFn && isAccountQuotaExhaustedFn(connId)) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
 }

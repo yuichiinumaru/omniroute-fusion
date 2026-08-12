@@ -51,13 +51,13 @@ test("Settings layout includes Interface tab for appearance path (Task 0061 Opti
   assert.match(hub, /export function pathToTabValue/);
 });
 
-test("Usage Token Buffer lives in AI settings instead of General storage", () => {
-  const aiPage = readSrc("src/app/(dashboard)/dashboard/settings/ai/page.tsx");
+test("Usage Token Buffer lives in Routing settings instead of General storage", () => {
+  const routingPage = readSrc("src/app/(dashboard)/dashboard/settings/routing/page.tsx");
   const generalStorage = readSrc(
     "src/app/(dashboard)/dashboard/settings/components/SystemStorageTab.tsx"
   );
 
-  assert.match(aiPage, /UsageTokenBufferTab/);
+  assert.match(routingPage, /UsageTokenBufferTab/);
   assert.doesNotMatch(generalStorage, /storageUsageTokenBuffer/);
 });
 

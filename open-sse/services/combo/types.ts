@@ -15,6 +15,7 @@ export type ComboRetryAfter = string | number | Date;
 export type ComboErrorBody = {
   error?: { code?: string | null; message?: string | null } | string;
   message?: string | null;
+  detail?: unknown;
   retryAfter?: ComboRetryAfter | null;
 } | null;
 
@@ -27,6 +28,7 @@ export type ComboLike = {
   autoConfig?: Record<string, unknown> | null;
   context_cache_protection?: boolean | number;
   system_message?: string | null;
+  system_message_mode?: "override" | "prefix" | "suffix" | string | null;
   [key: string]: unknown;
 };
 

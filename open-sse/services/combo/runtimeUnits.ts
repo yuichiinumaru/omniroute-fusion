@@ -95,17 +95,17 @@ function selectWeightedUnit(units: ResolvedComboUnit[]): ResolvedComboUnit | nul
 }
 
 /** F-03-002: shared pre-skip for model units (breaker / lockout / cooldown / exhaustion). */
-function getRuntimeModelSkipReason(args: {
+async function getRuntimeModelSkipReason(args: {
   unit: Extract<ResolvedComboUnit, { kind: "model" }>;
   exhaustedProviders: Set<string>;
   exhaustedConnections: Set<string>;
   resilienceSettings: ResilienceSettings;
-}): string | null {
+}): Promise<string | null> {
   const { unit, exhaustedProviders, exhaustedConnections, resilienceSettings } = args;
   const provider = unit.provider;
   const rawModel = parseModel(unit.modelStr).model || unit.modelStr;
 
-  if (isProviderCircuitBlocking(provider)) {
+  if (await isProviderCircuitBlocking(provider, rawModel, { connectionId: unit.connectionId })) {
     return `Skipping ${unit.modelStr} — circuit breaker not executable for ${provider}`;
   }
 
@@ -273,7 +273,7 @@ export async function executeRuntimeUnitCombo(args: {
 
     // Pre-skip model legs that the flat priority/RR paths would also skip.
     if (unit.kind === "model") {
-      const skipReason = getRuntimeModelSkipReason({
+      const skipReason = await getRuntimeModelSkipReason({
         unit,
         exhaustedProviders,
         exhaustedConnections,

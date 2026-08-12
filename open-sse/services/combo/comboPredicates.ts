@@ -6,7 +6,7 @@
  * predicates are re-exported from combo.ts for backward compatibility.
  */
 
-import { isProviderFailureCode } from "../accountFallback.ts";
+import { isProviderFailureCode, hasHealthyAccount } from "../accountFallback.ts";
 import { errorResponse } from "../../utils/error.ts";
 import { parseModel } from "../model.ts";
 import { getCircuitBreaker } from "../../../src/shared/utils/circuitBreaker";
@@ -15,13 +15,25 @@ import type { ResolvedComboTarget } from "./types.ts";
 /**
  * True when the shared provider circuit breaker will not accept traffic right
  * now — OPEN, or HALF_OPEN with probe budget exhausted (F-03-003).
- * Prefer this over `getStatus().state === "OPEN"` so combo pre-gates honor
- * lazy recovery + half-open slots via canExecute().
+ * If at least one healthy account is available for (provider, model), the provider
+ * circuit breaker does not block dispatch (Task 0143).
  */
-export function isProviderCircuitBlocking(provider: string | null | undefined): boolean {
+export async function isProviderCircuitBlocking(
+  provider: string | null | undefined,
+  model?: string | null,
+  options?: {
+    connectionId?: string | null;
+    allowedConnections?: string[] | null;
+    excludeConnectionIds?: string[] | Set<string> | null;
+    connections?: Array<Record<string, unknown>> | null;
+  }
+): Promise<boolean> {
   if (!provider || provider === "unknown") return false;
   try {
-    return !getCircuitBreaker(provider).canExecute();
+    const breaker = getCircuitBreaker(provider);
+    if (breaker.canExecute()) return false;
+    const healthy = await hasHealthyAccount(provider, model, options);
+    return !healthy;
   } catch {
     return false;
   }

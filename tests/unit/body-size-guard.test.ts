@@ -87,3 +87,36 @@ test("/api/v1/files route guard allows 15 MB (10 MB+ real-world scenario)", () =
   });
   assert.equal(checkBodySize(request, getBodySizeLimit("/api/v1/files")), null);
 });
+
+test("/api/db-backups/import route has 1000 MB dedicated limit floor", () => {
+  const limit = getBodySizeLimit("/api/db-backups/import", { maxBodySizeMb: 1 });
+  assert.equal(limit, 1000 * 1024 * 1024);
+});
+
+test("/api/db-backups/import route guard allows 1000 MB file upload", () => {
+  const thousandMb = 1000 * 1024 * 1024;
+  const request = new Request("http://localhost/api/db-backups/import", {
+    method: "POST",
+    headers: { "content-length": String(thousandMb) },
+  });
+  assert.equal(
+    checkBodySize(request, getBodySizeLimit("/api/db-backups/import", { maxBodySizeMb: 10 })),
+    null
+  );
+});
+
+test("/api/db-backups/import route guard rejects >1000 MB file upload", async () => {
+  const tooBig = 1100 * 1024 * 1024;
+  const request = new Request("http://localhost/api/db-backups/import", {
+    method: "POST",
+    headers: { "content-length": String(tooBig) },
+  });
+  const response = checkBodySize(
+    request,
+    getBodySizeLimit("/api/db-backups/import", { maxBodySizeMb: 10 })
+  );
+  assert.ok(response);
+  assert.equal(response.status, 413);
+  const body = await response.json();
+  assert.equal(body.error.code, "PAYLOAD_TOO_LARGE");
+});

@@ -215,7 +215,10 @@ import {
   computeBillableTokens,
   normalizeExecutorResult,
   executeWithUpstreamStartTimeout,
+  resolveUpstreamTimeoutMs,
 } from "./chatCore/upstreamTimeouts.ts";
+import { getProviderModel } from "../config/providerModels.ts";
+import { PROVIDERS } from "../config/constants.ts";
 import { getModelNormalizeToolCallId, getModelPreserveOpenAIDeveloperRole } from "@/lib/localDb";
 import { getProviderCredentials, extractSessionAffinityKey } from "@/sse/services/auth";
 import { deleteSessionAccountAffinity } from "@/lib/db/sessionAccountAffinity";
@@ -377,6 +380,7 @@ export async function handleChatCore({
   }
 
   // Per-request model-routing metadata (first extracted slice of the request-setup phase).
+  let activeComboConfig: Record<string, unknown> | null = null;
   const { apiFormat, customModelTargetFormat, requestedModel } = resolveChatCoreRequestSetup(
     modelInfo,
     body,
@@ -1026,6 +1030,9 @@ export async function handleChatCore({
           let comboConfig = await getComboByName(comboName);
           if (!comboConfig && comboName.startsWith("combo/")) {
             comboConfig = await getComboByName(comboName.substring(6));
+          }
+          if (comboConfig) {
+            activeComboConfig = comboConfig as unknown as Record<string, unknown>;
           }
           const comboRuntimeConfig =
             comboConfig?.config && typeof comboConfig.config === "object"
@@ -1796,6 +1803,7 @@ export async function handleChatCore({
           signatureNamespace: connectionId,
           copilotClient: copilotCompatibleReasoning,
           ...(preCompressionBody ? { preCompressionBody } : {}),
+          ...(activeComboConfig ? { comboConfig: activeComboConfig } : {}),
         }
       );
     }
@@ -2235,6 +2243,11 @@ export async function handleChatCore({
                     model: modelToCall,
                     signal: streamController.signal,
                     log,
+                    options: {
+                      modelTimeoutMs: getProviderModel(provider, modelToCall)?.timeoutMs,
+                      providerTimeoutMs: PROVIDERS[provider]?.timeoutMs,
+                      globalTimeoutMs: settings?.globalTimeoutMs ?? settings?.upstreamTimeoutMs,
+                    },
                     execute: (signal) =>
                       runWithCapture(providerRequestCapture, () =>
                         executor.execute({
@@ -2453,6 +2466,11 @@ export async function handleChatCore({
                         model: modelToCall,
                         signal: streamController.signal,
                         log,
+                        options: {
+                          modelTimeoutMs: getProviderModel(provider, modelToCall)?.timeoutMs,
+                          providerTimeoutMs: PROVIDERS[provider]?.timeoutMs,
+                          globalTimeoutMs: settings?.globalTimeoutMs ?? settings?.upstreamTimeoutMs,
+                        },
                         execute: (signal) =>
                           runWithCapture(providerRequestCapture, () =>
                             executor.execute({

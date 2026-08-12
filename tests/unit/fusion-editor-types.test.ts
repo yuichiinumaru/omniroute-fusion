@@ -303,3 +303,78 @@ test("switching kind to combo-ref drops cognitive fields on unitToPayload — EP
   assert.equal("thinkingMode" in (refPayload as object), false);
   assert.equal("systemAddon" in (refPayload as object), false);
 });
+
+// ─── Task 0133 — Rules Mode Payload & Schema Tests ──────────────────────────
+
+test("buildSavePayload & formFromCombo round-trip rules mode with AND/OR operator", () => {
+  const form = emptyFusionForm();
+  form.name = "rules-fusion";
+  form.panels = [{ kind: "model", model: "p/a" }, { kind: "model", model: "p/b" }];
+  form.triggers.mode = "rules";
+  form.triggers.operator = "OR";
+  form.triggers.rules = [
+    { id: "r1", kind: "tool-call", pattern: "write*" },
+    { id: "r2", kind: "text-match", pattern: "security" },
+  ];
+  form.fallbackStrategy = "priority";
+
+  const payload = buildSavePayload(form, null, "create");
+  assert.equal(payload.strategy, "conditional-fusion");
+  const triggers = payload.config.triggers as {
+    mode: string;
+    operator: string;
+    rules: Array<{ kind: string; pattern: string }>;
+  };
+  assert.equal(triggers.mode, "rules");
+  assert.equal(triggers.operator, "OR");
+  assert.equal(triggers.rules.length, 2);
+  assert.equal(triggers.rules[0]?.kind, "tool-call");
+  assert.equal(triggers.rules[0]?.pattern, "write*");
+  assert.equal(triggers.rules[1]?.kind, "text-match");
+  assert.equal(triggers.rules[1]?.pattern, "security");
+
+  // Validate against Zod schema
+  const parsed = createComboSchema.safeParse(payload);
+  assert.equal(parsed.success, true, parsed.success ? "" : JSON.stringify(parsed.error?.issues));
+
+  // Round-trip back to form
+  const loaded = formFromCombo({
+    id: "combo-1",
+    name: payload.name,
+    strategy: payload.strategy,
+    models: payload.models,
+    config: payload.config,
+  });
+
+  assert.equal(loaded.triggers.mode, "rules");
+  assert.equal(loaded.triggers.operator, "OR");
+  assert.equal(loaded.triggers.rules.length, 2);
+  assert.equal(loaded.triggers.rules[0]?.kind, "tool-call");
+  assert.equal(loaded.triggers.rules[0]?.pattern, "write*");
+  assert.equal(loaded.triggers.rules[1]?.kind, "text-match");
+  assert.equal(loaded.triggers.rules[1]?.pattern, "security");
+});
+
+test("createComboSchema rejects rule tree with depth > 5", () => {
+  // Build a tree of depth 6
+  let deepRule: Record<string, unknown> = { kind: "tool-call", pattern: "write*" };
+  for (let i = 0; i < 5; i++) {
+    deepRule = { operator: "AND", rules: [deepRule] };
+  }
+
+  const payload = {
+    name: "deep-rules-combo",
+    strategy: "conditional-fusion" as const,
+    models: ["p/a"],
+    config: {
+      triggers: {
+        mode: "rules",
+        operator: "AND",
+        rules: [deepRule],
+      },
+    },
+  };
+
+  const parsed = createComboSchema.safeParse(payload);
+  assert.equal(parsed.success, false, "Tree depth > 5 must be rejected by Zod schema");
+});

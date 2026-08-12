@@ -1672,6 +1672,15 @@ function ComboCard({
                   proxy
                 </span>
               )}
+              {combo?.config && (combo.config.reasoningPolicy || combo.config.reasoningEffort || combo.config.thinkingBudgetTokens !== undefined) && (
+                <span
+                  className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center gap-0.5"
+                  title={`Reasoning Policy Override: ${combo.config.reasoningPolicy || "custom"}${combo.config.reasoningEffort ? ` (${combo.config.reasoningEffort})` : ""}`}
+                >
+                  <span className="material-symbols-outlined text-[11px]">psychology</span>
+                  {combo.config.reasoningPolicy || "reasoning"}:{combo.config.reasoningEffort || combo.config.thinkingBudgetTokens || "set"}
+                </span>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1982,6 +1991,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const strategyChangeMountedRef = useRef(false);
   // Agent features (#399 / #401 / #454)
   const [agentSystemMessage, setAgentSystemMessage] = useState<string>(combo?.system_message || "");
+  const [agentSystemMessageMode, setAgentSystemMessageMode] = useState<"override" | "prefix" | "suffix">(
+    (combo?.system_message_mode as "override" | "prefix" | "suffix") || "override"
+  );
   const [agentToolFilter, setAgentToolFilter] = useState<string>(combo?.tool_filter_regex || "");
   const [agentContextCache, setAgentContextCache] = useState<boolean>(
     !!combo?.context_cache_protection
@@ -2021,6 +2033,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       setNameError("");
       setContextLengthError("");
       setAgentSystemMessage(nextCombo?.system_message || "");
+      setAgentSystemMessageMode(
+        (nextCombo?.system_message_mode as "override" | "prefix" | "suffix") || "override"
+      );
       setAgentToolFilter(nextCombo?.tool_filter_regex || "");
       setAgentContextCache(!!nextCombo?.context_cache_protection);
       setContextLength(nextCombo?.context_length || undefined);
@@ -2037,6 +2052,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       showAdvanced,
       nameError,
       agentSystemMessage,
+      agentSystemMessageMode,
       agentToolFilter,
       agentContextCache,
       contextLength,
@@ -2049,6 +2065,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     showAdvanced,
     nameError,
     agentSystemMessage,
+    agentSystemMessageMode,
     agentToolFilter,
     agentContextCache,
     contextLength,
@@ -2779,8 +2796,13 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     }
 
     // Agent features (#399 / #401 / #454)
-    if (agentSystemMessage.trim()) saveData.system_message = agentSystemMessage.trim();
-    else delete saveData.system_message;
+    if (agentSystemMessage.trim()) {
+      saveData.system_message = agentSystemMessage.trim();
+      saveData.system_message_mode = agentSystemMessageMode;
+    } else {
+      delete saveData.system_message;
+      delete saveData.system_message_mode;
+    }
     if (agentToolFilter.trim()) saveData.tool_filter_regex = agentToolFilter.trim();
     else delete saveData.tool_filter_regex;
     if (agentContextCache) saveData.context_cache_protection = true;
@@ -4196,14 +4218,38 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
 
               {/* System Message Override */}
               <div>
-                <label className="text-[11px] font-medium text-text-muted block mb-0.5">
-                  {getI18nOrFallback(
+                <div className="flex items-center justify-between mb-0.5">
+                  <label htmlFor="combo-system-message-input" className="text-[11px] font-medium text-text-muted block">
+                    {getI18nOrFallback(
+                      t,
+                      "agentFeaturesSystemMessageOverride",
+                      "System message override"
+                    )}
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <label htmlFor="combo-system-message-mode-select" className="text-[10px] text-text-muted">
+                      {getI18nOrFallback(t, "agentFeaturesSystemMessageMode", "Mode:")}
+                    </label>
+                    <select
+                      id="combo-system-message-mode-select"
+                      aria-label={getI18nOrFallback(t, "agentFeaturesSystemMessageMode", "System message mode")}
+                      value={agentSystemMessageMode}
+                      onChange={(e) => setAgentSystemMessageMode(e.target.value as "override" | "prefix" | "suffix")}
+                      className="text-[11px] py-0.5 px-1.5 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                    >
+                      <option value="override" className="bg-surface-dark text-text-main">Override</option>
+                      <option value="prefix" className="bg-surface-dark text-text-main">Prefix</option>
+                      <option value="suffix" className="bg-surface-dark text-text-main">Suffix</option>
+                    </select>
+                  </div>
+                </div>
+                <textarea
+                  id="combo-system-message-input"
+                  aria-label={getI18nOrFallback(
                     t,
                     "agentFeaturesSystemMessageOverride",
                     "System message override"
                   )}
-                </label>
-                <textarea
                   rows={2}
                   value={agentSystemMessage}
                   onChange={(e) => setAgentSystemMessage(e.target.value)}
@@ -4500,7 +4546,83 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                                 ? ` · ${entry.weight}%`
                                 : ""}
                             </p>
-                          </div>
+                  </div>
+                  {/* Reasoning Policy Controls */}
+                  <div className="pt-2 border-t border-black/5 dark:border-white/5 flex flex-col gap-2">
+                    <p className="text-xs font-semibold text-text-main flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px] text-violet-400">psychology</span>
+                      {getI18nOrFallback(t, "comboReasoningPolicyTitle", "Reasoning Policy Override")}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[11px] font-medium text-text-muted mb-1 block">
+                          {getI18nOrFallback(t, "reasoningPolicyMode", "Policy Mode")}
+                        </label>
+                        <select
+                          value={config.reasoningPolicy || ""}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              reasoningPolicy: e.target.value ? (e.target.value as any) : undefined,
+                            })
+                          }
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        >
+                          <option value="" className="bg-surface text-text-main">{getI18nOrFallback(t, "reasoningPolicyInherit", "Inherit (Global Default)")}</option>
+                          <option value="auto" className="bg-surface text-text-main">Auto (Provider decides)</option>
+                          <option value="passthrough" className="bg-surface text-text-main">Passthrough</option>
+                          <option value="custom" className="bg-surface text-text-main">Custom (Fixed effort/budget)</option>
+                          <option value="adaptive" className="bg-surface text-text-main">Adaptive (Scale with complexity)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-medium text-text-muted mb-1 block">
+                          {getI18nOrFallback(t, "reasoningEffortLabel", "Reasoning Effort")}
+                        </label>
+                        <select
+                          value={config.reasoningEffort || ""}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              reasoningEffort: e.target.value ? (e.target.value as any) : undefined,
+                            })
+                          }
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        >
+                          <option value="" className="bg-surface text-text-main">{getI18nOrFallback(t, "effortDefault", "Default")}</option>
+                          <option value="none" className="bg-surface text-text-main">None (0 tokens)</option>
+                          <option value="low" className="bg-surface text-text-main">Low (1K tokens)</option>
+                          <option value="medium" className="bg-surface text-text-main">Medium (10K tokens)</option>
+                          <option value="high" className="bg-surface text-text-main">High (128K tokens)</option>
+                          <option value="xhigh" className="bg-surface text-text-main">X-High (128K tokens)</option>
+                          <option value="max" className="bg-surface text-text-main">Max (128K tokens)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-medium text-text-muted mb-1 block">
+                          {getI18nOrFallback(t, "thinkingBudgetTokensLabel", "Token Budget")}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="2000000"
+                          step="1024"
+                          value={config.thinkingBudgetTokens ?? ""}
+                          placeholder="10240"
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              thinkingBudgetTokens: e.target.value ? Number(e.target.value) : undefined,
+                            })
+                          }
+                          className="w-full text-xs py-1.5 px-2 rounded border border-white/10 bg-transparent focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-text-muted/80 leading-relaxed">
+                      Combo policy overrides Global/Passthrough settings. Provider or Model-suffix rules take precedence over Combo rules.
+                    </p>
+                  </div>
                         </div>
                       </div>
                     ))

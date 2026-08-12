@@ -46,7 +46,16 @@ if (!globalThis.__windsurfCallbackState) {
 }
 
 /** Providers that use the PKCE browser callback flow (like Codex). */
-const PKCE_CALLBACK_PROVIDERS = new Set(["codex"]);
+const PKCE_CALLBACK_PROVIDERS = new Set(["codex", "grok-cli"]);
+
+/** Device Code providers whose token grant does not use a PKCE verifier. */
+const NO_PKCE_DEVICE_CODE_PROVIDERS = new Set([
+  "github",
+  "kimi-coding",
+  "kilocode",
+  "codebuddy-cn",
+  "grok-cli",
+]);
 
 /**
  * Providers whose device flow runs in the user's browser (auth.openai.com blocks
@@ -195,12 +204,9 @@ export async function GET(
       // Request device code (through proxy if configured)
       let deviceData;
       if (
-        provider === "github" ||
+        NO_PKCE_DEVICE_CODE_PROVIDERS.has(provider) ||
         provider === "kiro" ||
-        provider === "amazon-q" ||
-        provider === "kimi-coding" ||
-        provider === "kilocode" ||
-        provider === "codebuddy-cn"
+        provider === "amazon-q"
       ) {
         // GitHub, Kiro/Amazon Q, Kimi Coding, and KiloCode don't use PKCE for device code
         if ((provider === "kiro" || provider === "amazon-q") && startUrl) {
@@ -296,12 +302,16 @@ async function handleStartCallbackServer(provider: string, searchParams: URLSear
     const redirectUri = `http://localhost:${port}/auth/callback`;
     const authData = generateAuthData(provider, redirectUri);
 
+    // F2 FIX: store the server-generated state alongside verifier so
+    // /exchange and /poll-callback can enforce missing/mismatch at the
+    // route boundary. PKCE providers always have a non-empty state.
     globalThis[stateKey] = {
       callbackParams: null,
       close,
       port,
       redirectUri,
       codeVerifier: authData.codeVerifier,
+      expectedState: authData.state,
       startedAt: Date.now(),
     };
 
@@ -439,7 +449,67 @@ export async function POST(
       const normalizedState = typeof state === "string" && state.length > 0 ? state : undefined;
       const providerData = getProvider(provider);
 
-      if (providerData.flowType === "authorization_code_pkce" && !codeVerifier) {
+      // F2 FIX: PKCE callback-session state must be enforced server-side.
+      // For grok-cli, codex, and other grokCli-compatible PKCE callback
+      // providers, the generated state is held in the callback server
+      // session (expectedState). When such a session exists, the exchange
+      // MUST carry a non-empty state that matches exactly (constant-time);
+      // missing or mismatched state must reject with 400. Device-code
+      // non-PKCE semantics are preserved: non-PKCE flows never create a
+      // callback session, so they never enter this guard.
+      if (PKCE_CALLBACK_PROVIDERS.has(provider)) {
+        const stateKey = provider === "codex" ? "__codexCallbackState" : "__windsurfCallbackState";
+        // grok-cli shares __codexCallbackState for PKCE (same as codex).
+        const activeKey = provider === "grok-cli" ? "__codexCallbackState" : stateKey;
+        const cbSession = globalThis[activeKey as keyof typeof globalThis] as
+          | { expectedState?: string | null | undefined }
+          | null
+          | undefined;
+        const expectedState =
+          cbSession && typeof cbSession === "object"
+            ? (cbSession as { expectedState?: string }).expectedState
+            : null;
+        if (typeof expectedState === "string" && expectedState.length > 0) {
+          const provided = typeof state === "string" && state.length > 0 ? state : null;
+          if (!provided) {
+            return NextResponse.json(
+              {
+                error: {
+                  message: "OAuth state mismatch",
+                  details: [
+                    {
+                      field: "state",
+                      message: "Missing OAuth state. Restart the connection and try again.",
+                    },
+                  ],
+                },
+              },
+              { status: 400 }
+            );
+          }
+          if (!safeEqual(provided, expectedState)) {
+            return NextResponse.json(
+              {
+                error: {
+                  message: "OAuth state mismatch",
+                  details: [
+                    {
+                      field: "state",
+                      message: "OAuth state mismatch. Restart the connection and try again.",
+                    },
+                  ],
+                },
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
+
+      if (
+        (providerData.flowType === "authorization_code_pkce" || providerData.supportsBrowserPkce) &&
+        !codeVerifier
+      ) {
         return NextResponse.json(
           {
             error: {
@@ -527,13 +597,8 @@ export async function POST(
 
       // Poll for token (through proxy if configured)
       let result;
-      if (
-        provider === "github" ||
-        provider === "kimi-coding" ||
-        provider === "kilocode" ||
-        provider === "codebuddy-cn"
-      ) {
-        // For providers that don't use PKCE (GitHub, Kimi Coding, KiloCode), don't pass codeVerifier
+      if (NO_PKCE_DEVICE_CODE_PROVIDERS.has(provider)) {
+        // Non-PKCE device providers do not receive a code verifier.
         result = await runWithProxyContextOrDirect(proxy, () =>
           (pollForToken as any)(provider, deviceCode)
         );
@@ -606,13 +671,22 @@ export async function POST(
       }
 
       // Still pending or error - don't create connection for pending states
+      // F4: the poll errorDescription transits the browser. It MUST be
+      // sanitized at the route boundary as defense-in-depth beyond the
+      // provider-level redactGrokBuildSecrets() — the route is the last
+      // line before NextResponse.json reaches the client. Generic
+      // sanitizeErrorMessage preserves actionable prefixes (e.g. "expired")
+      // while stripping credentials-shaped fragments.
       const isPending =
         result.pending || result.error === "authorization_pending" || result.error === "slow_down";
+      const rawDescription =
+        typeof result.errorDescription === "string" ? result.errorDescription : undefined;
+      const safeDescription = rawDescription ? sanitizeErrorMessage(rawDescription) : undefined;
 
       return NextResponse.json({
         success: false,
         error: result.error,
-        errorDescription: result.errorDescription,
+        ...(safeDescription ? { errorDescription: safeDescription } : {}),
         pending: isPending,
       });
     }
@@ -630,8 +704,11 @@ export async function POST(
         );
       }
 
-      // Windsurf and Devin CLI share __windsurfCallbackState; Codex uses its own slot
-      const stateKey = provider === "codex" ? "__codexCallbackState" : "__windsurfCallbackState";
+      // Windsurf and Devin CLI share __windsurfCallbackState; Codex/grok-cli share __codexCallbackState.
+      const stateKey =
+        provider === "codex" || provider === "grok-cli"
+          ? "__codexCallbackState"
+          : "__windsurfCallbackState";
 
       if (!globalThis[stateKey]) {
         return NextResponse.json({
@@ -643,6 +720,38 @@ export async function POST(
 
       if (!globalThis[stateKey].callbackParams) {
         return NextResponse.json({ success: false, pending: true });
+      }
+
+      // F2 FIX: poll-callback callback-session state enforcement. Missing
+      // callback state or mismatched state must reject with 400-like payload
+      // before any token exchange. Preserve device-code non-PKCE semantics:
+      // only PKCE callback providers ever reach poll-callback, so this is
+      // always the correct branch to gate.
+      const expectedCallbackState =
+        typeof globalThis[stateKey]?.expectedState === "string"
+          ? (globalThis[stateKey] as { expectedState: string }).expectedState
+          : null;
+      if (typeof expectedCallbackState === "string" && expectedCallbackState.length > 0) {
+        const incomingState =
+          globalThis[stateKey]?.callbackParams?.state as string | null | undefined;
+        if (!incomingState || !safeEqual(incomingState, expectedCallbackState)) {
+          // Clean up server before rejecting — the callback was consumed
+          // (possibly malicious) and the session must not be reused.
+          try {
+            globalThis[stateKey].close();
+          } catch {
+            /* ignore */
+          }
+          globalThis[stateKey] = null;
+          return NextResponse.json(
+            {
+              success: false,
+              error: "state_mismatch",
+              errorDescription: "OAuth state mismatch. Restart the connection and try again.",
+            },
+            { status: 400 }
+          );
+        }
       }
 
       // Callback received! Extract code and exchange for tokens

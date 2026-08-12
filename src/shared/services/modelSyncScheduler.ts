@@ -15,6 +15,17 @@ import { getRuntimePorts } from "@/lib/runtime/ports";
 const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MODEL_SYNC_SETTING_KEY = "model_sync_last_run";
 const MODEL_SYNC_INTERNAL_AUTH_HEADER = "x-model-sync-internal-auth";
+const DEBOUNCE_WINDOW_MS = 5000; // 5 seconds debounce window for auto-sync triggers
+
+const inFlightSyncPromises = new Map<string, Promise<boolean>>();
+const recentSyncCompletedAt = new Map<string, number>();
+
+export function __resetModelSyncSchedulerStateForTests(): void {
+  inFlightSyncPromises.clear();
+  recentSyncCompletedAt.clear();
+  schedulerTimer = null;
+  isRunning = false;
+}
 
 const { dashboardPort } = getRuntimePorts();
 
@@ -71,11 +82,16 @@ export function isModelSyncInternalRequest(request: { headers: Headers }): boole
 
 /**
  * Fetch all provider connections that have autoSync enabled.
+ * Respects the global providerModelAutoSyncEnabled setting (default true).
  */
-async function getAutoSyncConnections(): Promise<
+export async function getAutoSyncConnections(): Promise<
   Array<{ id: string; provider: string; name?: string }>
 > {
   try {
+    const settings = await getSettings();
+    if (settings.providerModelAutoSyncEnabled === false) {
+      return [];
+    }
     const { getProviderConnections } = await import("@/lib/localDb");
     const connections = await getProviderConnections();
     return connections.filter((conn: any) => {
@@ -84,11 +100,93 @@ async function getAutoSyncConnections(): Promise<
         conn.providerSpecificData && typeof conn.providerSpecificData === "object"
           ? conn.providerSpecificData
           : {};
-      return psd.autoSync === true;
+      return psd.autoSync !== false && psd.autoSync !== "false" && psd.autoSync !== 0;
     });
   } catch (err) {
     console.warn("[ModelSync] Failed to load connections:", (err as Error).message);
     return [];
+  }
+}
+
+export type TriggerModelSyncResult = {
+  triggered: boolean;
+  reason?:
+    | "global_disabled"
+    | "connection_inactive"
+    | "connection_disabled"
+    | "in_flight"
+    | "debounced"
+    | "error"
+    | "ok";
+};
+
+/**
+ * Trigger model sync for a single connection (or provider) idempotently.
+ * Used when a connection is created or updated, or for explicit triggers.
+ * Respects the global setting, per-connection setting, in-flight promises, and debounce windows.
+ */
+export async function triggerConnectionModelSync(
+  connectionId: string,
+  providerId?: string,
+  options: { mode?: "merge" | "sync"; force?: boolean; baseUrl?: string } = {}
+): Promise<TriggerModelSyncResult> {
+  try {
+    const settings = await getSettings();
+    if (settings.providerModelAutoSyncEnabled === false) {
+      return { triggered: false, reason: "global_disabled" };
+    }
+
+    const { getProviderConnectionById } = await import("@/models");
+    const connection = await getProviderConnectionById(connectionId);
+    if (!connection || (!connection.isActive && connection.isActive !== undefined)) {
+      return { triggered: false, reason: "connection_inactive" };
+    }
+
+    const psd =
+      connection.providerSpecificData && typeof connection.providerSpecificData === "object"
+        ? connection.providerSpecificData
+        : {};
+    if (psd.autoSync === false || psd.autoSync === "false" || psd.autoSync === 0) {
+      return { triggered: false, reason: "connection_disabled" };
+    }
+
+    const connProvider = providerId || connection.provider || "unknown";
+    const connKey = `conn:${connectionId}`;
+    const providerKey = `provider:${connProvider}`;
+    const now = Date.now();
+
+    if (!options.force) {
+      if (inFlightSyncPromises.has(connKey) || inFlightSyncPromises.has(providerKey)) {
+        return { triggered: false, reason: "in_flight" };
+      }
+      const lastConnTime = recentSyncCompletedAt.get(connKey) || 0;
+      const lastProvTime = recentSyncCompletedAt.get(providerKey) || 0;
+      if (now - lastConnTime < DEBOUNCE_WINDOW_MS || now - lastProvTime < DEBOUNCE_WINDOW_MS) {
+        return { triggered: false, reason: "debounced" };
+      }
+    }
+
+    const baseUrl = options.baseUrl || getModelSyncInternalBaseUrl();
+    const syncPromise = (async () => {
+      try {
+        return await syncConnectionModels(connectionId, connProvider, baseUrl);
+      } finally {
+        inFlightSyncPromises.delete(connKey);
+        inFlightSyncPromises.delete(providerKey);
+        const completedAt = Date.now();
+        recentSyncCompletedAt.set(connKey, completedAt);
+        recentSyncCompletedAt.set(providerKey, completedAt);
+      }
+    })();
+
+    inFlightSyncPromises.set(connKey, syncPromise);
+    inFlightSyncPromises.set(providerKey, syncPromise);
+
+    const success = await syncPromise;
+    return { triggered: success, reason: success ? "ok" : "error" };
+  } catch (err) {
+    console.warn(`[ModelSync] Trigger failed for connection ${connectionId}:`, (err as Error).message);
+    return { triggered: false, reason: "error" };
   }
 }
 

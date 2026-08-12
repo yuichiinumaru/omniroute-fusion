@@ -81,7 +81,7 @@ Use these as the **default required exits** for product/code tasks (docs/governa
 - SurrealDB `.bind()` laws  
 - Hand-editing root `CHANGELOG.md` / `CHANGELOG-FULL.md` / the `docs/changelog` symlink as a write path
 
-**DoD SSoT (Task 0065, ledger adopted Task 0106)**: [`.agents/rules/definition-of-done-omniroute.md`](../../.agents/rules/definition-of-done-omniroute.md) takes precedence for OmniRoute closes. Parent [`.agents/rules/definition-of-done.md`](../../.agents/rules/definition-of-done.md) remains cargo-centric for multi-stack history and is **not** mandatory here. This section + `000-template.md` + the overlay are the authoritative exits.
+**DoD SSoT (Task 0065, ledger adopted Task 0106; relocated Task 4586)**: [`cybernetics-core/AGENTS-definition-of-done-omniroute.md`](../../../AGENTS-definition-of-done-omniroute.md) takes precedence for OmniRoute closes (provenance: `.agents/rules/definition-of-done-omniroute.md` → `.archive/rules/`). Parent [`.agents/rules/definition-of-done.md`](../../.agents/rules/definition-of-done.md) remains cargo-centric for multi-stack history and is **not** mandatory here. This section + `000-template.md` + the overlay are the authoritative exits.
 
 ---
 
@@ -119,7 +119,8 @@ Missing evidence = not reviewable. Reviewer must be a **different** agent than t
 | `docs/tasks/000-template.md` | Child live SSoT (this repo) |
 | `docs/tasks/AGENTS.md` | Child live SSoT (this file) |
 | `docs/tasks/OMNIROUTE-CREATE-TASKS-EXITS.md` | Child create-tasks exit recipe (0065) |
-| `.agents/rules/definition-of-done-omniroute.md` | Child DoD overlay (0065) |
+| `cybernetics-core/AGENTS-definition-of-done-omniroute.md` | Child DoD overlay (0065; relocated Task 4586 from `.agents/rules/`) |
+| `cybernetics-core/AGENTS-sqlite-omniroute-product-exception.md` | SQLite product exception (relocated Task 4586 from `.agents/rules/`) |
 
 If tasklist is missing, work from lane directories (`ls docs/tasks/01-open/` etc.) and numbering rules — not from a fabricated index.
 
@@ -132,7 +133,7 @@ Workflow [`.agents/workflows/gt-create-tasks.md`](../../.agents/workflows/gt-cre
 1. Read **this** file.  
 2. Use **`docs/tasks/000-template.md`** as structure.  
 3. Emit **npm** Exit Conditions from **[`OMNIROUTE-CREATE-TASKS-EXITS.md`](./OMNIROUTE-CREATE-TASKS-EXITS.md)** (copy-paste blocks §2/§3) — not cargo-only defaults.  
-4. Close against [`.agents/rules/definition-of-done-omniroute.md`](../../.agents/rules/definition-of-done-omniroute.md).
+4. Close against [`cybernetics-core/AGENTS-definition-of-done-omniroute.md`](../../../AGENTS-definition-of-done-omniroute.md) (relocated Task 4586; archive at `.archive/rules/definition-of-done-omniroute.md`).
 
 Do not re-import cargo exits into new `01-open/` tasks for this product.
 
@@ -146,7 +147,7 @@ Full text lives in root `AGENTS.md`. Non-negotiable for task agents:
 - **No commit to `main`**; worktrees under `.worktrees/<slug>/` per Hard Rule #19 (see root `CLAUDE.md` Worktree isolation).  
 - **Doc accuracy**: if `grep` finds zero hits, do not document the name. When docs claim inventory counts, require a live verification exit (0009 U5).  
 - SQLite via `src/lib/db/` is intentional product storage — not a temporary stand-in to abolish.
-  Agent-readable exception: [`.agents/rules/sqlite-omniroute-product-exception.md`](../../.agents/rules/sqlite-omniroute-product-exception.md)
+  Agent-readable exception: [`cybernetics-core/AGENTS-sqlite-omniroute-product-exception.md`](../../../AGENTS-sqlite-omniroute-product-exception.md) (relocated Task 4586 from `.agents/rules/`; archive at `.archive/rules/sqlite-omniroute-product-exception.md`)
   (scanner ledger: `.agents/rules/sqlite-abolition-exceptions.json`; policy cross-ref in
   `sqlite-abolition-policy.md`).
 
@@ -158,7 +159,7 @@ Full text lives in root `AGENTS.md`. Non-negotiable for task agents:
 |----------|------|
 | [`000-template.md`](./000-template.md) | Live task shape |
 | [`OMNIROUTE-CREATE-TASKS-EXITS.md`](./OMNIROUTE-CREATE-TASKS-EXITS.md) | Create-tasks npm exit recipe (0065) |
-| [`.agents/rules/definition-of-done-omniroute.md`](../../.agents/rules/definition-of-done-omniroute.md) | OmniRoute DoD overlay (0065) — **authoritative** |
+| [`cybernetics-core/AGENTS-definition-of-done-omniroute.md`](../../../AGENTS-definition-of-done-omniroute.md) | OmniRoute DoD overlay (0065; relocated Task 4586) — **authoritative** |
 | [`.archive/000-template-moved-to-parent.md`](./.archive/000-template-moved-to-parent.md) | Provenance for template restore |
 | [`00-planning/EPIC-14-omniroute-child-harness-localization.md`](./00-planning/EPIC-14-omniroute-child-harness-localization.md) | Harness localization epic |
 | Root [`AGENTS.md`](../../AGENTS.md) | Product constitution + Hard Rules |

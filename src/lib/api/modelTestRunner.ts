@@ -3,10 +3,13 @@ import { POST as postChatCompletion } from "@/app/api/v1/chat/completions/route"
 import { handleValidatedEmbeddingRequestBody } from "@/app/api/v1/embeddings/route";
 import { POST as postRerank } from "@/app/api/v1/rerank/route";
 import { buildComboTestRequestBody, extractComboTestResponseText } from "@/lib/combos/testHealth";
-import { getCustomModels } from "@/lib/localDb";
+import { getCustomModels, getSettings } from "@/lib/localDb";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { withRateLimit } from "@omniroute/open-sse/services/rateLimitManager";
 import { getModelInfoCore, resolveProviderAlias } from "@omniroute/open-sse/services/model.ts";
+import { getProviderModel } from "@omniroute/open-sse/config/providerModels.ts";
+import { PROVIDERS } from "@omniroute/open-sse/config/constants.ts";
+import { resolveUpstreamTimeoutMs } from "@omniroute/open-sse/handlers/chatCore/upstreamTimeouts.ts";
 
 const INTERNAL_ORIGIN = "http://omniroute.internal";
 const DEFAULT_TEST_TIMEOUT_MS = 10_000;
@@ -165,9 +168,19 @@ export interface SingleModelTestResult {
 export async function runSingleModelTest(
   options: RunSingleModelTestOptions
 ): Promise<SingleModelTestResult> {
-  const { providerId, modelId, connectionId, timeoutMs = DEFAULT_TEST_TIMEOUT_MS } = options;
+  const { providerId, modelId, connectionId, timeoutMs: explicitTimeoutMs } = options;
 
   const canonicalProviderId = resolveProviderAlias(providerId) || providerId;
+
+  const settings = await getSettings().catch(() => ({} as Record<string, unknown>));
+  const modelEntry = getProviderModel(canonicalProviderId, modelId);
+  const providerEntry = (PROVIDERS as Record<string, any>)[canonicalProviderId];
+  const effectiveTimeoutMs = resolveUpstreamTimeoutMs({
+    modelTimeoutMs: modelEntry?.timeoutMs,
+    providerTimeoutMs: providerEntry?.timeoutMs,
+    globalTimeoutMs: (settings as any)?.modelTestTimeoutMs,
+    defaultTimeoutMs: explicitTimeoutMs ?? DEFAULT_TEST_TIMEOUT_MS,
+  });
 
   let fullModelStr = modelId;
   if (!fullModelStr.includes("/")) {
@@ -214,7 +227,7 @@ export async function runSingleModelTest(
   const timeoutHandle = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, timeoutMs);
+  }, effectiveTimeoutMs);
 
   const runInner = async (signal: AbortSignal): Promise<Response> => {
     if (isEmbedding) {
@@ -253,7 +266,7 @@ export async function runSingleModelTest(
           status: "error",
           latencyMs,
           httpStatus: 500,
-          error: `Timeout (${Math.round(timeoutMs / 1000)}s)`,
+          error: `Timeout (${Math.round(effectiveTimeoutMs / 1000)}s)`,
           isTimeout: true,
         };
       }

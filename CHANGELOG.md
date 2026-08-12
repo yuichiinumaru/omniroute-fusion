@@ -2,7 +2,492 @@
 
 > **Note**: Auto-generated from individual entries in `.changelog/`.
 > **Do NOT edit manually** - use the changelog skill/subcommands.
-> **Last rebuilt**: 2026-08-06 00:38:43 UTC
+> **Last rebuilt**: 2026-08-10 22:12:55 UTC
+
+---
+
+# Task 0158,0159: outbound-error-triage-workflow
+
+## Summary
+
+Prepared evidence-first outbound log triage and a curated self-improvement loop.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] The call-log endpoint and filters were verified in source; unauthenticated local probe returned HTTP 401, so no outbound-error findings were claimed.
+- [x] Task 0158 records the Gemini 3 thinking_budget mismatch and MetaMuse 404 as hypotheses requiring source/log correlation.
+- [x] Task 0159 requires no auto-reference mutation, max ten investigators, no general subagents, and resume/three-strike handling.
+
+---
+
+# Task 0157: combo-fail-soft-unavailable-models
+
+## Summary
+
+Created incident-driven combo resilience task with explicit distinction between upstream 404 body and harness tool-call schema failures.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Source investigation inspected combo.executeTarget, accountFallback.checkFallbackError, handleNoCredentials, and muse-spark-web; no Expected id literal exists in the codebase.
+- [x] Task requires mocked account A contributor 404 → account B normal model success, scoped lockout without provider breaker, aggregate error only after exhaustion, and sanitized logging.
+
+---
+
+# Task 0154,0155,0156: release-to-codebase-absorption-pipeline
+
+## Summary
+
+Prepared a reusable, provenance-aware release-to-codebase absorption pipeline without activating unreviewed harness mutations.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Releases page lists v3.8.42 through v3.8.49; GitHub API and raw CHANGELOG.md are readable sources.
+- [x] Fork package.json is 3.8.42 and reference package.json is 3.8.49.
+- [x] Tasks require dry-run defaults, explicit git pull --ff-only opt-in, dirty-tree refusal, max ten focused investigators, and no automatic code/task mutation.
+
+---
+
+# Task codex-live-smoke-auth: validate-codex-luna-after-prefix-fix
+
+## Summary
+
+The request reached the real Codex executor with canonical routing cx/gpt-5.6-luna → codex/gpt-5.6-luna and no requestOptions ReferenceError. The provider rejected all three eligible accounts with 401 because their refresh tokens are expired/invalid; 13 additional accounts were already filtered at 100% session usage. No successful completion/output tokens were produced.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] OMNIROUTE_BUILD_CPUS=8 OMNIROUTE_BUILD_MEMORY_MB=16384 npm run build (exit 0, cpus=8, 617/617); production :22000 health ok; one direct production POST /v1/responses smoke via src/app/api/v1/responses/route.ts with model cx/gpt-5.6-luna and minimal arithmetic prompt; route log canonicalized to codex/gpt-5.6-luna; upstream result HTTP 401 token_expired
+
+---
+
+# Task codex-runtime-prefix-fix: fix-codex-runtime-timeout-and-prefix-normalization
+
+## Summary
+
+Replaced two undefined requestOptions references in chatCore timeout wiring with the consolidated settings object. Added Codex-scoped provider-model normalization so cx/model, codex/model, and codex/cx/model converge to provider codex plus the bare model while non-Codex slash IDs remain untouched. Added production-path and source regressions. Build concurrency now auto-scales per build up to 80% logical CPU, bounded by memory and nofile.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/fine-grained-timeouts-consumers.test.ts tests/unit/model-resolver.test.ts tests/unit/chat-helpers.test.ts tests/unit/codex-gpt56-compat.test.ts (75/75); node --import tsx/esm --test tests/unit/build-next-isolated.test.ts (20/20); npm run typecheck:core (0); npx eslint touched files (0 errors); npm run build (617/617, exit 0); production :22000 restart + /api/health/ping status ok
+
+---
+
+# Task build-emfile: stabilize-next-build-file-descriptors
+
+## Summary
+
+Adds experimental.cpus default 4 with OMNIROUTE_BUILD_CPUS override, validates invalid values, warns on low nofile limits, preserves reference symlink isolation, and proves a green build under nofile=4096.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/build-next-isolated.test.ts; npm run typecheck:core; OMNIROUTE_BUILD_CPUS=4 OMNIROUTE_BUILD_MEMORY_MB=16384 npm run build (exit 0, 617/617 pages, peak RSS ~16.5 GiB); production :22000 health ok after controlled restart
+
+---
+
+# Task 0152,0153: provider-catalog-absorption-pipeline
+
+## Summary
+
+Prepared routine provider catalog comparison and safe absorption triage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Existing catalog extractor, runtime registry, provider consistency, model sync, pricing sync, and managed import patterns were inspected before task creation.
+- [x] The static references/diegosouzapw-omniroute snapshot is explicitly treated as provenance-limited, not live upstream.
+- [x] Tasks 0152 and 0153 use the OmniRoute template, npm exits, explicit ownership, and a 0152-to-0153 dependency.
+
+---
+
+# Task 0148,0149,0151: cursor-grok-provider-compatibility-tasks
+
+## Summary
+
+Created evidence-backed Cursor/Grok provider compatibility tasks; deferred Windsurf pending an upstream solution.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Tasks 0148, 0149, and 0151 use the OmniRoute template and are over 50 lines with npm-based exit conditions.
+- [x] Task 0149 precedes 0151 because it owns the shared Grok Build protocol/config contract.
+- [x] Task 0148 coordinates with Task 0120 to avoid Cursor protobuf/executor file collisions.
+
+---
+
+# Task build-isolation: build-reference-symlink-isolation
+
+## Summary
+
+Adds symlink-safe transient isolation, orphan recovery, signal/compile-failure restoration, backup preservation, and regression tests for the EACCES glob failure.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/build-next-isolated.test.ts tests/unit/build/assemble-standalone.test.ts; npm run build (exit 0, references restored, peak RSS sampled ~20.1 GiB)
+
+---
+
+# Task 0136: home-quota-client-server-boundary
+
+## Summary
+
+Splits pure client aggregation from server-only DB access, adds dpdm import-graph proofs, and fixes the Next client bundle failure caused by ioredis dns/net/tls imports.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/error-message-sanitization.test.ts tests/unit/provider-quota-summary-0136.test.ts; npx vitest run --config vitest.config.ts tests/unit/ui/home-degraded-warnings-0128.test.tsx tests/unit/ui/home-provider-quota-summary-0136.test.tsx; npm run typecheck:core
+
+---
+
+# Task 0145: kimi-web-core-coverage
+
+## Summary
+
+Covers non-stream and multi-frame stream decoding, abort/DONE behavior, HTTP/fetch errors, validator branches, request envelopes, and sanitized errors without live credentials.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/kimi-web-core-coverage.test.ts tests/unit/*kimi*.test.ts
+
+---
+
+# Task 0139: nvidia-runtime-failure-contract
+
+## Summary
+
+Separates synthetic 524, post-tool empty stream, valid tool-only completion, and upstream 5xx semantics without duplicating generic quality detection or weakening outage protection.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/nvidia-runtime-failure-contract.test.ts tests/unit/validate-quality-empty-streaming.test.ts tests/unit/nvidia-model-test-identity.test.ts tests/unit/combo-empty-content-failover-5085.test.ts
+
+---
+
+# Task 0133: Add AND/OR conditional fusion rules
+
+## Summary
+
+Implemented explicit `AND`/`OR` conditional fusion rules combining tool and text predicates with short-circuiting logic and backward-compatible defaults. Added bounded Zod validation for rule trees (depth <= 5) and extended the Fusion editor UI with accessible rule management controls without introducing new topbars or chrome.
+
+## Changes
+
+- **MOD** `src/shared/validation/schemas/combo.ts` — Added `fusionRuleSchema`, `getFusionRuleDepth` validation, and updated `triggers` schema to accept `mode: "rules"`, `operator: "AND" | "OR"`, and bounded `rules` array.
+- **MOD** `open-sse/services/fusionTriggers.ts` — Added `evaluateRule`, rule types (`FusionRule`, `FusionLeafRule`, `FusionGroupRule`), and updated `shouldTriggerFusion` with short-circuiting `AND`/`OR` rules evaluation and fail-closed defaults for empty/invalid rules.
+- **MOD** `open-sse/services/combo.ts` — Reassigned `let result` for repetition retry assignments fixing compilation errors.
+- **MOD** `src/app/(dashboard)/dashboard/fusions/fusionEditorTypes.ts` — Extended `TriggerMode`, `FusionTriggersForm`, `emptyFusionForm`, `formFromCombo`, and `buildSavePayload` to serialize/deserialize rules mode with AND/OR operator.
+- **MOD** `src/app/(dashboard)/dashboard/fusions/FusionTriggersSection.tsx` — Added rules mode button, operator selector (AND/OR), interactive rules list with kind select, pattern input, remove button, and add rule control.
+- **MOD** `src/i18n/messages/en.json` — Added i18n keys for rules mode and rule editor controls.
+- **MOD** `docs/architecture/FUSION.md` — Documented `rules` trigger mode and AND/OR conditional rules in schema and trigger modes sections.
+- **MOD** `tests/unit/fusion-triggers.test.ts` — Added unit tests for AND, OR, short-circuiting, empty/invalid rules, and nested rule groups (39/39 pass).
+- **MOD** `tests/unit/fusion-editor-types.test.ts` — Added unit tests for rules mode payload build, round-trip, and Zod depth validation (19/19 pass).
+
+## Verification
+
+- [x] `node --import tsx/esm --test tests/unit/fusion-triggers.test.ts tests/unit/fusion-editor-types.test.ts` — 58 pass
+- [x] `node --import tsx/esm --test tests/unit/fusion-contracts.test.ts tests/unit/fusion-cognitive-diversity.test.ts tests/unit/fusion-combo-ref-dispatch.test.ts tests/unit/fusion-timeout-abort.test.ts tests/unit/fusion-acting.test.ts tests/unit/fusion-units-resolve.test.ts tests/unit/fusion-panel-tools-none.test.ts` — 102 pass
+- [x] `node --import tsx/esm --test tests/unit/ui/fusions-routing-hub-matrix-0075.test.ts tests/unit/ui/fusions-list-acting-0077.test.ts` — 15 pass
+- [x] `npm run typecheck:core` — 0 errors
+- [x] `npx eslint` on touched files — 0 errors, 0 warnings
+
+---
+
+# Task 0131: repetition-sanity-retry
+
+## Summary
+
+Preserves opt-in guard semantics, retries within budget with a system sanity instruction, isolates repetition from breaker exhaustion, and falls through deterministically.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/stream-repetition-guard.test.ts tests/unit/combo-repetition-fallback.test.ts tests/unit/combo-repetition-sanity-retry.test.ts
+
+---
+
+# Task 0141: reasoning-budget-control-surfaces
+
+## Summary
+
+Consumes the 0140 resolver contract, preserves passthrough defaults, displays precedence/capabilities, validates unsupported controls, and adds UI/source-contract coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/reasoning-budget-control-surfaces.test.ts tests/unit/ui/thinking-budget-tab-0141.test.ts tests/unit/reasoning-budget-resolution.test.ts tests/unit/reasoning-budget-translator-integration.test.ts tests/unit/thinking-budget.test.ts tests/unit/thinking-budget-groq-3258.test.ts tests/unit/service-thinking-budget.test.ts tests/unit/base-thinking-budget-config-5312.test.ts
+
+---
+
+# Task 0134: consolidate-settings-routing-ai-resilience
+
+## Summary
+
+Removes obsolete peer tabs, composes each section once, updates sidebar/header active state, and adds anti-phantom chrome/redirect coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/ui/settings-routing-consolidation-0134.test.ts tests/unit/ui/settings-hub-tabnav-0054.test.ts tests/unit/settings-ui-layout-static.test.ts tests/integration/integration-wiring.test.ts tests/unit/dashboard-shell-tabs.test.ts tests/unit/sidebar-route-match.test.ts
+
+---
+
+# Task 0130: combo-system-prompt-modes
+
+## Summary
+
+Adds strict mode schema/type/API round-trip, deterministic middleware message transformation, accessible combo UI control, and production normalization coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/combo-system-prompt-modes.test.ts
+
+---
+
+# Task 0132: fine-grained-timeout-resolver
+
+## Summary
+
+Adds strict timeout precedence, wires runtime and test consumers, validates settings bounds, and preserves stream readiness, idle, SOCKS, and Codex timeout classes.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/chatcore-upstream-timeouts.test.ts tests/unit/fine-grained-timeouts-consumers.test.ts tests/unit/settings-timeouts.test.ts tests/unit/combo-config.test.ts tests/unit/stream-readiness-policy.test.ts
+
+---
+
+# Task 0136: home-provider-quota-summary
+
+## Summary
+
+Aggregates active accounts by canonical provider, preserves unknown/stale quota semantics, uses bounded domain reads, and renders a single-chrome Home widget.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/provider-quota-summary-0136.test.ts && npx vitest run --config vitest.config.ts tests/unit/ui/home-provider-quota-summary-0136.test.tsx tests/unit/ui/home-degraded-warnings-0128.test.tsx tests/unit/ui/home-page-client-dashboard-smoke-4615.test.tsx tests/unit/ui/home-provider-topology-section-4606.test.tsx tests/unit/ui/home-topology-hidden-4596.test.tsx
+
+---
+
+# Task 0129: provider-model-auto-sync-default-on
+
+## Summary
+
+Preserves manual/periodic sync, debounces duplicate triggers, isolates sync failures from connection persistence, and adds Routing settings coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/provider-model-auto-sync.test.ts
+
+---
+
+# Task 0148: sqlite-import-limit-1000mb
+
+## Summary
+
+Defaults and clamps OMNIROUTE_DB_IMPORT_MAX_MB at 1000 MB, preserves lower operator overrides, keeps audio/file upload limits separate, updates regression tests, and documents synchronization in AGENTS.md.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/body-size-guard.test.ts tests/unit/db-import-max-size-4719.test.ts
+
+---
+
+# Task 0143: account-aware-breaker-fallback
+
+## Summary
+
+Adds scope-aware account eligibility, preserves fail-closed provider outages and narrow model lockouts, and updates async regression callers.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/integration/account-aware-breaker.test.ts tests/unit/combo-resilience-wiring-0043.test.ts tests/unit/combo-402-fallback.test.ts tests/unit/combo-repetition-fallback.test.ts
+
+---
+
+# Task 0140: reasoning-budget-resolution
+
+## Summary
+
+Adds typed precedence resolution, effort/token capability gates, bounded budgets, suffix handling, and production-path translator coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/reasoning-budget-resolution.test.ts tests/unit/reasoning-budget-translator-integration.test.ts tests/unit/thinking-budget.test.ts tests/unit/thinking-budget-groq-3258.test.ts tests/unit/service-thinking-budget.test.ts tests/unit/base-thinking-budget-config-5312.test.ts tests/unit/kimi-k2.7-code-registration.test.ts
+
+---
+
+# Task 0128: home-degraded-key-inline-warnings
+
+## Summary
+
+Preserves health polling, sanitizes reasons, prevents search redirects and duplicate chrome, and adds deterministic Home warning coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] npx vitest run --config vitest.config.ts tests/unit/ui/home-degraded-warnings-0128.test.tsx tests/unit/ui/home-page-client-dashboard-smoke-4615.test.tsx tests/unit/ui/home-provider-topology-section-4606.test.tsx tests/unit/ui/home-topology-hidden-4596.test.tsx
+
+---
+
+# Task 0147: lmarena-error-path-coverage
+
+## Summary
+
+Adds deterministic error-path tests and prevents false completion events after an aborted pending stream read.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/lmarena-error-path-coverage.test.ts tests/unit/lmarena-*.test.ts tests/unit/executor-lmarena.test.ts
+
+---
+
+# Task 0146: qwen-tls-client-coverage
+
+## Summary
+
+Covers WAF, timeout/cache seams, SSE phases, and corrects test isolation evidence for transitive runtime side effects.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/qwen-tls-client-coverage.test.ts tests/unit/executor-qwen-web.test.ts
+
+---
+
+# Task 0144: antigravity-quota-family-bars
+
+## Summary
+
+Adds typed family grouping, minimum-remaining aggregation, reset/stale metadata preservation, and antigravity/agy regression coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/antigravity-quota-family-bars.test.ts tests/unit/provider-limits-ui.test.ts tests/unit/antigravity-usage-service.test.ts tests/unit/antigravity-usage-fetcher.test.ts tests/unit/usage-antigravity-family-split.test.ts
+
+---
+
+# Task 0142: combo-retry-control-labels
+
+## Summary
+
+Updates labels and help text with inclusive retry, scope, reset, transient-only, and default semantics, backed by regression and sabotage tests.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/combo-retry-control-labels.test.ts tests/unit/combo-config.test.ts tests/unit/combo-control-center.test.ts tests/unit/combo-cooldown-retry.test.ts tests/unit/chat-cooldown-aware-retry.test.ts tests/unit/combo-quota-share-cooldown-wait.test.ts tests/unit/combo-builder-draft.test.ts tests/unit/db-combos-crud.test.ts tests/unit/json-migration-combos.test.ts
+
+---
+
+# Task 0138: nvidia-test-target-identity
+
+## Summary
+
+Canonicalizes provider aliases, preserves legitimate Cline passthrough routes, returns expected and resolved provider/model metadata, and adds regression coverage.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] node --import tsx/esm --test tests/unit/nvidia-model-test-identity.test.ts tests/unit/model-test-runner.test.ts tests/unit/model-alias-provider-resolution.test.ts tests/unit/model-cross-proxy-compat.test.ts tests/unit/cline-catalog-models-3321.test.ts
 
 ---
 

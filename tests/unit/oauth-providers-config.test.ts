@@ -31,6 +31,7 @@ const {
   CURSOR_CONFIG,
   GITHUB_CONFIG,
   GITLAB_DUO_CONFIG,
+  GROK_BUILD_OAUTH_CONFIG,
   GROK_CLI_CONFIG,
   KILOCODE_CONFIG,
   KIMI_CODING_CONFIG,
@@ -86,7 +87,7 @@ const EXPECTED_CONFIG_BY_PROVIDER = {
   windsurf: WINDSURF_CONFIG,
   "devin-cli": WINDSURF_CONFIG,
   trae: TRAE_CONFIG,
-  "grok-cli": GROK_CLI_CONFIG,
+  "grok-cli": GROK_BUILD_OAUTH_CONFIG,
   "codebuddy-cn": CODEBUDDY_CN_CONFIG,
 };
 
@@ -135,6 +136,7 @@ const REQUIRED_FIELDS_BY_PROVIDER = {
   windsurf: ["authorizeUrl", "apiServerUrl", "exchangePath", "inferenceUrl"],
   "devin-cli": ["authorizeUrl", "apiServerUrl", "exchangePath", "inferenceUrl"],
   trae: ["apiEndpoint", "chatEndpoint", "webUrl"],
+  "grok-cli": ["authorizeUrl", "tokenUrl", "scope", "codeChallengeMethod", "clientId", "loopbackPort", "callbackPath", "callbackHost"],
 };
 
 function getByPath(object, path) {

@@ -18,6 +18,7 @@
 
 import zlib from "node:zlib";
 import crypto from "node:crypto";
+import { decodeNativeTodoWriteCompletion } from "./cursorAgentProtobuf/nativeTodoWrite.ts";
 
 // ─── Field numbers (from agent.proto descriptor) ───────────────────────────
 
@@ -149,6 +150,12 @@ const ESM_WRITE_SHELL_STDIN_ARGS = 23;
 const ARG_PATH = 1; // ReadArgs.path / WriteArgs.path / DeleteArgs.path / LsArgs.path
 const ARG_SHELL_COMMAND = 1; // ShellArgs.command
 const ARG_SHELL_WORKING_DIR = 2; // ShellArgs.working_directory
+// ShellArgs.{timeout, is_background, hard_timeout} — observed in real wire captures
+// alongside {command, working_directory}. Used by the native bridge to preserve
+// Cursor's execution semantics (the fork's typed rejection wins on timeout > 0).
+const ARG_SHELL_TIMEOUT = 3; // ShellArgs.timeout (int64, ms)
+const ARG_SHELL_IS_BACKGROUND = 11; // ShellArgs.is_background (bool)
+const ARG_SHELL_HARD_TIMEOUT = 14; // ShellArgs.hard_timeout (int64, ms)
 const ARG_FETCH_URL = 1; // FetchArgs.url
 
 // KvServerMessage / KvClientMessage
@@ -652,6 +659,15 @@ export type DecodedDelta =
   | { kind: "heartbeat" }
   | { kind: "tool_call_started" }
   | { kind: "tool_call_completed" }
+  | {
+      kind: "native_todo_write";
+      toolCallId: string;
+      merge: boolean;
+      todos: Array<{
+        content: string;
+        status: "pending" | "in_progress" | "completed" | "cancelled";
+      }>;
+    }
   | { kind: "kv_server_message" }
   | { kind: "unknown"; field: number };
 
@@ -700,9 +716,14 @@ export function decodeAgentServerMessage(payload: Buffer): DecodedDelta[] {
         case IU_TOOL_CALL_STARTED:
           out.push({ kind: "tool_call_started" });
           break;
-        case IU_TOOL_CALL_COMPLETED:
+        case IU_TOOL_CALL_COMPLETED: {
+          if (update.wireType === 2) {
+            const decoded = decodeNativeTodoWriteCompletion(update.bytes);
+            if (decoded) out.push(decoded);
+          }
           out.push({ kind: "tool_call_completed" });
           break;
+        }
         case IU_TOKEN_DELTA:
           if (update.wireType === 2) {
             out.push({ kind: "token_delta", tokens: decodeVarintField(update.bytes, 1) });
@@ -839,6 +860,9 @@ export type ExecServerEvent =
       execId: string;
       command: string;
       workingDir: string;
+      timeout: number;
+      isBackground: boolean;
+      hardTimeout: number;
     }
   | {
       kind: "exec_shell_stream";
@@ -846,6 +870,9 @@ export type ExecServerEvent =
       execId: string;
       command: string;
       workingDir: string;
+      timeout: number;
+      isBackground: boolean;
+      hardTimeout: number;
     }
   | {
       kind: "exec_bg_shell";
@@ -853,6 +880,9 @@ export type ExecServerEvent =
       execId: string;
       command: string;
       workingDir: string;
+      timeout: number;
+      isBackground: boolean;
+      hardTimeout: number;
     }
   | { kind: "exec_fetch"; execMsgId: number; execId: string; url: string }
   | { kind: "exec_write_shell_stdin"; execMsgId: number; execId: string }
@@ -865,6 +895,34 @@ export type ExecServerEvent =
       // args populated by Phase 5 (decodeMcpArgs); empty {} until then.
       args: Record<string, unknown>;
     };
+
+type DecodedShellArgs = {
+  command: string;
+  workingDir: string;
+  timeout: number;
+  isBackground: boolean;
+  hardTimeout: number;
+};
+
+function decodeShellArgs(payload: Buffer): DecodedShellArgs {
+  const decoded: DecodedShellArgs = {
+    command: decodeStringField(payload, ARG_SHELL_COMMAND),
+    workingDir: decodeStringField(payload, ARG_SHELL_WORKING_DIR),
+    timeout: 0,
+    isBackground: false,
+    hardTimeout: 0,
+  };
+  for (const field of decodeFields(payload)) {
+    if (field.wireType !== 0) continue;
+    if (field.fieldNumber === ARG_SHELL_TIMEOUT) decoded.timeout = Number(field.varint);
+    else if (field.fieldNumber === ARG_SHELL_IS_BACKGROUND) {
+      decoded.isBackground = field.varint !== 0n;
+    } else if (field.fieldNumber === ARG_SHELL_HARD_TIMEOUT) {
+      decoded.hardTimeout = Number(field.varint);
+    }
+  }
+  return decoded;
+}
 
 export function decodeExecServerEvent(payload: Buffer): ExecServerEvent | null {
   for (const top of decodeFields(payload)) {
@@ -932,24 +990,21 @@ export function decodeExecServerEvent(payload: Buffer): ExecServerEvent | null {
           kind: "exec_shell",
           execMsgId,
           execId,
-          command: decodeStringField(variantBytes, ARG_SHELL_COMMAND),
-          workingDir: decodeStringField(variantBytes, ARG_SHELL_WORKING_DIR),
+          ...decodeShellArgs(variantBytes),
         };
       case ESM_SHELL_STREAM_ARGS:
         return {
           kind: "exec_shell_stream",
           execMsgId,
           execId,
-          command: decodeStringField(variantBytes, ARG_SHELL_COMMAND),
-          workingDir: decodeStringField(variantBytes, ARG_SHELL_WORKING_DIR),
+          ...decodeShellArgs(variantBytes),
         };
       case ESM_BACKGROUND_SHELL_SPAWN:
         return {
           kind: "exec_bg_shell",
           execMsgId,
           execId,
-          command: decodeStringField(variantBytes, ARG_SHELL_COMMAND),
-          workingDir: decodeStringField(variantBytes, ARG_SHELL_WORKING_DIR),
+          ...decodeShellArgs(variantBytes),
         };
       case ESM_FETCH_ARGS:
         return {

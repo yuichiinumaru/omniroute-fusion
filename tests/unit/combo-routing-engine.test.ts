@@ -1351,7 +1351,11 @@ test("handleComboChat round-robin surfaces retry-after metadata after exhausting
   assert.ok(Number(result.headers.get("Retry-After")) >= 1);
 });
 
-test("handleComboChat falls through generic 400s when a later priority target succeeds", async () => {
+test("handleComboChat falls through scoped-account 400s when a later priority target succeeds", async () => {
+  // Task 0157 post-review F2 contract: a 400 whose message matches the model-access
+  // pattern is fallback-safe (different account may support the model); a generic
+  // terminal 400 (no model/access/overflow/param/malformed signal) must STOP the combo.
+  // This test now exercises the model-access positive path, mirroring #5249.
   const calls: any[] = [];
 
   const result = await handleComboChat({
@@ -1365,10 +1369,18 @@ test("handleComboChat falls through generic 400s when a later priority target su
     handleSingleModel: async (_body: any, modelStr: any) => {
       calls.push(modelStr);
       if (modelStr === "provider-a/model-a") {
-        return new Response(JSON.stringify({ error: { message: "Instructions are required" } }), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "model_not_found",
+              message: "Invalid model: this account cannot access the requested model.",
+            },
+          }),
+          {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          }
+        );
       }
       return okResponse({ choices: [{ message: { content: "recovered" } }] });
     },
@@ -1553,7 +1565,10 @@ test("handleComboChat starts hedged fallback only after explicit zero-latency op
   assert.deepEqual(calls, ["model-a", "model-b"]);
 });
 
-test("handleComboChat round-robin falls through generic 400s when a later model succeeds", async () => {
+test("handleComboChat round-robin falls through malformed 400s when a later model succeeds", async () => {
+  // Task 0157 post-review F2 contract: malformed/body-shape 400s (different providers
+  // accept different request shapes) remain fallback-safe and round-robin recovers.
+  // Generic terminal 400s without a model/access/overflow/param/malformed signal STOP.
   const calls: any[] = [];
 
   const result = await handleComboChat({
@@ -1566,10 +1581,15 @@ test("handleComboChat round-robin falls through generic 400s when a later model 
     handleSingleModel: async (_body: any, modelStr: any) => {
       calls.push(modelStr);
       if (modelStr === "model-a") {
-        return new Response(JSON.stringify({ error: { message: "generic bad request" } }), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            error: { message: "Invalid message format: the request body is malformed." },
+          }),
+          {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          }
+        );
       }
       return okResponse();
     },
@@ -1591,7 +1611,10 @@ test("handleComboChat round-robin falls through generic 400s when a later model 
   assert.deepEqual(calls, ["model-a", "model-b"]);
 });
 
-test("handleComboChat round-robin falls through 400s and returns the final error payload when no target recovers", async () => {
+test("handleComboChat round-robin returns the final error payload when no target recovers", async () => {
+  // Task 0157 post-review F2 contract: model-b returns a generic 500 (not 400), so the
+  // round-robin rotation has no terminal 400 to stop on. The first target still carries
+  // the malformed-shape message and the rotation exhausts to the 500 surface.
   const calls: any[] = [];
 
   const result = await handleComboChat({
@@ -1605,7 +1628,7 @@ test("handleComboChat round-robin falls through 400s and returns the final error
       calls.push(modelStr);
       if (modelStr === "model-a") {
         return new Response(
-          JSON.stringify({ error: { message: "unsupported message role for this provider" } }),
+          JSON.stringify({ error: { message: "Invalid message format: malformed payload." } }),
           {
             status: 400,
             headers: { "content-type": "application/json" },
@@ -2725,8 +2748,15 @@ test("handleComboChat round-robin recovers from 400s when a later model succeeds
     handleSingleModel: async (_body: any, modelStr: any) => {
       calls.push(modelStr);
       if (modelStr === "model-a") {
+        // Task 0157 post-review F2 contract: a model-access-pattern 400 falls through
+        // (different provider may serve the model); a generic terminal 400 STOPS.
         return new Response(
-          JSON.stringify({ error: { message: "unsupported message role for this provider" } }),
+          JSON.stringify({
+            error: {
+              code: "model_not_found",
+              message: "Invalid model: this account cannot access the requested model.",
+            },
+          }),
           {
             status: 400,
             headers: { "content-type": "application/json" },
@@ -3134,10 +3164,13 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
     handleSingleModel: async (body: Record<string, unknown>, modelStr: string) => {
       seen.push({ model: modelStr, maxTokens: body.max_tokens });
       if (modelStr === "openai/rr-reasoning-a") {
-        return new Response(JSON.stringify({ error: { message: "transient" } }), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        });
+        // Task 0157 post-review F2 contract: a CONTEXT_OVERFLOW 400 remains fallback-safe
+        // (different models have different context windows); the combo continues to a
+        // reasoning-capable target.
+        return new Response(
+          JSON.stringify({ error: { message: "context_length_exceeded: input is too long" } }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        );
       }
       return okResponse();
     },
@@ -3185,10 +3218,11 @@ test("#3588 round-robin honors disabled reasoning token buffer feature flag", as
     handleSingleModel: async (body: Record<string, unknown>, modelStr: string) => {
       seen.push({ model: modelStr, maxTokens: body.max_tokens });
       if (modelStr === "openai/rr-flagged-a") {
-        return new Response(JSON.stringify({ error: { message: "transient" } }), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        });
+        // Task 0157 post-review F2: context-overflow 400 remains fallback-safe.
+        return new Response(
+          JSON.stringify({ error: { message: "context_length_exceeded: input is too long" } }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        );
       }
       return okResponse();
     },
@@ -3232,10 +3266,11 @@ test("#3587 round-robin keeps near-cap reasoning max_tokens unchanged", async ()
     handleSingleModel: async (body: Record<string, unknown>, modelStr: string) => {
       seen.push({ model: modelStr, maxTokens: body.max_tokens });
       if (modelStr === "openai/rr-near-cap-a") {
-        return new Response(JSON.stringify({ error: { message: "transient" } }), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        });
+        // Task 0157 post-review F2: context-overflow 400 remains fallback-safe.
+        return new Response(
+          JSON.stringify({ error: { message: "context_length_exceeded: input is too long" } }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        );
       }
       return okResponse();
     },

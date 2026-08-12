@@ -34,6 +34,10 @@ provider circuit-breaker behavior that can suppress healthy accounts.
 | Kimi-web core coverage | 0145 | Cover Connect-RPC response/stream/error branches before final 0122 approval. |
 | Qwen TLS-client coverage | 0146 | Cover WAF/stream/timeout internals outside 0123's executor scope. |
 | LM Arena error-path coverage | 0147 | Cover native TLS-unavailable and Cloudflare challenge branches outside 0121's happy-path scope. |
+| Cursor native tool bridge | 0148 | Port upstream Cursor native shell/read/TodoWrite bridge and CLI compatibility. |
+| Grok Build protocol/tool calls | 0149 | Port upstream Responses API, tool-output sanitization, headers, and model metadata. |
+| Grok Build login UX | 0151 | Add verified device-code/browser PKCE flows while retaining auth.json import. |
+| Combo fail-soft unavailable models | 0157 | Prove account/model-scoped 404s skip candidates, preserve fallback, and never leak a candidate error to a successful harness call. |
 
 ## Ordering
 
@@ -44,6 +48,14 @@ provider circuit-breaker behavior that can suppress healthy accounts.
 4. Tasks 0145–0147 are review hardening follow-ups; they do not reopen the
    completed implementation scope of 0121–0123, except that 0145 blocks final
    approval of 0122 because its core executor coverage is insufficient.
+5. Task 0148 is a Cursor follow-up to Task 0120's alias work and must coordinate
+   ownership of shared Cursor protobuf/executor files.
+6. Task 0149 establishes the shared Grok Build protocol/config contract; Task
+   0151 follows it for OAuth/device-code/PKCE integration.
+7. Task 0157 is incident-driven resilience hardening. Initial source evidence
+   shows 404s are intended to fall through `executeTarget()`; the task adds
+   exact account/model regression coverage and traces the reported `Expected
+   'id' to be a string` error before changing parser behavior.
 
 ## Non-goals
 

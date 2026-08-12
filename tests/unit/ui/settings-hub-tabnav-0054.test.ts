@@ -27,13 +27,11 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-/** Exact 10-tab inventory — orphaned sub-pages must all be reachable from the bar. */
+/** Exact 8-tab inventory — AI and Resilience consolidated under Routing (Task 0134). */
 const EXPECTED_TABS: Array<{ value: string; label: string }> = [
   { value: "general", label: "Data & Storage" },
   { value: "appearance", label: "Interface" },
-  { value: "ai", label: "AI" },
   { value: "routing", label: "Routing" },
-  { value: "resilience", label: "Resilience" },
   { value: "security", label: "Security" },
   { value: "access-tokens", label: "Access Tokens" },
   { value: "feature-flags", label: "Feature Flags" },
@@ -41,8 +39,8 @@ const EXPECTED_TABS: Array<{ value: string; label: string }> = [
   { value: "sidebar", label: "Sidebar" },
 ];
 
-test("SETTINGS_TABS exposes all 10 orphaned settings sub-pages in order", () => {
-  assert.equal(SETTINGS_TABS.length, 10);
+test("SETTINGS_TABS exposes all 8 settings sub-pages in order", () => {
+  assert.equal(SETTINGS_TABS.length, 8);
   assert.deepEqual(
     SETTINGS_TABS.map((t) => ({ value: t.value, label: t.label })),
     EXPECTED_TABS

@@ -6,13 +6,11 @@
  * (theme/branding UI removed in Task 0053 — remaining prefs are functional only).
  */
 
-/** Ordered Settings PageTabBar options (10 tabs). Pricing is excluded (redirects to costs). */
+/** Ordered Settings PageTabBar options (8 tabs). Pricing is excluded (redirects to costs). AI and Resilience consolidated under Routing (Task 0134). */
 export const SETTINGS_TABS = [
   { value: "general", label: "Data & Storage", icon: "tune" },
   { value: "appearance", label: "Interface", icon: "display_settings" },
-  { value: "ai", label: "AI", icon: "auto_awesome" },
   { value: "routing", label: "Routing", icon: "route" },
-  { value: "resilience", label: "Resilience", icon: "health_and_safety" },
   { value: "security", label: "Security", icon: "shield" },
   { value: "access-tokens", label: "Access Tokens", icon: "key" },
   { value: "feature-flags", label: "Feature Flags", icon: "flag" },
@@ -48,9 +46,11 @@ export function buildSettingsPath(tabValue: SettingsTabValue): `${typeof SETTING
 /**
  * Map a pathname to the active Settings tab value.
  * Unknown last segments (including bare `/dashboard/settings`) fall back to `general`.
+ * Legacy `ai` and `resilience` tab paths highlight `routing` (Task 0134).
  */
 export function pathToTabValue(pathname: string): SettingsTabValue {
   const segments = pathname.split("/").filter(Boolean);
   const last = segments[segments.length - 1] ?? "general";
+  if (last === "ai" || last === "resilience") return "routing";
   return isSettingsTabValue(last) ? last : "general";
 }

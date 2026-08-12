@@ -19,8 +19,8 @@ import {
   requestBodyLimitMbToBytes,
 } from "../constants/bodySize";
 
-/** Larger limit for backup/import routes: 100 MB */
-export const MAX_BODY_BYTES_IMPORT = 100 * 1024 * 1024;
+/** Larger limit for backup/import routes: 1000 MB (1 GB) */
+export const MAX_BODY_BYTES_IMPORT = 1000 * 1024 * 1024;
 
 /** Larger limit for audio transcription uploads: 100 MB */
 export const MAX_BODY_BYTES_AUDIO = 100 * 1024 * 1024;

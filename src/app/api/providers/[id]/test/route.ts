@@ -6,7 +6,10 @@ import {
   updateProviderConnection,
   isCloudEnabled,
   resolveProxyForConnection,
+  getSettings,
 } from "@/lib/localDb";
+import { PROVIDERS } from "@omniroute/open-sse/config/constants.ts";
+import { resolveUpstreamTimeoutMs } from "@omniroute/open-sse/handlers/chatCore/upstreamTimeouts.ts";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { syncToCloud } from "@/lib/cloudSync";
 import { validateProviderApiKey } from "@/lib/providers/validation";
@@ -829,8 +832,15 @@ export async function testSingleConnection(connectionId: string, validationModel
       testApiKeyConnection(enrichedConnection)
     );
   } else {
+    const settings = await getSettings().catch(() => ({} as Record<string, unknown>));
+    const providerEntry = (PROVIDERS as Record<string, { timeoutMs?: number }>)[provider];
+    const testTimeoutMs = resolveUpstreamTimeoutMs({
+      providerTimeoutMs: providerEntry?.timeoutMs,
+      globalTimeoutMs: (settings as Record<string, unknown>)?.providerTestTimeoutMs as number | undefined,
+      defaultTimeoutMs: OAUTH_TEST_TIMEOUT_MS,
+    });
     result = await runWithProxyContext(proxyInfo?.proxy || null, () =>
-      testOAuthConnection(normalizedConnection)
+      testOAuthConnection(normalizedConnection, testTimeoutMs)
     );
   }
 

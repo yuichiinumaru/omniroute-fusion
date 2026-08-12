@@ -1,4 +1,8 @@
-import { getModelInfo, getComboForModel } from "../services/model";
+import {
+  getModelInfo,
+  getComboForModel,
+  normalizeProviderScopedModelId,
+} from "../services/model";
 import { clearAccountError, markAccountUnavailable } from "../services/auth";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import { createBuiltinAutoCombo } from "@omniroute/open-sse/services/autoCombo/builtinCatalog.ts";
@@ -8,10 +12,7 @@ import {
   detectFormatFromEndpoint,
   getTargetFormat,
 } from "@omniroute/open-sse/services/provider.ts";
-import {
-  getModelTargetFormat,
-  PROVIDER_ID_TO_ALIAS,
-} from "@omniroute/open-sse/config/providerModels.ts";
+import { getModelTargetFormat, PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
 import { handleChatCore } from "@omniroute/open-sse/handlers/chatCore.ts";
 import {
   errorResponse,
@@ -38,7 +39,7 @@ import { resolveUseUpstream429BreakerHints } from "../../shared/utils/providerHi
 
 import { logProxyEvent } from "../../lib/proxyLogger";
 import { logTranslationEvent } from "../../lib/translatorEvents";
-import { getRuntimeProviderProfile } from "@omniroute/open-sse/services/accountFallback.ts";
+import { getRuntimeProviderProfile, hasHealthyAccount } from "@omniroute/open-sse/services/accountFallback.ts";
 
 // Models that explicitly cannot run on the codex/ChatGPT-Pro OAuth pool — when
 // a caller writes `codex/deepseek-v4-pro` we transparently reroute to the
@@ -278,7 +279,12 @@ export async function resolveModelOrError(
     }
   }
 
-  const { provider, model, extendedContext } = modelInfo;
+  const {
+    provider,
+    model: resolvedModel,
+    extendedContext,
+  } = modelInfo;
+  const model = normalizeProviderScopedModelId(provider, resolvedModel);
   // apiFormat: optional custom-model marker — see chatCore.ts for shape narrowing rationale.
   const apiFormat: string | undefined =
     modelInfo && typeof modelInfo === "object" && "apiFormat" in modelInfo
@@ -348,10 +354,18 @@ export async function checkPipelineGates(
   if (options.ignoreCircuitBreaker && !breaker.canExecute()) {
     log.info("CIRCUIT", `Bypassing OPEN circuit breaker for ${provider} (${bypassReason})`);
   } else if (!breaker.canExecute()) {
-    const retryAfterMs = breaker.getRetryAfterMs();
-    const retryAfterSec = Math.max(Math.ceil(retryAfterMs / 1000), 1);
-    log.warn("CIRCUIT", `Circuit breaker OPEN for ${provider}, rejecting request`);
-    return providerCircuitOpenResponse(provider, retryAfterSec);
+    const hasHealthy = await hasHealthyAccount(provider, model, {
+      connectionId: (options as { connectionId?: string | null }).connectionId,
+      allowedConnections: (options as { effectiveAllowedConnections?: string[] | null }).effectiveAllowedConnections,
+    });
+    if (hasHealthy) {
+      log.info("CIRCUIT", `Bypassing OPEN circuit breaker for ${provider} — healthy account available`);
+    } else {
+      const retryAfterMs = breaker.getRetryAfterMs();
+      const retryAfterSec = Math.max(Math.ceil(retryAfterMs / 1000), 1);
+      log.warn("CIRCUIT", `Circuit breaker OPEN for ${provider}, rejecting request`);
+      return providerCircuitOpenResponse(provider, retryAfterSec);
+    }
   }
 
   return null;
@@ -485,22 +499,29 @@ export async function executeChatWithBreaker({
     if (!bypassCircuitBreaker && breaker) {
       const allowed = isShadowTraffic ? breaker.canExecute() : breaker.tryReserveExecution();
       if (!allowed) {
-        const retryAfterMs = breaker.getRetryAfterMs();
-        if (isShadowTraffic) {
-          return {
-            result: {
-              success: false,
-              response: providerCircuitOpenResponse(provider, Math.ceil(retryAfterMs / 1000)),
-              status: HTTP_STATUS.SERVICE_UNAVAILABLE,
-            },
-            tlsFingerprintUsed: false,
-          };
+        const hasHealthy = await hasHealthyAccount(provider, model, {
+          connectionId: credentials?.connectionId,
+        });
+        if (hasHealthy) {
+          log.info("CIRCUIT", `Allowing execution for ${provider} despite OPEN breaker — healthy account selected`);
+        } else {
+          const retryAfterMs = breaker.getRetryAfterMs();
+          if (isShadowTraffic) {
+            return {
+              result: {
+                success: false,
+                response: providerCircuitOpenResponse(provider, Math.ceil(retryAfterMs / 1000)),
+                status: HTTP_STATUS.SERVICE_UNAVAILABLE,
+              },
+              tlsFingerprintUsed: false,
+            };
+          }
+          throw new CircuitBreakerOpenError(
+            `Circuit breaker "${provider}" is not accepting requests.`,
+            provider,
+            retryAfterMs
+          );
         }
-        throw new CircuitBreakerOpenError(
-          `Circuit breaker "${provider}" is not accepting requests.`,
-          provider,
-          retryAfterMs
-        );
       }
     }
 

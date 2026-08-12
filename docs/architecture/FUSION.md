@@ -148,9 +148,11 @@ Optional object on `comboRuntimeConfigSchema`:
 
 | Field | Type | Notes |
 |-------|------|--------|
-| `mode` | `"always"` \| `"tool-call"` \| `"text-match"` | Schema default `"tool-call"` |
+| `mode` | `"always"` \| `"tool-call"` \| `"text-match"` \| `"rules"` | Schema default `"tool-call"` |
 | `toolPatterns` | `string[]` | Glob-style tool names; default `["write*", "edit*", "create*"]` |
 | `textPatterns` | `string[]` | Optional; case-insensitive **substring** match on latest user text |
+| `operator` | `"AND"` \| `"OR"` | Operator for combining predicates in `rules` mode (default `"AND"`) |
+| `rules` | `FusionRule[]` | Array of tool/text predicates or nested rule groups (max 20 rules, max tree depth 5) |
 | `requireApproval` | `boolean` | Schema default `false` (reserved; not a separate runtime product gate) |
 
 ### `config.fallbackStrategy`
@@ -330,12 +332,14 @@ Implemented in `open-sse/services/fusionTriggers.ts`.
 | `always` | Always | — |
 | `tool-call` | **Latest** assistant message has matching `tool_calls` (N=1 window — not sticky history) | `hasMatchingToolCall` + `matchGlob` (`*` / `?`) |
 | `text-match` | Latest user message text contains any pattern | `hasMatchingText` — **case-insensitive substring**, not glob |
+| `rules` | Predicates in `rules` combined by `operator` (`AND`/`OR`) evaluate to true | `evaluateRule` (short-circuiting AND/OR over tool/text predicates; empty rules fail closed) |
 
 Defaults and fail-closed behavior (`shouldTriggerFusion`):
 
 - Missing mode on a gated path defaults to `"tool-call"`.
 - Empty `toolPatterns` → `DEFAULT_FUSION_TOOL_PATTERNS` (`write*`, `edit*`, `create*`).
 - Empty/missing `textPatterns` → never matches.
+- Rules mode with empty `rules` array → fails closed (`false`).
 - Unknown mode → do not fire fusion.
 
 ### Tool-call window (post-0068 / H-FUSION-008)

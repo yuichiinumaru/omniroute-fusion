@@ -16,6 +16,7 @@ import { RESPONSES_PREVIOUS_RESPONSE_ID_MODES } from "@/shared/constants/respons
 // this schema is reachable from client components (dashboard onboarding wizard), and
 // routeGuard drags in server runtime (→ ioredis) that breaks the client/CLI build.
 import { SPAWN_CAPABLE_PREFIXES } from "@/shared/constants/spawnCapablePrefixes";
+import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
 
 const signatureCacheModeValues = ["enabled", "bypass", "bypass-strict"] as const;
 
@@ -235,6 +236,11 @@ export const updateSettingsSchema = z.object({
   // Cache control preservation mode
   alwaysPreserveClientCache: z.enum(["auto", "always", "never"]).optional(),
   antigravitySignatureCacheMode: z.enum(signatureCacheModeValues).optional(),
+  // Fine-grained timeout settings (Task 0132)
+  globalTimeoutMs: z.number().int().min(1000).max(MAX_TIMER_TIMEOUT_MS).optional(),
+  comboTestTimeoutMs: z.number().int().min(1000).max(MAX_TIMER_TIMEOUT_MS).optional(),
+  providerTestTimeoutMs: z.number().int().min(1000).max(MAX_TIMER_TIMEOUT_MS).optional(),
+  modelTestTimeoutMs: z.number().int().min(1000).max(MAX_TIMER_TIMEOUT_MS).optional(),
   // Adaptive Volume Routing
   adaptiveVolumeRouting: z.boolean().optional(),
   // Usage token buffer — safety margin added to reported prompt/input token counts.
@@ -302,6 +308,8 @@ export const updateSettingsSchema = z.object({
   // completions are not blocked. This key is client-safe and never carries
   // secrets — the toggle only changes UX, not the OAuth protocol.
   oauthAutoOpen: z.boolean().optional(),
+  // Provider Model Auto-Sync setting (Task 0129)
+  providerModelAutoSyncEnabled: z.boolean().optional(),
   // Model lockout settings
   modelLockout: z
     .object({

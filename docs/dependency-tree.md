@@ -1,7 +1,7 @@
 # Dependency tree — OmniRoute Fusion tasks
 
 > **Purpose**: prevent *carro na frente do boi* — know what is **serial**, what is **parallel**, and what **blocks** what.  
-> **Updated**: 2026-08-04 (current provider, routing, UI, and reliability task wave appended; historical DAG retained below)  
+> **Updated**: 2026-08-08 (current provider, routing, UI, reliability, and catalog-absorption waves appended; historical DAG retained below)  
 > **Scope**: Current open/review dependency wave + Epic 0005 (Frontend IA) + reference to completed Fusion wave (Epic 0003).  
 > **Identity**: tasks use lane-neutral `Task NNNN`. Resolve live path under `docs/tasks/<lane>/`.
 
@@ -38,6 +38,12 @@ provider/routing wave.
 0145 (Kimi core coverage) ──→ final approval of 0122
 0146 (Qwen TLS-client coverage) ⚠── 0123 follow-up
 0147 (LM Arena error-path coverage) ⚠── 0121 follow-up
+0120 (Cursor Composer alias) ⚠── 0148 (Cursor native tool bridge)
+0149 (Grok Build Responses/tool-call contract) ──→ 0151 (Grok Build login UX)
+0152 (provider catalog/diff contract) ──→ 0153 (absorption triage report)
+0154 (release/changelog ledger) ──→ 0155 (legacy refresh/code diff) ──→ 0156 (generic absorption workflow)
+0157 (combo fail-soft unavailable models) ──→ combo/account-fallback regression review
+0158 (outbound error audit) ──→ 0159 (self-improving outbound triage workflow)
 0140 (reasoning resolution contract)
   └──→ 0141 (reasoning UI/API controls)
 0142 (retry control labels) ⚠── 0127/0130 (combo UI/schema)
@@ -86,10 +92,21 @@ provider/routing wave.
 | 0145 | 🔓 | Kimi-web core response/stream coverage | 0122 implementation | Kimi executor/validator tests | Blocks final 0122 approval |
 | 0146 | 🔓 | Qwen TLS-client coverage | 0123 implementation | Qwen TLS/parser tests | Follow-up, not 0123 reopen |
 | 0147 | 🔓 | LM Arena error-path coverage | 0121 implementation | LM Arena executor/response/TLS tests | Follow-up, not 0121 reopen |
+| 0148 | 🔓 | Cursor native tool bridge and CLI compatibility | 0120 coordination | Cursor executor/protobuf/bridge tests | Upstream functional gap; serialize Cursor surfaces |
+| 0149 | 🔓 | Grok Build Responses and tool-call compatibility | — | Grok executor/config/registry/tests | Establishes shared Grok Build contract |
+| 0151 | 🔓 | Grok Build device-code and browser login | 0149 | Grok OAuth/provider/modal/tests | Import-token remains fallback |
+| 0152 | 🔓 | Provider catalog and fork/reference diff pipeline | — | Provider CLI/extractor/package scripts/tests | Establishes normalized JSON contract |
+| 0153 | 🔓 | Safe provider absorption triage reports | 0152 | Absorption CLI/classifier/report tests | No auto-apply/task mutation |
+| 0154 | 🔓 | Canonical upstream release/changelog ledger | — | Omniroute skill fetcher + report ledger/tests | Baseline `3.8.42` onward; idempotent |
+| 0155 | 🔓 | Safe legacy baseline refresh and code diff | 0154 | Legacy clone + revision manifest/tests | Explicit opt-in `git pull --ff-only` only |
+| 0156 | 🔓 | Generic release-to-codebase absorption workflow | 0154, 0155 | `.agents/workflows/` + watchlist/handoff contract | Max 10 focused investigators; no auto-task mutation |
+| 0157 | 🔓 | Combo fail-soft unavailable models | — | `combo.ts`, `accountFallback.ts`, Muse Spark regression tests | Incident-driven; distinguish upstream 404 body from harness tool-call schema |
+| 0158 | 🔓 | Outbound error and redirect audit | Authenticated management log access | Call-log evidence/report | 403/429 counted but deprioritized; 400/404/tool errors prioritized |
+| 0159 | 🔓 | Self-improving outbound error triage workflow | 0158, 0157 | OmniRoute skill workflow/references | Human-reviewed reference updates only |
 
 ### Recommended dispatch waves
 
-1. **Wave A — isolated**: 0126, 0127, 0135, 0137, 0138, 0142, 0144, 0146, 0147.
+1. **Wave A — isolated**: 0126, 0127, 0135, 0137, 0138, 0142, 0144, 0146, 0147, 0149.
 2. **Wave B — Home**: choose 0128 → 0136, or bundle them under one owner/review.
 3. **Wave C — combo contract**: 0130, 0132, 0133; run resolver/schema work before overlapping UI/runtime work.
 4. **Wave D — reasoning contract**: 0140, then 0141 after the runtime contract is accepted.
@@ -97,7 +114,12 @@ provider/routing wave.
 6. **Wave F — provider resilience**: 0139 after 0119 review, then 0143 with resilience review.
 7. **Wave G — Kimi review hardening**: 0145 before final approval of 0122.
 8. **Wave H — repetition**: 0131 only after Task 0125 review acceptance or explicit contract verification.
-9. **Operator lane**: 0036 only with explicit production approval; never dispatch as ordinary builder work.
+9. **Wave I — Cursor/Grok provider compatibility**: 0148 after 0120 coordination; 0151 after 0149 shared contract.
+10. **Wave J — provider catalog absorption**: 0152 first; 0153 only after its JSON contract is reviewed.
+11. **Wave K — release/codebase absorption**: 0154 → 0155 → 0156; workflow activation requires harness/task-governance review.
+12. **Wave L — combo resilience**: 0157 requires provider/runtime and resilience review; no live MetaMuse account needed.
+13. **Wave M — outbound error analysis**: 0158 first with management-authenticated read-only logs; 0159 after the evidence rubric is calibrated.
+14. **Operator lane**: 0036 only with explicit production approval; never dispatch as ordinary builder work.
 
 ### Maintenance rule for the active wave
 

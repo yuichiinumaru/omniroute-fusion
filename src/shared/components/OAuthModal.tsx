@@ -12,7 +12,17 @@ import { isCredentialBlob, submitCredentialBlob } from "@/shared/components/oaut
 const GOOGLE_OAUTH_PROVIDERS = new Set(["antigravity", "agy"]);
 
 /** Providers that use a local callback server on a random port (PKCE browser flow). */
-const PKCE_CALLBACK_SERVER_PROVIDERS = new Set(["codex"]);
+const PKCE_CALLBACK_SERVER_PROVIDERS = new Set(["codex", "grok-cli"]);
+
+const DEVICE_CODE_PROVIDERS = new Set([
+  "github",
+  "kiro",
+  "amazon-q",
+  "kimi-coding",
+  "kilocode",
+  "codebuddy-cn",
+  "grok-cli",
+]);
 
 /**
  * Phase 1 hotfix (2026-05-29): windsurf & devin-cli only support import-token.
@@ -20,7 +30,7 @@ const PKCE_CALLBACK_SERVER_PROVIDERS = new Set(["codex"]);
  * Phase 2 will reintroduce browser login via Firebase OAuth + RegisterUser.
  * Spec: _tasks/superpowers/specs/2026-05-29-windsurf-login-fix-design.md.
  */
-const IMPORT_TOKEN_ONLY_PROVIDERS = new Set(["windsurf", "devin-cli", "grok-cli"]);
+const IMPORT_TOKEN_ONLY_PROVIDERS = new Set(["windsurf", "devin-cli"]);
 
 type OAuthModalProps = {
   isOpen: boolean;
@@ -72,10 +82,14 @@ export default function OAuthModal({
   }, [oauthAutoOpen]);
   // API-key paste mode: for providers that accept a token directly (windsurf, devin-cli)
   const [showPasteToken, setShowPasteToken] = useState(
-    provider === "windsurf" || provider === "devin-cli" || provider === "grok-cli"
+    provider === "windsurf" || provider === "devin-cli"
   );
   const [pasteToken, setPasteToken] = useState("");
   const [savingToken, setSavingToken] = useState(false);
+  // grok-cli only (#7013 rework): device_code is the default method (matches
+  // DEVICE_CODE_PROVIDERS); flipping this to true routes startOAuthFlow through
+  // the browser PKCE / PKCE_CALLBACK_SERVER_PROVIDERS branch instead.
+  const [grokBrowserMode, setGrokBrowserMode] = useState(false);
 
   const supportsTokenPaste =
     provider === "windsurf" || provider === "devin-cli" || provider === "grok-cli";
@@ -83,6 +97,55 @@ export default function OAuthModal({
   // Hide the "Browser Login" tab — Phase 2 will restore it via Firebase OAuth.
   const importTokenOnly = IMPORT_TOKEN_ONLY_PROVIDERS.has(provider);
   const popupRef = useRef(null);
+  // F1 FIX: per-flow abort controller + timer registry + generation guard so
+  // closing the modal unmounts polling, prevents stale state/onSuccess, and
+  // makes cancellation deterministic. Both device-code and callback-server loops
+  // share this controller — they are mutually exclusive flows.
+  const pollingAbortRef = useRef<AbortController | null>(null);
+  const pollingTimeoutIdsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const flowGenerationRef = useRef(0);
+  const abortActivePolling = useCallback(() => {
+    const cur = pollingAbortRef.current;
+    if (cur) {
+      try {
+        cur.abort();
+      } catch {
+        /* ignore */
+      }
+      pollingAbortRef.current = null;
+    }
+    for (const tid of pollingTimeoutIdsRef.current) {
+      clearTimeout(tid);
+    }
+    pollingTimeoutIdsRef.current.clear();
+    flowGenerationRef.current += 1;
+  }, []);
+  const scheduleCancellableDelay = useCallback(
+    (ms: number, signal: AbortSignal): Promise<void> => {
+      if (signal.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));
+      return new Promise<void>((resolve, reject) => {
+        const tid: ReturnType<typeof setTimeout> = setTimeout(() => {
+          pollingTimeoutIdsRef.current.delete(tid);
+          if (signal.aborted) {
+            reject(new DOMException("Aborted", "AbortError"));
+          } else {
+            resolve();
+          }
+        }, ms);
+        pollingTimeoutIdsRef.current.add(tid);
+        signal.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(tid);
+            pollingTimeoutIdsRef.current.delete(tid);
+            reject(new DOMException("Aborted", "AbortError"));
+          },
+          { once: true }
+        );
+      });
+    },
+    []
+  );
   const { copied, copy } = useCopyToClipboard();
   const deviceVerificationUrl =
     deviceData?.verification_uri_complete || deviceData?.verification_uri || "";
@@ -220,14 +283,57 @@ export default function OAuthModal({
     }
   }, [pasteToken, provider, onSuccess, reauthConnection]);
 
-  // Poll for device code token
+  // Poll for device code token — abortable per F1. Every delay and fetch
+  // is gated on a per-flow AbortSignal; close/unmount aborts the signal so
+  // pending timers/fetches cancel, AbortError is treated as silent
+  // cancellation (no error step), and late-arriving responses are ignored
+  // via a generation guard before any state/onSuccess mutation.
   const startPolling = useCallback(
     async (deviceCode, codeVerifier, interval, extraData) => {
-      setPolling(true);
+      // Cancel any in-flight polling from a prior flow session.
+      abortActivePolling();
+      const controller = new AbortController();
+      pollingAbortRef.current = controller;
+      const signal = controller.signal;
+      const generation = flowGenerationRef.current;
+      const isStale = () => generation !== flowGenerationRef.current || signal.aborted;
+      const safeSetStep = (next: string) => {
+        if (!isStale()) setStep(next as typeof step);
+      };
+      const safeSetError = (msg: string | null) => {
+        if (!isStale()) setError(msg as typeof error);
+      };
+      const safeSetPolling = (next: boolean) => {
+        if (!isStale()) setPolling(next);
+      };
+      const safeOnSuccess = () => {
+        if (!isStale()) onSuccess?.();
+      };
+      safeSetPolling(true);
       const maxAttempts = 60;
 
       for (let i = 0; i < maxAttempts; i++) {
-        await new Promise((r) => setTimeout(r, interval * 1000));
+        try {
+          await scheduleCancellableDelay(interval * 1000, signal);
+        } catch (delayErr: unknown) {
+          if (
+            delayErr instanceof DOMException &&
+            (delayErr as DOMException).name === "AbortError"
+          ) {
+            safeSetPolling(false);
+            return;
+          }
+          // Fallback: treat any abort-shaped rejection as cancellation.
+          if (signal.aborted) {
+            safeSetPolling(false);
+            return;
+          }
+          throw delayErr;
+        }
+        if (isStale()) {
+          safeSetPolling(false);
+          return;
+        }
 
         try {
           const res = await fetch(`/api/oauth/${provider}/poll`, {
@@ -239,55 +345,75 @@ export default function OAuthModal({
               codeVerifier,
               extraData,
             }),
+            signal,
           });
 
           const data = (await parseResponseBody(res)) as Record<string, unknown>;
 
+          if (isStale()) {
+            safeSetPolling(false);
+            return;
+          }
+
           if (data.success) {
-            setStep("success");
-            setPolling(false);
-            onSuccess?.();
+            safeSetStep("success");
+            safeSetPolling(false);
+            safeOnSuccess();
+            if (!isStale()) pollingAbortRef.current = null;
             return;
           }
 
           if (data.error === "expired_token" || data.error === "access_denied") {
-            throw new Error(data.errorDescription || data.error);
+            throw new Error((data.errorDescription as string) || (data.error as string));
           }
 
           if (data.error === "slow_down") {
             interval = Math.min(interval + 5, 30);
           }
-        } catch (err) {
-          setError(err.message);
-          setStep("error");
-          setPolling(false);
+        } catch (err: unknown) {
+          if (isStale()) {
+            safeSetPolling(false);
+            return;
+          }
+          const maybeDom = err as DOMException;
+          const isAbort =
+            (maybeDom && maybeDom.name === "AbortError") ||
+            (typeof (err as Error)?.message === "string" &&
+              (err as Error).message.includes("aborted")) ||
+            signal.aborted;
+          if (isAbort) {
+            safeSetPolling(false);
+            return;
+          }
+          safeSetError((err as Error).message);
+          safeSetStep("error");
+          safeSetPolling(false);
+          if (!isStale()) pollingAbortRef.current = null;
           return;
         }
       }
 
-      setError("Authorization timeout");
-      setStep("error");
-      setPolling(false);
+      safeSetError("Authorization timeout");
+      safeSetStep("error");
+      safeSetPolling(false);
+      if (!isStale()) pollingAbortRef.current = null;
     },
-    [provider, onSuccess, reauthConnection]
+    [provider, onSuccess, reauthConnection, abortActivePolling, scheduleCancellableDelay]
   );
 
-  // Start OAuth flow
-  const startOAuthFlow = useCallback(async () => {
-    if (!provider) return;
-    try {
-      setError(null);
+  // Start OAuth flow. `opts.grokBrowser` lets the grok-cli method tabs force a
+  // specific branch synchronously (avoids reading a just-set state value through
+  // a stale closure); when omitted, falls back to the grokBrowserMode state.
+  const startOAuthFlow = useCallback(
+    async (opts?: { grokBrowser?: boolean }) => {
+      if (!provider) return;
+      try {
+        setError(null);
 
-      // Device code flow (GitHub, Qwen, Kiro, Kimi Coding, KiloCode)
-      if (
-        provider === "github" ||
-        provider === "qwen" ||
-        provider === "kiro" ||
-        provider === "amazon-q" ||
-        provider === "kimi-coding" ||
-        provider === "kilocode" ||
-        provider === "codebuddy-cn"
-      ) {
+        const grokWantsBrowser = provider === "grok-cli" && (opts?.grokBrowser ?? grokBrowserMode);
+
+        // Device code flow
+        if (DEVICE_CODE_PROVIDERS.has(provider) && !grokWantsBrowser) {
         setIsDeviceCode(true);
         setStep("waiting");
 
@@ -374,31 +500,98 @@ export default function OAuthModal({
               setStep("input");
             }
 
-            setPolling(true);
+            // F1 FIX: callback-server polling is also abortable — background poll-callback
+            // polling must cancel on modal close/unmount and ignore late success/onSuccess.
+            abortActivePolling();
+            const cbController = new AbortController();
+            pollingAbortRef.current = cbController;
+            const cbSignal = cbController.signal;
+            const cbGeneration = flowGenerationRef.current;
+            const cbIsStale = () =>
+              cbGeneration !== flowGenerationRef.current || cbSignal.aborted;
+            const cbSafeSetPolling = (next: boolean) => {
+              if (!cbIsStale()) setPolling(next);
+            };
+            const cbSafeSetStep = (next: string) => {
+              if (!cbIsStale()) setStep(next as typeof step);
+            };
+            const cbSafeOnSuccess = () => {
+              if (!cbIsStale()) onSuccess?.();
+            };
+            cbSafeSetPolling(true);
             const maxAttempts = 150;
+            let cbTerminalErr: Error | null = null;
             for (let i = 0; i < maxAttempts; i++) {
-              await new Promise((r) => setTimeout(r, 2000));
-
-              const pollRes = await fetch(`/api/oauth/${provider}/poll-callback`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ connectionId: reauthConnection?.id }),
-              });
-              const pollData = (await parseResponseBody(pollRes)) as Record<string, unknown>;
-
-              if (pollData.success) {
-                setStep("success");
-                setPolling(false);
-                onSuccess?.();
+              try {
+                await scheduleCancellableDelay(2000, cbSignal);
+              } catch (delayErr: unknown) {
+                const isDelayAbort =
+                  (delayErr instanceof DOMException &&
+                    (delayErr as DOMException).name === "AbortError") ||
+                  cbSignal.aborted;
+                if (isDelayAbort) {
+                  cbSafeSetPolling(false);
+                  return;
+                }
+                throw delayErr;
+              }
+              if (cbIsStale()) {
+                cbSafeSetPolling(false);
                 return;
               }
 
-              if (pollData.error && !pollData.pending) {
-                throw new Error(pollData.errorDescription || pollData.error);
+              try {
+                const pollRes = await fetch(`/api/oauth/${provider}/poll-callback`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ connectionId: reauthConnection?.id }),
+                  signal: cbSignal,
+                });
+                const pollData = (await parseResponseBody(pollRes)) as Record<string, unknown>;
+
+                if (cbIsStale()) {
+                  cbSafeSetPolling(false);
+                  return;
+                }
+
+                if (pollData.success) {
+                  cbSafeSetStep("success");
+                  cbSafeSetPolling(false);
+                  cbSafeOnSuccess();
+                  if (!cbIsStale()) pollingAbortRef.current = null;
+                  return;
+                }
+
+                if (pollData.error && !pollData.pending) {
+                  cbTerminalErr = new Error(
+                    (pollData.errorDescription as string) || (pollData.error as string)
+                  );
+                  break;
+                }
+              } catch (err: unknown) {
+                if (cbIsStale()) {
+                  cbSafeSetPolling(false);
+                  return;
+                }
+                const maybeDom = err as DOMException;
+                const isAbort =
+                  (maybeDom && maybeDom.name === "AbortError") ||
+                  (typeof (err as Error)?.message === "string" &&
+                    (err as Error).message.includes("aborted")) ||
+                  cbSignal.aborted;
+                if (isAbort) {
+                  cbSafeSetPolling(false);
+                  return;
+                }
+                cbTerminalErr = err as Error;
+                break;
               }
             }
 
-            setPolling(false);
+            cbSafeSetPolling(false);
+            if (!cbIsStale()) pollingAbortRef.current = null;
+            if (cbIsStale()) return;
+            if (cbTerminalErr) throw cbTerminalErr;
             throw new Error("Authorization timeout");
           } catch (pkceErr) {
             console.warn(
@@ -428,6 +621,8 @@ export default function OAuthModal({
       let redirectUri: string;
       if (provider === "codex" || provider === "openai") {
         redirectUri = "http://localhost:1455/auth/callback";
+      } else if (provider === "grok-cli") {
+        redirectUri = "http://127.0.0.1:56122/callback";
       } else if (provider === "windsurf" || provider === "devin-cli") {
         // Remote fallback: use OmniRoute's port with the /auth/callback path Windsurf expects.
         // On true localhost this code is never reached (callback server handles the flow above).
@@ -507,14 +702,27 @@ export default function OAuthModal({
     onSuccess,
     reauthConnection,
     idcConfig,
+    grokBrowserMode,
+    abortActivePolling,
+    scheduleCancellableDelay,
   ]);
 
-  // Reset guard when modal closes
+  // F1 FIX: Reset guard AND abort polling when modal closes/unmounts.
+  // Also handles provider switch while modal stays open.
   useEffect(() => {
     if (!isOpen) {
+      abortActivePolling();
+      setPolling(false);
       flowStartedRef.current = false;
     }
-  }, [isOpen]);
+  }, [isOpen, abortActivePolling]);
+  useEffect(() => {
+    return () => {
+      // Unmount safety: if the modal tree unmounts mid-poll (e.g. route change),
+      // cancel any in-flight poll timers/fetches so they can't call setters/onSuccess.
+      abortActivePolling();
+    };
+  }, [abortActivePolling]);
 
   // Task 0135: fetch the operator's `oauthAutoOpen` preference from the
   // settings store once per mount. The route already filters out secrets, so
@@ -567,16 +775,23 @@ export default function OAuthModal({
     callbackProcessedRef.current = false; // Reset when authData changes
 
     // Handler for callback data - only process once
+    // F2 FIX: PKCE callback state must be non-empty and exactly match
+    // the server-generated state (authData.state). Missing state or
+    // mismatched state must reject before any token exchange. Device-code
+    // non-PKCE flows are exempt (they never set authData, so this guard
+    // is not entered for them — see the outer `if (!authData) return`).
     const handleCallback = async (data) => {
       if (callbackProcessedRef.current) return; // Already processed
 
       const { code, state, error: callbackError, errorDescription } = data;
 
-      if (authData?.state && state && state !== authData.state) {
-        callbackProcessedRef.current = true;
-        setError("OAuth state mismatch. Restart the connection and try again.");
-        setStep("error");
-        return;
+      if (authData?.state) {
+        if (!state || state !== authData.state) {
+          callbackProcessedRef.current = true;
+          setError("OAuth state mismatch. Restart the connection and try again.");
+          setStep("error");
+          return;
+        }
       }
 
       if (callbackError) {
@@ -729,22 +944,32 @@ export default function OAuthModal({
       }
 
       const input = callbackUrl.trim();
-      let code = null;
-      let state = authData?.state || null;
+      let code: string | null = null;
+      // F2 FIX: manual input must NOT default missing callback state to
+      // authData.state. Only an explicit state on the URL (or raw code#state
+      // hash fragment) is accepted; absent state stays null so the
+      // downstream exact-match guard correctly rejects it. Device-code non-PKCE
+      // flows never reach here because isDeviceCode input is hidden.
+      let state: string | null = null;
       let errorParam = null;
       let errorDescription = null;
 
       try {
         const url = new URL(input);
         code = url.searchParams.get("code");
-        state = url.searchParams.get("state") || url.hash.replace(/^#/, "") || state;
+        const parsedState = url.searchParams.get("state");
+        if (parsedState) state = parsedState;
+        else {
+          const hashState = url.hash.replace(/^#/, "").trim();
+          if (hashState) state = hashState;
+        }
         errorParam = url.searchParams.get("error");
         errorDescription = url.searchParams.get("error_description");
       } catch {
         // Claude Code remote auth may provide a raw "Authentication Code" like code#state.
         const [rawCode, rawState] = input.split("#", 2);
         code = rawCode || null;
-        state = rawState || state;
+        if (typeof rawState === "string" && rawState.trim().length > 0) state = rawState.trim();
       }
 
       if (errorParam) {
@@ -757,12 +982,38 @@ export default function OAuthModal({
         );
       }
 
+      // F2 FIX: for PKCE session holders, enforce non-empty exact match
+      // before exchange — missing/mismatched manual state must reject.
+      // Non-PKCE/manual exception: providers whose flow is not PKCE have
+      // null authData.state and skip this guard.
+      if (authData?.state) {
+        if (!state || state !== authData.state) {
+          throw new Error("OAuth state mismatch. Restart the connection and try again.");
+        }
+      }
+
       await exchangeTokens(code, state);
     } catch (err) {
       setError(err.message);
       setStep("error");
     }
   };
+
+  const handlePasteMode = useCallback(() => {
+    setShowPasteToken(true);
+  }, []);
+
+  const handleBrowserMode = useCallback(() => {
+    setShowPasteToken(false);
+    if (provider === "grok-cli") setGrokBrowserMode(true);
+    startOAuthFlow(provider === "grok-cli" ? { grokBrowser: true } : undefined);
+  }, [startOAuthFlow, provider]);
+
+  const handleDeviceCodeMode = useCallback(() => {
+    setShowPasteToken(false);
+    setGrokBrowserMode(false);
+    startOAuthFlow({ grokBrowser: false });
+  }, [startOAuthFlow]);
 
   if (!provider || !providerInfo) return null;
 
@@ -774,34 +1025,42 @@ export default function OAuthModal({
       size="lg"
     >
       <div className="flex flex-col gap-4">
-        {/* Paste-token tab toggle (Windsurf / Devin CLI only).
-            Phase 1 hotfix: when importTokenOnly is true, hide the entire toggle —
-            there is no "Browser Login" tab to switch to until Phase 2 ships. */}
+        {/* Browser login with optional token-import fallback. grok-cli adds a
+            third "Device Code" tab since it keeps BOTH the device_code flow
+            (default) and the browser PKCE login alongside the paste-token import. */}
         {supportsTokenPaste && !importTokenOnly && step !== "success" && (
           <div className="flex gap-2 border-b border-border pb-3">
+            {provider === "grok-cli" && (
+              <button
+                className={`text-sm px-3 py-1 rounded-t ${!showPasteToken && !grokBrowserMode ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
+                onClick={handleDeviceCodeMode}
+              >
+                Device Code
+              </button>
+            )}
             <button
-              className={`text-sm px-3 py-1 rounded-t ${!showPasteToken ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
-              onClick={() => setShowPasteToken(false)}
+              className={`text-sm px-3 py-1 rounded-t ${!showPasteToken && (provider !== "grok-cli" || grokBrowserMode) ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
+              onClick={handleBrowserMode}
             >
               Browser Login
             </button>
             <button
               className={`text-sm px-3 py-1 rounded-t ${showPasteToken ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
-              onClick={() => setShowPasteToken(true)}
+              onClick={handlePasteMode}
             >
-              Paste API Key
+              {provider === "grok-cli" ? "Import auth.json" : "Paste API Key"}
             </button>
           </div>
         )}
 
-        {/* Paste-token form (Windsurf / Devin CLI) */}
+        {/* Paste-token form (Windsurf / Devin CLI / Grok CLI fallback) */}
         {supportsTokenPaste && showPasteToken && step !== "success" && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-text-muted">
               {provider === "windsurf"
                 ? 'In the Windsurf / VS Code IDE, run the "Windsurf: Provide Auth Token" command from the command palette (or click the Jupyter "Get Windsurf Authentication Token" button), then copy the shown token and paste it below. Opening windsurf.com/show-auth-token directly only shows a "Redirecting" page — the IDE must initiate the flow.'
                 : provider === "grok-cli"
-                  ? 'Paste your Grok Build JWT token from ~/.grok/auth.json (the "key" field value). You can get it by running `grok login` in your terminal.'
+                  ? 'Paste the FULL contents of ~/.grok/auth.json or a raw JWT. A full auth.json contains a refresh_token for automatic token renewal. Prefer the dedicated Import auth.json modal when available.'
                   : 'Provide your WINDSURF_API_KEY (obtained via `devin auth login`, or via the Windsurf IDE "Windsurf: Provide Auth Token" command).'}
             </p>
             <Input

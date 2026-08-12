@@ -136,3 +136,69 @@ export function normalizeQuotaResponse(
     },
   };
 }
+
+export interface ProviderQuotaSummaryItem {
+  providerId: string;
+  providerName: string;
+  activeAccountCount: number;
+  hasKnownQuota: boolean;
+  percentRemaining: number | null;
+  isExhausted: boolean;
+  resetAt: string | null;
+  fetchedAt: string | null;
+}
+
+export interface ProviderQuotaSummaryMeta {
+  generatedAt: string;
+  totalActiveConnections: number;
+  totalProviders: number;
+  cappedAt: number;
+}
+
+export interface ProviderQuotaSummaryResponse {
+  providers: ProviderQuotaSummaryItem[];
+  meta: ProviderQuotaSummaryMeta;
+}
+
+export function sanitizeProviderQuotaSummaryItem(input: unknown): ProviderQuotaSummaryItem {
+  const source = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  const providerId =
+    typeof source.providerId === "string" && source.providerId.trim()
+      ? source.providerId.trim()
+      : "unknown";
+  const providerName =
+    typeof source.providerName === "string" && source.providerName.trim()
+      ? source.providerName.trim()
+      : providerId;
+  const activeAccountCount =
+    typeof source.activeAccountCount === "number" && Number.isFinite(source.activeAccountCount)
+      ? Math.max(0, Math.floor(source.activeAccountCount))
+      : 0;
+  const hasKnownQuota = Boolean(source.hasKnownQuota);
+
+  let percentRemaining: number | null = null;
+  if (hasKnownQuota && source.percentRemaining !== null && source.percentRemaining !== undefined) {
+    const parsedPct = Number(source.percentRemaining);
+    if (Number.isFinite(parsedPct)) {
+      percentRemaining = Math.min(100, Math.max(0, Math.round(parsedPct * 10) / 10));
+    }
+  }
+
+  const isExhausted = Boolean(source.isExhausted);
+  const resetAt =
+    typeof source.resetAt === "string" && source.resetAt.trim() ? source.resetAt.trim() : null;
+  const fetchedAt =
+    typeof source.fetchedAt === "string" && source.fetchedAt.trim() ? source.fetchedAt.trim() : null;
+
+  return {
+    providerId,
+    providerName,
+    activeAccountCount,
+    hasKnownQuota,
+    percentRemaining,
+    isExhausted,
+    resetAt,
+    fetchedAt,
+  };
+}
+

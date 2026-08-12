@@ -38,7 +38,7 @@ function toTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-function toComboLike(combo: ComboInput): ComboLike {
+export function toComboLike(combo: ComboInput): ComboLike {
   return {
     ...combo,
     id: toTrimmedString(combo.id) || undefined,
@@ -52,6 +52,7 @@ function toComboLike(combo: ComboInput): ComboLike {
         ? combo.context_cache_protection
         : undefined,
     system_message: typeof combo.system_message === "string" ? combo.system_message : null,
+    system_message_mode: typeof combo.system_message_mode === "string" ? combo.system_message_mode : null,
   };
 }
 

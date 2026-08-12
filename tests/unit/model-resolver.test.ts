@@ -154,6 +154,20 @@ test("getModelInfoCore handles unknown model", async () => {
   assert.ok(typeof result === "object");
 });
 
+test("getModelInfoCore canonicalizes Codex aliases without double prefixes", async () => {
+  const alias = await model.getModelInfoCore("cx/gpt-5.6-luna", {});
+  const canonical = await model.getModelInfoCore("codex/gpt-5.6-luna", {});
+  const duplicated = await model.getModelInfoCore("codex/cx/gpt-5.6-luna", {});
+
+  assert.deepEqual(alias, {
+    provider: "codex",
+    model: "gpt-5.6-luna",
+    extendedContext: false,
+  });
+  assert.deepEqual(canonical, alias);
+  assert.deepEqual(duplicated, alias);
+});
+
 test("getModelInfoCore handles null", async () => {
   const result = await model.getModelInfoCore(null, {});
   assert.ok(result);

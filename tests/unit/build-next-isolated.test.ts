@@ -6,12 +6,22 @@ import os from "node:os";
 import path from "node:path";
 
 const {
+  checkBuildPreflight,
+  getNofileLimit,
   getTransientBuildPaths,
+  main,
   movePath,
   pruneStandaloneArtifacts,
+  recoverOrphanedReferences,
+  resolveBuildCpus,
   resolveNextBuildEnv,
+  restoreMovedEntry,
+  restoreMovedPaths,
   syncStandaloneNativeAssets,
 } = await import("../../scripts/build/build-next-isolated.mjs");
+const { resolveBuildCpus: resolveBuildCpusFromNextConfig } = await import("../../next.config.mjs");
+
+const constrainedCapacity = { logicalCpus: 16, totalMemoryMb: 65536, nofileSoft: 4096 };
 
 async function withTempDir(fn) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omniroute-build-next-isolated-"));
@@ -137,14 +147,16 @@ test("resolveNextBuildEnv honors the OMNIROUTE_BUILD_MEMORY_MB override", () => 
   assert.match(env.NODE_OPTIONS, /--max-old-space-size=6144/);
 });
 
-test("getTransientBuildPaths leaves _tasks in place by default", () => {
+test("getTransientBuildPaths includes references symlink by default and leaves _tasks in place", () => {
   const paths = getTransientBuildPaths("/repo", {});
 
-  // Layer 1 deleted the root-level `app/` move-out hack, so the only default
-  // transient path left is the Wine prefix. ("legacy app snapshot" is gone.)
   assert.deepEqual(
     paths.map((entry) => entry.label),
-    ["local Wine prefix"]
+    ["local Wine prefix", "workspace references symlink"]
+  );
+  assert.equal(
+    paths.some((entry) => path.basename(entry.sourcePath) === "references"),
+    true
   );
   assert.equal(
     paths.some((entry) => path.basename(entry.sourcePath) === "_tasks"),
@@ -161,17 +173,98 @@ test("getTransientBuildPaths only moves _tasks when explicitly enabled", () => {
   );
 });
 
-test("pruneStandaloneArtifacts removes traced _tasks from standalone output", async () => {
+test("movePath moves symbolic links without dereferencing or modifying the target", async () => {
   await withTempDir(async (tempDir) => {
-    // Layer 1 moved the Next distDir default to .build/next.
+    const targetDir = path.join(tempDir, "legacy-repo");
+    const targetFile = path.join(targetDir, "data.txt");
+    const symlinkPath = path.join(tempDir, "references");
+    const backupSymlinkPath = path.join(tempDir, "backup", "references");
+
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.writeFile(targetFile, "target contents");
+    await fs.symlink(targetDir, symlinkPath);
+
+    // Verify initial symlink state
+    const initialLstat = await fs.lstat(symlinkPath);
+    assert.equal(initialLstat.isSymbolicLink(), true);
+    assert.equal(await fs.readlink(symlinkPath), targetDir);
+
+    // Move symlink out (e.g. before build)
+    await movePath(symlinkPath, backupSymlinkPath);
+
+    assert.equal(fsSync.existsSync(symlinkPath), false);
+    const backupLstat = await fs.lstat(backupSymlinkPath);
+    assert.equal(backupLstat.isSymbolicLink(), true);
+    assert.equal(await fs.readlink(backupSymlinkPath), targetDir);
+    assert.equal(await fs.readFile(path.join(backupSymlinkPath, "data.txt"), "utf8"), "target contents");
+
+    // Move symlink back (e.g. in finally block)
+    await movePath(backupSymlinkPath, symlinkPath);
+
+    assert.equal(fsSync.existsSync(backupSymlinkPath), false);
+    const restoredLstat = await fs.lstat(symlinkPath);
+    assert.equal(restoredLstat.isSymbolicLink(), true);
+    assert.equal(await fs.readlink(symlinkPath), targetDir);
+    assert.equal(await fs.readFile(path.join(symlinkPath, "data.txt"), "utf8"), "target contents");
+  });
+});
+
+test("movePath handles EXDEV fallback for symbolic links safely", async () => {
+  await withTempDir(async (tempDir) => {
+    const targetDir = path.join(tempDir, "legacy-repo");
+    const symlinkPath = path.join(tempDir, "references");
+    const backupSymlinkPath = path.join(tempDir, "backup", "references");
+
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.symlink(targetDir, symlinkPath);
+
+    let copyCalled = false;
+
+    await movePath(symlinkPath, backupSymlinkPath, {
+      rename: async () => {
+        const error = new Error("cross-device link not permitted");
+        error.code = "EXDEV";
+        throw error;
+      },
+      lstat: (p) => fs.lstat(p),
+      readlink: (p) => fs.readlink(p),
+      symlink: (target, p) => fs.symlink(target, p),
+      unlink: (p) => fs.unlink(p),
+      cp: async (...args) => {
+        copyCalled = true;
+        return fs.cp(...args);
+      },
+      rm: async (...args) => fs.rm(...args),
+      mkdir: (p, opts) => fs.mkdir(p, opts),
+    });
+
+    assert.equal(copyCalled, false);
+    assert.equal(fsSync.existsSync(symlinkPath), false);
+    const backupLstat = await fs.lstat(backupSymlinkPath);
+    assert.equal(backupLstat.isSymbolicLink(), true);
+    assert.equal(await fs.readlink(backupSymlinkPath), targetDir);
+  });
+});
+
+test("pruneStandaloneArtifacts removes traced _tasks and references from standalone output", async () => {
+  await withTempDir(async (tempDir) => {
     const tracedTaskFile = path.join(tempDir, ".build", "next", "standalone", "_tasks", "plan.md");
+    const tracedRefFile = path.join(tempDir, ".build", "next", "standalone", "references", "ref.md");
+
     await fs.mkdir(path.dirname(tracedTaskFile), { recursive: true });
     await fs.writeFile(tracedTaskFile, "transient planning artifact");
+
+    await fs.mkdir(path.dirname(tracedRefFile), { recursive: true });
+    await fs.writeFile(tracedRefFile, "transient reference artifact");
 
     await pruneStandaloneArtifacts(tempDir);
 
     assert.equal(
       fsSync.existsSync(path.join(tempDir, ".build", "next", "standalone", "_tasks")),
+      false
+    );
+    assert.equal(
+      fsSync.existsSync(path.join(tempDir, ".build", "next", "standalone", "references")),
       false
     );
   });
@@ -209,4 +302,191 @@ test("syncStandaloneNativeAssets copies wreq-js native runtime into standalone o
     assert.equal(await fs.readFile(destinationNativeFile, "utf8"), "native module bytes");
     assert.match((logs[0] ?? "").replaceAll("\\", "/"), /wreq-js\/rust/);
   });
+});
+
+test("main restores references symlink and exact target when child build fails (compile error)", async () => {
+  await withTempDir(async (tempDir) => {
+    const legacyTargetDir = path.join(tempDir, "..", "legacy");
+    const referencesSymlink = path.join(tempDir, "references");
+    const originalExitCode = process.exitCode;
+
+    try {
+      await fs.mkdir(legacyTargetDir, { recursive: true });
+      await fs.writeFile(path.join(legacyTargetDir, "dummy.txt"), "legacy data");
+      await fs.symlink("../legacy", referencesSymlink);
+
+      const logs: string[] = [];
+      const mockLog = {
+        log: (msg: unknown) => logs.push(String(msg)),
+        warn: (msg: unknown) => logs.push(String(msg)),
+        error: (msg: unknown) => logs.push(String(msg)),
+      };
+
+      // Run main with simulated build failure (Webpack compile error)
+      await main({
+        rootDir: tempDir,
+        fsImpl: fs,
+        log: mockLog,
+        runNextBuildImpl: async () => ({ code: 1, signal: null }),
+      });
+
+      assert.equal(process.exitCode, 1);
+
+      // Verify references symlink is restored and target is preserved exactly
+      const restoredStat = await fs.lstat(referencesSymlink);
+      assert.equal(restoredStat.isSymbolicLink(), true);
+      assert.equal(await fs.readlink(referencesSymlink), "../legacy");
+      assert.equal(
+        await fs.readFile(path.join(referencesSymlink, "dummy.txt"), "utf8"),
+        "legacy data"
+      );
+
+      // Verify restoration was logged clearly
+      assert.ok(
+        logs.some((l) => l.includes("Restored") && l.includes("references")),
+        "must log restoration of references"
+      );
+    } finally {
+      process.exitCode = originalExitCode;
+      await fs.rm(legacyTargetDir, { recursive: true, force: true });
+    }
+  });
+});
+
+test("recoverOrphanedReferences creates fallback references symlink when missing", async () => {
+  await withTempDir(async (tempDir) => {
+    const referencesSymlink = path.join(tempDir, "references");
+    assert.equal(fsSync.existsSync(referencesSymlink), false);
+
+    const logs: string[] = [];
+    const mockLog = {
+      log: (msg: unknown) => logs.push(String(msg)),
+      warn: (msg: unknown) => logs.push(String(msg)),
+      error: (msg: unknown) => logs.push(String(msg)),
+    };
+
+    const recovered = await recoverOrphanedReferences(tempDir, fs, mockLog);
+    assert.equal(recovered, true);
+
+    const stat = await fs.lstat(referencesSymlink);
+    assert.equal(stat.isSymbolicLink(), true);
+    assert.equal(await fs.readlink(referencesSymlink), "../legacy");
+    assert.ok(
+      logs.some((l) => l.includes("references")),
+      "must log recovery of references"
+    );
+  });
+});
+
+test("restoreMovedPaths preserves backup root directory if an entry fails to restore", async () => {
+  await withTempDir(async (tempDir) => {
+    const backupRoot = path.join(tempDir, "backup-root");
+    const badBackupPath = path.join(backupRoot, "non-existent-backup");
+    const logs: string[] = [];
+    const mockLog = {
+      log: (msg: unknown) => logs.push(String(msg)),
+      warn: (msg: unknown) => logs.push(String(msg)),
+      error: (msg: unknown) => logs.push(String(msg)),
+    };
+
+    await fs.mkdir(backupRoot, { recursive: true });
+
+    // Mock an entry whose restore will fail because backup is missing
+    const movedPaths = [
+      {
+        label: "broken test entry",
+        sourcePath: path.join(tempDir, "source-file"),
+        backupPath: badBackupPath,
+        isSymlink: false,
+        symlinkTarget: null,
+      },
+    ];
+
+    const allRestored = await restoreMovedPaths(movedPaths, backupRoot, tempDir, fs, mockLog);
+    assert.equal(allRestored, false);
+    assert.equal(fsSync.existsSync(backupRoot), true, "backup root must be preserved when restore fails");
+    assert.ok(
+      logs.some((l) => l.includes("Preserving backup root directory")),
+      "must log warning about preserving backup root"
+    );
+  });
+});
+
+test("resolveBuildCpus auto-scales within CPU, memory, and nofile limits", () => {
+  assert.equal(resolveBuildCpus({}, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "" }, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "   " }, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpusFromNextConfig({}, constrainedCapacity), 8);
+
+  const unconstrained = resolveBuildCpus(
+    {},
+    { logicalCpus: 16, totalMemoryMb: 65536, nofileSoft: 65536 }
+  );
+  assert.equal(unconstrained, 10, "memory budget should cap automatic workers before 80% CPU");
+  assert.ok(unconstrained <= Math.floor(16 * 0.8));
+});
+
+test("resolveBuildCpus parses valid positive integer overrides", () => {
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "1" }), 1);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "2" }), 2);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "8" }), 8);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: " 16 " }), 16);
+  assert.equal(resolveBuildCpusFromNextConfig({ OMNIROUTE_BUILD_CPUS: "6" }), 6);
+});
+
+test("resolveBuildCpus safely auto-scales for invalid, zero, or negative inputs", () => {
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "0" }, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "-1" }, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "-10" }, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "abc" }, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpus({ OMNIROUTE_BUILD_CPUS: "3.14" }, constrainedCapacity), 8);
+  assert.equal(resolveBuildCpusFromNextConfig({ OMNIROUTE_BUILD_CPUS: "invalid" }, constrainedCapacity), 8);
+});
+
+test("checkBuildPreflight logs a warning when soft nofile limit is below 8192", () => {
+  const warnings: string[] = [];
+  const mockLog = {
+    log: () => {},
+    warn: (msg: unknown) => warnings.push(String(msg)),
+    error: () => {},
+  };
+
+  const mockFs = {
+    readFileSync: (filePath: string) => {
+      if (filePath === "/proc/self/limits") {
+        return "Max open files            4096                 4096                 files\n";
+      }
+      throw new Error("ENOENT");
+    },
+  };
+
+  const res = checkBuildPreflight({ OMNIROUTE_BUILD_CPUS: "4" }, mockLog, mockFs as any);
+  assert.equal(res.buildCpus, 4);
+  assert.deepEqual(res.limits, { soft: 4096, hard: 4096 });
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /below recommended threshold/);
+  assert.match(warnings[0], /OMNIROUTE_BUILD_CPUS=4/);
+});
+
+test("checkBuildPreflight does not warn when nofile limit is high or unreadable", () => {
+  const warnings: string[] = [];
+  const mockLog = {
+    log: () => {},
+    warn: (msg: unknown) => warnings.push(String(msg)),
+    error: () => {},
+  };
+
+  const mockFsHigh = {
+    readFileSync: () => "Max open files            65536                65536                files\n",
+  };
+  checkBuildPreflight({}, mockLog, mockFsHigh as any);
+  assert.equal(warnings.length, 0);
+
+  const mockFsError = {
+    readFileSync: () => {
+      throw new Error("ENOENT");
+    },
+  };
+  checkBuildPreflight({}, mockLog, mockFsError as any);
+  assert.equal(warnings.length, 0);
 });

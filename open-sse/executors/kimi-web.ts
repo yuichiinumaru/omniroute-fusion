@@ -7,6 +7,11 @@
  * Endpoint: POST https://www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat
  * Auth: Bearer token (access_token from localStorage or kimi-auth cookie)
  * Protocol: Connect-RPC binary framing
+ *
+ * Upstream reduction note:
+ * This implementation (~226 lines) is a streamlined port of the upstream executor (586 lines).
+ * It preserves the complete Connect-RPC binary framing, bearer auth, streaming decoder, model resolution,
+ * and error handling contracts while omitting non-essential web-scraping fallback helpers.
  */
 import { BaseExecutor, type ExecuteInput } from "./base.ts";
 import { makeExecutorErrorResult as makeErrorResult } from "../utils/error.ts";
@@ -56,7 +61,8 @@ export class KimiWebExecutor extends BaseExecutor {
 
   async execute(input: ExecuteInput) {
     const { body, credentials, signal, stream: wantStream } = input;
-    const bodyObj = (body || {}) as Record<string, unknown>; // SAFETY: body parameter is unknown input from caller, defaults to {}
+    // SAFETY: body parameter is unknown input from caller, defaults to {}
+    const bodyObj = (body || {}) as Record<string, unknown>;
     const rawCred = String(credentials?.apiKey ?? "").trim();
 
     const accessToken = extractKimiAccessToken(rawCred);
@@ -69,9 +75,11 @@ export class KimiWebExecutor extends BaseExecutor {
       );
     }
 
-    const modelId = (bodyObj.model as string) || "k3"; // SAFETY: bodyObj is Record<string, unknown>, safe fallback to "k3"
+    // SAFETY: bodyObj is Record<string, unknown>, safe fallback to "k3"
+    const modelId = (bodyObj.model as string) || "k3";
     const modelConfig = resolveKimiModelId(modelId);
-    const messages = (bodyObj.messages as Array<{ role: string; content: string | unknown[] }>) || []; // SAFETY: guarded by Array.isArray check in map below; content is string | array per OpenAI schema
+    // SAFETY: guarded by Array.isArray check in map below; content is string | array per OpenAI schema
+    const messages = (bodyObj.messages as Array<{ role: string; content: string | unknown[] }>) || [];
 
     // Build Connect-RPC payload following the ChatService/Chat schema
     const chatId = crypto.randomUUID();
@@ -84,7 +92,8 @@ export class KimiWebExecutor extends BaseExecutor {
         return { role: m.role, content };
       }),
       stream: wantStream,
-      max_tokens: (bodyObj.max_tokens as number) || modelConfig.maxTokens || 131072, // SAFETY: bodyObj is Record<string, unknown>, safe fallback to modelConfig.maxTokens
+      // SAFETY: bodyObj is Record<string, unknown>, safe fallback to modelConfig.maxTokens
+      max_tokens: (bodyObj.max_tokens as number) || modelConfig.maxTokens || 131072,
     };
 
     const frame = frameConnectMessage(payload);
@@ -104,7 +113,8 @@ export class KimiWebExecutor extends BaseExecutor {
       upstream = await fetch(CHAT_URL, {
         method: "POST",
         headers: reqHeaders,
-        body: frame, // SAFETY: Uint8Array is accepted by fetch body parameter
+        // SAFETY: Uint8Array is accepted by fetch body parameter
+        body: frame,
         signal,
       });
     } catch (err) {
@@ -127,11 +137,13 @@ export class KimiWebExecutor extends BaseExecutor {
       if (!decoded) {
         return makeErrorResult(502, "Failed to decode Kimi response frame", body, CHAT_URL);
       }
-      const respObj = decoded as Record<string, unknown>; // SAFETY: decoded is JSON.parse result from decodeConnectFrame — always object
+      // SAFETY: decoded is JSON.parse result from decodeConnectFrame — always object
+      const respObj = decoded as Record<string, unknown>;
+      // SAFETY: guarded by typeof check on respObj.message
+      const msgObj = respObj?.message as Record<string, unknown> | undefined;
       const content = (typeof respObj?.content === "string" ? respObj.content : "") ||
-        (typeof (respObj?.message as Record<string, unknown>)?.content === "string" // SAFETY: guarded by typeof check on respObj.message
-          ? ((respObj.message as Record<string, unknown>).content as string) // SAFETY: guarded by typeof content === "string" check
-          : "");
+        // SAFETY: guarded by typeof check on msgObj.content
+        (typeof msgObj?.content === "string" ? (msgObj.content as string) : "");
       return {
         response: new Response(
           JSON.stringify({
@@ -158,34 +170,51 @@ export class KimiWebExecutor extends BaseExecutor {
           controller.close();
           return;
         }
-        let frameBuffer = new Uint8Array(0);
+        let capacity = 64 * 1024; // 64 KiB initial capacity
+        let frameBuffer = new Uint8Array(capacity);
+        let bufferLength = 0;
+
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            // Append new data to frame buffer
-            const newBuffer = new Uint8Array(frameBuffer.length + value.length);
-            newBuffer.set(frameBuffer);
-            newBuffer.set(value, frameBuffer.length);
-            frameBuffer = newBuffer;
+
+            // Grow buffer exponentially if needed to avoid O(N²) reallocations
+            if (bufferLength + value.length > capacity) {
+              capacity = Math.max(capacity * 2, bufferLength + value.length);
+              const expanded = new Uint8Array(capacity);
+              expanded.set(frameBuffer.subarray(0, bufferLength));
+              frameBuffer = expanded;
+            }
+            frameBuffer.set(value, bufferLength);
+            bufferLength += value.length;
+
             // Try to decode complete frames (5-byte header + payload)
-            while (frameBuffer.length >= 5) {
+            while (bufferLength >= 5) {
               const compression = frameBuffer[0];
               if (compression !== 0) {
                 // Skip compressed frames — advance past the 5-byte envelope + payload
                 const compLen = new DataView(frameBuffer.buffer, frameBuffer.byteOffset).getUint32(1, false);
-                if (frameBuffer.length < 5 + compLen) break; // Wait for more data
-                frameBuffer = frameBuffer.slice(5 + compLen);
+                if (bufferLength < 5 + compLen) break; // Wait for more data
+                const frameSize = 5 + compLen;
+                frameBuffer.copyWithin(0, frameSize, bufferLength);
+                bufferLength -= frameSize;
                 continue;
               }
+
               const length = new DataView(frameBuffer.buffer, frameBuffer.byteOffset).getUint32(1, false);
-              if (frameBuffer.length < 5 + length) break;
-              const frameBytes = frameBuffer.slice(0, 5 + length);
-              frameBuffer = frameBuffer.slice(5 + length);
+              if (bufferLength < 5 + length) break;
+              const frameSize = 5 + length;
+              const frameBytes = frameBuffer.slice(0, frameSize);
+              frameBuffer.copyWithin(0, frameSize, bufferLength);
+              bufferLength -= frameSize;
+
               const decoded = decodeConnectFrame(frameBytes);
               if (decoded) {
-                const respObj = decoded as Record<string, unknown>; // SAFETY: decoded is JSON.parse result from decodeConnectFrame — always object
-                const deltaObj = respObj?.delta as Record<string, unknown> | undefined; // SAFETY: respObj is Record<string, unknown>
+                // SAFETY: decoded is JSON.parse result from decodeConnectFrame — always object
+                const respObj = decoded as Record<string, unknown>;
+                // SAFETY: respObj is Record<string, unknown>
+                const deltaObj = respObj?.delta as Record<string, unknown> | undefined;
                 const content = (typeof respObj?.content === "string" ? respObj.content : "") ||
                   (typeof deltaObj?.content === "string" ? deltaObj.content : "");
                 if (content) {
@@ -204,8 +233,18 @@ export class KimiWebExecutor extends BaseExecutor {
         } catch (err) {
           if (!signal?.aborted) controller.error(err);
         } finally {
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
+          if (!signal?.aborted) {
+            try {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            } catch {
+              // Ignore enqueue errors if controller is closed
+            }
+          }
+          try {
+            controller.close();
+          } catch {
+            // Ignore close errors if controller is closed
+          }
         }
       },
     });

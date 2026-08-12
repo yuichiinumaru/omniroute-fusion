@@ -21,7 +21,7 @@
  * Pure leaf: this module never imports from the combo barrel.
  */
 
-import { getRuntimeProviderProfile, type ProviderProfile } from "../accountFallback.ts";
+import { getRuntimeProviderProfile, hasHealthyAccount, type ProviderProfile } from "../accountFallback.ts";
 import { PRE_SCREEN_CONCURRENCY } from "../comboConfig.ts";
 import { getQuotaFetcher } from "../quotaPreflight.ts";
 import { getCircuitBreaker } from "../../../src/shared/utils/circuitBreaker";
@@ -432,8 +432,15 @@ export async function preScreenTargets(
 
       // F-03-003: skip when OPEN or HALF_OPEN probe budget exhausted (canExecute).
       const breaker = getCircuitBreaker(target.provider);
-      if (!breaker.canExecute()) {
-        return { key: target.executionKey, result: { profile, available: false } };
+      const breakerBlocking = !breaker.canExecute();
+      if (breakerBlocking) {
+        const healthy = await hasHealthyAccount(target.provider, target.modelStr, {
+          connectionId: target.connectionId,
+          allowedConnections: target.allowedConnectionIds,
+        });
+        if (!healthy) {
+          return { key: target.executionKey, result: { profile, available: false } };
+        }
       }
 
       let available = true;

@@ -15,6 +15,7 @@ import { copyToClipboard } from "@/shared/utils/clipboard";
 import { getProviderDisplayLabel } from "@/shared/utils/providerDisplayLabel";
 import { useIsElectron, useOpenExternal } from "@/shared/hooks/useElectron";
 import { HomeProviderTopologySection } from "./HomeProviderTopologySection";
+import ApiKeyHealthWarnings from "../home/ApiKeyHealthWarnings";
 import { shouldShowProviderTopologyOnHome } from "./homeAppearance";
 
 const ProviderQuotaWidget = dynamic(() => import("../home/ProviderQuotaWidget"), { ssr: false });
@@ -334,92 +335,6 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
       controller?.abort();
     };
   }, [appearanceSettingsLoaded, showProviderTopologyOnHome]);
-
-  // T07: Check for unhealthy API keys and show notification (once per session)
-  const notifiedUnhealthyKeys = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const checkApiKeyHealth = () => {
-      const newUnhealthyKeys = new Set<string>();
-      const unhealthyProviderIds = new Set<string>();
-      const unhealthyConnections: string[] = [];
-      let firstUnhealthyProviderId: string | null = null;
-      let hasWarning = false;
-
-      for (const conn of providerConnections) {
-        const health = conn.providerSpecificData?.apiKeyHealth as
-          | Record<
-              string,
-              {
-                status: "active" | "warning" | "invalid";
-                failures: number;
-                lastFailure: string | null;
-              }
-            >
-          | undefined;
-        if (!health) continue;
-
-        // Defense-in-depth: skip stale extra_N health entries whose index
-        // is out of range of the current extraApiKeys list.
-        // The backend cleans this up on PATCH, but existing stale data from
-        // before the fix or other code paths could still have orphan entries.
-        const extras: string[] = conn.providerSpecificData?.extraApiKeys ?? [];
-        const extraKeyCount = Array.isArray(extras) ? extras.length : 0;
-
-        const unhealthyKeys = Object.entries(health).filter(([keyId, h]) => {
-          if (h.status !== "invalid" && h.status !== "warning") return false;
-          // extra_N entries: only flag if the index is still within bounds
-          if (keyId.startsWith("extra_")) {
-            const idx = Number.parseInt(keyId.slice(6), 10);
-            if (Number.isNaN(idx) || idx >= extraKeyCount) return false;
-          }
-          return true;
-        });
-
-        if (unhealthyKeys.length > 0) {
-          for (const [, h] of unhealthyKeys) {
-            if (h.status === "warning") hasWarning = true;
-            break;
-          }
-          for (const [keyId] of unhealthyKeys) {
-            newUnhealthyKeys.add(`${conn.id}:${keyId}`);
-          }
-          firstUnhealthyProviderId ??= conn.provider;
-          unhealthyConnections.push(conn.name || conn.id);
-          unhealthyProviderIds.add(conn.provider);
-        }
-      }
-
-      // Only notify for newly unhealthy keys (not already notified)
-      const hasNewUnhealthy = Array.from(newUnhealthyKeys).some(
-        (k) => !notifiedUnhealthyKeys.current.has(k)
-      );
-      if (hasNewUnhealthy) {
-        const navigateTo =
-          newUnhealthyKeys.size === 1 && firstUnhealthyProviderId
-            ? `/dashboard/providers/${firstUnhealthyProviderId}`
-            : `/dashboard/providers?search=${encodeURIComponent(Array.from(unhealthyProviderIds).join(" "))}`;
-
-        const notificationType = hasWarning ? "warning" : "error";
-
-        useNotificationStore.getState().addNotification({
-          type: notificationType,
-          message: tp(hasWarning ? "apiKeyWarningAlert" : "apiKeyInvalidAlert", {
-            count: newUnhealthyKeys.size,
-            connections: unhealthyConnections.join(", "),
-          }),
-          title: tp(hasWarning ? "apiKeyWarningAlertTitle" : "apiKeyInvalidAlertTitle"),
-          duration: 10000,
-          onClick: () => router.push(navigateTo),
-        });
-        // Mark all current unhealthy keys as notified
-        newUnhealthyKeys.forEach((k) => notifiedUnhealthyKeys.current.add(k));
-      }
-    };
-
-    if (providerConnections.length > 0) {
-      checkApiKeyHealth();
-    }
-  }, [providerConnections, t, tp, router]);
 
   const providerStats = useMemo(() => {
     return Object.entries(AI_PROVIDERS).map(([providerId, providerInfo]) => {
@@ -1184,6 +1099,8 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
           enabled={showProviderTopologyOnHome}
         />
       )}
+
+      <ApiKeyHealthWarnings connections={providerConnections} />
 
       {/* Provider Models Modal */}
       {selectedProvider && (

@@ -145,7 +145,7 @@ test("ADAPTIVE: Opus 4.7 budget capped within Anthropic-allowed range", () => {
   }));
   const tools = Array.from({ length: 25 }, (_, i) => ({ name: `tool${i}` }));
   const body = {
-    model: "claude-opus-4-7",
+    model: "claude-opus-4-6",
     messages,
     tools,
     output_config: { effort: "max" },

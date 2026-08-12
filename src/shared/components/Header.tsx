@@ -248,7 +248,7 @@ const OPERATIONS_DEEP_HEADER_META: ReadonlyArray<DeepHeaderMeta> = [
       p === "/dashboard/testing" ||
       p.startsWith("/dashboard/testing/"),
     titleKey: "labsNav",
-    titleFallback: OPERATIONS_TOPBAR_LABELS.labs,
+    titleFallback: "Labs",
     descKey: "testingDescription",
     icon: "science",
   },
@@ -339,6 +339,19 @@ const TESTING_DEEP_HEADER_META: ReadonlyArray<DeepHeaderMeta> = [
 ];
 
 /**
+ * Settings deep destinations (Task 0134).
+ */
+const SETTINGS_DEEP_HEADER_META: ReadonlyArray<DeepHeaderMeta> = [
+  {
+    match: (p) => p === "/dashboard/settings/routing" || p.startsWith("/dashboard/settings/routing/"),
+    titleKey: "settingsRouting",
+    titleFallback: "Routing",
+    descKey: "settingsRoutingDescription",
+    icon: "route",
+  },
+];
+
+/**
  * Pure Header deep-title resolver (EPIC-20 / Task 0100 gate).
  * Returns titleFallback for Ops/Testing deep destinations; null when Header
  * should use primary sidebar (or other specials).
@@ -354,6 +367,9 @@ export function resolveDeepHeaderTitleFallback(
   for (const entry of TESTING_DEEP_HEADER_META) {
     if (entry.match(pathOnly)) return entry.titleFallback;
   }
+  for (const entry of SETTINGS_DEEP_HEADER_META) {
+    if (entry.match(pathOnly)) return entry.titleFallback;
+  }
   return null;
 }
 
@@ -362,6 +378,9 @@ function resolveDeepHeaderMeta(pathname: string): DeepHeaderMeta | null {
     if (entry.match(pathname)) return entry;
   }
   for (const entry of TESTING_DEEP_HEADER_META) {
+    if (entry.match(pathname)) return entry;
+  }
+  for (const entry of SETTINGS_DEEP_HEADER_META) {
     if (entry.match(pathname)) return entry;
   }
   return null;

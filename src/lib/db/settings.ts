@@ -153,6 +153,10 @@ export async function getSettings() {
     perKeyProxyEnabled: false,
     customSystemPromptEnabled: false,
     customSystemPrompt: "",
+    globalTimeoutMs: 600000,
+    comboTestTimeoutMs: 20000,
+    providerTestTimeoutMs: 30000,
+    modelTestTimeoutMs: 10000,
     // OAuth browser popup auto-open (Task 0135). When true (default), the
     // OAuthModal auto-launches the provider's auth URL in a popup window.
     // When false, the modal skips `window.open(...)` and shows the manual
@@ -161,6 +165,8 @@ export async function getSettings() {
     // The key is intentionally additive and defaults to true to preserve
     // current behavior on upgrade.
     oauthAutoOpen: true,
+    // Provider Model Auto-Sync (Task 0129): default to ON (true) for fresh installs
+    providerModelAutoSyncEnabled: true,
   };
   for (const row of rows) {
     const record = toRecord(row);

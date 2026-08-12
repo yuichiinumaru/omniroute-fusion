@@ -7,6 +7,16 @@ import ComboDefaultsTab from "../components/ComboDefaultsTab";
 import FallbackChainsEditor from "../components/FallbackChainsEditor";
 import ModelAliasesUnified from "../components/ModelAliasesUnified";
 import BackgroundDegradationTab from "../components/BackgroundDegradationTab";
+import ThinkingBudgetTab from "../components/ThinkingBudgetTab";
+import VisionBridgeSettingsTab from "../components/VisionBridgeSettingsTab";
+import SystemPromptTab from "../components/SystemPromptTab";
+import ResponsesStatePolicyTab from "../components/ResponsesStatePolicyTab";
+import UsageTokenBufferTab from "../components/UsageTokenBufferTab";
+import CodexFastTierTab from "../components/CodexFastTierTab";
+import ClaudeFastModeTab from "../components/ClaudeFastModeTab";
+import MemorySkillsTab from "../components/MemorySkillsTab";
+import ModelsDevSyncTab from "../components/ModelsDevSyncTab";
+import ResilienceTab from "../components/ResilienceTab";
 
 export default function SettingsRoutingPage() {
   const t = useTranslations("settings");
@@ -19,6 +29,16 @@ export default function SettingsRoutingPage() {
       <ModelRoutingSection />
       <RoutingTab />
       <BackgroundDegradationTab />
+      <ThinkingBudgetTab />
+      <VisionBridgeSettingsTab />
+      <SystemPromptTab />
+      <ResponsesStatePolicyTab />
+      <UsageTokenBufferTab />
+      <CodexFastTierTab />
+      <ClaudeFastModeTab />
+      <MemorySkillsTab />
+      <ModelsDevSyncTab />
+      <ResilienceTab />
     </div>
   );
 }

@@ -10,6 +10,7 @@
 import { generatePKCE, generateState } from "./utils/pkce";
 import { PROVIDERS } from "./providers/index";
 import { resolvePublicCred } from "@omniroute/open-sse/utils/publicCreds.ts";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 
 const GOOGLE_BROWSER_PROVIDERS = new Set(["antigravity", "agy"]);
 
@@ -110,7 +111,9 @@ export function getProvider(name) {
  */
 export function generateAuthData(providerName, redirectUri) {
   const provider = getProvider(providerName);
-  const { codeVerifier, codeChallenge, state } = generatePKCE();
+  const pkce = generatePKCE(provider.pkceVerifierBytes || 32);
+  let codeVerifier = pkce.codeVerifier;
+  const { codeChallenge, state } = pkce;
 
   if (provider.flowType === "import_token") {
     const error =
@@ -126,16 +129,17 @@ export function generateAuthData(providerName, redirectUri) {
       flowType: provider.flowType,
       fixedPort: provider.fixedPort,
       callbackPath: provider.callbackPath || "/callback",
+      callbackHost: provider.callbackHost || "localhost",
       supported: false,
       error,
     };
   }
 
   let authUrl;
-  if (provider.flowType === "device_code") {
-    authUrl = null;
-  } else if (provider.flowType === "authorization_code_pkce") {
+  if (provider.flowType === "authorization_code_pkce" || provider.supportsBrowserPkce) {
     authUrl = provider.buildAuthUrl(provider.config, redirectUri, state, codeChallenge);
+  } else if (provider.flowType === "device_code") {
+    authUrl = null;
   } else {
     authUrl = provider.buildAuthUrl(provider.config, redirectUri, state);
   }
@@ -149,6 +153,7 @@ export function generateAuthData(providerName, redirectUri) {
     flowType: provider.flowType,
     fixedPort: provider.fixedPort,
     callbackPath: provider.callbackPath || "/callback",
+    callbackHost: provider.callbackHost || "localhost",
   };
 }
 
@@ -217,6 +222,21 @@ export async function pollForToken(providerName, deviceCode, codeVerifier, extra
 
   const result = await provider.pollToken(provider.config, deviceCode, codeVerifier, extraData);
 
+  // F4: provider-owned redaction lives in grok-cli.ts::pollToken(), but the
+  // generic pollForToken surface must ALSO sanitize before the response leaves
+  // the server — a defense-in-depth route to the browser. Preserve the
+  // actionable human text ("expired", "denied", "pending", "slow_down") and
+  // only strip token-shaped values via sanitizeErrorMessage + the Grok
+  // provider's JWT placeholder. Unknown providers remain safe on the generic
+  // sanitizer alone.
+  const sanitizePollDescription = (raw: unknown): string | undefined => {
+    if (typeof raw !== "string" || raw.length === 0) return undefined;
+    // Primary: Grok providers already replace eyJ... JWT shapes with
+    // [REDACTED]; secondary: generic sanitizer strips paths/stacks.
+    // Both are idempotent and composition preserves diagnostics.
+    return sanitizeErrorMessage(raw);
+  };
+
   if (result.ok) {
     if (result.data.access_token) {
       let extra = null;
@@ -226,26 +246,32 @@ export async function pollForToken(providerName, deviceCode, codeVerifier, extra
       return { success: true, tokens: provider.mapTokens(result.data, extra) };
     } else {
       if (result.data.error === "authorization_pending" || result.data.error === "slow_down") {
+        const rawDesc = result.data.error_description || result.data.message;
+        const desc = sanitizePollDescription(rawDesc);
         return {
           success: false,
           error: result.data.error,
-          errorDescription: result.data.error_description || result.data.message,
+          ...(desc ? { errorDescription: desc } : {}),
           pending: result.data.error === "authorization_pending",
         };
       } else {
+        const rawDesc =
+          result.data.error_description || result.data.message || "No access token received";
+        const desc = sanitizePollDescription(rawDesc) ?? "No access token received";
         return {
           success: false,
           error: result.data.error || "no_access_token",
-          errorDescription:
-            result.data.error_description || result.data.message || "No access token received",
+          errorDescription: desc,
         };
       }
     }
   }
 
+  const rawDesc = result.data.error_description ?? result.data.message;
+  const desc = sanitizePollDescription(rawDesc);
   return {
     success: false,
     error: result.data.error,
-    errorDescription: result.data.error_description,
+    ...(desc ? { errorDescription: desc } : {}),
   };
 }

@@ -10,7 +10,7 @@ type SidebarLikeItem = {
  * (or self-evident roots like `/operations`).
  * (EPIC-19 T19-G / Task 0084; EPIC-20 / 0087 Operations canonical path.)
  */
-export type SidebarHubPrimaryLeafId = "combos" | "activity" | "operations";
+export type SidebarHubPrimaryLeafId = "combos" | "activity" | "operations" | "settings-general";
 
 /**
  * SSoT: path prefix → primary sidebar leaf for hub children that do **not** nest
@@ -19,6 +19,7 @@ export type SidebarHubPrimaryLeafId = "combos" | "activity" | "operations";
  * - Routing (`combos` → `/dashboard/combos`): fusions, compression studio, context/*
  * - Observe (`activity` → `/dashboard/activity`): health (panels/sources share activity path)
  * - Operations (`operations` → `/operations`): legacy `/dashboard/operations` until fully retired
+ * - Settings (`settings-general` → `/dashboard/settings/general`): all settings sub-paths (/dashboard/settings/*)
  *
  * Note: `/operations/*` lights Operations via primary href prefix match (no alias needed).
  * Longest matching `pathPrefix` wins when prefixes ever nest.
@@ -60,6 +61,12 @@ export const SIDEBAR_ACTIVE_HUB_ALIASES: readonly {
     pathPrefix: "/dashboard/operations",
     primaryLeafId: "operations",
     primaryHref: "/operations",
+  },
+  {
+    // Settings sub-pages (/dashboard/settings/*) light Settings primary leaf (Task 0134).
+    pathPrefix: "/dashboard/settings",
+    primaryLeafId: "settings-general",
+    primaryHref: "/dashboard/settings/general",
   },
 ] as const;
 

@@ -14,6 +14,9 @@ function parseGrokJson(json: unknown): {
   hasRefreshToken: boolean;
 } {
   try {
+    if (typeof json === "string" && json.startsWith("eyJ")) {
+      return { valid: true, email: null, hasRefreshToken: false };
+    }
     const doc = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
     if (!doc) return { valid: false, email: null, hasRefreshToken: false };
 
@@ -127,8 +130,8 @@ export default function ImportGrokCliAuthModal({
     <Modal isOpen onClose={onClose} title="Import Grok Build Auth" size="md">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-text-muted">
-          Import your Grok Build <code>~/.grok/auth.json</code> file. You can get it by running{" "}
-          <code>grok login</code> in your terminal.
+          Import your Grok Build <code>~/.grok/auth.json</code> file or raw JWT. Alternatively, use
+          the Device Code or Browser Login flows in the main connection modal for interactive login.
         </p>
 
         {/* Tab toggle */}

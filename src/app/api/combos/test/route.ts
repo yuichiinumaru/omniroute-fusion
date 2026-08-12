@@ -10,6 +10,10 @@ import {
 } from "@/lib/localDb";
 import { getRuntimePorts } from "@/lib/runtime/ports";
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo.ts";
+import { getProviderModel } from "@omniroute/open-sse/config/providerModels.ts";
+import { PROVIDERS } from "@omniroute/open-sse/config/constants.ts";
+import { resolveUpstreamTimeoutMs } from "@omniroute/open-sse/handlers/chatCore/upstreamTimeouts.ts";
+import { getSettings } from "@/lib/localDb";
 import { testComboSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
@@ -65,7 +69,7 @@ function buildComboTestResult(target, partial = {}) {
   };
 }
 
-async function testComboTarget(target, baseInternalUrl, internalApiKey: string | null) {
+async function testComboTarget(target, baseInternalUrl, internalApiKey: string | null, combo?: any, settings?: any) {
   const startTime = Date.now();
   try {
     // Issue #2359: combo entries with a malformed/missing modelStr surfaced
@@ -88,8 +92,20 @@ async function testComboTarget(target, baseInternalUrl, internalApiKey: string |
     const internalUrl = `${baseInternalUrl}/v1/${isEmbedding ? "embeddings" : "chat/completions"}`;
     const testBody = buildComboTestRequestBody(modelStr, isEmbedding);
 
+    const provider = target.provider;
+    const modelEntry = provider ? getProviderModel(provider, modelStr) : undefined;
+    const providerEntry = provider ? (PROVIDERS as Record<string, any>)[provider] : undefined;
+    const comboConfig = combo?.config || {};
+    const testTimeoutMs = resolveUpstreamTimeoutMs({
+      modelTimeoutMs: modelEntry?.timeoutMs,
+      providerTimeoutMs: providerEntry?.timeoutMs,
+      comboTimeoutMs: comboConfig.targetTimeoutMs ?? comboConfig.timeoutMs,
+      globalTimeoutMs: settings?.comboTestTimeoutMs ?? settings?.testTimeoutMs,
+      defaultTimeoutMs: 20000,
+    });
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), testTimeoutMs);
 
     let res;
     try {
@@ -152,8 +168,8 @@ async function testComboTarget(target, baseInternalUrl, internalApiKey: string |
   } catch (error) {
     const latencyMs = Date.now() - startTime;
     const rawMessage =
-      error && typeof error === "object" && "name" in error && error.name === "AbortError"
-        ? "Timeout (20s)"
+      error && typeof error === "object" && "name" in error && (error.name === "AbortError" || error.name === "TimeoutError")
+        ? `Timeout (${Math.round(testTimeoutMs / 1000)}s)`
         : error instanceof Error
           ? error.message
           : String(error);
@@ -210,8 +226,9 @@ export async function POST(request) {
 
     const baseInternalUrl = getInternalBaseUrl();
     const internalApiKey = await getInternalApiKey();
+    const settings = await getSettings();
     const results = await Promise.all(
-      targets.map((target) => testComboTarget(target, baseInternalUrl, internalApiKey))
+      targets.map((target) => testComboTarget(target, baseInternalUrl, internalApiKey, combo, settings))
     );
     const resolvedResult = results.find((result) => result.status === "ok") || null;
     const resolvedBy = resolvedResult?.model || null;

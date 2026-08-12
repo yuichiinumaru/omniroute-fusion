@@ -30,6 +30,7 @@ type ComboRowShape = {
   isActive?: boolean;
   allowedProviders?: string[];
   system_message?: string;
+  system_message_mode?: string;
   tool_filter_regex?: string;
   context_cache_protection?: boolean;
   context_length?: number | null;

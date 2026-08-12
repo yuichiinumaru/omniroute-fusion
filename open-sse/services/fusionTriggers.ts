@@ -12,12 +12,37 @@
  * routing engine (Task 0014 / Decision D7).
  */
 
-export type FusionTriggerMode = "always" | "tool-call" | "text-match";
+export type FusionTriggerMode = "always" | "tool-call" | "text-match" | "rules";
+
+export type RuleOperator = "AND" | "OR";
+
+export type FusionRuleKind = "tool-call" | "text-match" | "tool" | "text" | "group";
+
+export type FusionLeafRule = {
+  kind?: "tool-call" | "text-match" | "tool" | "text";
+  type?: "tool-call" | "text-match" | "tool" | "text";
+  pattern?: string;
+  patterns?: string[];
+  field?: string;
+  operator?: "equals" | "contains" | "matches" | "glob" | "regex" | "in" | RuleOperator;
+  value?: string | string[];
+};
+
+export type FusionGroupRule = {
+  kind?: "group";
+  type?: "group";
+  operator: RuleOperator;
+  rules: FusionRule[];
+};
+
+export type FusionRule = FusionLeafRule | FusionGroupRule;
 
 export type FusionTriggersConfig = {
   mode?: FusionTriggerMode | string;
   toolPatterns?: string[];
   textPatterns?: string[];
+  operator?: RuleOperator;
+  rules?: FusionRule[];
   requireApproval?: boolean;
 };
 
@@ -152,12 +177,164 @@ export function hasMatchingText(body: Record<string, unknown>, patterns: string[
 }
 
 /**
+ * Evaluate a single rule or nested rule group against request body.
+ *
+ * Short-circuit behavior:
+ *   - AND: returns false immediately on first non-matching branch
+ *   - OR:  returns true immediately on first matching branch
+ * Empty groups or invalid/empty rules fail closed (return false).
+ */
+export function evaluateRule(
+  body: Record<string, unknown>,
+  rule: FusionRule | null | undefined
+): boolean {
+  if (!rule || typeof rule !== "object") return false;
+
+  const rec = rule as Record<string, unknown>;
+
+  // Group rule (nested rule tree)
+  if (Array.isArray(rec.rules) || rec.kind === "group" || rec.type === "group") {
+    const subRules = Array.isArray(rec.rules) ? (rec.rules as FusionRule[]) : [];
+    if (subRules.length === 0) return false;
+
+    const op: RuleOperator = rec.operator === "OR" ? "OR" : "AND";
+    if (op === "OR") {
+      for (const sub of subRules) {
+        if (evaluateRule(body, sub)) return true;
+      }
+      return false;
+    } else {
+      for (const sub of subRules) {
+        if (!evaluateRule(body, sub)) return false;
+      }
+      return true;
+    }
+  }
+
+  // Leaf rule
+  const kind = rec.kind ?? rec.type;
+  const field = typeof rec.field === "string" ? rec.field : undefined;
+  const op = typeof rec.operator === "string" ? rec.operator : undefined;
+
+  let patterns: string[] = [];
+  if (typeof rec.pattern === "string" && rec.pattern.trim()) {
+    patterns.push(rec.pattern.trim());
+  }
+  if (Array.isArray(rec.patterns)) {
+    for (const p of rec.patterns) {
+      if (typeof p === "string" && p.trim()) patterns.push(p.trim());
+    }
+  }
+  if (typeof rec.value === "string" && rec.value.trim()) {
+    patterns.push(rec.value.trim());
+  } else if (Array.isArray(rec.value)) {
+    for (const v of rec.value) {
+      if (typeof v === "string" && v.trim()) patterns.push(v.trim());
+    }
+  }
+
+  patterns = Array.from(new Set(patterns));
+
+  const isTool =
+    kind === "tool-call" ||
+    kind === "tool" ||
+    field === "tool_name" ||
+    field === "tool";
+  const isText =
+    kind === "text-match" ||
+    kind === "text" ||
+    field === "user_text" ||
+    field === "text";
+
+  if (isTool || (!isText && patterns.some((p) => p.includes("*") || p.includes("?")))) {
+    if (patterns.length === 0) return false;
+    if (op === "contains") {
+      const messages = Array.isArray(body.messages) ? body.messages : [];
+      let latestAssistant: Record<string, unknown> | null = null;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i] as Record<string, unknown> | null | undefined;
+        if (msg && typeof msg === "object" && msg.role === "assistant") {
+          latestAssistant = msg;
+          break;
+        }
+      }
+      if (!latestAssistant) return false;
+      const toolCalls = latestAssistant.tool_calls;
+      if (!Array.isArray(toolCalls)) return false;
+      return toolCalls.some((tc: unknown) => {
+        if (!tc || typeof tc !== "object") return false;
+        const call = tc as Record<string, unknown>;
+        const func = call.function as Record<string, unknown> | undefined;
+        const name = typeof func?.name === "string" ? func.name : typeof call.name === "string" ? call.name : undefined;
+        if (!name) return false;
+        return patterns.some((p) => name.toLowerCase().includes(p.toLowerCase()));
+      });
+    }
+    if (op === "regex") {
+      const messages = Array.isArray(body.messages) ? body.messages : [];
+      let latestAssistant: Record<string, unknown> | null = null;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i] as Record<string, unknown> | null | undefined;
+        if (msg && typeof msg === "object" && msg.role === "assistant") {
+          latestAssistant = msg;
+          break;
+        }
+      }
+      if (!latestAssistant) return false;
+      const toolCalls = latestAssistant.tool_calls;
+      if (!Array.isArray(toolCalls)) return false;
+      return toolCalls.some((tc: unknown) => {
+        if (!tc || typeof tc !== "object") return false;
+        const call = tc as Record<string, unknown>;
+        const func = call.function as Record<string, unknown> | undefined;
+        const name = typeof func?.name === "string" ? func.name : typeof call.name === "string" ? call.name : undefined;
+        if (!name) return false;
+        return patterns.some((p) => {
+          try {
+            return new RegExp(p).test(name);
+          } catch {
+            return false;
+          }
+        });
+      });
+    }
+    return hasMatchingToolCall(body, patterns);
+  }
+
+  // Text match rule
+  if (patterns.length === 0) return false;
+  if (op === "regex") {
+    const text = extractLatestUserText(body);
+    if (!text) return false;
+    return patterns.some((p) => {
+      try {
+        return new RegExp(p, "i").test(text);
+      } catch {
+        return false;
+      }
+    });
+  }
+  if (op === "equals") {
+    const text = extractLatestUserText(body);
+    if (!text) return false;
+    return patterns.some((p) => text.toLowerCase() === p.toLowerCase());
+  }
+  if (op === "glob" || op === "matches") {
+    const text = extractLatestUserText(body);
+    if (!text) return false;
+    return patterns.some((p) => matchGlob(text, p));
+  }
+  return hasMatchingText(body, patterns);
+}
+
+/**
  * Decide whether fusion should fire for this request given triggers config.
  *
  * Missing / undefined mode defaults to `"tool-call"` (schema default) so
  * conditional-fusion without an explicit mode keeps historical tool-call behavior.
  * Empty toolPatterns fall back to DEFAULT_FUSION_TOOL_PATTERNS.
  * text-match with empty/missing textPatterns never matches.
+ * rules mode combines tool/text predicates via AND/OR operator.
  */
 export function shouldTriggerFusion(
   body: Record<string, unknown>,
@@ -166,6 +343,24 @@ export function shouldTriggerFusion(
   // SAFETY: mode is schema-validated at write; runtime defaults for partial configs.
   const mode = (triggers?.mode ?? "tool-call") as string;
   if (mode === "always") return true;
+
+  if (mode === "rules" || (triggers?.rules && Array.isArray(triggers.rules) && triggers.rules.length > 0)) {
+    const rules = Array.isArray(triggers?.rules) ? triggers.rules : [];
+    if (rules.length === 0) return false;
+
+    const operator: RuleOperator = triggers?.operator === "OR" ? "OR" : "AND";
+    if (operator === "OR") {
+      for (const rule of rules) {
+        if (evaluateRule(body, rule)) return true;
+      }
+      return false;
+    } else {
+      for (const rule of rules) {
+        if (!evaluateRule(body, rule)) return false;
+      }
+      return true;
+    }
+  }
 
   if (mode === "tool-call") {
     const patterns =

@@ -8,10 +8,14 @@ import {
   getCustomModels,
 } from "@/lib/localDb";
 import { getCachedSettings } from "@/lib/localDb";
-import { parseModel, getModelInfoCore } from "@omniroute/open-sse/services/model.ts";
+import {
+  parseModel,
+  getModelInfoCore,
+  normalizeProviderScopedModelId,
+} from "@omniroute/open-sse/services/model.ts";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
 
-export { parseModel };
+export { parseModel, normalizeProviderScopedModelId };
 
 /**
  * Reserved provider prefixes — built-in provider ids + aliases. User-defined

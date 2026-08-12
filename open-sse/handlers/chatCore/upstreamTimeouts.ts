@@ -1,9 +1,49 @@
 import { FETCH_TIMEOUT_MS } from "../../config/constants.ts";
+import { MAX_TIMER_TIMEOUT_MS } from "../../../src/shared/utils/runtimeTimeouts.ts";
 import {
   getLoggedInputTokens,
   getLoggedOutputTokens,
   getReasoningTokens,
 } from "@/lib/usage/tokenAccounting";
+
+export interface UpstreamTimeoutOptions {
+  modelTimeoutMs?: number | null;
+  providerTimeoutMs?: number | null;
+  comboTimeoutMs?: number | null;
+  globalTimeoutMs?: number | null;
+  defaultTimeoutMs?: number;
+}
+
+export function isValidTimeoutMs(val: unknown): val is number {
+  return typeof val === "number" && Number.isFinite(val) && val > 0;
+}
+
+export function normalizeTimeoutMs(val: unknown): number | null {
+  if (!isValidTimeoutMs(val)) return null;
+  return Math.min(Math.floor(val), MAX_TIMER_TIMEOUT_MS);
+}
+
+/**
+ * Resolve upstream response-start timeout with strict precedence:
+ * model > provider > combo > global > default
+ */
+export function resolveUpstreamTimeoutMs(options: UpstreamTimeoutOptions = {}): number {
+  const defaultMs = normalizeTimeoutMs(options.defaultTimeoutMs) ?? FETCH_TIMEOUT_MS;
+
+  const modelMs = normalizeTimeoutMs(options.modelTimeoutMs);
+  if (modelMs !== null) return modelMs;
+
+  const providerMs = normalizeTimeoutMs(options.providerTimeoutMs);
+  if (providerMs !== null) return providerMs;
+
+  const comboMs = normalizeTimeoutMs(options.comboTimeoutMs);
+  if (comboMs !== null) return comboMs;
+
+  const globalMs = normalizeTimeoutMs(options.globalTimeoutMs);
+  if (globalMs !== null) return globalMs;
+
+  return defaultMs;
+}
 
 export function createBodyTimeoutError(timeoutMs: number): Error {
   const err = new Error(`Response body read timeout after ${timeoutMs}ms`);
@@ -62,17 +102,25 @@ export function computeBillableTokens(usage: unknown): number {
   return getLoggedInputTokens(usage) + getLoggedOutputTokens(usage) + getReasoningTokens(usage);
 }
 
-export function getExecutorTimeoutMs(executor: unknown): number {
+export function getExecutorTimeoutMs(
+  executor: unknown,
+  options?: UpstreamTimeoutOptions
+): number {
   const getTimeoutMs = (executor as { getTimeoutMs?: () => unknown } | null)?.getTimeoutMs;
-  if (typeof getTimeoutMs !== "function") return FETCH_TIMEOUT_MS;
-
-  try {
-    const timeoutMs = getTimeoutMs.call(executor);
-    if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs)) return FETCH_TIMEOUT_MS;
-    return Math.max(0, Math.floor(timeoutMs));
-  } catch {
-    return FETCH_TIMEOUT_MS;
+  let executorTimeout: number | null = null;
+  if (typeof getTimeoutMs === "function") {
+    try {
+      const raw = getTimeoutMs.call(executor);
+      executorTimeout = normalizeTimeoutMs(raw);
+    } catch {
+      executorTimeout = null;
+    }
   }
+
+  return resolveUpstreamTimeoutMs({
+    ...options,
+    providerTimeoutMs: options?.providerTimeoutMs ?? executorTimeout ?? undefined,
+  });
 }
 
 export function normalizeExecutorResult(
@@ -103,6 +151,8 @@ export async function executeWithUpstreamStartTimeout<T>({
   signal,
   log,
   execute,
+  timeoutMs: explicitTimeoutMs,
+  options,
 }: {
   executor: unknown;
   provider: string;
@@ -110,8 +160,13 @@ export async function executeWithUpstreamStartTimeout<T>({
   signal: AbortSignal;
   log?: { warn?: (tag: string, message: string) => void } | null;
   execute: (signal: AbortSignal) => Promise<T>;
+  timeoutMs?: number;
+  options?: UpstreamTimeoutOptions;
 }): Promise<T> {
-  const timeoutMs = getExecutorTimeoutMs(executor);
+  const timeoutMs =
+    explicitTimeoutMs !== undefined && explicitTimeoutMs !== null && isValidTimeoutMs(explicitTimeoutMs)
+      ? Math.min(Math.floor(explicitTimeoutMs), MAX_TIMER_TIMEOUT_MS)
+      : getExecutorTimeoutMs(executor, options);
   if (timeoutMs <= 0) return execute(signal);
   if (signal.aborted) throw createAbortError(signal);
 

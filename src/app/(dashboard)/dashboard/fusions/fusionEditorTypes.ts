@@ -24,7 +24,17 @@ export const FALLBACK_STRATEGY_OPTIONS = ROUTING_STRATEGIES.filter(
   (s) => s.value !== "fusion" && s.value !== "conditional-fusion"
 );
 
-export type TriggerMode = "always" | "tool-call" | "text-match";
+export type TriggerMode = "always" | "tool-call" | "text-match" | "rules";
+
+export type RuleOperator = "AND" | "OR";
+
+export type RuleKind = "tool-call" | "text-match";
+
+export type FusionRuleFormItem = {
+  id: string;
+  kind: RuleKind;
+  pattern: string;
+};
 
 /**
  * Model panel/judge/acting unit.
@@ -64,6 +74,8 @@ export type FusionTriggersForm = {
   mode: TriggerMode;
   toolPatterns: string[];
   textPatterns: string[];
+  operator: RuleOperator;
+  rules: FusionRuleFormItem[];
 };
 
 export type FusionEditorForm = {
@@ -113,6 +125,11 @@ export function emptyFusionForm(): FusionEditorForm {
       mode: "always",
       toolPatterns: ["write*", "edit*", "create*"],
       textPatterns: [],
+      operator: "AND",
+      rules: [
+        { id: "rule-1", kind: "tool-call", pattern: "write*" },
+        { id: "rule-2", kind: "text-match", pattern: "security" },
+      ],
     },
     fallbackStrategy: "priority",
     tuning: {
@@ -266,7 +283,12 @@ export function formFromCombo(combo: ComboRecord): FusionEditorForm {
 
   const rawMode = typeof triggersRec.mode === "string" ? triggersRec.mode : null;
   let mode: TriggerMode = "always";
-  if (rawMode === "tool-call" || rawMode === "text-match" || rawMode === "always") {
+  if (
+    rawMode === "tool-call" ||
+    rawMode === "text-match" ||
+    rawMode === "always" ||
+    rawMode === "rules"
+  ) {
     mode = rawMode;
   } else if (combo.strategy === "conditional-fusion") {
     mode = "tool-call";
@@ -278,6 +300,31 @@ export function formFromCombo(combo: ComboRecord): FusionEditorForm {
   const textPatterns = Array.isArray(triggersRec.textPatterns)
     ? triggersRec.textPatterns.filter((p): p is string => typeof p === "string" && p.trim().length > 0)
     : [];
+
+  const operator: RuleOperator = triggersRec.operator === "OR" ? "OR" : "AND";
+  const rawRules = Array.isArray(triggersRec.rules) ? triggersRec.rules : [];
+  let rules: FusionRuleFormItem[] = rawRules.map((r, i) => {
+    const rec = asRecord(r) || {};
+    const kind: RuleKind =
+      rec.kind === "text-match" || rec.type === "text-match" ? "text-match" : "tool-call";
+    const pattern =
+      typeof rec.pattern === "string"
+        ? rec.pattern
+        : Array.isArray(rec.patterns) && typeof rec.patterns[0] === "string"
+        ? rec.patterns[0]
+        : "";
+    return {
+      id: `rule-${i + 1}`,
+      kind,
+      pattern,
+    };
+  });
+  if (rules.length === 0) {
+    rules = [
+      { id: "rule-1", kind: "tool-call", pattern: "write*" },
+      { id: "rule-2", kind: "text-match", pattern: "security" },
+    ];
+  }
 
   const panels = (Array.isArray(combo.models) ? combo.models : [])
     .map(normalizeFusionUnit)
@@ -309,6 +356,8 @@ export function formFromCombo(combo: ComboRecord): FusionEditorForm {
       mode,
       toolPatterns: toolPatterns.length > 0 ? toolPatterns : ["write*", "edit*", "create*"],
       textPatterns,
+      operator,
+      rules,
     },
     fallbackStrategy:
       typeof config.fallbackStrategy === "string" && config.fallbackStrategy.trim()
@@ -397,6 +446,12 @@ export function buildSavePayload(
     }
     if (form.triggers.mode === "text-match") {
       triggers.textPatterns = form.triggers.textPatterns;
+    }
+    if (form.triggers.mode === "rules") {
+      triggers.operator = form.triggers.operator;
+      triggers.rules = form.triggers.rules
+        .filter((r) => r.pattern.trim().length > 0)
+        .map((r) => ({ kind: r.kind, pattern: r.pattern.trim() }));
     }
     baseConfig.triggers = triggers;
     // fallbackStrategy only matters when acting is absent (A6/A7).

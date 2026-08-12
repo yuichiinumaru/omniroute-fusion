@@ -3,7 +3,8 @@ import {
   PROVIDER_MODELS,
 } from "@omniroute/open-sse/config/providerModels.ts";
 import { parseModel, resolveCanonicalProviderModel } from "@omniroute/open-sse/services/model.ts";
-import { MODEL_SPECS, getModelSpec, type ModelSpec } from "@/shared/constants/modelSpecs";
+import { MODEL_SPECS, getModelSpec, isAdaptiveThinkingOnly, type ModelSpec } from "@/shared/constants/modelSpecs";
+export { isAdaptiveThinkingOnly };
 import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 

@@ -369,8 +369,32 @@ export function resolveCanonicalProviderModel(
   const provider = resolveProviderAlias(providerOrAlias);
   return {
     provider,
-    model: resolveProviderModelAlias(provider, modelId),
+    model: resolveProviderModelAlias(provider, normalizeProviderScopedModelId(provider, modelId)),
   };
+}
+
+/**
+ * Normalize a provider-scoped model ID before it crosses the routing boundary.
+ *
+ * Codex exposes `cx` as its public alias, while `codex` is the canonical
+ * provider ID. A caller that already has `codex/cx/model` must not cause the
+ * executor boundary to construct `codex/cx/model` again. Other providers may
+ * legitimately use slash-bearing model IDs, so this normalization is scoped
+ * strictly to Codex.
+ */
+export function normalizeProviderScopedModelId(
+  providerOrAlias: string | null | undefined,
+  modelId: string | null | undefined
+): string | null | undefined {
+  if (typeof modelId !== "string") return modelId;
+  if (resolveProviderAlias(providerOrAlias) !== "codex") return modelId;
+
+  let normalized = modelId.trim();
+  while (/^(?:codex|cx)\//i.test(normalized)) {
+    normalized = normalized.slice(normalized.indexOf("/") + 1).trim();
+  }
+
+  return normalized || modelId;
 }
 
 /**
@@ -642,7 +666,10 @@ export async function getModelInfoCore(
 
   if (!parsed.isAlias) {
     const normalizedModel = normalizeCrossProxyModelId(parsed.model).modelId;
-    const canonicalModel = resolveProviderModelAlias(parsed.provider, normalizedModel);
+    const canonicalModel = resolveProviderModelAlias(
+      parsed.provider,
+      normalizeProviderScopedModelId(parsed.provider, normalizedModel)
+    );
     return {
       provider: parsed.provider,
       model: canonicalModel,

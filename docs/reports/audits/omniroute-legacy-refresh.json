@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-08-09T02:17:20.303Z",
+  "legacyRoot": "references/diegosouzapw-omniroute",
+  "mode": "snapshot",
+  "snapshot": {
+    "root": "references/diegosouzapw-omniroute",
+    "remote": "https://github.com/diegosouzapw/OmniRoute",
+    "remoteName": "origin",
+    "branch": "release/v3.8.49",
+    "isDetached": false,
+    "headSha": "930018fd10c2b727dae623310d57cb5a2aec229f",
+    "shortSha": "930018fd1",
+    "tag": null,
+    "dirty": false,
+    "dirtyFiles": [],
+    "upstream": {
+      "hasUpstream": true,
+      "ahead": 0,
+      "behind": 0,
+      "upstreamRef": "origin/release/v3.8.49"
+    },
+    "legacyVersion": "3.8.49",
+    "capturedAt": "2026-08-09T02:17:20.303Z"
+  },
+  "preUpdate": null,
+  "postUpdate": null,
+  "diff": null,
+  "releaseRelation": {
+    "manifestPath": "docs/reports/audits/omniroute-upstream-releases.manifest.json",
+    "targetVersion": "3.8.42",
+    "upstreamRepo": "diegosouzapw/OmniRoute",
+    "baselinePolicy": "gte",
+    "releasesCount": 8,
+    "latestTag": "v3.8.49",
+    "caveat": "Release/changelog data is external evidence only — not proof of fork capabilities. Code diff is bounded git diff/stat; consult release manifest for source URLs."
+  },
+  "provenance": "Reference snapshot caveat: this manifest records the legacy clone's git provenance. It is external evidence only and does not mutate the target project.",
+  "caveat": "Reference snapshot caveat: the watched clone may be dirty, detached, or behind remote — a blocked update is evidence, not a successful refresh.",
+  "diagnostics": [],
+  "blockedReason": null,
+  "redacted": true
+}

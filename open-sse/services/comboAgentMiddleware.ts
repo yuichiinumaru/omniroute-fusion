@@ -19,8 +19,11 @@
  * All features are opt-in per combo and backward compatible with existing setups.
  */
 
+export type SystemMessageMode = "override" | "prefix" | "suffix";
+
 interface ComboConfig {
   system_message?: string | null;
+  system_message_mode?: SystemMessageMode | string | null;
   tool_filter_regex?: string | null;
   context_cache_protection?: number | boolean;
   [key: string]: unknown;
@@ -111,7 +114,27 @@ export function extractPinnedModel(messages: Message[]): string | null {
   return null;
 }
 
-// ── System Message Override ──────────────────────────────────────────────────
+// ── System Message Override & Modes ──────────────────────────────────────────
+
+export const DEFAULT_REPETITION_SANITY_INSTRUCTION =
+  "[System Note: Output repetition loop detected. Please re-evaluate your reasoning and complete the response cleanly without repeating content.]";
+
+/**
+ * Inject the repetition sanity self-check instruction into the message list.
+ * Appends the system note as a suffix message to prompt the model to break repetition loops.
+ */
+export function injectRepetitionSanityInstruction(
+  body: Record<string, unknown>,
+  instruction: string = DEFAULT_REPETITION_SANITY_INSTRUCTION
+): Record<string, unknown> {
+  if (!body || typeof body !== "object") return body;
+  const messages: Message[] = Array.isArray(body.messages) ? [...(body.messages as Message[])] : [];
+  const updatedMessages = applySystemMessageMode(messages, instruction, "suffix");
+  return {
+    ...body,
+    messages: updatedMessages,
+  };
+}
 
 /**
  * Replace or inject a system message at the beginning of the messages array.
@@ -122,6 +145,62 @@ export function applySystemMessageOverride(messages: Message[], systemMessage: s
   const filtered = messages.filter((m) => m.role !== "system");
   // Inject combo system message at start
   return [{ role: "system", content: systemMessage }, ...filtered];
+}
+
+/**
+ * Apply combo system message according to mode ("override" | "prefix" | "suffix").
+ * - "override": Replaces existing system messages.
+ * - "prefix": Preserves existing system messages and prepends combo text before them.
+ * - "suffix": Preserves existing system messages and appends combo text after them.
+ *
+ * Returns messages unchanged if systemMessage is empty or whitespace.
+ * Defaults to "override" for unknown or missing mode.
+ */
+export function applySystemMessageMode(
+  messages: Message[],
+  systemMessage: string,
+  mode: SystemMessageMode | string = "override"
+): Message[] {
+  if (!systemMessage || !systemMessage.trim()) {
+    return messages;
+  }
+
+  const normalizedMode: SystemMessageMode =
+    mode === "prefix" || mode === "suffix" ? mode : "override";
+
+  if (normalizedMode === "override") {
+    return applySystemMessageOverride(messages, systemMessage);
+  }
+
+  const isSys = (m: Message) => m.role === "system" || m.role === "developer";
+  const comboMsg: Message = { role: "system", content: systemMessage };
+
+  if (normalizedMode === "prefix") {
+    const firstSysIdx = messages.findIndex(isSys);
+    if (firstSysIdx === -1) {
+      return [comboMsg, ...messages];
+    }
+    const result = [...messages];
+    result.splice(firstSysIdx, 0, comboMsg);
+    return result;
+  }
+
+  // suffix
+  let lastSysIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (isSys(messages[i])) {
+      lastSysIdx = i;
+      break;
+    }
+  }
+
+  if (lastSysIdx === -1) {
+    return [comboMsg, ...messages];
+  }
+
+  const result = [...messages];
+  result.splice(lastSysIdx + 1, 0, comboMsg);
+  return result;
 }
 
 // ── Tool Filter Regex ────────────────────────────────────────────────────────
@@ -187,9 +266,10 @@ export function applyComboAgentMiddleware(
   // session_model_history. No client-side <omniModel> tag extraction needed.
   pinnedModel = null;
 
-  // 2. System message override
+  // 2. System message (override / prefix / suffix)
   if (comboConfig.system_message && comboConfig.system_message.trim()) {
-    messages = applySystemMessageOverride(messages, comboConfig.system_message);
+    const mode = comboConfig.system_message_mode || "override";
+    messages = applySystemMessageMode(messages, comboConfig.system_message, mode);
   }
 
   // 3. Tool filter

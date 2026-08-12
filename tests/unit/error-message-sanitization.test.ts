@@ -393,3 +393,26 @@ test("GET /token-health response never leaks stack frames or absolute paths", as
     assert.ok(!/^[A-Za-z]:[\\/]/.test(body.error), "absolute Windows path must not leak");
   }
 });
+
+test("Client import graph for ApiKeyHealthWarnings and errorSanitizer contains no DB/ioredis/better-sqlite3/dns/net/tls leakage", async () => {
+  const { parseDependencyTree } = await import("dpdm");
+  const filesToAudit = [
+    "open-sse/utils/errorSanitizer.ts",
+    "src/app/(dashboard)/home/ApiKeyHealthWarnings.tsx",
+  ];
+
+  const tree = await parseDependencyTree(filesToAudit, {});
+  const importedModules = Object.keys(tree);
+
+  const leakedDbModules = importedModules.filter((m) => /^src\/lib\/db\//.test(m));
+  const leakedIoredis = importedModules.filter((m) => m.includes("ioredis"));
+  const leakedBetterSqlite = importedModules.filter((m) => m.includes("better-sqlite3"));
+  const leakedNodeBuiltins = importedModules.filter((m) =>
+    ["dns", "net", "tls", "node:dns", "node:net", "node:tls"].includes(m)
+  );
+
+  assert.deepEqual(leakedDbModules, [], `Expected no src/lib/db/* leakage, found: ${leakedDbModules.join(", ")}`);
+  assert.deepEqual(leakedIoredis, [], `Expected no ioredis leakage, found: ${leakedIoredis.join(", ")}`);
+  assert.deepEqual(leakedBetterSqlite, [], `Expected no better-sqlite3 leakage, found: ${leakedBetterSqlite.join(", ")}`);
+  assert.deepEqual(leakedNodeBuiltins, [], `Expected no Node builtin leakage, found: ${leakedNodeBuiltins.join(", ")}`);
+});

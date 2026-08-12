@@ -71,6 +71,24 @@ test("resolveModelOrError resolves built-in auto catalog ids without persisted c
   assert.equal(result.combo.models[0].providerId, "openai");
 });
 
+test("resolveModelOrError canonicalizes Codex alias prefixes before execution", async () => {
+  const alias = await resolveModelOrError(
+    "cx/gpt-5.6-luna",
+    { input: [{ role: "user", content: [{ type: "input_text", text: "ping" }] }] },
+    "/v1/responses"
+  );
+  const duplicated = await resolveModelOrError(
+    "codex/cx/gpt-5.6-luna",
+    { input: [{ role: "user", content: [{ type: "input_text", text: "ping" }] }] },
+    "/v1/responses"
+  );
+
+  assert.equal(alias.provider, "codex");
+  assert.equal(alias.model, "gpt-5.6-luna");
+  assert.equal(duplicated.provider, "codex");
+  assert.equal(duplicated.model, "gpt-5.6-luna");
+});
+
 test("resolveModelOrError rejects unknown built-in auto catalog ids", async () => {
   await seedConnection("openai", { defaultModel: "gpt-4o-mini" });
 

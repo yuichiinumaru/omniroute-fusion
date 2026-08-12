@@ -35,6 +35,7 @@ import { isApiKeyRevealEnabled, maskStoredApiKey } from "@/lib/apiKeyExposure";
 import {
   buildModelSyncInternalHeaders,
   getModelSyncInternalBaseUrl,
+  triggerConnectionModelSync,
 } from "@/shared/services/modelSyncScheduler";
 
 // GET /api/providers - List all connections
@@ -170,47 +171,19 @@ export async function POST(request: Request) {
       testStatus: testStatus || "unknown",
     });
 
-    // Auto-trigger model discovery for the newly created connection.
-    // Fire-and-forget: model sync can take seconds and should NOT block the
-    // POST response. If it fails, we log and move on — the connection itself
-    // is already persisted and the user can manually trigger a sync later.
-    // We use a self-fetch against our own /sync-models route, forwarding the
-    // incoming cookies (preserves management auth) plus the internal sync
-    // auth header (defense in depth) and an X-Internal-Auto-Sync marker for
-    // log correlation.
-    try {
-      // SECURITY: use the trusted loopback/env-pinned origin, NOT
-      // `new URL(request.url).origin` — the latter comes from the client-
-      // controlled Host header, which would let a caller redirect this
-      // credential-bearing internal self-fetch to an arbitrary host
-      // (SSRF + internal-auth-header exfiltration; CodeQL js/request-forgery).
-      const internalOrigin = getModelSyncInternalBaseUrl();
-      const cookieHeader = request.headers.get("cookie") || "";
-      const syncHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
-        "X-Internal-Auto-Sync": "true",
-        ...(cookieHeader ? { cookie: cookieHeader } : {}),
-        ...buildModelSyncInternalHeaders(),
-      };
-      const syncUrl = `${internalOrigin}/api/providers/${encodeURIComponent(newConnection.id)}/sync-models?mode=import`;
-      // Intentionally not awaited: this is async/non-blocking work.
-      void fetch(syncUrl, { method: "POST", headers: syncHeaders })
-        .then((syncRes) => {
-          if (!syncRes.ok) {
-            console.log(`[providers] Auto-sync failed for ${newConnection.id}: ${syncRes.status}`);
-          }
-        })
-        .catch((err) => {
-          console.log(`[providers] Auto-sync error for ${newConnection.id}:`, err?.message || err);
-        });
-    } catch (syncSetupError) {
-      // Defensive: if URL parsing or header construction itself throws, do
-      // not let it break the (already successful) POST response.
-      console.log(
-        `[providers] Auto-sync setup failed for ${newConnection.id}:`,
-        syncSetupError?.message || syncSetupError
-      );
-    }
+    // Auto-trigger model discovery for the newly created connection (Task 0129).
+    // Fire-and-forget: idempotent, debounced service trigger.
+    // If global auto-sync is disabled or sync fails, error is logged and connection
+    // creation response (201) remains unaffected.
+    void triggerConnectionModelSync(newConnection.id, provider, { mode: "merge" })
+      .then((res) => {
+        if (!res.triggered && res.reason !== "ok") {
+          console.log(`[providers] Auto-sync not triggered for ${newConnection.id}: ${res.reason}`);
+        }
+      })
+      .catch((err) => {
+        console.log(`[providers] Auto-sync error for ${newConnection.id}:`, err?.message || err);
+      });
 
     // Note: Gemini model sync is now triggered client-side with progress dialog
 

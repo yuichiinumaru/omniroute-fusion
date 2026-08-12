@@ -131,6 +131,8 @@
     "check:openapi-coverage": "node scripts/check/check-openapi-coverage.mjs",
     "check:openapi-security-tiers": "node scripts/check/check-openapi-security-tiers.mjs",
     "check:provider-consistency": "node --import tsx scripts/check/check-provider-consistency.ts",
+    "check:provider-diff": "node bin/cli/provider-catalog-diff.mjs --diff",
+    "provider:diff": "node bin/cli/provider-catalog-diff.mjs",
     "check:provider-assets": "node scripts/check/check-provider-assets.mjs",
     "check:fetch-targets": "node scripts/check/check-fetch-targets.mjs",
     "check:openapi-routes": "node scripts/check/check-openapi-routes.mjs",
@@ -204,7 +206,9 @@
     "uninstall:full": "node scripts/build/uninstall.mjs --full",
     "prepare": "husky",
     "system-info": "node scripts/dev/system-info.mjs",
-    "build:cli-api": "node --import tsx/esm scripts/cli/generate-api-commands.mjs"
+    "build:cli-api": "node --import tsx/esm scripts/cli/generate-api-commands.mjs",
+    "provider:absorption": "node bin/cli/provider-absorption.mjs",
+    "check:provider-absorption": "node --import tsx/esm --test tests/unit/provider-absorption-triage.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1073.0",

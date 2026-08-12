@@ -115,7 +115,16 @@ export function phaseComboSetup(ctx: ComboContext): ComboSetup {
   // and round-robin targets share the same timeout policy.
   const config = resolveComboSetupConfig(combo, settings);
   if (config.enableRepetitionGuard === true && ctx.body && typeof ctx.body === "object") {
-    ctx.body = { ...ctx.body, enableRepetitionGuard: true };
+    const existingBody = ctx.body as Record<string, unknown>;
+    const effectiveLimit =
+      typeof existingBody.repetitionRetryLimit === "number"
+        ? existingBody.repetitionRetryLimit
+        : (config.repetitionRetryLimit as number | undefined) ?? 1;
+    ctx.body = {
+      ...existingBody,
+      enableRepetitionGuard: true,
+      repetitionRetryLimit: effectiveLimit,
+    };
   }
   const comboTargetTimeoutMs = resolveComboTargetTimeoutMs(
     config,

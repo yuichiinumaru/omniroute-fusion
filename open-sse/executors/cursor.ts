@@ -49,7 +49,11 @@ import {
   addBufferToUsage,
 } from "../utils/usageTracking.ts";
 import { getCursorVersion } from "../utils/cursorVersionDetector.ts";
-import { sanitizeErrorMessage } from "../utils/error.ts";
+import {
+  formatCursorAgentClientVersion,
+  getCursorAgentCliVersion,
+} from "../utils/cursorAgentCliVersion.ts";
+import { sanitizeErrorMessageForResponse } from "../utils/error.ts";
 import { generateToolCallId } from "../translator/helpers/toolCallHelper.ts";
 import {
   parseComposerToolCalls,
@@ -58,6 +62,13 @@ import {
   type StreamingState as ComposerStreamingState,
 } from "../utils/composerToolCalls.ts";
 import { cursorSessionManager, type CursorSession } from "../services/cursorSessionManager.ts";
+import {
+  bridgeCursorBuiltinTool,
+  bridgeCursorNativeTodoWrite,
+  extractLatestTodoHistory,
+  inferCursorClientPlatform,
+  selectCursorBridgeTools,
+} from "./cursor/builtinToolBridge.ts";
 import crypto from "crypto";
 import * as fs from "node:fs";
 import * as zlib from "node:zlib";
@@ -298,11 +309,16 @@ function tryParseJsonError(payload: Buffer): { message: string; status: number }
     if (!text.includes('"error"')) return null;
     const parsed = JSON.parse(text);
     const err = parsed?.error || {};
-    const message =
+    // The upstream can embed credential-shaped strings (Bearer / sk- / cookies)
+    // and stack traces in err.message or the debug.details.* fields. Sanitize
+    // + redact the captured message BEFORE storing it on the StreamCtx so the
+    // eventual SSE / JSON emission path never sees raw upstream detail.
+    const rawMessage =
       err?.details?.[0]?.debug?.details?.title ||
       err?.details?.[0]?.debug?.details?.detail ||
       err?.message ||
       text;
+    const message = sanitizeErrorMessageForResponse(rawMessage);
     const status =
       err?.code === "resource_exhausted" ? HTTP_STATUS.RATE_LIMITED : HTTP_STATUS.BAD_REQUEST;
     return { message, status };
@@ -405,6 +421,13 @@ export type StreamCtx = {
   // role:"tool" message can be answered on the open h2 stream via
   // encodeExecMcpResult.
   pendingToolCalls: Map<string, { execMsgId: number; execId: string; toolName: string }>;
+  // Native bridge (Phase 9 — task 0148): when a cursor-native shell/read/
+  // TodoWrite event is bridged into an OpenAI tool_call the h2 stream must
+  // close so the OpenAI client can issue role:"tool" follow-ups on a new
+  // connection (cursor's exec channel pauses on tool calls; emitting a
+  // structured tool_call deltas back without closing would wedge). True once
+  // the bridge has emitted at least one tool call during this turn.
+  requiresColdResume: boolean;
   // Composer thinking-as-content (decolua/9router#1310): tracks how much of
   // the visible suffix (after the last `</think>`) has already been streamed
   // out as `content` deltas, so we only emit the incremental tail per frame.
@@ -436,6 +459,7 @@ export function newStreamCtx(model: string, emit: (chunk: string) => void): Stre
     emittedToolCallIndex: 0,
     toolCalls: [],
     pendingToolCalls: new Map(),
+    requiresColdResume: false,
     composerVisibleEmittedLength: 0,
     composerToolParserState: isComposerModel(model) ? createStreamingState() : null,
     composerInlineToolCallsEmitted: false,
@@ -497,6 +521,47 @@ function emitDone(ctx: StreamCtx) {
 }
 
 /**
+ * Emit one complete OpenAI-compatible structured tool call (init chunk with
+ * id+name, then args chunk, then record on `ctx.toolCalls`). Used by the
+ * native bridge (Phase 9 / task 0148) for shell/read/TodoWrite events so the
+ * OpenAI client sees a real tool call alongside the typed rejection we sent
+ * upstream. Mirrors the same shape as the existing exec_mcp path.
+ */
+function emitStructuredToolCall(
+  ctx: StreamCtx,
+  toolName: string,
+  args: Record<string, unknown>
+): string {
+  if (!ctx.emittedRoleChunk) {
+    emitChunk(ctx, { role: "assistant", content: "" });
+    ctx.emittedRoleChunk = true;
+  }
+  const idx = ctx.emittedToolCallIndex++;
+  const openAIToolCallId = generateToolCallId();
+  const argumentsJson = JSON.stringify(args);
+  emitChunk(ctx, {
+    tool_calls: [
+      {
+        index: idx,
+        id: openAIToolCallId,
+        type: "function",
+        function: { name: toolName, arguments: "" },
+      },
+    ],
+  });
+  emitChunk(ctx, {
+    tool_calls: [
+      {
+        index: idx,
+        function: { arguments: argumentsJson },
+      },
+    ],
+  });
+  ctx.toolCalls.push({ id: openAIToolCallId, name: toolName, argumentsJson });
+  return openAIToolCallId;
+}
+
+/**
  * Process one decoded Connect-RPC frame payload: dispatch ExecServerMessage
  * events (rejection / context ack / mcp_args), decode AgentServerMessage
  * interaction updates, and emit OpenAI SSE deltas for any text content.
@@ -518,6 +583,8 @@ export function processFrame(
     h2Req?: import("http2").ClientHttp2Stream;
     mcpTools?: McpToolDefinition[];
     blobStore?: Map<string, Buffer>;
+    clientPlatform?: import("./cursor/builtinToolBridge.ts").CursorClientPlatform;
+    todoHistory?: import("./cursor/builtinToolBridge.ts").CursorTodoHistoryItem[];
   } = {}
 ): void {
   // 1. JSON error envelope (Connect-RPC style — usually status > 200).
@@ -626,6 +693,23 @@ export function processFrame(
           opts.h2Req.write(rejection);
         } catch {}
       }
+      // Phase 9 (task 0148): also attempt the native-tool bridge so the
+      // model-emulated shell/read events become structured OpenAI tool_calls
+      // when a schema-compatible external tool is declared. The typed
+      // rejection above still goes upstream so cursor's model sees the
+      // refusal; the structured emission lets the OpenAI client execute the
+      // actual tool through its own runtime. Mark endReason=tool_calls so
+      // driveH2 returns and the role:"tool" follow-up arrives on a fresh
+      // connection (Phase 6's session reuse path can't safely resume across
+      // a typed rejection that we already wrote).
+      if (opts.mcpTools && opts.mcpTools.length > 0) {
+        const bridge = bridgeCursorBuiltinTool(event, opts.mcpTools, opts.clientPlatform);
+        if (bridge) {
+          emitStructuredToolCall(ctx, bridge.toolName, bridge.arguments);
+          ctx.requiresColdResume = true;
+          ctx.endReason = "tool_calls";
+        }
+      }
     }
   }
 
@@ -706,6 +790,22 @@ export function processFrame(
       }
     } else if (d.kind === "token_delta") {
       ctx.tokenDelta += d.tokens;
+    } else if (d.kind === "native_todo_write") {
+      // Phase 9 / task 0148: Cursor's native TodoWrite completion. Bridge it
+      // through the external TodoWrite tool (priority-aware when structured
+      // history is available). The decoder already validated fail-closed
+      // semantics upstream; null result → no emission here. We mark
+      // endReason=tool_calls so the OpenAI client sees a structured tool
+      // call and drives the actual todo update — the same lifecycle as any
+      // other OpenAI tool call, no separate cursor-side path needed.
+      if (opts.mcpTools && opts.mcpTools.length > 0) {
+        const bridge = bridgeCursorNativeTodoWrite(d, opts.mcpTools, opts.todoHistory);
+        if (bridge) {
+          emitStructuredToolCall(ctx, bridge.toolName, bridge.arguments);
+          ctx.requiresColdResume = true;
+          ctx.endReason = "tool_calls";
+        }
+      }
     } else if (d.kind === "turn_ended") {
       ctx.endReason = "turn_ended";
     } else if (d.kind === "tool_call_completed" && ctx.toolCalls.length > 0) {
@@ -758,7 +858,12 @@ export class CursorExecutor extends BaseExecutor {
       traceparent: traceParent,
       "user-agent": "connect-es/1.6.1",
       "x-cursor-client-type": "cli",
-      "x-cursor-client-version": `cli-${getCursorVersion()}`,
+      // Prefer the detected cursor-agent CLI build id over the IDE state-db
+      // version when impersonating CLI traffic. Detection reads CURSOR_AGENT_CLI_VERSION
+      // env, then ~/.local/share/cursor-agent/versions/<id>, then the pinned
+      // fallback in cursorAgentCliVersion.ts (the IDE state-db version is no
+      // longer used here — its pinned default drifts from real CLI builds).
+      "x-cursor-client-version": formatCursorAgentClientVersion(getCursorAgentCliVersion()),
       "x-ghost-mode": ghostMode ? "true" : "false",
       "x-original-request-id": requestId,
       "x-request-id": requestId,
@@ -1031,6 +1136,8 @@ export class CursorExecutor extends BaseExecutor {
     ctx: StreamCtx,
     mcpTools: McpToolDefinition[] | undefined,
     blobStore: Map<string, Buffer> | undefined,
+    clientPlatform: import("./cursor/builtinToolBridge.ts").CursorClientPlatform | undefined,
+    todoHistory: import("./cursor/builtinToolBridge.ts").CursorTodoHistoryItem[] | undefined,
     signal?: AbortSignal
   ): Promise<void> {
     const ackedExecIds = new Set<string>();
@@ -1127,7 +1234,13 @@ export class CursorExecutor extends BaseExecutor {
             try {
               const payload = flag & 0x1 ? await gunzipAsync(raw) : raw;
               if (settled) return;
-              processFrame(payload, ctx, ackedExecIds, { h2Req: h2.req, mcpTools, blobStore });
+              processFrame(payload, ctx, ackedExecIds, {
+                h2Req: h2.req,
+                mcpTools,
+                blobStore,
+                clientPlatform,
+                todoHistory,
+              });
             } catch (err) {
               debugLog(
                 "[cursor-agent] frame decode failed at pos",
@@ -1183,12 +1296,22 @@ export class CursorExecutor extends BaseExecutor {
     const mcpTools: McpToolDefinition[] | undefined = Array.isArray(body.tools)
       ? openAIToolsToMcpDefs(body.tools as OpenAITool[])
       : undefined;
+    // Phase 9 (task 0148): restrict the bridge candidates to those the
+    // OpenAI client's tool_choice actually allows. Falls back to the full
+    // set when tool_choice is "auto", "required", or absent.
+    const bridgeTools: McpToolDefinition[] | undefined = selectCursorBridgeTools(
+      mcpTools,
+      body.tool_choice as unknown
+    );
+    const clientPlatform = inferCursorClientPlatform(messages);
+    const todoHistory = extractLatestTodoHistory(messages);
 
-    // Sanitize error messages: strip stack traces and absolute paths to
-    // prevent information exposure. Shared helper in utils/error.ts.
+    // Sanitize error messages: strip stack traces, absolute paths, and
+    // credential-shaped fragments before they reach the client. Must use the
+    // ForResponse variant so Bearer / session / sk- tokens are redacted.
     const buildErrorResponse = (status: number, message: string, type = "invalid_request_error") =>
       new Response(
-        JSON.stringify({ error: { message: sanitizeErrorMessage(message), type, code: "" } }),
+        JSON.stringify({ error: { message: sanitizeErrorMessageForResponse(message), type, code: "" } }),
         { status, headers: { "Content-Type": "application/json" } }
       );
 
@@ -1334,7 +1457,13 @@ export class CursorExecutor extends BaseExecutor {
       for (const [id, info] of ctx.pendingToolCalls) {
         sessionToUse.pendingToolCalls.set(id, info);
       }
-      if (errored || ctx.endReason !== "tool_calls") {
+      // Phase 9 (task 0148): when the native bridge emitted a structured
+      // tool call alongside its typed rejection we cannot safely resume this
+      // h2 connection — the rejection was already written upstream so a
+      // role:"tool" follow-up would deadlock. Close the session even when
+      // endReason=="tool_calls" and let the next turn open a fresh one (cold
+      // resume path inside execute() handles the first follow-up turn).
+      if (errored || ctx.endReason !== "tool_calls" || ctx.requiresColdResume) {
         cursorSessionManager.close(sessionToUse);
       } else {
         cursorSessionManager.release(sessionToUse, "awaiting_tool_result");
@@ -1349,7 +1478,19 @@ export class CursorExecutor extends BaseExecutor {
           start: async (controller) => {
             const ctx = newStreamCtx(model, (s) => controller.enqueue(enc.encode(s)));
             try {
-              await this.driveH2(h2, ctx, mcpTools, blobStore, signal);
+              // Phase 9 (task 0148): drive with the tool_choice-filtered bridge
+              // candidate set (bridgeTools) so the bridge honors `tool_choice`
+              // and never surfaces a tool the caller forbade. The full mcpTools
+              // list is still sent upstream as the agent's declared tool set.
+              await this.driveH2(
+                h2,
+                ctx,
+                bridgeTools,
+                blobStore,
+                clientPlatform,
+                todoHistory,
+                signal
+              );
               this.finalizeSseStream(ctx, body);
               finishLifecycle(ctx, false);
               controller.close();
@@ -1379,7 +1520,16 @@ export class CursorExecutor extends BaseExecutor {
     // Non-streaming: drive to completion, return chat.completion JSON.
     const ctx = newStreamCtx(model, () => {});
     try {
-      await this.driveH2(h2, ctx, mcpTools, blobStore, signal);
+      // See stream-mode note above: bridge with the tool_choice-filtered set.
+      await this.driveH2(
+        h2,
+        ctx,
+        bridgeTools,
+        blobStore,
+        clientPlatform,
+        todoHistory,
+        signal
+      );
     } catch (err) {
       finishLifecycle(ctx, true);
       const message = err instanceof Error ? err.message : String(err);
@@ -1406,6 +1556,9 @@ export class CursorExecutor extends BaseExecutor {
    */
   private finalizeSseStream(ctx: StreamCtx, body: { messages?: ChatMessage[] }) {
     if (ctx.midStreamError && ctx.totalText.length === 0) {
+      // Defense in depth: even though tryParseJsonError already sanitizes the
+      // upstream text on capture, re-sanitize at emission so a future caller
+      // that writes ctx.midStreamError directly cannot leak credentials.
       const payload = {
         id: ctx.responseId,
         object: "chat.completion.chunk",
@@ -1413,7 +1566,7 @@ export class CursorExecutor extends BaseExecutor {
         model: ctx.model,
         choices: [],
         error: {
-          message: ctx.midStreamError.message,
+          message: sanitizeErrorMessageForResponse(ctx.midStreamError.message),
           type:
             ctx.midStreamError.status === HTTP_STATUS.RATE_LIMITED
               ? "rate_limit_error"
@@ -1478,10 +1631,11 @@ export class CursorExecutor extends BaseExecutor {
    */
   private buildResponseFromCtx(ctx: StreamCtx, body: { messages?: ChatMessage[] }): Response {
     if (ctx.midStreamError && ctx.totalText.length === 0) {
+      // Defense in depth — see finalizeSseStream for the rationale.
       return new Response(
         JSON.stringify({
           error: {
-            message: ctx.midStreamError.message,
+            message: sanitizeErrorMessageForResponse(ctx.midStreamError.message),
             type:
               ctx.midStreamError.status === HTTP_STATUS.RATE_LIMITED
                 ? "rate_limit_error"

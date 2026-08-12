@@ -983,6 +983,35 @@ export default function RoutingTab() {
       </Card>
 
       <Card>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 h-fit">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                sync
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">
+                {t("providerModelAutoSyncTitle") || "Provider Model Auto-Sync"}
+              </h3>
+              <p className="text-sm text-text-muted mt-1">
+                {t("providerModelAutoSyncDesc") ||
+                  "Automatically discover and synchronize models for active provider connections."}
+              </p>
+            </div>
+          </div>
+          <div className="pt-1">
+            <Toggle
+              checked={settings.providerModelAutoSyncEnabled !== false}
+              onChange={(checked) => updateSetting({ providerModelAutoSyncEnabled: checked })}
+              disabled={loading}
+              ariaLabel={t("providerModelAutoSyncTitle") || "Provider Model Auto-Sync"}
+            />
+          </div>
+        </div>
+      </Card>
+
+      <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 h-fit">
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">

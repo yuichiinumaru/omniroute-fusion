@@ -95,6 +95,55 @@ export const evalRoutingSchema = z
   })
   .strict();
 
+export function getFusionRuleDepth(rule: unknown): number {
+  if (!rule || typeof rule !== "object") return 0;
+  const rec = rule as Record<string, unknown>;
+  if (Array.isArray(rec.rules)) {
+    if (rec.rules.length === 0) return 1;
+    return 1 + Math.max(...rec.rules.map(getFusionRuleDepth));
+  }
+  return 1;
+}
+
+export const fusionRuleSchema: z.ZodType<any> = z.lazy(() =>
+  z.union([
+    z
+      .object({
+        kind: z.enum(["tool-call", "text-match", "tool", "text"]).optional(),
+        type: z.enum(["tool-call", "text-match", "tool", "text"]).optional(),
+        pattern: z.string().trim().min(1).optional(),
+        patterns: z.array(z.string().trim().min(1)).optional(),
+        field: z.string().trim().optional(),
+        operator: z
+          .enum(["equals", "contains", "matches", "glob", "regex", "in", "AND", "OR"])
+          .optional(),
+        value: z.union([z.string(), z.array(z.string())]).optional(),
+      })
+      .strict()
+      .superRefine((rule, ctx) => {
+        const hasPattern =
+          (typeof rule.pattern === "string" && rule.pattern.length > 0) ||
+          (Array.isArray(rule.patterns) && rule.patterns.length > 0);
+        const hasValue = rule.value !== undefined && rule.value !== "";
+        if (!hasPattern && !hasValue) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Leaf rule must specify pattern, patterns, or value",
+            path: ["pattern"],
+          });
+        }
+      }),
+    z
+      .object({
+        kind: z.enum(["group"]).optional(),
+        type: z.enum(["group"]).optional(),
+        operator: z.enum(["AND", "OR"]),
+        rules: z.array(z.lazy(() => fusionRuleSchema)).min(1).max(20),
+      })
+      .strict(),
+  ])
+);
+
 export const comboStrategySchema = z.enum(ROUTING_STRATEGY_VALUES);
 
 export const scoringWeightsSchema = z
@@ -177,7 +226,11 @@ export const comboRuntimeConfigSchema = z
     nestedComboMode: z.enum(["flatten", "execute"]).optional(),
     trackMetrics: z.boolean().optional(),
     reasoningTokenBufferEnabled: z.boolean().optional(),
+    reasoningPolicy: z.enum(["auto", "passthrough", "custom", "adaptive"]).optional(),
+    reasoningEffort: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).optional(),
+    thinkingBudgetTokens: z.coerce.number().int().min(0).max(2_000_000).optional(),
     enableRepetitionGuard: z.boolean().optional(),
+    repetitionRetryLimit: z.coerce.number().int().min(0).max(10).optional(),
     compressionMode: compressionModeSchema.optional(),
     failoverBeforeRetry: z.boolean().optional(),
     maxSetRetries: z.coerce.number().int().min(0).max(10).optional(),
@@ -230,16 +283,32 @@ export const comboRuntimeConfigSchema = z
       .strict()
       .optional(),
     // Conditional fusion (strategy "conditional-fusion"): triggers decide when
-    // fusion fires. Modes: always | tool-call | text-match. When no trigger
+    // fusion fires. Modes: always | tool-call | text-match | rules. When no trigger
     // matches, the request falls through to fallbackStrategy instead.
     triggers: z
       .object({
-        mode: z.enum(["always", "tool-call", "text-match"]).default("tool-call"),
+        mode: z.enum(["always", "tool-call", "text-match", "rules"]).default("tool-call"),
         toolPatterns: z.array(z.string().trim().min(1)).default(["write*", "edit*", "create*"]),
         textPatterns: z.array(z.string().trim().min(1)).optional(),
+        operator: z.enum(["AND", "OR"]).optional(),
+        rules: z.array(fusionRuleSchema).max(20).optional(),
         requireApproval: z.boolean().default(false),
       })
       .strict()
+      .superRefine((triggers, ctx) => {
+        if (triggers.mode === "rules" && triggers.rules) {
+          for (let i = 0; i < triggers.rules.length; i++) {
+            const depth = getFusionRuleDepth(triggers.rules[i]);
+            if (depth > 5) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Rule at index ${i} exceeds maximum rule tree depth of 5`,
+                path: ["rules", i],
+              });
+            }
+          }
+        }
+      })
       .optional(),
     // Must not recurse into fusion / conditional-fusion (Decision D8).
     fallbackStrategy: z.string().trim().max(50).optional(),
@@ -289,6 +358,9 @@ export const comboNameSchema = z
     "Name can only contain letters, numbers, spaces, -, _, /, ., [ and ]."
   );
 
+export const SYSTEM_MESSAGE_MODE_VALUES = ["override", "prefix", "suffix"] as const;
+export const systemMessageModeSchema = z.enum(SYSTEM_MESSAGE_MODE_VALUES);
+
 export const createComboSchema = z.object({
   name: comboNameSchema,
   description: z.string().max(2000).optional(),
@@ -304,6 +376,7 @@ export const createComboSchema = z.object({
   config: comboRuntimeConfigSchema.optional(),
   allowedProviders: z.array(z.string().max(200)).optional(),
   system_message: z.string().max(50000).optional(),
+  system_message_mode: systemMessageModeSchema.optional().default("override"),
   tool_filter_regex: z.string().max(1000).optional(),
   context_cache_protection: z.boolean().optional(),
   context_length: z.number().int().min(1000).max(2000000).optional(),
@@ -365,6 +438,7 @@ export const updateComboSchema = z
     isActive: z.boolean().optional(),
     allowedProviders: z.array(z.string().max(200)).optional(),
     system_message: z.string().max(50000).optional(),
+    system_message_mode: systemMessageModeSchema.optional().nullable(),
     tool_filter_regex: z.string().max(1000).optional(),
     context_cache_protection: z.boolean().optional(),
     context_length: z.number().int().min(1000).max(2000000).optional().nullable(),
@@ -383,6 +457,7 @@ export const updateComboSchema = z
       value.isActive === undefined &&
       value.allowedProviders === undefined &&
       value.system_message === undefined &&
+      value.system_message_mode === undefined &&
       value.tool_filter_regex === undefined &&
       value.context_cache_protection === undefined &&
       value.context_length === undefined &&

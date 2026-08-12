@@ -414,3 +414,160 @@ test("resolveFusionFallbackStrategy: trims and preserves valid strategies", () =
   assert.equal(resolveFusionFallbackStrategy("  weighted  "), "weighted");
   assert.equal(resolveFusionFallbackStrategy("least-used"), "least-used");
 });
+
+// ─── Task 0133 — AND/OR Conditional Fusion Rules ────────────────────────────
+
+test("shouldTriggerFusion rules mode: AND requires all rules to match", () => {
+  const matchingBody = {
+    messages: [
+      { role: "user", content: "please perform a security review" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+    ],
+  };
+
+  const toolOnlyBody = {
+    messages: [
+      { role: "user", content: "hello" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+    ],
+  };
+
+  const triggers = {
+    mode: "rules",
+    operator: "AND" as const,
+    rules: [
+      { kind: "tool-call" as const, pattern: "write*" },
+      { kind: "text-match" as const, pattern: "security" },
+    ],
+  };
+
+  assert.equal(shouldTriggerFusion(matchingBody, triggers), true, "Both tool and text match -> AND must be true");
+  assert.equal(shouldTriggerFusion(toolOnlyBody, triggers), false, "Text does not match -> AND must be false");
+});
+
+test("shouldTriggerFusion rules mode: OR requires any rule to match", () => {
+  const toolOnlyBody = {
+    messages: [
+      { role: "user", content: "hello" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+    ],
+  };
+
+  const textOnlyBody = {
+    messages: [{ role: "user", content: "please run a security audit" }],
+  };
+
+  const noMatchBody = {
+    messages: [{ role: "user", content: "hello world" }],
+  };
+
+  const triggers = {
+    mode: "rules",
+    operator: "OR" as const,
+    rules: [
+      { kind: "tool-call" as const, pattern: "write*" },
+      { kind: "text-match" as const, pattern: "security" },
+    ],
+  };
+
+  assert.equal(shouldTriggerFusion(toolOnlyBody, triggers), true, "Tool matches -> OR must be true");
+  assert.equal(shouldTriggerFusion(textOnlyBody, triggers), true, "Text matches -> OR must be true");
+  assert.equal(shouldTriggerFusion(noMatchBody, triggers), false, "Neither matches -> OR must be false");
+});
+
+test("shouldTriggerFusion rules mode: empty rules array fails closed", () => {
+  const body = {
+    messages: [
+      { role: "user", content: "security audit" },
+      {
+        role: "assistant",
+        tool_calls: [{ function: { name: "write_file", arguments: "{}" } }],
+      },
+    ],
+  };
+
+  assert.equal(shouldTriggerFusion(body, { mode: "rules", operator: "AND", rules: [] }), false);
+  assert.equal(shouldTriggerFusion(body, { mode: "rules", operator: "OR", rules: [] }), false);
+});
+
+test("shouldTriggerFusion rules mode: short-circuiting logic", () => {
+  let evaluatedSecond = false;
+  const mockRule1 = { kind: "text-match" as const, pattern: "nonexistent" };
+  const mockRule2 = {
+    kind: "tool-call" as const,
+    pattern: "write*",
+    get patternGetter() {
+      evaluatedSecond = true;
+      return "write*";
+    },
+  };
+
+  const body = { messages: [{ role: "user", content: "hello" }] };
+
+  // In AND mode, if rule1 fails (false), rule2 should not even be evaluated if we short-circuit
+  const andResult = shouldTriggerFusion(body, {
+    mode: "rules",
+    operator: "AND",
+    rules: [mockRule1, mockRule2],
+  });
+  assert.equal(andResult, false);
+
+  // In OR mode with a matching first rule, short-circuit stops on first true
+  const hitRule1 = { kind: "text-match" as const, pattern: "hello" };
+  const orResult = shouldTriggerFusion(body, {
+    mode: "rules",
+    operator: "OR",
+    rules: [hitRule1, mockRule2],
+  });
+  assert.equal(orResult, true);
+});
+
+test("shouldTriggerFusion rules mode: nested group rules", () => {
+  const body = {
+    messages: [
+      { role: "user", content: "please conduct security audit" },
+      {
+        role: "assistant",
+        tool_calls: [{ function: { name: "edit_file", arguments: "{}" } }],
+      },
+    ],
+  };
+
+  const nestedTriggers = {
+    mode: "rules",
+    operator: "AND" as const,
+    rules: [
+      { kind: "text-match" as const, pattern: "security" },
+      {
+        kind: "group" as const,
+        operator: "OR" as const,
+        rules: [
+          { kind: "tool-call" as const, pattern: "write*" },
+          { kind: "tool-call" as const, pattern: "edit*" },
+        ],
+      },
+    ],
+  };
+
+  assert.equal(shouldTriggerFusion(body, nestedTriggers), true);
+});
+
+test("shouldTriggerFusion rules mode: malformed and invalid rules fail closed", () => {
+  const body = { messages: [{ role: "user", content: "hello" }] };
+
+  assert.equal(shouldTriggerFusion(body, { mode: "rules", rules: [null as unknown as FusionRule] }), false);
+  assert.equal(shouldTriggerFusion(body, { mode: "rules", rules: [{ pattern: "" } as unknown as FusionRule] }), false);
+  assert.equal(shouldTriggerFusion(body, { mode: "rules", rules: [{ kind: "group", rules: [] } as unknown as FusionRule] }), false);
+});

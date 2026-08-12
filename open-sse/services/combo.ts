@@ -5,6 +5,89 @@
  * context-optimized, context-relay, and fusion strategies
  */
 
+// ─── Shared Error Extraction ───────────────────────────────────────────────
+// Both the priority and round-robin target loops parse upstream error bodies the
+// same way. Centralizing the logic here keeps the two paths consistent and makes
+// the fail-soft contract auditable in one place.
+//
+// Contract:
+//   - Prefer structured fields: error.message (object or string), top-level
+//     message, then detail (string or detail.message).
+//   - If JSON parsing fails OR no structured field matches, fall back to a
+//     BOUNDED, SANITIZED status-text snippet — never the raw upstream body.
+//   - The returned text is safe to store in lastError (which becomes the
+//     aggregate terminal error) and to pass to sanitizeErrorMessage() for logs.
+
+const MAX_RAW_ERROR_SNIPPET_CHARS = 200;
+
+function extractComboErrorText(params: {
+  statusText: string;
+  bodyText: string | null;
+}): { errorText: string; errorBody: ComboErrorBody; retryAfter: ComboRetryAfter | null } {
+  const { statusText, bodyText } = params;
+  let errorText = statusText || "";
+  let errorBody: ComboErrorBody = null;
+  let retryAfter: ComboRetryAfter | null = null;
+
+  if (!bodyText) {
+    return { errorText, errorBody, retryAfter };
+  }
+
+  const rawSnippet = bodyText.substring(0, MAX_RAW_ERROR_SNIPPET_CHARS);
+
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    parsed = JSON.parse(bodyText) as Record<string, unknown>;
+  } catch {
+    // Malformed JSON — do NOT leak the raw body. Use a bounded status snippet.
+    errorText = rawSnippet ? `${statusText} (unparseable body)` : statusText;
+    return { errorText, errorBody, retryAfter };
+  }
+
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    errorBody = parsed as unknown as ComboErrorBody;
+
+    const parsedError = errorBody?.error;
+    const topLevelMessage =
+      typeof errorBody?.message === "string" ? errorBody.message : null;
+
+    // detail can be a string, an object with a .message, or any other shape.
+    // Only extract a clean string; never fall through to the raw body.
+    let detailMsg: string | null = null;
+    if (typeof errorBody?.detail === "string") {
+      detailMsg = errorBody.detail;
+    } else if (
+      typeof errorBody?.detail === "object" &&
+      errorBody?.detail !== null &&
+      typeof (errorBody.detail as Record<string, unknown>).message === "string"
+    ) {
+      detailMsg = (errorBody.detail as Record<string, unknown>).message as string;
+    }
+
+    const extracted =
+      (typeof parsedError === "object" &&
+        parsedError !== null &&
+        typeof (parsedError as Record<string, unknown>).message === "string" &&
+        ((parsedError as Record<string, unknown>).message as string)) ||
+      (typeof parsedError === "string" ? parsedError : null) ||
+      topLevelMessage ||
+      detailMsg ||
+      null;
+
+    if (extracted) {
+      errorText = extracted;
+    } else {
+      // Structured body but no recognizable field — use a bounded, sanitized
+      // status snippet instead of the raw body (which may carry secrets).
+      errorText = rawSnippet ? `${statusText} (upstream error)` : statusText;
+    }
+
+    retryAfter = errorBody?.retryAfter ?? null;
+  }
+
+  return { errorText, errorBody, retryAfter };
+}
+
 import {
   checkFallbackError,
   classifyLockoutReason,
@@ -17,7 +100,7 @@ import {
   recordProviderFailure,
   selectLockoutCooldownMs,
 } from "./accountFallback.ts";
-import { errorResponse, unavailableResponse } from "../utils/error.ts";
+import { errorResponse, unavailableResponse, sanitizeErrorMessage } from "../utils/error.ts";
 import {
   recordComboIntent,
   recordComboRequest,
@@ -28,7 +111,11 @@ import {
   resolveComboConfig,
   getDefaultComboConfig,
   resolveComboQueueDepth,
+  DEFAULT_COMBO_TARGET_TIMEOUT_MS,
 } from "./comboConfig.ts";
+import { getProviderModel } from "../config/providerModels.ts";
+import { PROVIDERS } from "../config/constants.ts";
+import { resolveUpstreamTimeoutMs } from "../handlers/chatCore/upstreamTimeouts.ts";
 import {
   maybeGenerateHandoff,
   maybeGenerateUniversalHandoff,
@@ -58,6 +145,8 @@ import { parseModel } from "./model.ts";
 import { createComboContext } from "./combo/context.ts";
 import { phaseComboSetup } from "./combo/comboSetup.ts";
 import { checkCredentialGate, logCredentialSkip } from "./credentialGate.ts";
+import { injectRepetitionSanityInstruction } from "./comboAgentMiddleware.ts";
+import { isRepetitionFailure } from "./combo/targetExhaustion.ts";
 import { emit } from "../../src/lib/events/eventBus";
 import { notifyWebhookEvent } from "../../src/lib/webhookDispatcher";
 import { classifyWithConfig } from "./intentClassifier.ts";
@@ -224,11 +313,35 @@ export {
   shouldRecordProviderBreakerFailure,
   isProviderCircuitBlocking,
 };
+export function resolveRepetitionGuardParams(
+  config: Record<string, unknown> | null | undefined,
+  body?: Record<string, unknown> | null
+): { enableRepetitionGuard: boolean; repetitionRetryLimit: number } {
+  const cfg = config || {};
+  const b = body || {};
+
+  const enableRepetitionGuard =
+    cfg.enableRepetitionGuard === true || b.enableRepetitionGuard === true;
+
+  let repetitionRetryLimit = 0;
+  if (enableRepetitionGuard) {
+    const rawLimit = b.repetitionRetryLimit ?? cfg.repetitionRetryLimit;
+    if (typeof rawLimit === "number" && Number.isFinite(rawLimit) && rawLimit >= 0) {
+      repetitionRetryLimit = Math.floor(rawLimit);
+    } else {
+      repetitionRetryLimit = 1;
+    }
+  }
+
+  return { enableRepetitionGuard, repetitionRetryLimit };
+}
+
 export { resolveShadowTargets, scheduleShadowRouting };
 export { preScreenTargets };
 export { resolveComboRuntimeUnits, resolveComboTargets, filterTargetsByRequestCompatibility };
 export {
   getComboFromData,
+  toComboLike,
   getComboModelsFromData,
   resolveNestedComboModels,
   resolveNestedComboTargets,
@@ -776,7 +889,25 @@ export async function handleComboChat({
     modelStr: string,
     target?: SingleModelTarget
   ): Promise<Response> => {
-    if (comboTargetTimeoutMs <= 0) {
+    const targetProvider = target && "provider" in target && typeof target.provider === "string" ? target.provider : undefined;
+    const modelEntry = targetProvider ? getProviderModel(targetProvider, modelStr) : undefined;
+    const providerEntry = targetProvider ? (PROVIDERS as Record<string, { timeoutMs?: number }>)[targetProvider] : undefined;
+    const cfg = config as Record<string, unknown>;
+    const st = settings as Record<string, unknown> | null | undefined;
+    const comboRawConfig = (combo?.config as Record<string, unknown> | undefined) || {};
+    const effectiveTimeoutMs = resolveUpstreamTimeoutMs({
+      modelTimeoutMs: modelEntry?.timeoutMs,
+      providerTimeoutMs: providerEntry?.timeoutMs,
+      comboTimeoutMs:
+        (cfg.targetTimeoutMs as number | undefined) ??
+        (cfg.timeoutMs as number | undefined) ??
+        (comboRawConfig.targetTimeoutMs as number | undefined) ??
+        (comboRawConfig.timeoutMs as number | undefined),
+      globalTimeoutMs: (st?.globalTimeoutMs as number | undefined) ?? (st?.upstreamTimeoutMs as number | undefined),
+      defaultTimeoutMs: comboTargetTimeoutMs > 0 ? comboTargetTimeoutMs : DEFAULT_COMBO_TARGET_TIMEOUT_MS,
+    });
+
+    if (effectiveTimeoutMs <= 0) {
       return handleSingleModel(b, modelStr, target).catch((err) =>
         errorResponse(502, err?.message ?? "Upstream model error")
       );
@@ -790,7 +921,7 @@ export async function handleComboChat({
         timedOut = true;
         log.warn(
           "COMBO",
-          `Model ${modelStr} exceeded ${comboTargetTimeoutMs}ms timeout — falling back`
+          `Model ${modelStr} exceeded ${effectiveTimeoutMs}ms timeout — falling back`
         );
         timeoutController.abort(new Error("combo-per-model-timeout"));
         resolve(
@@ -799,7 +930,7 @@ export async function handleComboChat({
             headers: { "Content-Type": "application/json" },
           })
         );
-      }, comboTargetTimeoutMs);
+      }, effectiveTimeoutMs);
     });
     const targetWithSignal = {
       ...(target ?? {}),
@@ -1160,7 +1291,7 @@ export async function handleComboChat({
   const isTargetSelectableForWeighted = async (target: ResolvedComboTarget): Promise<boolean> => {
     const rawModel = parseModel(target.modelStr).model || target.modelStr;
     // F-03-003: honor HALF_OPEN probe budget (canExecute), not raw OPEN-only.
-    if (isProviderCircuitBlocking(target.provider)) return false;
+    if (await isProviderCircuitBlocking(target.provider, target.modelStr, { connectionId: target.connectionId })) return false;
     if (
       resilienceSettings.providerCooldown.enabled &&
       Boolean(target.provider && target.provider !== "unknown") &&
@@ -1872,13 +2003,14 @@ export async function handleComboChat({
       const executeTarget = async (
         i: number
       ): Promise<{ ok: boolean; response?: Response } | null> => {
+        let targetRepetitionRetries = 0;
         const target = orderedTargets[i];
         const modelStr = target.modelStr;
         const rawModel = parseModel(modelStr).model || modelStr;
         const provider = target.provider;
 
         // F-03-003: skip when OPEN or HALF_OPEN with no probe budget left.
-        if (isProviderCircuitBlocking(provider)) {
+        if (await isProviderCircuitBlocking(provider, modelStr, { connectionId: target.connectionId })) {
           log.info(
             "COMBO",
             `Skipping ${modelStr} — circuit breaker not executable for ${provider}`
@@ -2105,7 +2237,7 @@ export async function handleComboChat({
               }
             }
           }
-          const result = await handleSingleModelWithTimeout(attemptBody, modelStr, {
+          let result = await handleSingleModelWithTimeout(attemptBody, modelStr, {
             ...targetForAttempt,
             effectiveComboStrategy: strategy,
             failoverBeforeRetry: config.failoverBeforeRetry,
@@ -2357,30 +2489,22 @@ export async function handleComboChat({
             return { ok: true, response: quality.clonedResponse ?? result };
           }
 
-          // Extract error info from response
+          // Extract error info from response (shared fail-soft extraction).
           let errorText = result.statusText || "";
           let errorBody: ComboErrorBody = null;
           let retryAfter: ComboRetryAfter | null = null;
           try {
             const cloned = result.clone();
-            try {
-              const text = await cloned.text();
-              if (text) {
-                errorText = text.substring(0, 500);
-                errorBody = JSON.parse(text);
-                const parsedError = errorBody?.error;
-                errorText =
-                  (typeof parsedError === "object" && parsedError?.message) ||
-                  (typeof parsedError === "string" ? parsedError : null) ||
-                  errorBody?.message ||
-                  errorText;
-                retryAfter = errorBody?.retryAfter || null;
-              }
-            } catch {
-              /* Clone parse failed */
-            }
+            const text = await cloned.text();
+            const extracted = extractComboErrorText({
+              statusText: result.statusText || "",
+              bodyText: text || null,
+            });
+            errorText = extracted.errorText;
+            errorBody = extracted.errorBody;
+            retryAfter = extracted.retryAfter;
           } catch {
-            /* Clone failed */
+            /* Clone read failed — keep statusText fallback */
           }
 
           // Track earliest retryAfter
@@ -2391,7 +2515,8 @@ export async function handleComboChat({
             earliestRetryAfter = retryAfter;
           }
 
-          // Normalize error text
+          // Normalize error text (defensive — shared helper always returns a string,
+          // but some callers still pass non-string values into errorText downstream)
           if (typeof errorText !== "string") {
             try {
               errorText = JSON.stringify(errorText);
@@ -2424,6 +2549,107 @@ export async function handleComboChat({
             // here makes the speculative loop's res.ok/res.response checks both miss,
             // so the combo would wrongly fall through to the next model after a 499.
             return { ok: false, response: result };
+          }
+
+          const { enableRepetitionGuard: guardEnabled, repetitionRetryLimit } =
+            resolveRepetitionGuardParams(config as Record<string, unknown>, body as Record<string, unknown>);
+
+          while (
+            guardEnabled &&
+            repetitionRetryLimit > 0 &&
+            targetRepetitionRetries < repetitionRetryLimit &&
+            !signal?.aborted &&
+            isRepetitionFailure(result.status, errorText)
+          ) {
+            targetRepetitionRetries++;
+            globalAttempts++;
+            if (globalAttempts > MAX_GLOBAL_ATTEMPTS) {
+              log.warn(
+                "COMBO",
+                `Maximum combo attempts (${MAX_GLOBAL_ATTEMPTS}) exceeded during repetition retry. Terminating loop.`
+              );
+              return { ok: false, response: errorResponse(503, "Maximum combo retry limit reached") };
+            }
+
+            log.info(
+              "COMBO",
+              `[REPETITION-RETRY] Target ${modelStr} hit repetition — executing sanity self-check retry (${targetRepetitionRetries}/${repetitionRetryLimit})`
+            );
+
+            attemptBody = injectRepetitionSanityInstruction(attemptBody as Record<string, unknown>);
+
+            const retryResult = await handleSingleModelWithTimeout(attemptBody as Record<string, unknown>, modelStr, {
+              ...targetForAttempt,
+              effectiveComboStrategy: strategy,
+              failoverBeforeRetry: config.failoverBeforeRetry,
+            });
+
+            if (retryResult.ok) {
+              const quality = await validateResponseQuality(retryResult, clientRequestedStream, log);
+              if (quality.valid) {
+                const latencyMs = Date.now() - startTime;
+                emit("combo.target.succeeded", {
+                  comboName: combo.name,
+                  targetIndex: i,
+                  provider,
+                  model: modelStr,
+                  latencyMs,
+                });
+                log.info(
+                  "COMBO",
+                  `Model ${modelStr} succeeded on repetition sanity retry (${latencyMs}ms, ${fallbackCount} fallbacks)`
+                );
+                recordComboRequest(combo.name, modelStr, {
+                  success: true,
+                  latencyMs,
+                  fallbackCount,
+                  strategy,
+                  target: toRecordedTarget(target),
+                });
+                recordedAttempts++;
+                return { ok: true, response: quality.clonedResponse ?? retryResult };
+              }
+              log.warn(
+                "COMBO",
+                `Model ${modelStr} sanity retry returned 200 but failed quality check: ${quality.reason}`
+              );
+              result = errorResponse(502, `Upstream response failed quality validation: ${quality.reason}`);
+            } else {
+              result = retryResult;
+            }
+
+            errorText = result.statusText || "";
+            errorBody = null;
+            try {
+              const cloned = result.clone();
+              const text = await cloned.text();
+              if (text) {
+                errorText = text.substring(0, 500);
+                try { errorBody = JSON.parse(text); } catch {}
+                const parsedError = errorBody?.error;
+                const detailMsg =
+                  typeof errorBody?.detail === "string"
+                    ? errorBody.detail
+                    : typeof errorBody?.detail === "object" && errorBody?.detail !== null && typeof (errorBody.detail as Record<string, unknown>).message === "string"
+                      ? ((errorBody.detail as Record<string, unknown>).message as string)
+                      : null;
+                errorText =
+                  (typeof parsedError === "object" && parsedError?.message) ||
+                  (typeof parsedError === "string" ? parsedError : null) ||
+                  errorBody?.message ||
+                  detailMsg ||
+                  errorText;
+              }
+            } catch {}
+
+            if (typeof errorText !== "string") {
+              try { errorText = JSON.stringify(errorText); } catch { errorText = String(errorText); }
+            }
+
+            if (result.status === 499) {
+              log.info("COMBO", `Client disconnected (499) during ${modelStr} repetition retry — stopping combo loop`);
+              return { ok: false, response: result };
+            }
           }
 
           // Combo fallback is target-level orchestration: a non-ok target response is
@@ -2482,6 +2708,42 @@ export async function handleComboChat({
             tag: "COMBO",
             exhaustedLogLevel: "info",
           });
+
+          // Task 0157 post-review F2 — terminal-boundary contract restored:
+          // a 400 that `checkFallbackError` classifies as non-fallback (terminal) must
+          // surface to the caller even when the body has not specifically tripped the
+          // legacy body-pattern heuristic. Generic client-error 400s ("invalid client
+          // payload", "transient", etc.) used to fall through to the next target and
+          // hide the real error from the harness. Explicit positives (model-access /
+          // context-overflow / parameter-validation / malformed-request) keep their
+          // fallback-safe classification through the dedicated `#2101` branch below.
+          if (
+            result.status === 400 &&
+            fallbackResult.shouldFallback === false &&
+            !isContextOverflow400(errorText) &&
+            !isParamValidation400(errorText) &&
+            !isModelAccess400(errorText, structuredError)
+          ) {
+            log.warn(
+              "COMBO",
+              `400 Bad Request classified as terminal by checkFallbackError on ${modelStr} — stopping combo (reason=${fallbackResult.reason ?? "unknown"})`
+            );
+            recordComboRequest(combo.name, modelStr, {
+              success: false,
+              latencyMs: Date.now() - startTime,
+              fallbackCount,
+              strategy,
+              target: toRecordedTarget(target),
+            });
+            recordedAttempts++;
+            lastError = errorText || String(result.status);
+            if (!lastStatus) lastStatus = result.status;
+            if (i > 0) fallbackCount++;
+            // Mirror the 499 contract: surface the upstream 400 via {ok,response}
+            // so the OUTER target loop resolves the combo and stops. Returning
+            // `null` would advance to the next target, which is the bug F2 fixes.
+            return { ok: false, response: result };
+          }
 
           // #2101: Prevent infinite fallback loops with 400 Bad Request errors that are genuinely
           // body-specific (malformed JSON, bad format, missing required fields).
@@ -2551,9 +2813,11 @@ export async function handleComboChat({
 
           // Check if this is a transient error worth retrying on same model.
           // A token-limit 429 is terminal for the client — never retry it.
+          // Repetition failures are handled exclusively by repetition sanity retry.
           const isTransient =
             !isStreamReadinessFailure &&
             !isTokenLimitBreach &&
+            !isRepetitionFailure(result.status, errorText) &&
             [408, 429, 500, 502, 503, 504].includes(result.status);
           if (retry < maxRetries && isTransient && !providerExhausted) {
             // Record model lockout immediately on the first transient failure —
@@ -2622,7 +2886,13 @@ export async function handleComboChat({
               );
             }
           }
-          log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
+          log.warn("COMBO", `Model ${modelStr} failed (${result.status}), trying next: ${sanitizeErrorMessage(errorText).substring(0, 200)}`, {
+            provider,
+            connectionId: targetWithConnection.connectionId || undefined,
+            model: modelStr,
+            status: result.status,
+            reason: fallbackResult.reason || "candidate_failure",
+          });
 
           if (resilienceSettings.providerCooldown.enabled && provider && provider !== "unknown") {
             recordProviderCooldown(
@@ -2796,11 +3066,9 @@ export async function handleComboChat({
         return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
       }
 
-      log.warn("COMBO", `All models failed | ${msg}`);
-      return new Response(JSON.stringify({ error: { message: msg } }), {
-        status,
-        headers: { "Content-Type": "application/json" },
-      });
+      const safeMsg = sanitizeErrorMessage(msg);
+      log.warn("COMBO", `All models failed | ${safeMsg}`);
+      return errorResponse(status, safeMsg);
     }
 
     return errorResponse(503, "Combo routing completed without an upstream response");
@@ -2946,7 +3214,7 @@ async function handleRoundRobinCombo({
       if (stickyTarget) {
         const rawModel = parseModel(stickyTarget.modelStr).model || stickyTarget.modelStr;
         const stickyAvailable =
-          !isProviderCircuitBlocking(stickyTarget.provider) &&
+          !(await isProviderCircuitBlocking(stickyTarget.provider, stickyTarget.modelStr, { connectionId: stickyTarget.connectionId })) &&
           !(
             resilienceSettings.providerCooldown.enabled &&
             Boolean(stickyTarget.provider && stickyTarget.provider !== "unknown") &&
@@ -3033,6 +3301,7 @@ async function handleRoundRobinCombo({
 
   // Try each model starting from the round-robin target
   for (let offset = 0; offset < modelCount; offset++) {
+    let targetRepetitionRetries = 0;
     const modelIndex = (rrStartIndex + offset) % modelCount;
     const target = filteredTargets[modelIndex];
     const modelStr = target.modelStr;
@@ -3049,7 +3318,7 @@ async function handleRoundRobinCombo({
 
     // F-03-003 / F-03-004: pre-skip circuit-blocking + model lock BEFORE semaphore
     // so OPEN / exhausted HALF_OPEN providers do not hold concurrency slots.
-    if (isProviderCircuitBlocking(provider)) {
+    if (await isProviderCircuitBlocking(provider, modelStr, { connectionId: target.connectionId })) {
       log.info(
         "COMBO-RR",
         `Skipping ${modelStr} — circuit breaker not executable for ${provider}`
@@ -3185,7 +3454,7 @@ async function handleRoundRobinCombo({
           }
         }
 
-        const result = await handleSingleModel(attemptBody, modelStr, {
+        let result = await handleSingleModel(attemptBody, modelStr, {
           ...targetForAttempt,
           effectiveComboStrategy: "round-robin",
           failoverBeforeRetry: config.failoverBeforeRetry,
@@ -3289,30 +3558,23 @@ async function handleRoundRobinCombo({
           return quality.clonedResponse ?? result;
         }
 
-        // Extract error info
+        // Extract error info (shared fail-soft extraction — same contract as
+        // the priority path: never leak the raw upstream body into lastError).
         let errorText = result.statusText || "";
         let retryAfter: ComboRetryAfter | null = null;
         let errorBody: ComboErrorBody = null;
         try {
           const cloned = result.clone();
-          try {
-            const text = await cloned.text();
-            if (text) {
-              errorText = text.substring(0, 500);
-              errorBody = JSON.parse(text);
-              const parsedError = errorBody?.error;
-              errorText =
-                (typeof parsedError === "object" && parsedError?.message) ||
-                (typeof parsedError === "string" ? parsedError : null) ||
-                errorBody?.message ||
-                errorText;
-              retryAfter = errorBody?.retryAfter || null;
-            }
-          } catch {
-            /* Clone parse failed */
-          }
+          const text = await cloned.text();
+          const extracted = extractComboErrorText({
+            statusText: result.statusText || "",
+            bodyText: text || null,
+          });
+          errorText = extracted.errorText;
+          errorBody = extracted.errorBody;
+          retryAfter = extracted.retryAfter;
         } catch {
-          /* Clone failed */
+          /* Clone read failed — keep statusText fallback */
         }
 
         if (result.status === 499) {
@@ -3329,6 +3591,106 @@ async function handleRoundRobinCombo({
           });
           recordedAttempts++;
           return result;
+        }
+
+        const { enableRepetitionGuard: rrGuardEnabled, repetitionRetryLimit: rrRetryLimit } =
+          resolveRepetitionGuardParams(config as Record<string, unknown>, body as Record<string, unknown>);
+
+        while (
+          rrGuardEnabled &&
+          rrRetryLimit > 0 &&
+          targetRepetitionRetries < rrRetryLimit &&
+          !signal?.aborted &&
+          isRepetitionFailure(result.status, errorText)
+        ) {
+          targetRepetitionRetries++;
+          globalAttempts++;
+          if (globalAttempts > MAX_GLOBAL_ATTEMPTS) {
+            log.warn(
+              "COMBO-RR",
+              `Maximum combo attempts (${MAX_GLOBAL_ATTEMPTS}) exceeded during repetition retry. Terminating loop.`
+            );
+            return errorResponse(503, "Maximum combo retry limit reached");
+          }
+
+          log.info(
+            "COMBO-RR",
+            `[REPETITION-RETRY] Target ${modelStr} hit repetition — executing sanity self-check retry (${targetRepetitionRetries}/${rrRetryLimit})`
+          );
+
+          attemptBody = injectRepetitionSanityInstruction(attemptBody as Record<string, unknown>);
+
+          const retryResult = await handleSingleModel(attemptBody as Record<string, unknown>, modelStr, {
+            ...targetForAttempt,
+            effectiveComboStrategy: "round-robin",
+            failoverBeforeRetry: config.failoverBeforeRetry,
+          });
+
+          if (retryResult.ok) {
+            const quality = await validateResponseQuality(retryResult, clientRequestedStream, log);
+            if (quality.valid) {
+              const latencyMs = Date.now() - startTime;
+              log.info(
+                "COMBO-RR",
+                `${modelStr} succeeded on repetition sanity retry (${latencyMs}ms, ${fallbackCount} fallbacks)`
+              );
+              recordComboRequest(combo.name, modelStr, {
+                success: true,
+                latencyMs,
+                fallbackCount,
+                strategy: "round-robin",
+                target: toRecordedTarget(target),
+              });
+              recordedAttempts++;
+
+              const selectedConnectionId =
+                retryResult.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
+                retryResult.headers?.get("x-omniroute-selected-connection-id") ||
+                undefined;
+              const effectiveConnectionId = selectedConnectionId || target.connectionId || "";
+
+              if (provider && rawModel) {
+                decayModelFailureCount(provider, effectiveConnectionId, rawModel);
+              }
+              if (provider && provider !== "unknown") {
+                recordProviderSuccess(provider, effectiveConnectionId || undefined);
+              }
+              if (stickyRoundRobinEnabled) {
+                recordStickyRoundRobinSuccess(combo.name, target, stickyLimit, filteredTargets);
+              }
+              return quality.clonedResponse ?? retryResult;
+            }
+            log.warn("COMBO-RR", `${modelStr} sanity retry returned 200 but failed quality check: ${quality.reason}`);
+            result = errorResponse(502, `Upstream response failed quality validation: ${quality.reason}`);
+          } else {
+            result = retryResult;
+          }
+
+          errorText = result.statusText || "";
+          errorBody = null;
+          try {
+            const cloned = result.clone();
+            const text = await cloned.text();
+            if (text) {
+              errorText = text.substring(0, 500);
+              try { errorBody = JSON.parse(text); } catch {}
+              const parsedError = errorBody?.error;
+              errorText =
+                (typeof parsedError === "object" && parsedError?.message) ||
+                (typeof parsedError === "string" ? parsedError : null) ||
+                errorBody?.message ||
+                errorText;
+            }
+          } catch {}
+
+          if (typeof errorText !== "string") {
+            try { errorText = JSON.stringify(errorText); } catch { errorText = String(errorText); }
+          }
+
+          if (result.status === 499) {
+            log.info("COMBO-RR", `Client disconnected (499) during ${modelStr} repetition retry — stopping combo loop`);
+            return result;
+          }
         }
 
         if (
@@ -3420,6 +3782,41 @@ async function handleRoundRobinCombo({
           exhaustedLogLevel: "debug",
         });
 
+        // Task 0157 post-review F2 — terminal-boundary contract mirrored in round-robin:
+        // a 400 that `checkFallbackError` classifies as non-fallback (terminal) must
+        // surface to the caller and stop the RR rotation. Previously the RR path
+        // always advanced to the next target on any non-ok response, which let
+        // generic 400s ("invalid client payload", "transient") hide behind a later
+        // model that succeeded. Explicit fallback-safe positives (model-access /
+        // context-overflow / parameter-validation / malformed-request) keep their
+        // fallback-safe classification by NOT matching this branch.
+        if (
+          result.status === 400 &&
+          fallbackResult.shouldFallback === false &&
+          !isContextOverflow400(errorText) &&
+          !isParamValidation400(errorText) &&
+          !isModelAccess400(errorText, structuredError)
+        ) {
+          log.warn(
+            "COMBO-RR",
+            `400 Bad Request classified as terminal by checkFallbackError on ${modelStr} — stopping RR rotation (reason=${fallbackResult.reason ?? "unknown"})`
+          );
+          recordComboRequest(combo.name, modelStr, {
+            success: false,
+            latencyMs: Date.now() - startTime,
+            fallbackCount,
+            strategy: "round-robin",
+            target: toRecordedTarget(target),
+          });
+          recordedAttempts++;
+          lastError = errorText || String(result.status);
+          if (!lastStatus) lastStatus = result.status;
+          if (offset > 0) fallbackCount++;
+          // Surface the upstream 400 directly. Returning here short-circuits the RR
+          // loop and the outer aggregate-error path forwards the status verbatim.
+          return result;
+        }
+
         // Transient errors → mark in semaphore so round-robin stops stampeding this target.
         if (
           !isStreamReadinessFailure &&
@@ -3440,9 +3837,11 @@ async function handleRoundRobinCombo({
 
         // Transient error → retry same model.
         // A token-limit 429 is terminal for the client — never retry it.
+        // Repetition failures are handled exclusively by repetition sanity retry.
         const isTransient =
           !isStreamReadinessFailure &&
           !isTokenLimitBreach &&
+          !isRepetitionFailure(result.status, errorText) &&
           [408, 429, 500, 502, 503, 504].includes(result.status);
         if (retry < maxRetries && isTransient && !providerExhausted) {
           continue;
@@ -3498,7 +3897,13 @@ async function handleRoundRobinCombo({
             );
           }
         }
-        log.warn("COMBO-RR", `${modelStr} failed, trying next model`, { status: result.status });
+        log.warn("COMBO-RR", `${modelStr} failed (${result.status}), trying next model: ${sanitizeErrorMessage(errorText).substring(0, 200)}`, {
+          provider,
+          connectionId: targetWithConnection.connectionId || undefined,
+          model: modelStr,
+          status: result.status,
+          reason: fallbackResult.reason || "candidate_failure",
+        });
 
         if (resilienceSettings.providerCooldown.enabled && provider && provider !== "unknown") {
           recordProviderCooldown(
@@ -3572,11 +3977,9 @@ async function handleRoundRobinCombo({
     return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
   }
 
-  log.warn("COMBO-RR", `All models failed | ${msg}`);
-  return new Response(JSON.stringify({ error: { message: msg } }), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+  const safeMsg = sanitizeErrorMessage(msg);
+  log.warn("COMBO-RR", `All models failed | ${safeMsg}`);
+  return errorResponse(status, safeMsg);
 }
 
 // Conditional-fusion helpers live in fusionTriggers.ts (Task 0014).

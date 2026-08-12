@@ -1,15 +1,3 @@
-# PORT 22000 = PRODUÇÃO — NÃO MEXER SOB NENHUMA HIPÓTESE!
-
-> **localhost:22000 é server de PRODUÇÃO, e NÃO É PRA MEXER SOB ABSOLUTAMENTE NENHUMA HIPÓTESE, MUITO MENOS DAR DOCKER RM, sob pena de tiro no cu, pq é o que está sendo usado.**
->
-> **localhost:23456 é o server de TESTES, qualquer coisa que modificar aqui tem que subir lá e SOMENTE LÁ.**
->
-> **A conexão do user passa pelo 22000 e se vc mexer nele vai interromper a sessão no meio por isso, então não mexa.**
->
-> **Desrespeitar essa regra => user vai BANIR o modelo desse workspace permanentemente.**
->
-> **Nota de transição (2026-07-25)**: A convenção anterior (21000=prod / 22000=test) mudou. `21000` foi desativado/liberado. `22000` passou a ser PRODUÇÃO. `23456` passou a ser TESTES. Referências históricas em tasks/docs devem ser lidas com esse mapeamento: 22000=PROD (nunca tocar), 23456=TEST (deploy/smoke target).
-
 ---
 
 # omniroute — Agent Guidelines
@@ -95,6 +83,8 @@ codebase. Run it locally before pushing docs; it runs in CI via `npm run check:d
 **Kill zombies before launching**: if a previous `next-server` or `run-standalone.mjs` is still in the process table without a listening port, kill it — they accumulate RSS and starve the next dev start.
 
 **The "build:secure" profile** (`OMNIROUTE_BUILD_PROFILE=minimal npm run build`) skips the standalone assembly — useful when you want a quick build to validate compile-ability without spending time on `dist/standalone` packaging.
+
+**Build concurrency & EMFILE mitigation (`OMNIROUTE_BUILD_CPUS`)**: Next.js static generation defaults to `os.cpus().length - 1` workers (e.g. 15 workers on 16 cores), which under restricted file descriptor limits (`nofile=4096`) causes EMFILE open file descriptor exhaustion when building 600+ pages. `next.config.mjs` now auto-selects up to 80% of logical CPUs, bounded by the configured build heap, reserved OS memory, and the current `nofile` limit. On the 16-thread/64 GB build host with `nofile=4096` and a 16 GB build heap, the automatic result is 8 workers and has passed a 617-page production build. Set `OMNIROUTE_BUILD_CPUS=<positive_integer>` for an explicit override; invalid, zero, or negative values return to automatic sizing.
 
 ---
 
@@ -247,6 +237,12 @@ Schema migrations live in `db/migrations/` (**97 files** as of v3.8.24) and run 
   Each module owns a specific table/set of tables (e.g., `providers.ts` → `provider_connections`,
   `combos.ts` → `combos`). Encryption helpers protect sensitive fields at rest.
 - **`localDb.ts`** re-exports all domain modules — consumers import from here for convenience.
+- **SQLite backup/import limit**: Capped at 1000 MB (1 GB). The import route
+  (`src/app/api/db-backups/import/route.ts`) and body-size guard
+  (`src/shared/middleware/bodySizeGuard.ts`) must stay synchronized.
+  Operator can configure a lower value via `OMNIROUTE_DB_IMPORT_MAX_MB`;
+  values above 1000 MB are clamped to 1000 MB. Audio (100 MB) and file upload (500 MB)
+  limits are separate.
 
 ### API Route Layer (`src/app/api/v1/`)
 

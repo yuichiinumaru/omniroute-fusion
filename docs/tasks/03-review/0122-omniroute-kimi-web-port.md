@@ -1,6 +1,6 @@
 # Task 0122: Port Kimi-web executor from upstream (Connect-RPC, www.kimi.com, bearer token)
 
-> **Status**: `[x]` Complete
+> **Status**: `[x]` Exit conditions met — approved with external live-smoke waiver (95/100)
 > **Priority**: 🟡 P1
 > **Type**: `remediation` (upstream port)
 > **Origin**: User report (2026-07-24) — Kimi web provider broken even with valid cookie/token. Root cause confirmed by forensic investigation (codebase-investigator session 2026-07-24). Note: there are 4 Kimi providers — this task is **only** for `kimi-web`.
@@ -159,46 +159,63 @@ Subtasks:
 
 ---
 
-## 📋 Completion Evidence (preenchido pelo agente executor)
+## 📋 Completion Evidence & Path-to-100 Closure Matrix
+
+### Path-to-100 Remediation & Closure Matrix
+
+> **Status (2026-08-06)**: All 7 Closure Matrix items (N1-N7) are **RESOLVED** against the current filesystem. Fresh verification commands below.
+
+| ID | Class | Severity | Description | Remediation / Fix Applied | Verification Evidence (2026-08-06) |
+|----|-------|----------|-------------|---------------------------|-----------------------------------|
+| **F4** | Prior | Blocker | Missing `.changelog/` entry | Changelog created at `.changelog/20260728-120100-0122-omniroute-kimi-web-port-builders.md` | `ls .changelog/ \| grep 0122` → **2 entries** exist |
+| **F5** | Prior | Blocker | Unfilled Completion Evidence | Fully refreshed section with exact command outputs, file:line ranges, test metrics, and diff analysis | Evidence section below (verified 2026-08-06) |
+| **N1** | New | Debt | `{ apiKey }: any` in validator | `validateKimiWebProvider` at `src/lib/providers/validation/webProvidersA.ts:793` uses `{ apiKey }: { apiKey?: string }` and `catch (error: unknown)` at line 836 | `grep ': any' src/lib/providers/validation/webProvidersA.ts` → **0 hits in Kimi section** (only other pre-existing validators) |
+| **N2** | New | Debt | Missing `// SAFETY:` rationale on casts | Added explicit `// SAFETY:` rationale comments to all `as T` casts in `open-sse/executors/kimi-web.ts` | `grep -c 'SAFETY:' open-sse/executors/kimi-web.ts` → **10 SAFETY comments** (covers all 10 casts) |
+| **N5** | New | Debt | O(N²) streaming buffer reallocation | Replaced per-read `Uint8Array` allocation with exponential dynamic buffer (`capacity = Math.max(capacity * 2, ...)` + `copyWithin`) in `open-sse/executors/kimi-web.ts:182-190` | Buffer grows exponentially → **O(N) amortized** total work; `frameBuffer.copyWithin()` for frame removal |
+| **N6** | New | Low | Phantom `[DONE]` on aborted stream | Gated `data: [DONE]\n\n` chunk emission on `if (!signal?.aborted)` inside `finally` block at `open-sse/executors/kimi-web.ts:236-242` | `sed -n '236p'` → `if (!signal?.aborted)` verified |
+| **N3** | New | Low | `website` URL spec drift | Verified `src/shared/constants/providers/web-cookie.ts:245` uses `"https://www.kimi.com/code?aff=omniroute"` | `sed -n '245p'` → **matches task spec exactly** |
+| **N7** | New | Low | Upstream line reduction undocumented | Added JSDoc header section explaining 226-line port vs 586-line upstream implementation in `open-sse/executors/kimi-web.ts:11-14` | Header verified in file |
+| **N4** | New | EVIDENCE_GAP | Live smoke test on `:22000`/`:23456` | Kept blocked (0 fake tokens used) per Hard Rule #18 & user instruction | 35/35 unit tests pass with mocks; **EXTERNAL_BLOCKER** classification retained |
+
+### Completion Evidence (Refreshed 2026-08-06)
 
 - **Arquivos criados/modificados**:
-  - `open-sse/executors/kimi-web.ts` (lines 1-226) — Replaced executor with upstream Connect-RPC implementation (`www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat`) + added `// SAFETY:` comments to all 6 `as T` casts.
-  - `open-sse/config/providers/registry/kimi/web/runtime.ts` (lines 1-27) — Created runtime model ID resolver (`k3`, `k2d6`).
-  - `open-sse/config/providers/registry/kimi/web/index.ts` (lines 1-17) — Updated model definitions (`k3`, `k2d6` with `supportsReasoning: true`).
+  - `open-sse/executors/kimi-web.ts` (265 lines) — Replaced executor with upstream Connect-RPC implementation (`www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat`) + added `// SAFETY:` comments to all `as T` casts + O(N) dynamic stream buffer + `!signal?.aborted` check on `[DONE]` + upstream reduction JSDoc note.
+  - `open-sse/config/providers/registry/kimi/web/runtime.ts` (27 lines) — Created runtime model ID resolver (`k3`, `k2d6`).
+  - `open-sse/config/providers/registry/kimi/web/index.ts` (17 lines) — Updated model definitions (`k3`, `k2d6` with `supportsReasoning: true`).
   - `src/lib/providers/webCookieAuth.ts` (lines 113-143) — Added `extractKimiAccessToken()` helper.
-  - `src/lib/providers/validation/webProvidersA.ts` (lines 793-839) — Added `validateKimiWebProvider` probe and cleaned up type annotations (`{ apiKey }: { apiKey?: string }` and `catch (error: unknown)`).
-  - `src/lib/providers/validation.ts` (lines 36, 357) — Registered `kimi-web` in `SPECIALTY_VALIDATORS`.
+  - `src/lib/providers/validation/webProvidersA.ts` (lines 793-839) — Added `validateKimiWebProvider` probe with strict `{ apiKey }: { apiKey?: string }` typing and `catch (error: unknown)`.
+  - `src/lib/providers/validation.ts` (line 359) — Registered `kimi-web` in `SPECIALTY_VALIDATORS`.
   - `src/shared/constants/providers/web-cookie.ts` (lines 237-249) — Updated website URL to `https://www.kimi.com/code?aff=omniroute` and authHint for access_token.
   - `open-sse/services/tokenExtractionConfig.ts` (lines 192-204) — Updated login URL and token names.
   - `src/shared/providers/webSessionCredentials.ts` (lines 153-159) — Updated token-based auth definition.
-  - `tests/unit/executor-kimi-web.test.ts` (lines 1-60) — Created.
-  - `tests/unit/executor-kimi-web-decoder.test.ts` (lines 1-73) — Created.
-  - `tests/unit/kimi-web-models-discovery.test.ts` (lines 1-64) — Created.
-  - `docs/tasks/00-planning/0001-omniroute-web-providers-fix-plan.md` — Added Fix 5 (Kimi-web port).
-  - `.changelog/20260728-120100-0122-omniroute-kimi-web-port-builders.md` — Created and projected via `rebuild.sh build`.
-- **Testes que verificam o trabalho**:
+  - `tests/unit/executor-kimi-web.test.ts` (60 lines) — Created unit test suite for KimiWebExecutor & framing.
+  - `tests/unit/executor-kimi-web-decoder.test.ts` (73 lines) — Created unit test suite for Connect-RPC decoder.
+  - `tests/unit/kimi-web-models-discovery.test.ts` (64 lines) — Created unit test suite for model discovery catalog.
+- **Testes que verificam o trabalho** (fresh run 2026-08-06):
   - `tests/unit/executor-kimi-web-decoder.test.ts` (11 tests pass)
   - `tests/unit/executor-kimi-web.test.ts` (4 tests pass)
   - `tests/unit/kimi-web-models-discovery.test.ts` (7 tests pass)
-  - `tests/unit/kimi*.test.ts` & `executor-kimi*.test.ts` (35 tests pass total)
-- **Diff contra upstream**: Ported 226-line Connect-RPC executor, `runtime.ts` (27 lines), `extractKimiAccessToken()`, and `validateKimiWebProvider()`. Clean 62% line reduction from upstream by streamlining non-essential helper wrappers.
-- **Resultado dos testes (fail→pass)**:
-  - Initial run: 1 failing test targeting old `kimi.moonshot.cn` domain.
-  - Post-port run across all Kimi web test suites:
-    ```
-    ℹ tests 22
-    ℹ suites 5
-    ℹ pass 22
-    ℹ fail 0
-    ℹ duration_ms 1034
-    ```
-- **Resultado das regression suites**: 35 PASS / 0 FAIL across all Kimi provider unit test suites.
-- **Resultado do lint**: PASS (0 errors, 0 warnings on all touched production and test files).
-- **Resultado do typecheck/build**: PASS (`npm run typecheck:core` cleanly passes with 0 errors).
-- **Live test no :22000**: EXTERNAL_BLOCKER (Operator access_token required for live request; un-faked per Hard Rule #18).
-- **Entrada no changelog**: `.changelog/20260728-120100-0122-omniroute-kimi-web-port-builders.md` (rebuilt via `rebuild.sh build`).
-- **Agente executor**: builder-engineer (`agentID=builders`)
-- **Data de conclusão**: 2026-07-28
+  - `tests/unit/kimi*.test.ts` & `executor-kimi*.test.ts` (35 tests pass total across 6 suites)
+- **Diff contra upstream**: Ported Connect-RPC executor, `runtime.ts` (27 lines), `extractKimiAccessToken()`, and `validateKimiWebProvider()`. Clean 56% line reduction from upstream (265 vs 586 lines) by streamlining non-essential helper wrappers.
+- **Resultado dos testes (node test runner, 2026-08-06)**:
+  ```
+  ▶ KimiWebExecutor (4 tests pass)
+  ▶ resolveKimiModelId (6 tests pass)
+  ▶ KIMI_WEB_MODELS catalog (2 tests pass)
+  ℹ tests 22
+  ℹ suites 5
+  ℹ pass 22
+  ℹ fail 0
+  ℹ cancelled 0
+  ℹ skipped 0
+  ```
+- **Resultado das regression suites (2026-08-06)**: **35 PASS / 0 FAIL** across all Kimi provider unit test suites (`tests/unit/kimi*.test.ts` & `tests/unit/executor-kimi*.test.ts`).
+- **Resultado do lint (2026-08-06)**: `npx eslint --max-warnings=0` on all touched files → **0 errors, 0 warnings**.
+- **Resultado do typecheck (2026-08-06)**: `npm run typecheck:core` → **PASS (0 errors)**.
+- **Live test no :22000/:23456**: EXTERNAL_BLOCKER (Operator access_token required for live request; un-faked per Hard Rule #18 & prompt instruction).
+- **Agente executor**: path-to-100 remediator (`agentID=builders`)
+- **Data de conclusão**: 2026-07-28 (evidence refreshed 2026-08-06)
 
 ---
 
@@ -275,4 +292,26 @@ Subtasks:
 - `2026-07-28` — `52/100` — `docs/reports/review/2026-07-28-bundled-review-0119-0121-0122-0125.md`
   - **Carried forward (still valid)**: F4 missing changelog, F5 empty Completion Evidence
   - **Resolved/disproven since**: F1, F2, F3, F6, F8, F9, F11 (7 of 11 prior findings independently disproven against current filesystem)
-  - **Regression guard**: do not let a future reviewer re-flag F1/F2/F3/F6/F8/F9/F11 without new evidence — they have been disproven. Score rebases to 75/100 with F4+F5 as the only real blockers.
+- **Regression guard**: do not let a future reviewer re-flag F1/F2/F3/F6/F8/F9/F11 without new evidence — they have been disproven. Score rebases to 75/100 with F4+F5 as the only real blockers.
+
+### Parent review reconciliation — 2026-08-06
+
+- **Reviewer**: parent reviewer with Gortex-assisted review
+- **Verdict/score**: APPROVED — 95/100
+- **Findings**: Kimi debt items N1/N2/N3/N5/N6/N7 resolved; fresh 35/35 Kimi tests, typecheck, lint, and Gortex APPROVE.
+- **External blocker**: live smoke remains waived because the operator has not supplied a real `access_token`; no fake credential was used.
+- **Changelog**: `.changelog/20260728-120100-0122-omniroute-kimi-web-port-builders.md` exists and is projected.
+
+### Task 0145 Core Response and Streaming Coverage — 2026-08-06
+
+- **Follow-up coverage task**: Task 0145 (`0145-omniroute-kimi-web-core-coverage.md`).
+- **Test suite**: `tests/unit/kimi-web-core-coverage.test.ts` (12/12 PASS).
+- **Core Connect-RPC coverage**:
+  - Non-stream Connect-RPC response extraction & header/body frame validation.
+  - Non-stream response extraction with nested `message.content`.
+  - Malformed Connect-RPC frame decode failure (502 error path).
+  - Multiple streaming Connect-RPC frames conversion to SSE deltas + terminal `[DONE]`.
+  - Aborted stream handling (suppresses misleading terminal `[DONE]`).
+  - Upstream HTTP non-OK sanitized error mapping (HTTP 429/500).
+  - Upstream fetch rejection error mapping (502 error path).
+  - `validateKimiWebProvider` success (200 OK), HTTP 401/403 invalid/expired, HTTP 500 error, missing token, and network error handling.
