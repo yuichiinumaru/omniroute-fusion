@@ -46,6 +46,7 @@ type ConnectionsHeaderToolbarProps = {
   onOpenImportClaude: () => void;
   onOpenImportGemini: () => void;
   onOpenImportGrokCli: () => void;
+  onOpenCursorAutoFlow?: () => void;
   t: ProviderMessageTranslator;
 };
 
@@ -87,8 +88,9 @@ export default function ConnectionsHeaderToolbar({
   onOpenCodexCliGuide,
   onOpenImportCodex,
   onOpenImportClaude,
-  onOpenImportGemini,
+  onOpenImportGemini: _onOpenImportGemini,
   onOpenImportGrokCli,
+  onOpenCursorAutoFlow,
   t,
 }: ConnectionsHeaderToolbarProps) {
   return (
@@ -272,9 +274,30 @@ export default function ConnectionsHeaderToolbar({
               </>
             ) : (
               <>
-                <Button size="sm" icon="add" onClick={() => gateConnectionFlow(openPrimaryAddFlow)}>
-                  {providerSupportsPat ? "Add PAT" : t("add")}
-                </Button>
+                {providerId === "cursor" ? (
+                  <>
+                    <Button size="sm" icon="add" onClick={() => gateConnectionFlow(openPrimaryAddFlow)}>
+                      Paste Auth.json
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="auto_awesome"
+                      onClick={() =>
+                        gateConnectionFlow(() => {
+                          if (onOpenCursorAutoFlow) onOpenCursorAutoFlow();
+                          else onOpenOAuthModal();
+                        })
+                      }
+                    >
+                      Experimental Auto
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" icon="add" onClick={() => gateConnectionFlow(openPrimaryAddFlow)}>
+                    {providerSupportsPat ? "Add PAT" : t("add")}
+                  </Button>
+                )}
                 {providerId === "qoder" && (
                   <Button
                     size="sm"

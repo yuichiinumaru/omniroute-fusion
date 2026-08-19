@@ -11,11 +11,12 @@ import { getCachedSettings } from "@/lib/localDb";
 import {
   parseModel,
   getModelInfoCore,
+  hasKnownProviderModel,
   normalizeProviderScopedModelId,
 } from "@omniroute/open-sse/services/model.ts";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
 
-export { parseModel, normalizeProviderScopedModelId };
+export { parseModel, hasKnownProviderModel, normalizeProviderScopedModelId };
 
 /**
  * Reserved provider prefixes — built-in provider ids + aliases. User-defined

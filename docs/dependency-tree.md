@@ -44,6 +44,19 @@ provider/routing wave.
 0154 (release/changelog ledger) ──→ 0155 (legacy refresh/code diff) ──→ 0156 (generic absorption workflow)
 0157 (combo fail-soft unavailable models) ──→ combo/account-fallback regression review
 0158 (outbound error audit) ──→ 0159 (self-improving outbound triage workflow)
+0149 (Grok Build protocol) ⚠── 0160 (Grok CLI provider compatibility)
+0151 (Grok Build OAuth baseline) ⚠── 0161 (Grok CLI local auth capture)
+0162 (Antigravity provider compat) — standalone, serialized with AGY surfaces
+0164 (OpenCode Free catalog) — standalone P0
+0165 (OpenCode executor sync) ──→ 0166 (Zen 429 diagnosis)
+0167 (OpenCode Free account UX) — standalone P2
+0168 (Proxy redaction gate) ──→ 0169 (BYO proxy validation + free-pool non-goal)
+0170 (Qoder OAuth DB Setting) — standalone P2
+0171 (Trae Connector Fixes) — standalone P2
+0172 (Cursor Experimental Auto Login) — standalone P1
+0173 (Freebuff provider connector) — standalone P1
+0174 (AIHubMix provider connector) — standalone P2
+0175 (Enter MaaS provider connector) → RD-omniroute-enter-maas-evidence (evidence gate)
 0140 (reasoning resolution contract)
   └──→ 0141 (reasoning UI/API controls)
 0142 (retry control labels) ⚠── 0127/0130 (combo UI/schema)
@@ -103,6 +116,34 @@ provider/routing wave.
 | 0157 | 🔓 | Combo fail-soft unavailable models | — | `combo.ts`, `accountFallback.ts`, Muse Spark regression tests | Incident-driven; distinguish upstream 404 body from harness tool-call schema |
 | 0158 | 🔓 | Outbound error and redirect audit | Authenticated management log access | Call-log evidence/report | 403/429 counted but deprioritized; 400/404/tool errors prioritized |
 | 0159 | 🔓 | Self-improving outbound error triage workflow | 0158, 0157 | OmniRoute skill workflow/references | Human-reviewed reference updates only |
+| 0160 | 🔓 | Grok CLI provider compatibility and model availability | 0149 protocol baseline | Grok registry/executor/model-resolution tests | Connector first; model identity/4.6 is secondary |
+| 0161 | 🔓 | Grok CLI Docker-only local auth capture | 0151 OAuth baseline | OAuth route/modal/Docker/persistence tests | Preserve existing accounts; no real auth.json in tests |
+| 0162 | 🔓 | Antigravity provider compatibility | — | AGY executor/signature/registry tests | 6 divergences; preserve OpenCode tool-call compat |
+| 0164 | 🔓 | OpenCode Free model catalog refresh | — | OpenCode Free registry | Replace 6 stale → 4 current upstream models |
+| 0165 | 🔓 | OpenCode executor upstream sync | — | OpenCode executor/Go registry/tests | Blocks 0166; preserve ALS concurrency fix |
+| 0166 | 🔓 | OpenCode Zen 429 diagnosis | 0165 | Live probe evidence | Needs CLI header synthesis from 0165 |
+| 0167 | 🔓 | OpenCode Free account identity UX | — | NoAuthAccountCard/help text | P2; UI-only transparency |
+| 0168 | 🔓 | Proxy redaction gate + high-friction confirm | — | Proxy/PII/guardrail UI+API+tests | Blocks 0169; Hard Rule #20 preserved |
+| 0169 | 🔓 | BYO proxy validation + free-pool non-goal | 0168 | Proxy trust docs/SSRF/local-only tests | No shipped default free list |
+| 0170 | 🔓 | Qoder OAuth DB Setting | — | Qoder OAuth logic / UI settings | Replaces env-var coupling |
+| 0171 | 🔓 | Trae Connector Fixes | — | Trae executor `resolveMode`, `publicCreds` | Strips double alias, obeys Hard Rule #11 |
+| 0172 | 🔓 | Cursor Experimental Auto Login | — | UI, CLI OAuth capturing, Proxy | Local Docker bounding only |
+| 0173 | 🔓 | Freebuff Provider Connector | — | Device OAuth, session manager, executor, models | Free DeepSeek V4 Pro, Luna, M3 |
+| 0174 | 🔓 | AIHubMix Provider Connector | — | API key gateway, DefaultExecutor, free models | Free Kimi K3, GLM 5.2, Gemini 3.7 |
+| 0175 | 🔓 | Enter MaaS Provider Connector | **RD-omniroute-enter-maas-evidence** (evidence gate) | API key gateway, DefaultExecutor, dynamic models — catalog/endpoint EVIDENCE-GATED | Nenhum modelo/URL fixado até evidência da RD |
+| 0176 | 🔓 | Canonical alias normalization (remediation) | 0160 re-evaluation | Publish contextual `normalizeModelForSelectedProvider`; migrate `modelTestRunner` + `TraeExecutor` regex; table-driven boundary contract test; CI grep guard scoped to input boundaries | Operationalizes AGENTS.md rule 7 / `docs/sourceoftruth.md` rule 1 — uses "passthrough pleno + denylist explícita" |
+| 0177 | 🔓 | Test discovery and runner integrity | — | Four orphaned tests, two unit-glob mismatches, truthful runner ownership, no silent suppression | Follows mega-audit P0 discovery finding; no production code |
+| 0178 | 🔓 | Structured fetch capture and test isolation | 0176 (boundary contract reference) | One exception-safe fetch-capture helper plus bounded representative migration | Follows mega-audit P1 isolation finding; no corpus-wide rewrite claim |
+| 0179 | 🔓 | Combo context-capacity fail-soft | 0157 (fallback contract baseline) | Exact combined input/output token-capacity 400 continues to the next target across applicable combo paths; generic terminal 400 remains terminal | New operator incident; narrow classification only, no blind 400 fallback |
+| 0180 | 🔓 | Shared TLS client core | 0146 (coordinate Qwen coverage scope) | Extract shared TLS scaffolding (lifecycle, timeouts, abort, proxy, stream cleanup, test override) from 6 `*TlsClient.ts`; thin provider adapters | ~3.6k duplicated lines; must keep `tlsClientProxy.ts` fail-closed |
+| 0181 | 🔓 | MITM forwarding/SSE shared helper | — | Protected `forwardAndPipeSSE()` on `MitmHandlerBase`; 7 simple handlers delegate | Antigravity conversion stays local; ~210 duplicated lines |
+| 0182 | 🔓 | CLI setup context helper | — | One `resolveSetupTarget` for 6 setup commands; adapter keeps `apiBase`/`baseUrl` exports | Root-URL clients out of scope |
+| 0183 | 🔓 | CLI settings route helpers | 0073 (sanitization ownership coordination) | Auth passthrough, JSON body parsing (compatible envelopes), sanitized errors, preflight | Persistence/TOML/secrets stay per-route; ~3.9k lines family |
+| 0184 | 🔓 | Media example card shared hook | — | Typed JSON request-lifecycle hook for 5 JSON media cards | STT multipart + Music/TTS binary excluded |
+| 0185 | 🔓 | Model discovery fallback consolidation | — | Consolidate no-token/non-OK fallback blocks in models route; provider branches intact | CSV groups 0906/1239 only; 1104 inline unless proven |
+| 0186 | 🔓 | Grok CLI reasoning high default | 0160 (boundary baseline) | Default `reasoning: { effort: "high" }` for every non-composer grok-cli model without explicit effort; explicit entries preserved; unsupported (max/xhigh) dropped | Operator: 4.6 "mongol" sem effort; 1-line guard generalization + TDD boundary |
+| RD-omniroute-test-suite-mega-audit | 🔓 | Test Suite Mega-Audit (research) | — (produz relatórios; base p/ endurecimento) | Inventariar tests; classificar useless/redundant/duplicated; oportunidades; templates de provider + boundaries (unificados, não proliferados) | NÃO implementa; framework = `eval`/EDD + `testing-anti-patterns.md` |
+| RD-omniroute-opencode-reasoning-summary-combo-audit | 🔓 | OpenCode "prior reasoning summary unavailable" — combo audit (research) | — (standalone) | Read-only diagnóstico: localizar string no harness, matriz de reprodução, classificação 1–4 | Não altera código; recomenda tasks dirigidas |
 
 ### Recommended dispatch waves
 
@@ -119,7 +160,22 @@ provider/routing wave.
 11. **Wave K — release/codebase absorption**: 0154 → 0155 → 0156; workflow activation requires harness/task-governance review.
 12. **Wave L — combo resilience**: 0157 requires provider/runtime and resilience review; no live MetaMuse account needed.
 13. **Wave M — outbound error analysis**: 0158 first with management-authenticated read-only logs; 0159 after the evidence rubric is calibrated.
-14. **Operator lane**: 0036 only with explicit production approval; never dispatch as ordinary builder work.
+14. **Wave N — Grok provider/auth follow-ups**: 0160 is serialized with Grok registry/executor work; 0161 follows 0151 and must not overlap OAuth/persistence changes.
+15. **Wave O — Antigravity**: 0162 standalone; serialized with AGY executor/signature surfaces.
+16. **Wave P — OpenCode providers**: 0164 standalone P0; 0165 → 0166 sequential; 0167 P2 any time.
+17. **Wave Q — Proxy security**: 0168 → 0169 sequential; 0168 gates 0169.
+18. **Wave R — Additional Provider UX**: 0170 Qoder, 0171 Trae, 0172 Cursor standalone minor improvements.
+19. **Wave S — Freebuff Connector**: 0173 Freebuff device code flow, session manager, executor, and catalog.
+20. **Wave T — AIHubMix Connector**: 0174 AIHubMix API Key aggregator gateway, dynamic models discovery, and free tier catalog.
+21. **Wave U — Enter MaaS Connector**: `RD-omniroute-enter-maas-evidence` first (evidence gate — endpoint/contract/catalog/billing), then 0175 Enter MaaS API key gateway AFTER the RD is approved.
+22. **Wave V — Canonical Alias Normalization**: 0176 first (publish `normalizeModelForSelectedProvider` + migrate `modelTestRunner` + Trae regex + table-driven boundary contract + CI grep guard scoped to input boundaries), then **0160 re-evaluation** (gate-removal depends on the helper). The re-evaluation restores the contract `passthroughModels: true` honors on grok-cli under the policy "passthrough pleno + denylist explícita".
+23. **Standalone research (parallel-safe)**: `RD-omniroute-opencode-reasoning-summary-combo-audit` — diagnóstico read-only; nenhuma task de implementação de reasoning antes da RD concluir.
+24. **Standalone research (parallel-safe)**: `RD-omniroute-opencode-reasoning-summary-combo-audit` — diagnóstico read-only; nenhuma task de implementação de reasoning antes da RD concluir. `RD-omniroute-test-suite-mega-audit` — auditoria read-only da suite de testes; produz relatórios (INDEX/USELESS/REDUNDANT/IMPROVEMENTS/TEMPLATES/ORCHESTRATION-LOG) para uma futura wave de endurecimento.
+25. **Wave W — test integrity hardening**: 0177 repairs discovery/runner ownership first; 0178 follows after Task 0176's public-boundary contract is accepted and must not overlap shared test-helper ownership.
+26. **Wave X — combo capacity fail-soft**: 0179 is serialized with combo/fallback error classification work and extends Task 0157 without reopening its accepted 404/400 contract unless a regression is proven.
+27. **Wave Y — gitingest dedup refactor (housekeeping)**: 0180, 0181, 0182, 0183, 0184, 0185 are independent extraction tasks derived from `sameblocs.csv` families; each owns disjoint file sets (TLS services / mitm handlers / bin setup commands / cli-tools routes / media cards / models route). They may run in parallel only after a builder-orchestrator verifies no shared-file collisions; 0180 coordinates with 0146, 0183 coordinates with 0073.
+28. **Wave Z — grok-cli effort default**: 0186 generalizes the 4.5-only default-effort guard to every non-composer grok-cli model; serialized on `grok-cli.ts` with the next 0160 review round; reuses 0160/0176 boundary tests; do not run before 0160's executor is settled in review.
+29. **Operator lane**: 0036 only with explicit production approval; never dispatch as ordinary builder work.
 
 ### Maintenance rule for the active wave
 

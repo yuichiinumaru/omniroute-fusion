@@ -30,15 +30,14 @@ for (const [id, alias] of Object.entries(PROVIDER_ID_TO_ALIAS)) {
 // Manual alias overrides — maps slug-style prefixes to canonical provider IDs.
 // These live outside the registry because they represent multiple providers
 // or backward-compatible slug changes, not a single provider's display name.
-// opencode/ → opencode-zen (the main free/open tier; opencode-go is a separate paid tier)
-ALIAS_TO_PROVIDER_ID["opencode"] = "opencode-zen";
+//
+// IMPORTANT: "opencode" is its own canonical provider (OpenCode Free, alias "oc",
+// public/no-auth). It must NOT be remapped to "opencode-zen" — that is a separate
+// API-key provider. Users requesting `opencode/<model>` or `oc/<model>` must resolve
+// to provider "opencode", not "opencode-zen". Explicit `opencode-zen/<model>` naturally
+// resolves to "opencode-zen" via the registry-derived loop above.
 ALIAS_TO_PROVIDER_ID["nv"] = "nvidia";
 ALIAS_TO_PROVIDER_ID["cl"] = "cline";
-
-// Manual aliases for external compatibility not covered by PROVIDER_ID_TO_ALIAS.
-// OpenCode's Zen provider now uses the "opencode" slug, but OmniRoute registers
-// it as "opencode-zen". This alias ensures `opencode/<model>` resolves correctly.
-ALIAS_TO_PROVIDER_ID["opencode"] = "opencode-zen";
 // xiaomi/ is the user-visible prefix for MiMo models; register it so
 // parseModel("xiaomi/mimo-v2-flash") resolves provider = "xiaomi-mimo" instead
 // of falling through to the identity fallback ("xiaomi").
@@ -226,7 +225,7 @@ function resolveProviderModelAlias(
   return aliases?.[modelId] || modelId;
 }
 
-function hasKnownProviderModel(providerOrAlias: string | null | undefined, modelId: string | null) {
+export function hasKnownProviderModel(providerOrAlias: string | null | undefined, modelId: string | null) {
   if (!providerOrAlias || !modelId) return false;
 
   const providerId = resolveProviderAlias(providerOrAlias);

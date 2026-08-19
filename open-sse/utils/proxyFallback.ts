@@ -12,6 +12,7 @@ import { fetch as undiciFetch } from "undici";
 import { createProxyDispatcher, normalizeProxyUrl } from "./proxyDispatcher.ts";
 import { resolveProxyForScopeFromRegistry, listProxies, listOneproxyProxies } from "@/lib/localDb";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -233,6 +234,13 @@ export async function testSingleProxy(
   const start = Date.now();
 
   try {
+    if (process.env.ALLOW_LOCAL_PROXIES !== "true") {
+      const u = new URL(proxyUrl);
+      if (u.hostname) {
+        await assertValidProxyHost(u.hostname);
+      }
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, Button, Toggle, ProxyConfigModal } from "@/shared/components";
 import { useTranslations } from "next-intl";
+import ProxyRedactionModal from "../ProxyRedactionModal";
 
 type GlobalProxyConfig = { type: string; host: string; port: number } | null;
 
@@ -27,6 +28,8 @@ export default function GlobalConfigTab() {
   const [results, setResults] = useState<HealthcheckResult[] | null>(null);
   const [summary, setSummary] = useState<HealthcheckSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [redactionModalOpen, setRedactionModalOpen] = useState(false);
+  const [pendingPerKeyToggle, setPendingPerKeyToggle] = useState<boolean | null>(null);
   const mountedRef = useRef(true);
   const t = useTranslations("settings");
   const tc = useTranslations("common");
@@ -64,16 +67,26 @@ export default function GlobalConfigTab() {
     };
   }, [loadGlobalProxy, loadPerKeyProxyEnabled]);
 
-  const handleTogglePerKeyProxyEnabled = async () => {
-    const newValue = !perKeyProxyEnabled;
+  const handleTogglePerKeyProxyEnabled = async (bypassToken?: string) => {
+    const targetValue = pendingPerKeyToggle !== null ? pendingPerKeyToggle : !perKeyProxyEnabled;
     try {
+      const payload: Record<string, unknown> = { perKeyProxyEnabled: targetValue };
+      if (bypassToken) {
+        payload.bypassToken = bypassToken;
+      }
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ perKeyProxyEnabled: newValue }),
+        body: JSON.stringify(payload),
       });
+      if (res.status === 409) {
+        setPendingPerKeyToggle(targetValue);
+        setRedactionModalOpen(true);
+        return;
+      }
       if (res.ok) {
-        setPerKeyProxyEnabled(newValue);
+        setPerKeyProxyEnabled(targetValue);
+        setPendingPerKeyToggle(null);
       }
     } catch (err) {
       console.error("Failed to update per-key proxy setting:", err);
@@ -267,6 +280,26 @@ export default function GlobalConfigTab() {
         level="global"
         levelLabel={t("globalLabel")}
         onSaved={loadGlobalProxy}
+      />
+
+      <ProxyRedactionModal
+        isOpen={redactionModalOpen}
+        onClose={() => {
+          setRedactionModalOpen(false);
+          setPendingPerKeyToggle(null);
+        }}
+        onEnablePiiAndContinue={async () => {
+          setRedactionModalOpen(false);
+          if (pendingPerKeyToggle !== null) {
+            await handleTogglePerKeyProxyEnabled();
+          }
+        }}
+        onBypassAndContinue={async (token) => {
+          setRedactionModalOpen(false);
+          if (pendingPerKeyToggle !== null) {
+            await handleTogglePerKeyProxyEnabled(token);
+          }
+        }}
       />
     </>
   );

@@ -48,6 +48,7 @@ export const SUPPORTED_WIZARD_OAUTH_PROVIDER_IDS = new Set([
   "cursor",
   "kilocode",
   "cline",
+  "freebuff",
 ]);
 
 function toProviderOption(

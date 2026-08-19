@@ -71,6 +71,42 @@ test("resolveModelOrError resolves built-in auto catalog ids without persisted c
   assert.equal(result.combo.models[0].providerId, "openai");
 });
 
+test("resolveModelOrError rejects nested provider prefixes before dispatch", async () => {
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("nested provider prefix must not reach fetch");
+  };
+
+  try {
+    const result = await resolveModelOrError(
+      "grok-cli/gc/grok-4.6",
+      { messages: [{ role: "user", content: "hello" }] },
+      "/v1/chat/completions"
+    );
+
+    assert.ok(result.error);
+    assert.equal(result.error.status, 400);
+    const json = (await result.error.json()) as any;
+    assert.match(json.error.message, /nested provider prefix/i);
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("resolveModelOrError preserves Codex's legacy repeated prefixes before execution", async () => {
+  const result = await resolveModelOrError(
+    "codex/cx/gpt-5.6-luna",
+    { input: [{ role: "user", content: [{ type: "input_text", text: "ping" }] }] },
+    "/v1/responses"
+  );
+
+  assert.equal(result.provider, "codex");
+  assert.equal(result.model, "gpt-5.6-luna");
+});
+
 test("resolveModelOrError canonicalizes Codex alias prefixes before execution", async () => {
   const alias = await resolveModelOrError(
     "cx/gpt-5.6-luna",

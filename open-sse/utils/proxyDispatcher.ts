@@ -2,6 +2,7 @@ import "./setupPolyfill.ts";
 import { Agent, ProxyAgent, type Dispatcher } from "undici";
 import { socksDispatcher } from "fetch-socks";
 import { getUpstreamTimeoutConfig } from "@/shared/utils/runtimeTimeouts";
+import { isPrivateHost, isCloudMetadataHost } from "@/shared/network/isPrivateHost";
 import { stripIpv6Brackets, detectIpLiteralFamily, parseProxyFamily } from "./proxyFamily.ts";
 import { createSocksDispatcherWithFamily } from "./socksConnectorWithFamily.ts";
 import {
@@ -250,22 +251,31 @@ export function proxyUrlForLogs(proxyUrl: string): string {
   return `${parsed.protocol}//${parsed.hostname}:${port}`;
 }
 
+function shouldBlockPrivateProxyHost(host: string): boolean {
+  if (process.env.ALLOW_LOCAL_PROXIES === "true") {
+    return false;
+  }
+  return isPrivateHost(host) || isCloudMetadataHost(host);
+}
+
 export function normalizeProxyUrl(
-  proxyUrl: string,
+  baseUrl: string,
   source = "proxy",
   { allowSocks5 = isSocks5ProxyEnabled() } = {}
 ): string {
-  // Strip a trailing synthetic `?family=ipv4|ipv6` marker BEFORE anything else.
-  // `extractExplicitPort` slices the authority off the raw string, so a marker
-  // turns the port substring into e.g. `80?family=ipv6`, which fails the digit
-  // test and silently falls back to the default port (8080 for http) — rewriting
-  // an http:80 proxy to :8080. We work on the marker-free string for both port
-  // extraction and URL parsing, then re-append the marker exactly once below.
-  const familyMatch = proxyUrl.match(/\?family=(ipv4|ipv6)$/);
-  const familySuffix = familyMatch ? familyMatch[0] : "";
-  const baseUrl = familySuffix ? proxyUrl.slice(0, -familySuffix.length) : proxyUrl;
+  if (!baseUrl || typeof baseUrl !== "string") {
+    throw new Error(`[ProxyDispatcher] Invalid ${source} URL`);
+  }
 
-  // Extract the explicit port from the raw URL string BEFORE parsing,
+  // Detect and strip our synthetic trailing `?family=` marker before passing to
+  // new URL(), because node's URL parser preserves query params and we don't
+  // want family directives leaking into raw connect strings.
+  const familyMatch = baseUrl.match(/[?&]family=(auto|ipv4|ipv6)$/i);
+  if (familyMatch) {
+    baseUrl = baseUrl.slice(0, familyMatch.index);
+  }
+
+  // Extract explicit port from the RAW string before `new URL()` runs,
   // because `new URL()` silently strips default ports (80 for http,
   // 443 for https), which are valid and common for proxy servers.
   const explicitPort = extractExplicitPort(baseUrl);
@@ -289,6 +299,30 @@ export function normalizeProxyUrl(
   }
   if (!parsed.hostname) {
     throw new Error(`[ProxyDispatcher] Invalid ${source} host`);
+  }
+  if (shouldBlockPrivateProxyHost(parsed.hostname)) {
+    throw new Error(
+      `[ProxyDispatcher] Proxy host cannot be a private or local address: ${parsed.hostname}`
+    );
+  }
+
+  if (!SUPPORTED_PROTOCOLS.has(parsed.protocol)) {
+    throw new Error(
+      `[ProxyDispatcher] Unsupported ${source} protocol: ${parsed.protocol.replace(":", "")}`
+    );
+  }
+  if (parsed.protocol === "socks5:" && !allowSocks5) {
+    throw new Error(
+      "[ProxyDispatcher] SOCKS5 proxy is disabled (remove ENABLE_SOCKS5_PROXY=false to enable — it is ON by default)"
+    );
+  }
+  if (!parsed.hostname) {
+    throw new Error(`[ProxyDispatcher] Invalid ${source} host`);
+  }
+  if (shouldBlockPrivateProxyHost(parsed.hostname)) {
+    throw new Error(
+      `[ProxyDispatcher] Proxy host cannot be a private or local address: ${parsed.hostname}`
+    );
   }
 
   // Use the explicit port from the raw string if present, otherwise apply default.
@@ -342,6 +376,11 @@ export function proxyConfigToUrl(
 
   // Partial / empty config object — treat as no proxy instead of crashing
   if (!config.host) return null;
+  if (shouldBlockPrivateProxyHost(config.host)) {
+    throw new Error(
+      `[ProxyDispatcher] Proxy host cannot be a private or local address: ${config.host}`
+    );
+  }
   const type = String(config.type || "http").toLowerCase();
 
   // Edge-relay entries (vercel / deno / cloudflare) carry the relay URL in

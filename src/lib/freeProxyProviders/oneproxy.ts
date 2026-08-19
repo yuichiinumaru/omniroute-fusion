@@ -32,7 +32,7 @@ export class OneproxyProvider implements FreeProxyProvider {
   private consecutiveFailures = 0;
 
   isEnabled(): boolean {
-    return process.env.FREE_PROXY_1PROXY_ENABLED !== "false";
+    return process.env.FREE_PROXY_1PROXY_ENABLED === "true";
   }
 
   private getConfig() {
@@ -46,7 +46,12 @@ export class OneproxyProvider implements FreeProxyProvider {
 
   async sync(): Promise<FreeProxySyncResult> {
     if (!this.isEnabled()) {
-      return { fetched: 0, added: 0, updated: 0, errors: ["1proxy provider disabled"] };
+      return {
+        fetched: 0,
+        added: 0,
+        updated: 0,
+        errors: ["1proxy provider disabled (opt-in via FREE_PROXY_1PROXY_ENABLED=true)"],
+      };
     }
     if (this.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
       return {

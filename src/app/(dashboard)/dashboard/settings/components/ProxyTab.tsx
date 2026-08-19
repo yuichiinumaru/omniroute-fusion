@@ -6,6 +6,9 @@ import GlobalConfigTab from "./proxy/GlobalConfigTab";
 import ProxyPoolTab from "./proxy/ProxyPoolTab";
 import FreePoolTab from "./proxy/FreePoolTab";
 import DocumentationTab from "./proxy/DocumentationTab";
+import ProxyRedactionModal from "./ProxyRedactionModal";
+
+export { ProxyRedactionModal };
 
 type TabId = "global-config" | "proxy-pool" | "free-pool" | "documentation";
 

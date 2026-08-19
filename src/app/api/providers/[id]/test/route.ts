@@ -146,6 +146,10 @@ const OAUTH_TEST_CONFIG = {
     checkExpiry: true,
     refreshable: true,
   },
+  freebuff: {
+    // Freebuff CLI OAuth — validate via token presence / expiry.
+    checkExpiry: true,
+  },
 };
 
 import { CLI_RUNTIME_PROVIDER_MAP } from "./cliRuntimeProviderMap";

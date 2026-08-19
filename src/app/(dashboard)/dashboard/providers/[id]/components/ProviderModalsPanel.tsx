@@ -20,6 +20,7 @@ import ExternalLinkModal from "./ExternalLinkModal";
 import BatchTestResultsModal from "./BatchTestResultsModal";
 import ImportProgressModal from "./ImportProgressModal";
 import { AdaptaTutorialModal } from "./AdaptaTutorialModal";
+import QoderOAuthSettingsModal from "./QoderOAuthSettingsModal";
 import { ImportCodexAuthModal, ApplyCodexAuthModal } from "./modals/ImportCodexAuthModal";
 import { ImportClaudeAuthModal, ApplyClaudeAuthModal } from "./modals/ImportClaudeAuthModal";
 import ImportGrokCliAuthModal from "./modals/ImportGrokCliAuthModal";
@@ -119,6 +120,8 @@ interface ProviderModalsPanelProps {
   // Grok Build auth
   importGrokCliModalOpen: boolean;
   setImportGrokCliModalOpen: (open: boolean) => void;
+  // Cursor initial mode
+  cursorAuthInitialMode?: "auto" | "paste";
   // Batch test results
   batchTestResults: BatchTestResults | null;
   setBatchTestResults: (r: BatchTestResults | null) => void;
@@ -201,6 +204,7 @@ export default function ProviderModalsPanel({
   setImportClaudeModalOpen,
   importGrokCliModalOpen,
   setImportGrokCliModalOpen,
+  cursorAuthInitialMode,
   batchTestResults,
   setBatchTestResults,
   emailsVisible,
@@ -237,6 +241,7 @@ export default function ProviderModalsPanel({
         ) : providerId === "cursor" ? (
           <CursorAuthModal
             isOpen={showOAuthModal}
+            initialMode={cursorAuthInitialMode}
             reauthConnection={reauthConnection}
             onSuccess={handleOAuthSuccess}
             onClose={() => setShowOAuthModal(false)}
@@ -245,6 +250,12 @@ export default function ProviderModalsPanel({
           <TraeAuthModal
             isOpen={showOAuthModal}
             reauthConnection={reauthConnection}
+            onSuccess={handleOAuthSuccess}
+            onClose={() => setShowOAuthModal(false)}
+          />
+        ) : providerId === "qoder" ? (
+          <QoderOAuthSettingsModal
+            isOpen={showOAuthModal}
             onSuccess={handleOAuthSuccess}
             onClose={() => setShowOAuthModal(false)}
           />

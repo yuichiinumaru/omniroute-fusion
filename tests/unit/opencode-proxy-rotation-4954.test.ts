@@ -46,6 +46,7 @@ function listen(server: net.Server): Promise<number> {
 }
 
 before(async () => {
+  process.env.ALLOW_LOCAL_PROXIES = "true";
   serverA = net.createServer((s) => s.destroy());
   serverB = net.createServer((s) => s.destroy());
   portA = await listen(serverA);
@@ -53,6 +54,7 @@ before(async () => {
 });
 
 after(() => {
+  delete process.env.ALLOW_LOCAL_PROXIES;
   serverA?.close();
   serverB?.close();
 });

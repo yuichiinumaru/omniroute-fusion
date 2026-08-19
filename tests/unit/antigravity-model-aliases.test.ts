@@ -69,13 +69,15 @@ test("toClientAntigravityModelId exposes client-visible aliases for known upstre
 
 test("isUserCallableAntigravityModelId only allows public chat-capable model IDs", () => {
   assert.equal(isUserCallableAntigravityModelId("gemini-3-pro-preview"), true);
-  assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro"), true);
+  // `gemini-3.1-pro` is not a public catalog entry; the callable Pro tiers are
+  // `gemini-pro-agent` (High) and `gemini-3.1-pro-low` (Low).
+  assert.equal(isUserCallableAntigravityModelId("gemini-pro-agent"), true);
+  assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-low"), true);
   // Retired flagship id stays callable as a hidden backward-compat alias (routes to High),
   // even though it is no longer exposed in the public catalog.
   assert.equal(isUserCallableAntigravityModelId("gemini-3.5-flash-preview"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3-flash-agent"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.1-flash-lite"), true);
-  assert.equal(isUserCallableAntigravityModelId("gemini-2.5-pro"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-2.5-flash"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-2.5-flash-lite"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-2.5-flash-thinking"), true);
@@ -86,14 +88,20 @@ test("isUserCallableAntigravityModelId only allows public chat-capable model IDs
   assert.equal(isUserCallableAntigravityModelId("claude-opus-4-6-thinking"), true);
   assert.equal(isUserCallableAntigravityModelId("claude-sonnet-4-6"), true);
   // Antigravity 2.0.4 exposes Gemini 3.5 Flash as separate UI tiers.
-  assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-high"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-low"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.5-flash-low"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.5-flash-medium"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.5-flash-high"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.5-flash-extra-low"), true);
+  assert.equal(isUserCallableAntigravityModelId("gemini-3.6-flash-low"), true);
+  assert.equal(isUserCallableAntigravityModelId("gemini-3.6-flash-medium"), true);
+  assert.equal(isUserCallableAntigravityModelId("gemini-3.6-flash-high"), true);
   assert.equal(isUserCallableAntigravityModelId("tab_flash_lite_preview"), false);
+  assert.equal(isUserCallableAntigravityModelId("gemini-2.5-pro"), false);
   assert.equal(isUserCallableAntigravityModelId("unknown-model"), false);
+  // The old non-suffixed flagship id is not a public catalog entry anymore;
+  // it is only reachable through the hidden `gemini-3.5-flash-preview` alias.
+  assert.equal(isUserCallableAntigravityModelId("gemini-3.5-flash-preview"), true);
 });
 
 test("ANTIGRAVITY_PUBLIC_MODELS exposes captured Antigravity 2.0.1 names and capabilities", () => {
@@ -101,15 +109,15 @@ test("ANTIGRAVITY_PUBLIC_MODELS exposes captured Antigravity 2.0.1 names and cap
   assert.deepEqual(getPublicModel("claude-opus-4-6-thinking"), {
     id: "claude-opus-4-6-thinking",
     name: "Claude Opus 4.6 (Thinking)",
-    contextLength: 200000,
+    contextLength: 1048576,
     maxOutputTokens: 65536,
     supportsReasoning: true,
     supportsVision: true,
     toolCalling: true,
   });
   assert.equal(getPublicModel("claude-sonnet-4-6").name, "Claude Sonnet 4.6 (Thinking)");
-  assert.deepEqual(getPublicModel("gemini-3.5-flash-high"), {
-    id: "gemini-3.5-flash-high",
+  assert.deepEqual(getPublicModel("gemini-3-flash-agent"), {
+    id: "gemini-3-flash-agent",
     name: "Gemini 3.5 Flash (High)",
     contextLength: 1048576,
     maxOutputTokens: 65536,
@@ -118,8 +126,12 @@ test("ANTIGRAVITY_PUBLIC_MODELS exposes captured Antigravity 2.0.1 names and cap
     toolCalling: true,
   });
   assert.equal(
-    getClientVisibleAntigravityModelName("gemini-3.5-flash-medium"),
+    getClientVisibleAntigravityModelName("gemini-3.5-flash-low"),
     "Gemini 3.5 Flash (Medium)"
+  );
+  assert.equal(
+    getClientVisibleAntigravityModelName("gemini-3.6-flash-medium"),
+    "Gemini 3.6 Flash (Medium)"
   );
   assert.equal(getClientVisibleAntigravityModelName("gemini-2.5-flash"), "Gemini 2.5 Flash");
   assert.equal(
@@ -138,10 +150,10 @@ test("ANTIGRAVITY_PUBLIC_MODELS exposes captured Antigravity 2.0.1 names and cap
     supportsReasoning: true,
     toolCalling: true,
   });
-  assert.equal(getPublicModel("gemini-3-pro-image-preview").contextLength, undefined);
+  assert.equal(getPublicModel("gemini-3-pro-image-preview").contextLength, 1048576);
   assert.equal(
     getPublicModel("gemini-2.5-computer-use-preview-10-2025").maxOutputTokens,
-    undefined
+    65536
   );
 });
 

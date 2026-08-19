@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import nextEnv from "@next/env";
 import {
   assembleStandalone,
   syncStandaloneNativeAssets as _syncNativeAssets,
@@ -408,6 +409,32 @@ export async function main(options = {}) {
   const rootDir = options.rootDir || projectRoot;
   const fsImpl = options.fsImpl || fs;
   const log = options.log || console;
+
+  // Capture the caller's explicit turbopack intent BEFORE .env is loaded:
+  // only an env-provided OMNIROUTE_USE_TURBOPACK=1 may select the turbopack
+  // build; the .env value (which also drives the dev server) must not.
+  const originalTurbopackEnv = process.env.OMNIROUTE_USE_TURBOPACK;
+
+  // Load .env into process.env so that `npm run build` (no inline vars)
+  // honors OMNIROUTE_BUILD_MEMORY_MB / OMNIROUTE_BUILD_CPUS from .env.
+  // Precedence: existing process.env vars win over .env (loadEnvConfig
+  // does not override them), so inline overrides keep working. Skipped
+  // when the caller injects an explicit env (unit tests / embedded use).
+  if (!options.env) {
+    try {
+      nextEnv.loadEnvConfig(rootDir, false, undefined, false);
+      // OMNIROUTE_USE_TURBOPACK is dev-only by design (scripts/dev/run-next.mjs
+      // gates it with `dev &&`). The production build stays webpack unless the
+      // flag comes from the caller's environment explicitly (inline), not from
+      // the .env used by the dev server.
+      if (process.env.OMNIROUTE_USE_TURBOPACK === "1" && !originalTurbopackEnv) {
+        delete process.env.OMNIROUTE_USE_TURBOPACK;
+      }
+    } catch (envErr) {
+      log.warn("[build-next-isolated] Could not load .env:", envErr?.message);
+    }
+  }
+
   const runBuild = options.runNextBuildImpl || runNextBuild;
   const env = options.env || process.env;
 

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "./Modal";
 import Button from "./Button";
+import ProxyRedactionModal from "@/app/(dashboard)/dashboard/settings/components/ProxyRedactionModal";
 import {
   type ProxyAssignmentItem,
   normalizeScopeId,
@@ -23,7 +24,9 @@ const BUILD_TIME_SOCKS5 = !["false", "0", "no", "off"].includes(
   (process.env.NEXT_PUBLIC_ENABLE_SOCKS5_PROXY ?? "").trim().toLowerCase()
 );
 export function buildProxyTypes(socks5Enabled: boolean) {
-  return socks5Enabled ? ALL_PROXY_TYPES : ALL_PROXY_TYPES.filter((type) => type.value !== "socks5");
+  return socks5Enabled
+    ? ALL_PROXY_TYPES
+    : ALL_PROXY_TYPES.filter((type) => type.value !== "socks5");
 }
 
 type ProxyConfigLevel = "global" | "provider" | "combo" | "key";
@@ -141,12 +144,23 @@ export default function ProxyConfigModal({
   const [inheritedFrom, setInheritedFrom] = useState(null);
   const [hasOwnProxy, setHasOwnProxy] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [redactionModalOpen, setRedactionModalOpen] = useState(false);
 
   const getDefaultPort = (type) => {
     if (type === "socks5") return "1080";
     if (type === "https") return "443";
     return "8080";
   };
+
+  const resetFields = useCallback(() => {
+    setProxyType(proxyTypes[0]?.value || "http");
+    setHost("");
+    setPort("");
+    setUsername("");
+    setPassword("");
+    setShowAuth(false);
+    setFormError(null);
+  }, [proxyTypes]);
 
   // Load existing proxy config when modal opens
   useEffect(() => {
@@ -192,7 +206,9 @@ export default function ProxyConfigModal({
             const assignedProxy = registryItems.find((item) => item.id === target.proxyId);
             if (assignedProxy?.source === DASHBOARD_CUSTOM_PROXY_SOURCE) {
               const normalizedType = String(assignedProxy.type || "http").toLowerCase();
-              const hasTypeOption = runtimeProxyTypes.some((entry) => entry.value === normalizedType);
+              const hasTypeOption = runtimeProxyTypes.some(
+                (entry) => entry.value === normalizedType
+              );
               setMode("custom");
               setProxyType(hasTypeOption ? normalizedType : runtimeProxyTypes[0]?.value || "http");
               setHost(assignedProxy.host || "");
@@ -274,19 +290,9 @@ export default function ProxyConfigModal({
     };
 
     loadProxy();
-  }, [isOpen, level, levelId]);
+  }, [isOpen, level, levelId, resetFields, t]);
 
-  const resetFields = () => {
-    setProxyType(proxyTypes[0]?.value || "http");
-    setHost("");
-    setPort("");
-    setUsername("");
-    setPassword("");
-    setShowAuth(false);
-    setFormError(null);
-  };
-
-  const handleSave = async () => {
+  const handleSave = async (bypassToken?: string) => {
     if (mode === "saved" && !selectedProxyId) {
       setFormError(t("errorSelectSavedProxy"));
       return;
@@ -300,15 +306,23 @@ export default function ProxyConfigModal({
       let res;
       let payload = null;
       if (mode === "saved") {
+        const savedBody: Record<string, unknown> = {
+          scope,
+          scopeId,
+          proxyId: selectedProxyId,
+        };
+        if (bypassToken) savedBody.bypassToken = bypassToken;
+
         res = await fetch("/api/settings/proxies/assignments", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            scope,
-            scopeId,
-            proxyId: selectedProxyId,
-          }),
+          body: JSON.stringify(savedBody),
         });
+
+        if (res.status === 409) {
+          setRedactionModalOpen(true);
+          return;
+        }
 
         if (res.ok) {
           const clearParams = new URLSearchParams({ level });
@@ -331,6 +345,9 @@ export default function ProxyConfigModal({
         };
         const createPayload: Record<string, unknown> = { ...proxy };
         const assignmentPayload = { scope, scopeId };
+        if (bypassToken) {
+          createPayload.bypassToken = bypassToken;
+        }
 
         if (username !== "***" && normalizedUsername) {
           createPayload.username = normalizedUsername;
@@ -360,6 +377,9 @@ export default function ProxyConfigModal({
             ...proxy,
             assignment: assignmentPayload,
           };
+          if (bypassToken) {
+            updatePayload.bypassToken = bypassToken;
+          }
           if (username !== "***") {
             updatePayload.username = normalizedUsername;
           }
@@ -377,6 +397,11 @@ export default function ProxyConfigModal({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...createPayload, assignment: assignmentPayload }),
           });
+        }
+
+        if (res.status === 409) {
+          setRedactionModalOpen(true);
+          return;
         }
 
         payload = await readJson(res);
@@ -776,6 +801,19 @@ export default function ProxyConfigModal({
           </div>
         </div>
       )}
+
+      <ProxyRedactionModal
+        isOpen={redactionModalOpen}
+        onClose={() => setRedactionModalOpen(false)}
+        onEnablePiiAndContinue={async () => {
+          setRedactionModalOpen(false);
+          await handleSave();
+        }}
+        onBypassAndContinue={async (token) => {
+          setRedactionModalOpen(false);
+          await handleSave(token);
+        }}
+      />
     </Modal>
   );
 }

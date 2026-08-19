@@ -291,6 +291,7 @@ export const updateSettingsSchema = z.object({
     .optional(),
   proxyEnabled: z.boolean().optional(),
   perKeyProxyEnabled: z.boolean().optional(),
+  bypassToken: z.string().trim().optional(),
   // CLIProxyAPI connection settings
   cliproxyapi_fallback_enabled: z.boolean().optional(),
   cliproxyapi_url: z.string().url().max(500).optional(),
@@ -310,6 +311,13 @@ export const updateSettingsSchema = z.object({
   oauthAutoOpen: z.boolean().optional(),
   // Provider Model Auto-Sync setting (Task 0129)
   providerModelAutoSyncEnabled: z.boolean().optional(),
+  // Qoder Browser OAuth settings (Task 0170)
+  qoderOAuthEnabled: z.boolean().optional(),
+  qoderOAuthAuthorizeUrl: z.string().max(500).optional(),
+  qoderOAuthTokenUrl: z.string().max(500).optional(),
+  qoderOAuthUserInfoUrl: z.string().max(500).optional(),
+  qoderOAuthClientId: z.string().max(500).optional(),
+  qoderOAuthClientSecret: z.string().max(500).optional(),
   // Model lockout settings
   modelLockout: z
     .object({

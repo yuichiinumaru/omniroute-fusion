@@ -40,6 +40,7 @@ import { getClaudeCodeCompatibleRequestDefaults } from "@/lib/providers/requestD
 import { buildClineHeaders } from "@/shared/utils/clineAuth";
 import { resolveSafeChatPath } from "../utils/safePath.ts";
 import { resolveQwenChatCompletionsUrl } from "../utils/qwenResourceUrl.ts";
+import { forwardOpencodeClientHeaders } from "../utils/opencodeHeaders.ts";
 
 import type { PoolConfig } from "../services/sessionPool/types.ts";
 
@@ -547,25 +548,7 @@ export class DefaultExecutor extends BaseExecutor {
     // Forward client request metadata headers (from OpenCode or similar clients)
     // Allowlist-based: only specific x-opencode-* headers and User-Agent are forwarded
     if (clientHeaders) {
-      const clientUA = clientHeaders["User-Agent"] || clientHeaders["user-agent"];
-      if (clientUA) {
-        setUserAgentHeader(headers, clientUA);
-      }
-
-      const opencodeHeaderKeys = [
-        "x-opencode-session",
-        "x-opencode-request",
-        "x-opencode-project",
-        "x-opencode-client",
-      ];
-      for (const headerName of opencodeHeaderKeys) {
-        const value = Object.entries(clientHeaders).find(
-          ([key]) => key.toLowerCase() === headerName.toLowerCase()
-        )?.[1];
-        if (value) {
-          headers[headerName] = value;
-        }
-      }
+      forwardOpencodeClientHeaders(headers, clientHeaders);
 
       // #3974: merge the client's negotiated anthropic-beta (allowlisted) into the
       // outbound set. The registry's static ANTHROPIC_BETA_CLAUDE_OAUTH lacks

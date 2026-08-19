@@ -215,4 +215,18 @@ export const OAUTH_PROVIDERS = {
     authHint:
       "Tencent CodeBuddy CN (copilot.tencent.com). Sign in via the official CLI device-code flow, or paste a direct API key (sent as Authorization: Bearer). Catalog: GLM / Kimi / MiniMax / DeepSeek / Hunyuan.",
   },
+  freebuff: {
+    id: "freebuff",
+    alias: "fb",
+    name: "Freebuff",
+    icon: "smart_toy",
+    color: "#10B981",
+    textIcon: "FB",
+    website: "https://codebuff.com",
+    subscriptionRisk: true,
+    riskNoticeVariant: "oauth",
+    hasFree: true,
+    authHint:
+      "Sign in with Codebuff CLI device code flow (free model access for DeepSeek V4 Pro/Flash, GPT-5.6 Luna, MiniMax M3, MiMo 2.5, GLM 5.2).",
+  },
 };

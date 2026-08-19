@@ -10,7 +10,7 @@ import { applyAntigravityClientProfileHeaders } from "@omniroute/open-sse/servic
 import { getAntigravityHeaders } from "@omniroute/open-sse/services/antigravityHeaders.ts";
 import {
   getAntigravityFetchAvailableModelsUrls,
-  ANTIGRAVITY_BASE_URLS,
+  ANTIGRAVITY_RUNTIME_BASE_URLS,
 } from "@omniroute/open-sse/config/antigravityUpstream.ts";
 import {
   getAntigravityRemainingCredits,
@@ -151,7 +151,7 @@ async function probeAntigravityCreditBalance(
   try {
     if (!projectId) return null; // Can't call streamGenerateContent without a projectId
 
-    const baseUrl = ANTIGRAVITY_BASE_URLS[0];
+    const baseUrl = ANTIGRAVITY_RUNTIME_BASE_URLS[0];
     const url = `${baseUrl}/v1internal:streamGenerateContent?alt=sse`;
 
     const body = {

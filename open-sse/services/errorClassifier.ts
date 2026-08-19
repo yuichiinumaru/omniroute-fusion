@@ -3,6 +3,7 @@ import {
   isCreditsExhausted,
   isDailyQuotaExhausted,
   isOAuthInvalidToken,
+  isContextOverflow400,
 } from "./accountFallback.ts";
 import { getProviderCategory } from "../config/providerRegistry.ts";
 
@@ -90,12 +91,17 @@ export const CONTEXT_OVERFLOW_SIGNALS = [
   "context length",
   "exceed.*context",
   "messages exceed",
+  // #0179: combined input/output capacity wording — model can serve shorter
+  // requests but not this specific prompt size; fail-soft in combo routing.
+  "accepts at most",
+  "combined input and output tokens",
+  "reduce the input length",
 ];
 
 export const CONTEXT_OVERFLOW_REGEX = new RegExp(CONTEXT_OVERFLOW_SIGNALS.join("|"), "i");
 
 export function isContextOverflow(errorText: string): boolean {
-  return CONTEXT_OVERFLOW_REGEX.test(String(errorText || ""));
+  return isContextOverflow400(errorText);
 }
 
 function responseBodyToString(responseBody: unknown): string {

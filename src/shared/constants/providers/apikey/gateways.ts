@@ -542,4 +542,18 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     apiHint:
       "TokenRouter exposes an OpenAI-compatible chat completions endpoint at https://api.tokenrouter.com/v1/chat/completions, plus a working /v1/models catalog. OmniRoute uses the OpenAI protocol.",
   },
+  aihubmix: {
+    id: "aihubmix",
+    alias: "aihubmix",
+    name: "AIHubMix",
+    icon: "router",
+    color: "#6366F1",
+    textIcon: "AHM",
+    passthroughModels: true,
+    website: "https://aihubmix.com",
+    hasFree: true,
+    freeNote: "Free tier models available with -free suffix",
+    apiHint:
+      "Get an API key at https://aihubmix.com — OpenAI-compatible base URL at https://aihubmix.com/v1.",
+  },
 };

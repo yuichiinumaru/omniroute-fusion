@@ -48,7 +48,7 @@ test.after(() => {
 test("#4878 add-to-pool returns a non-2xx status when connectivity test fails", async () => {
   const { id } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
-    host: "10.9.0.1",
+    host: "198.51.100.91",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -77,7 +77,7 @@ test("#4878 add-to-pool returns a non-2xx status when connectivity test fails", 
 test("#4878 add-to-pool still returns 2xx + success:true on the happy path", async () => {
   const { id } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
-    host: "10.9.0.2",
+    host: "198.51.100.92",
     port: 8080,
     type: "http",
     countryCode: null,

@@ -25,6 +25,7 @@ interface EmptyConnectionsPlaceholderProps {
   onOpenImportClaude: () => void;
   onOpenImportGemini: () => void;
   onOpenImportGrokCli: () => void;
+  onOpenCursorAutoFlow?: () => void;
   t: ProviderMessageTranslator;
 }
 
@@ -42,8 +43,9 @@ export default function EmptyConnectionsPlaceholder({
   onOpenOAuthModal,
   onOpenImportCodex,
   onOpenImportClaude,
-  onOpenImportGemini,
+  onOpenImportGemini: _onOpenImportGemini,
   onOpenImportGrokCli,
+  onOpenCursorAutoFlow,
   t,
 }: EmptyConnectionsPlaceholderProps) {
   return (
@@ -78,9 +80,29 @@ export default function EmptyConnectionsPlaceholder({
             </>
           ) : (
             <>
-              <Button icon="add" onClick={() => gateConnectionFlow(openPrimaryAddFlow)}>
-                {providerSupportsPat ? "Add PAT" : t("addConnection")}
-              </Button>
+              {providerId === "cursor" ? (
+                <>
+                  <Button icon="add" onClick={() => gateConnectionFlow(openPrimaryAddFlow)}>
+                    Paste Auth.json
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    icon="auto_awesome"
+                    onClick={() =>
+                      gateConnectionFlow(() => {
+                        if (onOpenCursorAutoFlow) onOpenCursorAutoFlow();
+                        else onOpenOAuthModal();
+                      })
+                    }
+                  >
+                    Experimental Auto
+                  </Button>
+                </>
+              ) : (
+                <Button icon="add" onClick={() => gateConnectionFlow(openPrimaryAddFlow)}>
+                  {providerSupportsPat ? "Add PAT" : t("addConnection")}
+                </Button>
+              )}
               {providerId === "qoder" && (
                 <Button variant="secondary" onClick={() => gateConnectionFlow(onOpenOAuthModal)}>
                   Experimental OAuth

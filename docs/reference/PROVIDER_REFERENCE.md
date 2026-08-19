@@ -1,16 +1,16 @@
 ---
 title: "Provider Reference"
 version: 3.8.42
-lastUpdated: 2026-06-30
+lastUpdated: 2026-08-15
 ---
 
 # Provider Reference
 
 > **Auto-generated** from `src/shared/constants/providers.ts` — do not edit by hand.
 > Regenerate with: `npm run gen:provider-reference`
-> **Last generated:** 2026-06-30
+> **Last generated:** 2026-08-15
 
-Total providers: **236**. See category breakdown below.
+Total providers: **238**. See category breakdown below.
 
 ## Categories
 
@@ -31,7 +31,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 ---
 
-## OAuth Providers (20)
+## OAuth Providers (21)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -44,6 +44,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `codex` | `cx` | OpenAI Codex | OAuth | — | — |
 | `cursor` | `cu` | Cursor IDE | OAuth | — | — |
 | `devin-cli` | `dv` | Devin CLI (Official) | OAuth | [link](https://cli.devin.ai) | Requires the Devin CLI binary. Run `devin auth login` to authenticate, or provide your WINDSURF_API_KEY. Install: https://cli.devin.ai |
+| `freebuff` | `fb` | Freebuff | OAuth | [link](https://codebuff.com) | Sign in with Codebuff CLI device code flow (free model access for DeepSeek V4 Pro/Flash, GPT-5.6 Luna, MiniMax M3, MiMo 2.5, GLM 5.2). |
 | `github` | `gh` | GitHub Copilot | OAuth | — | — |
 | `gitlab-duo` | `gitlab-duo` | GitLab Duo | OAuth | [link](https://docs.gitlab.com/user/duo_agent_platform/code_suggestions/) | OAuth application with ai_features + read_user scopes. Configure GITLAB_DUO_OAUTH_CLIENT_ID and optionally GITLAB_DUO_OAUTH_CLIENT_SECRET on this OmniRoute instance. |
 | `grok-cli` | `gc` | Grok Build | OAuth | — | Paste your ~/.grok/auth.json (or the JWT access token) from the Grok Build CLI; refresh_token is rotated automatically. |
@@ -73,7 +74,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `grok-web` | `gw` | Grok Web (Subscription) | Web cookie | [link](https://grok.com) | Paste the full grok.com cookie line from DevTools → Application → Cookies. Include both `sso` and `sso-rw` (e.g. `sso=...; sso-rw=...`) — Grok's anti-bot rejects `sso` on its own. |
 | `huggingchat` | `huggingchat` | HuggingChat (Free) | Web cookie | [link](https://huggingface.co/chat) | Paste your hf-chat cookie value from huggingface.co/chat (DevTools → Application → Cookies → hf-chat). Optional — works without auth for basic use. |
 | `inner-ai` | `in-ai` | Inner.ai (Subscription) | Web cookie | [link](https://app.innerai.com) | Paste your token cookie and email separated by a space: open DevTools → Application → Cookies → .innerai.com, copy the token value, then append a space and your Inner.ai login email. Example: eyJhbG... user@example.com |
-| `kimi-web` | `kimi-web` | Kimi Web (Moonshot AI) | Web cookie | [link](https://kimi.moonshot.cn) | Paste your session cookie from kimi.moonshot.cn (DevTools → Application → Cookies) |
+| `kimi-web` | `kimi-web` | Kimi Web (Moonshot AI) | Web cookie | [link](https://www.kimi.com/code?aff=omniroute) | Paste your access_token from www.kimi.com (DevTools → Application → Local Storage → access_token or kimi-auth cookie) |
 | `lmarena` | `lma` | LMArena (Free) | Web cookie | [link](https://lmarena.ai) | Paste the full Cookie header from lmarena.ai (DevTools → Network → request → Cookie). The session is now split across arena-auth-prod-v1.0, .1, … — copy the whole header. Optional — works with free tier for basic comparisons. |
 | `muse-spark-web` | `ms-web` | Muse Spark Web (Meta AI) | Web cookie | [link](https://www.meta.ai) | Paste your ecto_1_sess value or full cookie header from meta.ai |
 | `perplexity-web` | `pplx-web` | Perplexity Web (Pro/Max) | Web cookie | [link](https://www.perplexity.ai) | Paste your __Secure-next-auth.session-token cookie value from perplexity.ai |
@@ -84,13 +85,14 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `venice-web` | `ven` | Venice Web (Privacy) | Web cookie | [link](https://venice.ai) | Paste your session cookie from venice.ai (DevTools → Application → Cookies) |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. |
 
-## API Key Providers (paid / paid-with-free-credits) (158)
+## API Key Providers (paid / paid-with-free-credits) (159)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
 | `360ai` | `360ai` | 360 AI | API key | [link](https://ai.360.cn) | Get API key at ai.360.cn |
 | `agentrouter` | `agentrouter` | AgentRouter | API key, aggregator | [link](https://agentrouter.org) | $200 free credits on signup - multi-model routing gateway |
 | `ai21` | `ai21` | AI21 Labs | API key | [link](https://www.ai21.com) | $10 trial credits on signup (valid 3 months), no credit card required |
+| `aihubmix` | `aihubmix` | AIHubMix | API key, aggregator | [link](https://aihubmix.com) | Free tier models available with -free suffix |
 | `aimlapi` | `aiml` | AI/ML API | API key, aggregator | [link](https://aimlapi.com) | Free tier paused (2026) — AI/ML API is now pay-as-you-go only (min $20 top-up); no recurring free credits. |
 | `alibaba` | `ali` | Alibaba | API key | [link](https://dashscope-intl.aliyuncs.com) | — |
 | `alibaba-cn` | `ali-cn` | Alibaba (China) | API key | [link](https://dashscope.aliyuncs.com) | — |
@@ -143,7 +145,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `getgoapi` | `ggo` | GoAPI | API key, aggregator | [link](https://api.getgoapi.com) | — |
 | `gigachat` | `gigachat` | GigaChat (Sber) | API key | [link](https://developers.sber.ru) | — |
 | `github-models` | `ghm` | GitHub Models | API key | [link](https://github.com/marketplace/models) | Create a GitHub PAT with 'models: read' scope at github.com/settings/tokens |
-| `gitlab` | `gitlab` | GitLab Duo PAT | API key | [link](https://docs.gitlab.com/user/duo_agent_platform/code_suggestions/) | GitLab personal access token for the public Code Suggestions API. Configure a self-hosted base URL when not using gitlab.com. |
+| `gitlab` | `gitlab` | GitLab Duo PAT | API key | [link](https://docs.gitlab.com/user/duo_agent_platform/code_suggestions/) | GitLab personal access token for the public Code Suggestions API (code completion only, max ~20 tokens). Configure a self-hosted base URL when not using gitlab.com. |
 | `gitlawb` | `glb` | Gitlawb Opengateway (MiMo) | API key | [link](https://opengateway.gitlawb.com) | Free MiMo (xiaomi/mimo-v2.5) revoked 2026-05 — Opengateway is now a pay-as-you-go credit gateway; no recurring free model. |
 | `gitlawb-gmi` | `glb-gmi` | Gitlawb Opengateway (GMI Cloud) | API key | [link](https://opengateway.gitlawb.com) | Free Nemotron promo ended 2026-06 — the GMI Cloud route is now pay-as-you-go credit only. |
 | `glhf` | `glhf` | GLHF Chat | API key, aggregator | [link](https://glhf.chat) | ⚠️ **DEPRECATED.** glhf.chat shut down (2026); its api.laf.run gateway no longer serves the catalog (sweep 2026-06-19). |

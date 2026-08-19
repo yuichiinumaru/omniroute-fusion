@@ -23,14 +23,14 @@ import {
   getAntigravityBootstrapHeaders,
   type AntigravityClientProfile,
 } from "./antigravityClientProfile.ts";
-import { ANTIGRAVITY_BASE_URLS } from "../config/antigravityUpstream.ts";
+import { ANTIGRAVITY_BOOTSTRAP_BASE_URLS } from "../config/antigravityUpstream.ts";
 
 const LOAD_CODE_ASSIST_PATH = "/v1internal:loadCodeAssist";
 const BOOTSTRAP_TIMEOUT_MS = 8_000;
 
 /** Ordered list of loadCodeAssist endpoint URLs (mirrors the models discovery order). */
 export function getAntigravityLoadCodeAssistUrls(): string[] {
-  return ANTIGRAVITY_BASE_URLS.map((base) => `${base}${LOAD_CODE_ASSIST_PATH}`);
+  return ANTIGRAVITY_BOOTSTRAP_BASE_URLS.map((base) => `${base}${LOAD_CODE_ASSIST_PATH}`);
 }
 
 /** Per-token memoization cache (lives for the process lifetime). */
@@ -53,7 +53,7 @@ async function tryLoadCodeAssist(
 ): Promise<string | null> {
   const urls = getAntigravityLoadCodeAssistUrls();
   const headers =
-    clientProfile === "harness"
+    clientProfile === "cli"
       ? getAntigravityBootstrapHeaders(clientProfile, accessToken)
       : getAntigravityHeaders("loadCodeAssist", accessToken);
 

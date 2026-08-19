@@ -173,6 +173,8 @@ import { codebuddy_cnProvider } from "./registry/codebuddy-cn/index.ts";
 import { pioneerProvider } from "./registry/pioneer/index.ts";
 import { lmarenaProvider } from "./registry/lmarena/index.ts";
 import { zenmux_freeProvider } from "./registry/zenmux-free/index.ts";
+import { aihubmixProvider } from "./registry/aihubmix/index.ts";
+import { freebuffProvider } from "./registry/freebuff/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -348,4 +350,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   pioneer: pioneerProvider,
   lmarena: lmarenaProvider,
   "zenmux-free": zenmux_freeProvider,
+  aihubmix: aihubmixProvider,
+  freebuff: freebuffProvider,
+  fb: freebuffProvider,
 };

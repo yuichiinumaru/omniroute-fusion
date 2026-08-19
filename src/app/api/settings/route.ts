@@ -25,6 +25,10 @@ import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { isCliTokenAuthValid } from "@/lib/middleware/cliTokenAuth";
 import { extractApiKey } from "@/sse/services/auth";
 import { getApiKeyMetadata } from "@/lib/db/apiKeys";
+import {
+  assertProxyRedactionOrBypass,
+  ProxyRedactionRequiredError,
+} from "@/lib/proxyRedactionGate";
 
 /**
  * Force this route to run dynamically per-request and never be cached/prerendered.
@@ -158,7 +162,7 @@ export async function GET(request: Request) {
 
   try {
     const settings = await getSettings();
-    const { password, ...safeSettings } = settings;
+    const { password, qoderOAuthClientSecret: _clientSecret, ...safeSettings } = settings;
 
     const runtimePorts = getRuntimePorts();
     const cloudUrl = process.env.CLOUD_URL || process.env.NEXT_PUBLIC_CLOUD_URL || null;
@@ -179,6 +183,9 @@ export async function GET(request: Request) {
       {
         ...safeSettings,
         hasPassword: hasManagementPasswordConfigured(settings),
+        hasQoderOAuthClientSecret: Boolean(
+          settings.qoderOAuthClientSecret || process.env.QODER_OAUTH_CLIENT_SECRET
+        ),
         runtimePorts,
         apiPort: runtimePorts.apiPort,
         dashboardPort: runtimePorts.dashboardPort,
@@ -245,6 +252,30 @@ export async function PATCH(request: Request) {
       }) as typeof body.modelLockout;
     }
 
+    // PII Redaction Proxy Gate (Task 0168): Reject proxy enablement when PII redaction is OFF
+    // unless a valid bypass token is provided (409 Conflict).
+    if (body.proxyEnabled === true || body.perKeyProxyEnabled === true) {
+      try {
+        assertProxyRedactionOrBypass({ bypassToken: body.bypassToken, actor });
+      } catch (gateErr) {
+        if (gateErr instanceof ProxyRedactionRequiredError) {
+          emitSettingsFailureAudit(request, actor, "PII_REDACTION_REQUIRED", attemptedKeys);
+          return NextResponse.json(
+            {
+              error: {
+                code: gateErr.code,
+                message: gateErr.message,
+                type: gateErr.type,
+              },
+            },
+            { status: 409 }
+          );
+        }
+        throw gateErr;
+      }
+    }
+    delete body.bypassToken;
+
     // Security-impacting gate (T-011, spec AC-4 / AC-5). Computed from the
     // VALIDATED body so we never trip on stray unknown keys. If any security
     // key is present, require currentPassword + verify against the stored
@@ -308,7 +339,7 @@ export async function PATCH(request: Request) {
 
     // Snapshot BEFORE the write so the success row can record a real diff.
     const beforeSnapshot = (await getSettings()) as Record<string, unknown>;
-    const settings = await updateSettings(body);
+    const settings = await updateSettings(body, { skipRedactionGate: true });
 
     // Sync CLIProxyAPI settings to upstream_proxy_config table
     const cpaUrl = rawBody.cliproxyapi_url as string | undefined;
@@ -391,8 +422,17 @@ export async function PATCH(request: Request) {
       // Audit failure must never break the write — swallow.
     }
 
-    const { password, ...safeSettings } = settings;
-    return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
+    const { password, qoderOAuthClientSecret: _clientSecret, ...safeSettings } = settings;
+    return NextResponse.json(
+      {
+        ...safeSettings,
+        hasPassword: hasManagementPasswordConfigured(settings),
+        hasQoderOAuthClientSecret: Boolean(
+          settings.qoderOAuthClientSecret || process.env.QODER_OAUTH_CLIENT_SECRET
+        ),
+      },
+      { headers: SETTINGS_RESPONSE_HEADERS }
+    );
   } catch (error) {
     console.log("Error updating settings:", error);
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });

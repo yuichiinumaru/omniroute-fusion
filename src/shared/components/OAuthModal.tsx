@@ -22,6 +22,7 @@ const DEVICE_CODE_PROVIDERS = new Set([
   "kilocode",
   "codebuddy-cn",
   "grok-cli",
+  "freebuff",
 ]);
 
 /**
@@ -929,6 +930,96 @@ export default function OAuthModal({
     };
   }, [step, isDeviceCode]);
 
+  // Trigger local Docker grok-cli capture (Task 0161)
+  const handleLocalCliCapture = useCallback(async () => {
+    if (provider !== "grok-cli") return;
+    abortActivePolling();
+    const controller = new AbortController();
+    pollingAbortRef.current = controller;
+    setStep("waiting");
+    setError(null);
+    setAuthData(null);
+    setIsDeviceCode(false);
+
+    try {
+      const startRes = await fetch(`/api/oauth/${provider}/start-cli-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        signal: controller.signal,
+      });
+      const startData = (await parseResponseBody(startRes)) as Record<string, unknown>;
+      if (!startRes.ok) {
+        throw new Error(getErrorMessage(startData, startRes.status, "Failed to start Grok CLI login"));
+      }
+
+      // Only keep the opaque server-issued session ID and safe status text.
+      // Never spread arbitrary server fields into client state.
+      setAuthData({
+        isCliCapture: true,
+        captureSessionId: typeof startData.captureSessionId === "string" ? startData.captureSessionId : null,
+        safeMessage: typeof startData.safeMessage === "string" ? startData.safeMessage : "Complete the Grok CLI login in your browser.",
+      } as any);
+
+      // Wait for user to confirm they finished in the browser, using a safe text step
+      setStep("input");
+
+    } catch (err) {
+      setError(err.message);
+      setStep("error");
+    }
+  }, [abortActivePolling, provider]);
+
+  // Read the updated auth.json and register connection (Task 0161)
+  const confirmCliCapture = useCallback(async () => {
+    const captureSessionId = (authData as any)?.captureSessionId;
+    if (typeof captureSessionId !== "string" || !captureSessionId) {
+      setError("Capture session is missing or expired. Start Docker Capture again.");
+      setStep("error");
+      return;
+    }
+    setSavingToken(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/oauth/${provider}/capture-cli-auth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          captureSessionId: (authData as any)?.captureSessionId
+        }),
+      });
+      const data = (await parseResponseBody(res)) as Record<string, unknown>;
+      if (!res.ok) {
+        throw new Error(getErrorMessage(data, res.status, "Failed to capture Grok auth"));
+      }
+      setStep("success");
+      onSuccess?.();
+    } catch (err) {
+      setError(err.message);
+      setStep("error");
+    } finally {
+      setSavingToken(false);
+    }
+  }, [provider, onSuccess, authData]);
+
+  const cancelCliCapture = useCallback(async () => {
+    const captureSessionId = (authData as any)?.captureSessionId;
+    abortActivePolling();
+    if (provider === "grok-cli" && typeof captureSessionId === "string" && captureSessionId) {
+      try {
+        await fetch(`/api/oauth/${provider}/cancel-cli-auth`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ captureSessionId }),
+        });
+      } catch {
+        // Local close still succeeds when the server is unreachable.
+      }
+    }
+    setAuthData(null);
+    onClose();
+  }, [abortActivePolling, authData, onClose, provider]);
+
   // Handle manual URL input
   const handleManualSubmit = async () => {
     try {
@@ -1021,7 +1112,7 @@ export default function OAuthModal({
     <Modal
       isOpen={isOpen}
       title={t("title", { providerName: providerInfo.name })}
-      onClose={onClose}
+      onClose={cancelCliCapture}
       size="lg"
     >
       <div className="flex flex-col gap-4">
@@ -1032,14 +1123,14 @@ export default function OAuthModal({
           <div className="flex gap-2 border-b border-border pb-3">
             {provider === "grok-cli" && (
               <button
-                className={`text-sm px-3 py-1 rounded-t ${!showPasteToken && !grokBrowserMode ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
+                className={`text-sm px-3 py-1 rounded-t ${!showPasteToken && !grokBrowserMode && !(authData as any)?.isCliCapture ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
                 onClick={handleDeviceCodeMode}
               >
                 Device Code
               </button>
             )}
             <button
-              className={`text-sm px-3 py-1 rounded-t ${!showPasteToken && (provider !== "grok-cli" || grokBrowserMode) ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
+              className={`text-sm px-3 py-1 rounded-t ${!showPasteToken && (provider !== "grok-cli" || grokBrowserMode) && !(authData as any)?.isCliCapture ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
               onClick={handleBrowserMode}
             >
               Browser Login
@@ -1050,6 +1141,14 @@ export default function OAuthModal({
             >
               {provider === "grok-cli" ? "Import auth.json" : "Paste API Key"}
             </button>
+            {provider === "grok-cli" && (
+              <button
+                className={`text-sm px-3 py-1 rounded-t ${(authData as any)?.isCliCapture && !showPasteToken && !grokBrowserMode ? "font-semibold border-b-2 border-primary text-primary" : "text-text-muted"}`}
+                onClick={handleLocalCliCapture}
+              >
+                Docker Capture
+              </button>
+            )}
           </div>
         )}
 
@@ -1079,7 +1178,7 @@ export default function OAuthModal({
               >
                 {savingToken ? "Saving…" : "Save Connection"}
               </Button>
-              <Button onClick={onClose} variant="ghost" fullWidth>
+              <Button onClick={cancelCliCapture} variant="ghost" fullWidth>
                 Cancel
               </Button>
             </div>
@@ -1152,94 +1251,101 @@ export default function OAuthModal({
             {/* Manual Input Step */}
             {step === "input" && !isDeviceCode && (
               <>
-                <div className="space-y-4">
-                  {/* Remote/LAN server info for Google OAuth providers */}
-                  {!isTrueLocalhost && GOOGLE_OAUTH_PROVIDERS.has(provider) && (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-                      <span className="material-symbols-outlined text-sm align-middle mr-1">
-                        warning
-                      </span>
-                      <strong>
-                        {t.rich("googleOAuthWarning", {
-                          code: (c) => <code className="font-mono">{c}</code>,
-                          a: (c) => (
-                            <a
-                              href="https://github.com/diegosouzapw/OmniRoute#oauth-on-a-remote-server"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline"
-                            >
-                              {c}
-                            </a>
-                          ),
-                        })}
-                      </strong>
+                {(authData as any)?.isCliCapture ? (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-sm text-blue-200">
+                      The Grok CLI login process has started in the background. A browser window or device approval flow should appear on your machine.
                     </div>
-                  )}
-                  {/* Actionable remote paste instruction — shown for ALL remote providers,
-                      including Google OAuth (antigravity/agy). The Google
-                      loopback creds redirect to 127.0.0.1:<port>/callback, which on a
-                      remotely-accessed dashboard lands on the operator's own machine and
-                      shows a "can't reach this page" error. That is expected: the URL bar
-                      still carries ?code=…, and pasting it below completes the login. Before
-                      this, Google providers only saw the discouraging loopback warning and
-                      never the "copy the URL and paste it" step, so remote login appeared to
-                      hang. */}
-                  {!isTrueLocalhost && (
-                    <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-200">
-                      <span className="material-symbols-outlined text-sm align-middle mr-1">
-                        info
-                      </span>
-                      {t("remoteAccessInfo")}
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
-                    <div className="flex gap-2">
-                      <Input
-                        value={authData?.authUrl || ""}
-                        readOnly
-                        className="flex-1 font-mono text-xs"
-                      />
-                      <Button
-                        variant="secondary"
-                        icon={copied === "auth_url" ? "check" : "content_copy"}
-                        onClick={() => copy(authData?.authUrl, "auth_url")}
-                      >
-                        {t("copy")}
-                      </Button>
-                    </div>
+                    <p className="text-sm font-medium mb-2">Complete the approval, then click &quot;Logged in, proceed&quot; below to capture the account data securely.</p>
                   </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Remote/LAN server info for Google OAuth providers */}
+                    {!isTrueLocalhost && GOOGLE_OAUTH_PROVIDERS.has(provider) && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                        <span className="material-symbols-outlined text-sm align-middle mr-1">
+                          warning
+                        </span>
+                        <strong>
+                          {t.rich("googleOAuthWarning", {
+                            code: (c) => <code className="font-mono">{c}</code>,
+                            a: (c) => (
+                              <a
+                                href="https://github.com/diegosouzapw/OmniRoute#oauth-on-a-remote-server"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline"
+                              >
+                                {c}
+                              </a>
+                            ),
+                          })}
+                        </strong>
+                      </div>
+                    )}
+                    {/* Actionable remote paste instruction — shown for ALL remote providers */}
+                    {!isTrueLocalhost && (
+                      <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-200">
+                        <span className="material-symbols-outlined text-sm align-middle mr-1">
+                          info
+                        </span>
+                        {t("remoteAccessInfo")}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium mb-2">{t("step1OpenUrl")}</p>
+                      <div className="flex gap-2">
+                        <Input
+                          value={authData?.authUrl || ""}
+                          readOnly
+                          className="flex-1 font-mono text-xs"
+                        />
+                        <Button
+                          variant="secondary"
+                          icon={copied === "auth_url" ? "check" : "content_copy"}
+                          onClick={() => copy(authData?.authUrl, "auth_url")}
+                        >
+                          {t("copy")}
+                        </Button>
+                      </div>
+                    </div>
 
-                  <div>
-                    <p className="text-sm font-medium mb-2">{t("step2PasteCallback")}</p>
-                    <p className="text-xs text-text-muted mb-2">
-                      {t.rich("step2Hint", {
-                        code: (c) => <code className="font-mono">{c}</code>,
-                      })}
-                    </p>
-                    <Input
-                      value={callbackUrl}
-                      onChange={(e) => setCallbackUrl(e.target.value)}
-                      placeholder={
-                        provider === "claude" || provider === "cline"
-                          ? "code#state or /callback?code=..."
-                          : placeholderUrl
-                      }
-                      className="font-mono text-xs"
-                    />
+                    <div>
+                      <p className="text-sm font-medium mb-2">{t("step2PasteCallback")}</p>
+                      <p className="text-xs text-text-muted mb-2">
+                        {t.rich("step2Hint", {
+                          code: (c) => <code className="font-mono">{c}</code>,
+                        })}
+                      </p>
+                      <Input
+                        value={callbackUrl}
+                        onChange={(e) => setCallbackUrl(e.target.value)}
+                        placeholder={
+                          provider === "claude" || provider === "cline"
+                            ? "code#state or /callback?code=..."
+                            : placeholderUrl
+                        }
+                        className="font-mono text-xs"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex gap-2">
-                  <Button
-                    onClick={handleManualSubmit}
-                    fullWidth
-                    disabled={!callbackUrl || (!authData && !isCredentialBlob(callbackUrl))}
-                  >
-                    {t("connect")}
-                  </Button>
-                  <Button onClick={onClose} variant="ghost" fullWidth>
+                  {(authData as any)?.isCliCapture ? (
+                    <Button onClick={confirmCliCapture} fullWidth disabled={savingToken}>
+                      {savingToken ? "Capturing…" : "Logged in, proceed"}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleManualSubmit}
+                      fullWidth
+                      disabled={!callbackUrl || (!authData && !isCredentialBlob(callbackUrl))}
+                    >
+                      {t("connect")}
+                    </Button>
+                  )}
+                  <Button onClick={cancelCliCapture} variant="ghost" fullWidth>
                     {t("cancel")}
                   </Button>
                 </div>
@@ -1278,7 +1384,7 @@ export default function OAuthModal({
               <Button onClick={startOAuthFlow} variant="secondary" fullWidth>
                 {t("tryAgain")}
               </Button>
-              <Button onClick={onClose} variant="ghost" fullWidth>
+              <Button onClick={cancelCliCapture} variant="ghost" fullWidth>
                 {t("cancel")}
               </Button>
             </div>

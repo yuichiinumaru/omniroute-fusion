@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { withFetchCapture } from "../helpers/fetchCapture.ts";
 
 // Import the executor directly (not via executors/index.ts) — index pulls in
 // the entire provider registry and DB layer which is slow and unnecessary for
@@ -48,17 +49,16 @@ function installMockFetch({
   frames?: Array<{ event: string; data: unknown }>;
   sessionStatus?: number;
 } = {}) {
-  const calls: { sessionBody?: any; sessionHeaders?: Record<string, string>; eventsUrl?: string } =
-    {};
+  const calls: { sessionBody?: unknown; sessionHeaders?: HeadersInit; eventsUrl?: string } = {};
   const original = globalThis.fetch;
-  globalThis.fetch = (async (input: any, init: any = {}) => {
-    const url = typeof input === "string" ? input : input.url;
+  globalThis.fetch = (async (input: RequestInfo | URL | string, init: RequestInit = {}) => {
+    const url = typeof input === "string" ? input : "url" in input ? input.url : String(input);
     if (url.includes("/chat_sessions") && url.includes("/events")) {
       calls.eventsUrl = url;
       return sseResponse(frames ?? [{ event: "done", data: { status: "completed" } }]);
     }
     if (url.endsWith("/chat_sessions")) {
-      calls.sessionBody = init.body ? JSON.parse(init.body) : undefined;
+      calls.sessionBody = init.body ? JSON.parse(String(init.body)) : undefined;
       calls.sessionHeaders = init.headers;
       return jsonResponse(
         sessionBody ?? {
@@ -157,6 +157,49 @@ test("manual model → manual strategy + model_name passed through", async () =>
   }
 });
 
+test("model with tr/ prefix strips prefix for upstream dispatch (tr/minimax-m3 → minimax-m3)", async () => {
+  const { calls, restore } = installMockFetch({
+    frames: [{ event: "done", data: { status: "completed" } }],
+  });
+  try {
+    const ex = new TraeExecutor();
+    await ex.execute({
+      model: "tr/minimax-m3",
+      body: { messages: [{ role: "user", content: "hi" }] },
+      stream: false,
+      credentials: CREDS,
+    });
+    assert.equal(calls.sessionBody.initial_message.model_selection_strategy, "manual");
+    assert.equal(calls.sessionBody.initial_message.model_name, "minimax-m3");
+  } finally {
+    restore();
+  }
+});
+
+test('model "tr/work" strips tr/ prefix → work mode, auto strategy, empty model_name', async () => {
+  const { calls, restore } = installMockFetch({
+    frames: [{ event: "done", data: { status: "completed" } }],
+  });
+  try {
+    const ex = new TraeExecutor();
+    await ex.execute({
+      model: "tr/work",
+      body: { messages: [{ role: "user", content: "hi" }] },
+      stream: false,
+      credentials: CREDS,
+    });
+    assert.equal(calls.sessionBody.mode, "work");
+    assert.equal(calls.sessionBody.initial_message.model_selection_strategy, "auto");
+    assert.equal(calls.sessionBody.initial_message.model_name, "");
+    assert.equal(
+      JSON.parse(calls.sessionBody.initial_message.common_params).solo_chat_mode,
+      "work"
+    );
+  } finally {
+    restore();
+  }
+});
+
 test('model "work" → work session mode, auto strategy, empty model_name', async () => {
   const { calls, restore } = installMockFetch({
     frames: [{ event: "done", data: { status: "completed" } }],
@@ -203,31 +246,55 @@ test('model "auto" stays in code mode (solo_chat_mode=code)', async () => {
 });
 
 test("stream: emits OpenAI chunks with deltas, finish_reason stop and [DONE]", async () => {
-  const { restore } = installMockFetch({
-    frames: [
-      { event: "plan_item", data: { id: "p1", thought: "крас" } },
-      { event: "plan_item", data: { id: "p1", thought: "красный" } },
-      { event: "done", data: { status: "completed" } },
-    ],
-  });
-  try {
-    const ex = new TraeExecutor();
-    const { response } = await ex.execute({
-      model: "auto",
-      body: { messages: [{ role: "user", content: "цвет" }] },
-      stream: true,
-      credentials: CREDS,
-    });
-    const text = await readAll(response);
-    // role chunk first, then content deltas, then finish, then DONE
-    assert.match(text, /"delta":\{"role":"assistant"\}/);
-    assert.match(text, /"content":"крас"/);
-    assert.match(text, /"content":"ный"/); // incremental delta after "крас"
-    assert.match(text, /"finish_reason":"stop"/);
-    assert.match(text, /data: \[DONE\]/);
-  } finally {
-    restore();
-  }
+  // Exception-safe fetch capture (Task 0178): the URL dispatcher is Trae-
+  // specific (session create + events) and stays local; globalThis.fetch is
+  // installed/restored by withFetchCapture so a throw cannot leak the mock.
+  // The capture additionally proves the upstream boundary evidence (a
+  // session-create fetch and an events fetch were both observed).
+  const streamFrames = [
+    { event: "plan_item", data: { id: "p1", thought: "крас" } },
+    { event: "plan_item", data: { id: "p1", thought: "красный" } },
+    { event: "done", data: { status: "completed" } },
+  ];
+
+  await withFetchCapture(
+    async (input, init) => {
+      const url = typeof input === "string" ? input : "url" in input ? input.url : String(input);
+      if (url.endsWith("/chat_sessions")) {
+        return jsonResponse({
+          code: 0,
+          data: { chat_session_id: "sess1", status: 2, message_id: "msg1" },
+          message: "success",
+        });
+      }
+      if (url.includes("/chat_sessions") && url.includes("/events")) {
+        return sseResponse(streamFrames);
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    },
+    async (capture) => {
+      const ex = new TraeExecutor();
+      const { response } = await ex.execute({
+        model: "auto",
+        body: { messages: [{ role: "user", content: "цвет" }] },
+        stream: true,
+        credentials: CREDS,
+      });
+      const text = await readAll(response);
+      // role chunk first, then content deltas, then finish, then DONE
+      assert.match(text, /"delta":\{"role":"assistant"\}/);
+      assert.match(text, /"content":"крас"/);
+      assert.match(text, /"content":"ный"/); // incremental delta after "крас"
+      assert.match(text, /"finish_reason":"stop"/);
+      assert.match(text, /data: \[DONE\]/);
+
+      // Observable upstream boundary evidence recorded by the capture.
+      const sessionCall = capture.calls.find((c) => c.url.endsWith("/chat_sessions"));
+      const eventsCall = capture.calls.find((c) => c.url.includes("/events"));
+      assert.ok(sessionCall, "expected a session-create fetch");
+      assert.ok(eventsCall, "expected an events fetch");
+    }
+  );
 });
 
 test("upstream error event surfaces as 502 (non-stream)", async () => {
@@ -270,13 +337,15 @@ test("session create failure returns 502", async () => {
 
 // ─── refreshCredentials ────────────────────────────────────────────────────
 
-function installRefreshMock(opts: { result?: any; errorCode?: string; httpStatus?: number } = {}) {
-  const calls: { url?: string; body?: any } = {};
+function installRefreshMock(
+  opts: { result?: unknown; errorCode?: string; httpStatus?: number } = {}
+) {
+  const calls: { url?: string; body?: unknown } = {};
   const original = globalThis.fetch;
-  globalThis.fetch = (async (input: any, init: any = {}) => {
-    const url = typeof input === "string" ? input : input.url;
+  globalThis.fetch = (async (input: RequestInfo | URL | string, init: RequestInit = {}) => {
+    const url = typeof input === "string" ? input : "url" in input ? input.url : String(input);
     calls.url = url;
-    calls.body = init.body ? JSON.parse(init.body) : undefined;
+    calls.body = init.body ? JSON.parse(String(init.body)) : undefined;
     const payload = opts.errorCode
       ? { ResponseMetadata: { Error: { Code: opts.errorCode, Message: "bad" } } }
       : { ResponseMetadata: {}, Result: opts.result };
@@ -303,12 +372,12 @@ test("refreshCredentials posts ExchangeToken with ClientID/RefreshToken and pars
       providerSpecificData: {
         ...CREDS.providerSpecificData,
         host: "https://api-us-east.trae.ai",
-        clientId: "en1oxy7wnw8j9n",
+        clientId: "custom-client-id",
       },
     });
     assert.equal(calls.url, "https://api-us-east.trae.ai/cloudide/api/v3/trae/oauth/ExchangeToken");
     assert.deepEqual(calls.body, {
-      ClientID: "en1oxy7wnw8j9n",
+      ClientID: "custom-client-id",
       RefreshToken: "OLD_REFRESH",
       ClientSecret: "-",
       UserID: "",
@@ -316,6 +385,29 @@ test("refreshCredentials posts ExchangeToken with ClientID/RefreshToken and pars
     assert.equal(out?.accessToken, newToken);
     assert.equal(out?.refreshToken, newRefresh);
     assert.equal(out?.expiresAt, new Date(expMs).toISOString());
+  } finally {
+    restore();
+  }
+});
+
+test("refreshCredentials defaults ClientID using resolvePublicCred when psd.clientId is absent", async () => {
+  const newToken = "NEW_TOKEN_eyJhbGc";
+  const newRefresh = "NEW_REFRESH";
+  const { calls, restore } = installRefreshMock({
+    result: { Token: newToken, RefreshToken: newRefresh },
+  });
+  try {
+    const ex = new TraeExecutor();
+    const out = await ex.refreshCredentials({
+      ...CREDS,
+      refreshToken: "OLD_REFRESH",
+      providerSpecificData: {
+        ...CREDS.providerSpecificData,
+        host: "https://api-us-east.trae.ai",
+      },
+    });
+    assert.equal(calls.body.ClientID, "en1oxy7wnw8j9n");
+    assert.equal(out?.accessToken, newToken);
   } finally {
     restore();
   }

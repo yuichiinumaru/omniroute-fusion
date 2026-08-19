@@ -14,6 +14,17 @@ export interface FeatureFlagDefinition {
 export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
   // ──────────────── Security (9) ────────────────
   {
+    key: "QODER_OAUTH_ENABLED",
+    label: "Qoder OAuth Enabled",
+    description: "Enable experimental Qoder browser OAuth dynamically without editing .env files",
+    descriptionI18nKey: "featureFlagQoderOAuthEnabledDescription",
+    category: "security",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
+  {
     key: "REQUIRE_API_KEY",
     label: "Require API Key",
     description: "Require an API key for all incoming requests",

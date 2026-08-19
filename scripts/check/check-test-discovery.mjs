@@ -23,8 +23,9 @@
 // adições novas devem ser corrigidas, não congeladas — esse é o ponto do gate).
 //
 // Limitações documentadas (v1):
-//  - `exclude` de arquivo individual em vitest configs não é modelado (1 caso hoje:
-//    providerDiversity.test.ts — coletado pelo include, deliberadamente excluído).
+//  - `exclude` de arquivo individual em vitest configs não é modelado (2 casos hoje:
+//    providerDiversity.test.ts e tests/unit/shared/components/ProxyRedactionModal.test.tsx
+//    — coletados pelo include, deliberadamente excluídos com razão documentada no config).
 //  - @omniroute/* ficam fora do walk (têm CI próprio: opencode-*-ci.yml).
 import fs from "node:fs";
 import path from "node:path";
@@ -75,6 +76,26 @@ export const COLLECTORS = [
     sources: ["vitest.mcp.config.ts"],
   },
   { glob: "tests/unit/autoCombo/**/*.test.ts", sources: ["vitest.mcp.config.ts"] },
+  // vitest.mcp.config.ts — test:vitest — OAuthModal React component suites under
+  // tests/unit/shared/components/OAuthModal*.test.tsx (jsdom via per-file directive;
+  // the node runner owns *.test.ts elsewhere in tests/unit/shared, not these). Narrow
+  // family glob on purpose: the other .test.tsx files in the dir (ProxyConfigModal,
+  // AutoRoutingBanner, KiroAuthModal) remain frozen orphans in the baseline — sweeping
+  // them into the include would force triage or untracked exclusion (ProxyConfigModal
+  // currently times out under vitest). ProxyRedactionModal.test.tsx is a documented
+  // wrapper: a path-only re-export of the canonical suite at
+  // src/app/(dashboard)/dashboard/settings/components/__tests__/ProxyRedactionModal.test.tsx
+  // (collected by the (dashboard)/**/__tests__ glob), deliberately excluded from bulk
+  // execution in vitest.mcp.config.ts to avoid double-running — same precedent as
+  // providerDiversity.test.ts.
+  {
+    glob: "tests/unit/shared/components/OAuthModal*.test.tsx",
+    sources: ["vitest.mcp.config.ts"],
+  },
+  {
+    glob: "tests/unit/shared/components/ProxyRedactionModal.test.tsx",
+    sources: ["vitest.mcp.config.ts"],
+  },
   { glob: "tests/unit/encryption.spec.ts", sources: ["vitest.mcp.config.ts"] },
   { glob: "src/shared/components/**/*.test.tsx", sources: ["vitest.mcp.config.ts"] },
   { glob: "src/shared/hooks/__tests__/**/*.test.tsx", sources: ["vitest.mcp.config.ts"] },

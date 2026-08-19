@@ -3,7 +3,10 @@ import {
   checkFallbackError,
   classifyLockoutReason,
   getRuntimeProviderProfile,
+  isContextOverflow400,
+  isModelAccess400,
   isModelLocked,
+  isParamValidation400,
   recordModelLockoutFailure,
   recordProviderFailure,
   selectLockoutCooldownMs,
@@ -343,35 +346,66 @@ export async function executeRuntimeUnitCombo(args: {
         }
       }
 
-      // F-03-002: post-failure resilience for model units (breaker / lockout / cooldown).
+      // F-03-002: post-failure resilience for runtime units (breaker / lockout / cooldown / terminal 400).
+      const provider = unitProvider(unit);
+      const errorText = await response
+        .clone()
+        .text()
+        .catch(() => "");
+      let errorBody: unknown = null;
+      try {
+        errorBody = errorText ? JSON.parse(errorText) : null;
+      } catch {
+        errorBody = null;
+      }
+      const profile = provider ? await getRuntimeProviderProfile(provider).catch(() => null) : null;
+      const rawError = isRecord(errorBody) ? errorBody.error : undefined;
+      const structuredError =
+        isRecord(rawError)
+          ? {
+              code: rawError.code !== undefined && rawError.code !== null ? String(rawError.code) : undefined,
+              type: rawError.type !== undefined && rawError.type !== null ? String(rawError.type) : undefined,
+            }
+          : undefined;
+      const fallbackResult = checkFallbackError(
+        response.status,
+        errorText,
+        0,
+        null,
+        provider,
+        response.headers,
+        profile,
+        structuredError
+      );
+
+      if (
+        response.status === 400 &&
+        fallbackResult.shouldFallback === false &&
+        !isContextOverflow400(errorText) &&
+        !isParamValidation400(errorText) &&
+        !isModelAccess400(errorText, structuredError)
+      ) {
+        args.log.warn(
+          "COMBO-RUNTIME",
+          `400 Bad Request classified as terminal by checkFallbackError on ${unitDisplayName(unit)} — stopping runtime unit fallback (reason=${fallbackResult.reason ?? "unknown"})`
+        );
+        recordComboRequest(args.combo.name, unit.kind === "model" ? unit.modelStr : null, {
+          success: false,
+          latencyMs: Date.now() - startTime,
+          fallbackCount,
+          strategy: effectiveStrategy,
+          target: { executionKey: unit.executionKey, stepId: unit.stepId, label: unit.label },
+        });
+        return { response, unit };
+      }
+
       if (unit.kind === "model") {
-        const provider = unit.provider;
         const rawModel = parseModel(unit.modelStr).model || unit.modelStr;
-        const errorText = await response
-          .clone()
-          .text()
-          .catch(() => "");
-        let errorBody: unknown = null;
-        try {
-          errorBody = errorText ? JSON.parse(errorText) : null;
-        } catch {
-          errorBody = null;
-        }
         const isStreamReadinessFailure =
           (response.status === 502 || response.status === 504) &&
           isStreamReadinessFailureErrorBody(errorBody);
         const isTokenLimitBreach =
           response.status === 429 && isTokenLimitBreachErrorBody(errorBody);
-        const profile = provider ? await getRuntimeProviderProfile(provider).catch(() => null) : null;
-        const fallbackResult = checkFallbackError(
-          response.status,
-          errorText,
-          0,
-          null,
-          provider,
-          response.headers,
-          profile
-        );
         const selectedConnectionId =
           response.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
           response.headers?.get("x-omniroute-selected-connection-id") ||

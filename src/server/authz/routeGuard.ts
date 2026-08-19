@@ -53,6 +53,10 @@ export const LOCAL_ONLY_API_PREFIXES: ReadonlyArray<string> = [
   "/api/tunnels/cloudflared", // managed binary download + spawn (GET status exempted below)
   "/api/tunnels/ngrok", // same tunnel class as cloudflared (GET status exempted below)
   "/api/middleware/hooks", // compiles caller JS via new Function — process RCE (Hard Rule #3)
+  "/api/settings/free-proxies/", // free-proxy scrapers & pool staging — loopback only
+  "/api/settings/proxies/", // proxy registry, assignments & bulk operations — loopback only
+  "/api/settings/proxy/", // proxy configuration & test operations — loopback only
+  "/api/settings/oneproxy/", // compat redirect to free-proxies — loopback only
   // Task 0049 — bulk API-key material surface (hash-only list still sensitive recon).
   "/api/cli-tools/keys", // full-key dump / key inventory — loopback only (F-07-W2-005)
 ];
@@ -74,14 +78,25 @@ export const LOCAL_ONLY_API_PREFIXES: ReadonlyArray<string> = [
  */
 const PROVIDER_LOGIN_SPAWN_PATTERN = /^\/api\/providers\/[^/]+\/login\/?$/;
 
-export const LOCAL_ONLY_API_PATTERNS: ReadonlyArray<RegExp> = [PROVIDER_LOGIN_SPAWN_PATTERN];
+const GROK_CLI_LOCAL_CAPTURE_PATTERN = /^\/api\/oauth\/grok-cli\/(?:start-cli-login|capture-cli-auth|cancel-cli-auth)\/?$/;
+const CURSOR_CLI_LOCAL_CAPTURE_PATTERN = /^\/api\/oauth\/cursor\/(?:start-cli-login|capture-cli-auth|cancel-cli-auth)\/?$/;
+
+export const LOCAL_ONLY_API_PATTERNS: ReadonlyArray<RegExp> = [
+  PROVIDER_LOGIN_SPAWN_PATTERN,
+  GROK_CLI_LOCAL_CAPTURE_PATTERN,
+  CURSOR_CLI_LOCAL_CAPTURE_PATTERN,
+];
 
 /**
  * Spawn-capable paths that cannot be expressed as flat prefixes without
  * over-broadening a legitimate remote CRUD tree. Matched by `isSpawnCapablePath`.
  * Hard Rules #15 + #17 / F-04-005.
  */
-export const SPAWN_CAPABLE_PATTERNS: ReadonlyArray<RegExp> = [PROVIDER_LOGIN_SPAWN_PATTERN];
+export const SPAWN_CAPABLE_PATTERNS: ReadonlyArray<RegExp> = [
+  PROVIDER_LOGIN_SPAWN_PATTERN,
+  GROK_CLI_LOCAL_CAPTURE_PATTERN,
+  CURSOR_CLI_LOCAL_CAPTURE_PATTERN,
+];
 
 // `SPAWN_CAPABLE_PREFIXES` (the spawn-capable deny-list) now lives in the
 // server-free leaf module `@/shared/constants/spawnCapablePrefixes` so that
@@ -230,7 +245,7 @@ export function isLocalOnlyPath(path: string, method?: string): boolean {
     return false;
   }
   return (
-    LOCAL_ONLY_API_PREFIXES.some((p) => path === p || path.startsWith(p)) ||
+    LOCAL_ONLY_API_PREFIXES.some((p) => pathMatchesGuardPrefix(path, p)) ||
     LOCAL_ONLY_API_PATTERNS.some((re) => re.test(path))
   );
 }

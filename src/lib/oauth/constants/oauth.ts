@@ -1,5 +1,6 @@
 import {
-  ANTIGRAVITY_BASE_URLS,
+  ANTIGRAVITY_RUNTIME_BASE_URLS,
+  ANTIGRAVITY_BOOTSTRAP_BASE_URLS,
   getAntigravityFetchAvailableModelsUrls,
 } from "@omniroute/open-sse/config/antigravityUpstream.ts";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@omniroute/open-sse/config/grokBuild.ts";
 import { resolvePublicCred } from "@omniroute/open-sse/utils/publicCreds.ts";
 import { buildGitLabOAuthEndpoints, GITLAB_DUO_DEFAULT_BASE_URL } from "../gitlab";
+import { getDbInstance } from "@/lib/db/core";
 
 /**
  * OAuth Configuration Constants
@@ -87,25 +89,196 @@ export const QWEN_CONFIG = {
 };
 
 // Qoder OAuth Configuration (Authorization Code)
-const QODER_OAUTH_AUTHORIZE_URL = process.env.QODER_OAUTH_AUTHORIZE_URL || "";
-const QODER_OAUTH_TOKEN_URL = process.env.QODER_OAUTH_TOKEN_URL || "";
-const QODER_OAUTH_USERINFO_URL = process.env.QODER_OAUTH_USERINFO_URL || "";
-const QODER_OAUTH_CLIENT_ID = process.env.QODER_OAUTH_CLIENT_ID || "";
-const QODER_OAUTH_CLIENT_SECRET = process.env.QODER_OAUTH_CLIENT_SECRET || "";
-const QODER_OAUTH_ENABLED =
-  !!QODER_OAUTH_AUTHORIZE_URL &&
-  !!QODER_OAUTH_TOKEN_URL &&
-  !!QODER_OAUTH_USERINFO_URL &&
-  !!QODER_OAUTH_CLIENT_ID &&
-  !!QODER_OAUTH_CLIENT_SECRET;
+// Task 0170: Supports dynamic DB setting / feature flag override in addition to env fallback.
+function getSettingFromDb<T = unknown>(key: string): T | undefined {
+  try {
+    const db = getDbInstance();
+    const row = db
+      .prepare("SELECT value FROM key_value WHERE namespace = 'settings' AND key = ?")
+      .get(key) as { value?: string } | undefined;
+    if (!row?.value) return undefined;
+    return JSON.parse(row.value) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function getFeatureFlagFromDb(key: string): string | undefined {
+  try {
+    const db = getDbInstance();
+    const row = db
+      .prepare("SELECT value FROM key_value WHERE namespace = 'feature_flags' AND key = ?")
+      .get(key) as { value?: string } | undefined;
+    return row?.value;
+  } catch {
+    return undefined;
+  }
+}
+
+export function resolveQoderOAuthEnabled(): boolean {
+  // 1. Feature Flag override in DB (highest priority runtime toggle)
+  const ffOverride = getFeatureFlagFromDb("QODER_OAUTH_ENABLED");
+  if (ffOverride !== undefined) {
+    return ffOverride === "true" || ffOverride === "1" || ffOverride === "yes";
+  }
+
+  // 2. Settings table in DB (qoderOAuthEnabled)
+  const settingEnabled = getSettingFromDb<boolean>("qoderOAuthEnabled");
+  if (typeof settingEnabled === "boolean") {
+    return settingEnabled;
+  }
+
+  // 3. Explicit env var flag (QODER_OAUTH_ENABLED / ENABLE_QODER_OAUTH)
+  const envFlag = process.env.QODER_OAUTH_ENABLED || process.env.ENABLE_QODER_OAUTH;
+  if (envFlag !== undefined && envFlag !== "") {
+    return envFlag === "true" || envFlag === "1" || envFlag === "yes";
+  }
+
+  // 4. Base fallback: all 5 environment variables configured
+  const hasAll5Env =
+    !!process.env.QODER_OAUTH_AUTHORIZE_URL &&
+    !!process.env.QODER_OAUTH_TOKEN_URL &&
+    !!process.env.QODER_OAUTH_USERINFO_URL &&
+    !!process.env.QODER_OAUTH_CLIENT_ID &&
+    !!process.env.QODER_OAUTH_CLIENT_SECRET;
+
+  return hasAll5Env;
+}
+
+export function resolveQoderOAuthAuthorizeUrl(): string {
+  const dbVal = getSettingFromDb<string>("qoderOAuthAuthorizeUrl");
+  if (typeof dbVal === "string" && dbVal.trim()) return dbVal.trim();
+  const envVal = process.env.QODER_OAUTH_AUTHORIZE_URL;
+  if (typeof envVal === "string" && envVal.trim()) return envVal.trim();
+  if (resolveQoderOAuthEnabled()) return "https://api.qoder.com/oauth/authorize";
+  return "";
+}
+
+export function resolveQoderOAuthTokenUrl(): string {
+  const dbVal = getSettingFromDb<string>("qoderOAuthTokenUrl");
+  if (typeof dbVal === "string" && dbVal.trim()) return dbVal.trim();
+  const envVal = process.env.QODER_OAUTH_TOKEN_URL;
+  if (typeof envVal === "string" && envVal.trim()) return envVal.trim();
+  if (resolveQoderOAuthEnabled()) return "https://api.qoder.com/oauth/token";
+  return "";
+}
+
+export function resolveQoderOAuthUserInfoUrl(): string {
+  const dbVal = getSettingFromDb<string>("qoderOAuthUserInfoUrl");
+  if (typeof dbVal === "string" && dbVal.trim()) return dbVal.trim();
+  const envVal = process.env.QODER_OAUTH_USERINFO_URL;
+  if (typeof envVal === "string" && envVal.trim()) return envVal.trim();
+  if (resolveQoderOAuthEnabled()) return "https://api.qoder.com/api/v1/user/info";
+  return "";
+}
+
+export function resolveQoderOAuthClientId(): string {
+  const dbVal = getSettingFromDb<string>("qoderOAuthClientId");
+  if (typeof dbVal === "string" && dbVal.trim()) return dbVal.trim();
+  const envVal = process.env.QODER_OAUTH_CLIENT_ID;
+  if (typeof envVal === "string" && envVal.trim()) return envVal.trim();
+  if (resolveQoderOAuthEnabled()) return "qoder-client";
+  return "";
+}
+
+export function resolveQoderOAuthClientSecret(): string {
+  const dbVal = getSettingFromDb<string>("qoderOAuthClientSecret");
+  if (typeof dbVal === "string" && dbVal.trim()) return dbVal.trim();
+  const envVal = process.env.QODER_OAUTH_CLIENT_SECRET;
+  if (typeof envVal === "string" && envVal.trim()) return envVal.trim();
+  return "";
+}
+
+const _qoderOverrides: Partial<{
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  authorizeUrl: string;
+  tokenUrl: string;
+  userInfoUrl: string;
+  extraParams: { loginMethod: string; type: string };
+}> = {};
+
+export function resetQoderConfigOverrides(): void {
+  for (const key of Object.keys(_qoderOverrides)) {
+    delete _qoderOverrides[key as keyof typeof _qoderOverrides];
+  }
+}
+
+export function getQoderConfig() {
+  return {
+    enabled:
+      _qoderOverrides.enabled !== undefined ? _qoderOverrides.enabled : resolveQoderOAuthEnabled(),
+    clientId:
+      _qoderOverrides.clientId !== undefined
+        ? _qoderOverrides.clientId
+        : resolveQoderOAuthClientId(),
+    clientSecret:
+      _qoderOverrides.clientSecret !== undefined
+        ? _qoderOverrides.clientSecret
+        : resolveQoderOAuthClientSecret(),
+    authorizeUrl:
+      _qoderOverrides.authorizeUrl !== undefined
+        ? _qoderOverrides.authorizeUrl
+        : resolveQoderOAuthAuthorizeUrl(),
+    tokenUrl:
+      _qoderOverrides.tokenUrl !== undefined
+        ? _qoderOverrides.tokenUrl
+        : resolveQoderOAuthTokenUrl(),
+    userInfoUrl:
+      _qoderOverrides.userInfoUrl !== undefined
+        ? _qoderOverrides.userInfoUrl
+        : resolveQoderOAuthUserInfoUrl(),
+    extraParams: _qoderOverrides.extraParams || {
+      loginMethod: "phone",
+      type: "phone",
+    },
+  };
+}
 
 export const QODER_CONFIG = {
-  enabled: QODER_OAUTH_ENABLED,
-  clientId: QODER_OAUTH_CLIENT_ID,
-  clientSecret: QODER_OAUTH_CLIENT_SECRET,
-  authorizeUrl: QODER_OAUTH_AUTHORIZE_URL,
-  tokenUrl: QODER_OAUTH_TOKEN_URL,
-  userInfoUrl: QODER_OAUTH_USERINFO_URL,
+  get enabled(): boolean {
+    if (_qoderOverrides.enabled !== undefined) return _qoderOverrides.enabled;
+    return resolveQoderOAuthEnabled();
+  },
+  set enabled(value: boolean) {
+    _qoderOverrides.enabled = value;
+  },
+  get clientId(): string {
+    if (_qoderOverrides.clientId !== undefined) return _qoderOverrides.clientId;
+    return resolveQoderOAuthClientId();
+  },
+  set clientId(value: string) {
+    _qoderOverrides.clientId = value;
+  },
+  get clientSecret(): string {
+    if (_qoderOverrides.clientSecret !== undefined) return _qoderOverrides.clientSecret;
+    return resolveQoderOAuthClientSecret();
+  },
+  set clientSecret(value: string) {
+    _qoderOverrides.clientSecret = value;
+  },
+  get authorizeUrl(): string {
+    if (_qoderOverrides.authorizeUrl !== undefined) return _qoderOverrides.authorizeUrl;
+    return resolveQoderOAuthAuthorizeUrl();
+  },
+  set authorizeUrl(value: string) {
+    _qoderOverrides.authorizeUrl = value;
+  },
+  get tokenUrl(): string {
+    if (_qoderOverrides.tokenUrl !== undefined) return _qoderOverrides.tokenUrl;
+    return resolveQoderOAuthTokenUrl();
+  },
+  set tokenUrl(value: string) {
+    _qoderOverrides.tokenUrl = value;
+  },
+  get userInfoUrl(): string {
+    if (_qoderOverrides.userInfoUrl !== undefined) return _qoderOverrides.userInfoUrl;
+    return resolveQoderOAuthUserInfoUrl();
+  },
+  set userInfoUrl(value: string) {
+    _qoderOverrides.userInfoUrl = value;
+  },
   extraParams: {
     loginMethod: "phone",
     type: "phone",
@@ -192,15 +365,17 @@ export const ANTIGRAVITY_CONFIG = {
     "https://www.googleapis.com/auth/experimentsandconfigs",
   ],
   // Antigravity specific
-  apiEndpoint: ANTIGRAVITY_BASE_URLS[0],
+  apiEndpoint: ANTIGRAVITY_RUNTIME_BASE_URLS[0],
   apiVersion: "v1internal",
-  loadCodeAssistEndpoints: ANTIGRAVITY_BASE_URLS.map(
+  loadCodeAssistEndpoints: ANTIGRAVITY_BOOTSTRAP_BASE_URLS.map(
     (baseUrl) => `${baseUrl}/v1internal:loadCodeAssist`
   ),
-  onboardUserEndpoints: ANTIGRAVITY_BASE_URLS.map((baseUrl) => `${baseUrl}/v1internal:onboardUser`),
+  onboardUserEndpoints: ANTIGRAVITY_BOOTSTRAP_BASE_URLS.map(
+    (baseUrl) => `${baseUrl}/v1internal:onboardUser`
+  ),
   fetchAvailableModelsEndpoints: getAntigravityFetchAvailableModelsUrls(),
-  loadCodeAssistEndpoint: `${ANTIGRAVITY_BASE_URLS[0]}/v1internal:loadCodeAssist`,
-  onboardUserEndpoint: `${ANTIGRAVITY_BASE_URLS[0]}/v1internal:onboardUser`,
+  loadCodeAssistEndpoint: `${ANTIGRAVITY_BOOTSTRAP_BASE_URLS[0]}/v1internal:loadCodeAssist`,
+  onboardUserEndpoint: `${ANTIGRAVITY_BOOTSTRAP_BASE_URLS[0]}/v1internal:onboardUser`,
   fetchAvailableModelsEndpoint: getAntigravityFetchAvailableModelsUrls()[0],
   loadCodeAssistUserAgent: ANTIGRAVITY_LOAD_CODE_ASSIST_USER_AGENT,
   loadCodeAssistApiClient: ANTIGRAVITY_LOAD_CODE_ASSIST_API_CLIENT,
@@ -452,6 +627,15 @@ export const WINDSURF_CONFIG = {
   extensionVersion: "3.14.0",
 };
 
+// Freebuff (Codebuff) Configuration
+export const FREEBUFF_CONFIG = {
+  authUrl: "https://codebuff.com/api/auth/cli/code",
+  tokenUrl: "https://codebuff.com/api/auth/cli/status",
+  sessionUrl: "https://codebuff.com/api/v1/freebuff/session",
+  chatUrl: "https://codebuff.com/api/v1/chat/completions",
+  userAgent: "ai-sdk/openai-compatible/0.1.0/codebuff",
+};
+
 // OAuth timeout (5 minutes)
 export const OAUTH_TIMEOUT = 300000;
 
@@ -478,4 +662,5 @@ export const PROVIDERS = {
   TRAE: "trae",
   CODEBUDDY_CN: "codebuddy-cn",
   GROK_CLI: "grok-cli",
+  FREEBUFF: "freebuff",
 };

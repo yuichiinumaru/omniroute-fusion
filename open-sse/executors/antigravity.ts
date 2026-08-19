@@ -33,7 +33,6 @@ import { persistCreditBalance, getAllPersistedCreditBalances } from "@/lib/db/cr
 import { setConnectionRateLimitUntil } from "@/lib/db/providers";
 import { getMitmAlias } from "@/lib/db/models";
 import { obfuscateSensitiveWords } from "../services/antigravityObfuscation.ts";
-import { resolveAntigravityVersion } from "../services/antigravityVersion.ts";
 import { ensureAntigravityProjectAssigned } from "../services/antigravityProjectBootstrap.ts";
 import {
   resolveAntigravityModelId,
@@ -48,8 +47,10 @@ import { buildGeminiTools } from "../translator/helpers/geminiToolsSanitizer.ts"
 import { DEFAULT_SAFETY_SETTINGS } from "../translator/helpers/geminiHelper.ts";
 import { normalizeOpenAICompatibleFinishReasonString } from "../utils/finishReason.ts";
 import {
+  getAntigravityClientProfile,
   applyAntigravityClientProfileHeaders,
   removeHeaderCaseInsensitive,
+  resolveAntigravityClientVersion,
 } from "../services/antigravityClientProfile.ts";
 import {
   generateAntigravityRequestId,
@@ -1140,7 +1141,7 @@ export class AntigravityExecutor extends BaseExecutor {
    * exactly the same single call as before (zero extra upstream requests).
    */
   async execute(input: ExecuteInput) {
-    await resolveAntigravityVersion();
+    await resolveAntigravityClientVersion(getAntigravityClientProfile(input.credentials));
 
     // Look up the chain by the NORMALLY-resolved upstream id (honours MITM/static aliases).
     // If a MITM alias remapped the id away from a known Pro tier, no chain applies → fast path.
@@ -1197,7 +1198,7 @@ export class AntigravityExecutor extends BaseExecutor {
     { model, body, stream, credentials, signal, log, upstreamExtraHeaders }: ExecuteInput,
     modelIdOverride?: string
   ) {
-    await resolveAntigravityVersion();
+    await resolveAntigravityClientVersion(getAntigravityClientProfile(credentials));
     const fallbackCount = this.getFallbackCount();
     let lastError = null;
     let lastStatus = 0;

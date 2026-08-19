@@ -95,11 +95,15 @@ import {
   formatRetryAfter,
   getModelLockoutInfo,
   getRuntimeProviderProfile,
+  isContextOverflow400,
+  isModelAccess400,
   isModelLocked,
+  isParamValidation400,
   recordModelLockoutFailure,
   recordProviderFailure,
   selectLockoutCooldownMs,
 } from "./accountFallback.ts";
+export { isContextOverflow400, isParamValidation400, isModelAccess400 };
 import { errorResponse, unavailableResponse, sanitizeErrorMessage } from "../utils/error.ts";
 import {
   recordComboIntent,
@@ -817,41 +821,6 @@ async function isPinnedModelDurablyUnhealthy(pinnedModel: string): Promise<boole
 // is NOT body-specific — different combo targets have different context windows /
 // output limits, so the request should fall through to the next target instead of
 // being short-circuited. Exported as pure predicates so the guard is unit-testable.
-/** @param {string} errorText */
-export function isContextOverflow400(errorText) {
-  return (
-    /\bcontext.*(?:length_exceeded|too long|overflow|exceeded|window|limit)\b/i.test(errorText) ||
-    /exceeds.*context/i.test(errorText) ||
-    /your input exceeds/i.test(errorText)
-  );
-}
-/** @param {string} errorText */
-export function isParamValidation400(errorText) {
-  return (
-    /\bmax_tokens\b.*(?:illegal|must|range|invalid)/i.test(errorText) ||
-    /\bparameter is illegal\b/i.test(errorText) ||
-    /\bis illegal.*range\b/i.test(errorText)
-  );
-}
-
-export function isModelAccess400(
-  errorText: string,
-  structuredError: { code?: string | null; type?: string | null } | null = null
-) {
-  const code = typeof structuredError?.code === "string" ? structuredError.code.toLowerCase() : "";
-  const type = typeof structuredError?.type === "string" ? structuredError.type.toLowerCase() : "";
-  return (
-    code === "model_not_found" ||
-    code === "deployment_not_found" ||
-    type === "not_found_error" ||
-    /\binvalid model\b/i.test(errorText) ||
-    /\bmodel.*not.*(?:available|found|supported|accessible)\b/i.test(errorText) ||
-    /\bmodel.*(?:does not exist|doesn't exist)\b/i.test(errorText) ||
-    /\baccess.*denied.*model\b/i.test(errorText) ||
-    /\bmodel.*access.*denied\b/i.test(errorText) ||
-    /\bplease select a different model\b/i.test(errorText)
-  );
-}
 
 /** @param {object} options */
 export async function handleComboChat({

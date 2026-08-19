@@ -7,6 +7,11 @@ import { getCustomModels, getSettings } from "@/lib/localDb";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { withRateLimit } from "@omniroute/open-sse/services/rateLimitManager";
 import { getModelInfoCore, resolveProviderAlias } from "@omniroute/open-sse/services/model.ts";
+import {
+  isModelDenylisted,
+  isNestedProviderPrefix,
+  normalizeModelForSelectedProvider,
+} from "@/shared/utils/providerModelId";
 import { getProviderModel } from "@omniroute/open-sse/config/providerModels.ts";
 import { PROVIDERS } from "@omniroute/open-sse/config/constants.ts";
 import { resolveUpstreamTimeoutMs } from "@omniroute/open-sse/handlers/chatCore/upstreamTimeouts.ts";
@@ -183,13 +188,49 @@ export async function runSingleModelTest(
   });
 
   let fullModelStr = modelId;
-  if (!fullModelStr.includes("/")) {
-    fullModelStr = `${canonicalProviderId}/${modelId}`;
-  } else if (
-    !fullModelStr.startsWith(`${canonicalProviderId}/`) &&
-    !fullModelStr.startsWith(`${providerId}/`)
-  ) {
-    fullModelStr = `${canonicalProviderId}/${modelId}`;
+  let normalizedModelId = modelId;
+  {
+    // Task 0176: contextual normalization — replaces the old `startsWith`
+    // re-prefix branch that produced double prefixes when the model id already
+    // carried this provider's OWN alias (e.g. input alias `gc/grok-4.6` under
+    // selected provider `grok-cli`), which previously caused a double prefix.
+    // `allowOpaqueSlashModelId: true` since runSingleModelTest is the operator-facing
+    // surface: passthrough model ids like `nvidia/nemotron-...` (cline) or
+    // `openai/gpt-oss-120b` (nvidia) must survive verbatim under the selected provider.
+    const normalized = normalizeModelForSelectedProvider(
+      canonicalProviderId,
+      modelId,
+      { allowOpaqueSlashModelId: true }
+    );
+    if (isNestedProviderPrefix(canonicalProviderId, modelId)) {
+      return {
+        modelId,
+        providerId: canonicalProviderId,
+        status: "error",
+        latencyMs: 0,
+        httpStatus: 400,
+        error: `Invalid nested provider prefix in model '${modelId}'.`,
+      };
+    }
+    fullModelStr = normalized.modelStr;
+    normalizedModelId =
+      normalized.kind === "same-provider" ? normalized.bareModel : normalized.modelId;
+  }
+
+  // Task 0176 policy ("passthrough pleno + denylist explícita"): providers with
+  // passthroughModels: true honor upstream classification for ALL model ids
+  // EXCEPT those on the sourced denylist (currently only legacy grok-build).
+  // Denylisted models fail locally, before any fetch — the denylist is the
+  // explicit safety net that replaces the Task 0160 unknown-ID gate.
+  if (isModelDenylisted(canonicalProviderId, normalizedModelId)) {
+    return {
+      modelId,
+      providerId: canonicalProviderId,
+      status: "error",
+      latencyMs: 0,
+      httpStatus: 400,
+      error: `Model '${normalizedModelId}' for provider '${canonicalProviderId}' is denylisted.`,
+    };
   }
 
   const resolvedInfo = await getModelInfoCore(fullModelStr, null);

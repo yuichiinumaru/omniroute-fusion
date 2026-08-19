@@ -4,6 +4,7 @@ import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { assertProxyRedactionOrBypass } from "@/lib/proxyRedactionGate";
 
 export async function PUT(request: Request) {
   const authError = await requireManagementAuth(request);
@@ -31,7 +32,10 @@ export async function PUT(request: Request) {
       });
     }
 
-    const { scope, scopeIds, proxyId } = validation.data;
+    const { scope, scopeIds, proxyId, bypassToken } = validation.data;
+    if (proxyId) {
+      assertProxyRedactionOrBypass({ bypassToken });
+    }
     const normalizedScope = scope === "key" ? "account" : scope;
     const result = await bulkAssignProxyToScope(normalizedScope, scopeIds || [], proxyId || null);
     clearDispatcherCache();

@@ -23,8 +23,13 @@ services:
       OMNIROUTE_MEMORY_MB: "2048"
       # Prefer host env if set; falls back to container/server.env bootstrap otherwise.
       STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
+      GROK_AUTH_PATH: ${GROK_AUTH_PATH:-/host-home/.grok/auth.json}
+      # Task 0161: explicit Grok auth-store contract for the local capture flow.
+      # Inject the CLI binary separately; this image intentionally does not ship
+      # a proprietary/host-managed `grok` executable.
     volumes:
       - ./data-21000:/data
+      - ${GROK_AUTH_HOST_DIR:-~/.grok}:/host-home/.grok:rw
     healthcheck:
       test: ["CMD", "node", "healthcheck.mjs"]
       interval: 15s
@@ -45,8 +50,12 @@ services:
       NODE_OPTIONS: "--max-old-space-size=4096"
       OMNIROUTE_MEMORY_MB: "4096"
       STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
+      GROK_AUTH_PATH: ${GROK_AUTH_PATH:-/host-home/.grok/auth.json}
     volumes:
       - ./data-test:/app/data
+      # Task 0161: explicit Grok auth-store contract. Inject `grok` separately;
+      # missing binary/mount remains a sanitized fail-closed UI outcome.
+      - ${GROK_AUTH_HOST_DIR:-~/.grok}:/host-home/.grok:rw
     healthcheck:
       test: ["CMD", "node", "healthcheck.mjs"]
       interval: 15s

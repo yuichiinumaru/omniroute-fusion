@@ -19,6 +19,7 @@ import * as crypto from "node:crypto";
 import * as os from "node:os";
 import { BaseExecutor, type ExecuteInput, type ProviderCredentials } from "./base.ts";
 import { createProxyDispatcher } from "../utils/proxyDispatcher.ts";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 import { fetch as undiciFetch, type Dispatcher } from "undici";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 
@@ -227,14 +228,20 @@ export class MimocodeExecutor extends BaseExecutor {
     });
   }
 
-  private getProxyDispatcher(fingerprint: string): Dispatcher | undefined {
+  private async getProxyDispatcher(fingerprint: string): Promise<Dispatcher | undefined> {
     const proxyUrl = this.proxyUrlMap.get(fingerprint);
     if (!proxyUrl) return undefined;
+    if (process.env.ALLOW_LOCAL_PROXIES !== "true") {
+      const u = new URL(proxyUrl);
+      if (u.hostname) {
+        await assertValidProxyHost(u.hostname);
+      }
+    }
     return createProxyDispatcher(proxyUrl);
   }
 
-  private fetchWithProxy(url: string, init: RequestInit, fingerprint: string): Promise<Response> {
-    const dispatcher = this.getProxyDispatcher(fingerprint);
+  private async fetchWithProxy(url: string, init: RequestInit, fingerprint: string): Promise<Response> {
+    const dispatcher = await this.getProxyDispatcher(fingerprint);
     if (dispatcher) {
       // undici fetch returns undici.Response which is structurally compatible with
       // the global Response but nominally different — same pattern as proxyFetch.ts
@@ -317,7 +324,7 @@ export class MimocodeExecutor extends BaseExecutor {
     signal?: AbortSignal | null
   ): Promise<string> {
     if (isAccountReady(account)) return account.jwt;
-    const dispatcher = this.getProxyDispatcher(account.fingerprint);
+    const dispatcher = await this.getProxyDispatcher(account.fingerprint);
     const result = await bootstrapJwt(this.baseUrl, account.fingerprint, signal, dispatcher);
     account.jwt = result.jwt;
     account.expiresAt = result.expiresAt;

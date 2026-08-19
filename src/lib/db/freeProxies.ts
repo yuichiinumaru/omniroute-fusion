@@ -2,6 +2,10 @@ import { randomUUID } from "crypto";
 import { getDbInstance } from "./core";
 import { backupDbFile } from "./backup";
 import type { FreeProxyItem, FreeProxySourceId } from "@/lib/freeProxyProviders/types";
+import {
+  assertValidProxyHost,
+  type ValidateProxyHostOptions,
+} from "@/shared/network/proxyHostGuard";
 
 export interface FreeProxyRecord {
   id: string;
@@ -216,8 +220,19 @@ export async function promoteFreeProxyToPool(
     host: string;
     port: number;
     source: string;
-  }
+  },
+  options?: ValidateProxyHostOptions
 ): Promise<string | null> {
+  if (!registryPayload?.host) {
+    return null;
+  }
+
+  try {
+    await assertValidProxyHost(registryPayload.host, options);
+  } catch {
+    return null;
+  }
+
   const db = getDbInstance();
   const now = new Date().toISOString();
   const newRegistryId = randomUUID();

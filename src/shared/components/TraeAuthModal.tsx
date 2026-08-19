@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
 import Input from "./Input";
+import { resolvePublicCred } from "@omniroute/open-sse/utils/publicCreds.ts";
 
-const TRAE_CLIENT_ID = "en1oxy7wnw8j9n";
+const TRAE_CLIENT_ID = resolvePublicCred("trae_id");
 
 function uuid(): string {
   const c = (globalThis.crypto || (globalThis as any).crypto) as Crypto | undefined;

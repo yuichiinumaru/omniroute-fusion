@@ -83,7 +83,7 @@ ensurePeerStampToken();
 // Force webpack by both passing `webpack: true` and clearing the env var.
 // Mirrors the workaround PR #4052 applied for the production Docker build.
 if (!useTurbopack) {
-  delete process.env.TURBOPACK;
+  process.env.TURBOPACK = "0";
 }
 const nextApp = next({
   dev,

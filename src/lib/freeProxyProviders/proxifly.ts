@@ -55,12 +55,17 @@ export class ProxiflyProvider implements FreeProxyProvider {
   readonly name = "Proxifly";
 
   isEnabled(): boolean {
-    return process.env.FREE_PROXY_PROXIFLY_ENABLED !== "false";
+    return process.env.FREE_PROXY_PROXIFLY_ENABLED === "true";
   }
 
   async sync(): Promise<FreeProxySyncResult> {
     if (!this.isEnabled()) {
-      return { fetched: 0, added: 0, updated: 0, errors: ["Proxifly provider disabled"] };
+      return {
+        fetched: 0,
+        added: 0,
+        updated: 0,
+        errors: ["Proxifly provider disabled (opt-in via FREE_PROXY_PROXIFLY_ENABLED=true)"],
+      };
     }
 
     const { upsertFreeProxy } = await import("../db/freeProxies");

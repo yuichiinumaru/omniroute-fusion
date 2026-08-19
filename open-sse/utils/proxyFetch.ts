@@ -19,6 +19,7 @@ import {
   isFeatureFlagEnabled,
 } from "@/shared/utils/featureFlags";
 import { findWorkingProxy } from "./proxyFallback.ts";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 
 function isTlsFingerprintEnabled() {
   return process.env.ENABLE_TLS_FINGERPRINT === "true";
@@ -291,6 +292,26 @@ export async function runWithProxyContext(
   // Inherit existing context if no specific proxyConfig is provided
   const currentContext = proxyContext.getStore();
   const effectiveProxyConfig = proxyConfig || currentContext || null;
+  const isVercelRelay = isRelayType((effectiveProxyConfig as { type?: string })?.type);
+
+  if (effectiveProxyConfig && !isVercelRelay && process.env.ALLOW_LOCAL_PROXIES !== "true") {
+    let host: string | undefined;
+    if (typeof effectiveProxyConfig === "string") {
+      try {
+        const u = effectiveProxyConfig.includes("://")
+          ? new URL(effectiveProxyConfig)
+          : new URL(`http://${effectiveProxyConfig}`);
+        host = u.hostname;
+      } catch {
+        // Will fail or be handled downstream in proxyConfigToUrl
+      }
+    } else if (typeof effectiveProxyConfig === "object" && effectiveProxyConfig !== null) {
+      host = (effectiveProxyConfig as { host?: string }).host;
+    }
+    if (host) {
+      await assertValidProxyHost(host);
+    }
+  }
 
   const resolvedProxyUrl = effectiveProxyConfig ? proxyConfigToUrl(effectiveProxyConfig) : null;
 
@@ -303,10 +324,9 @@ export async function runWithProxyContext(
 
   // T14: Proxy Fast-Fail
   // Perform a short TCP reachability check before issuing upstream requests.
-  // Skip for edge-relay types (vercel / deno): proxyConfigToUrl returns
+  // Skip for edge-relay types (vercel / deno / cloudflare): proxyConfigToUrl returns
   // "https://<host>" which is the relay endpoint itself, not an HTTP proxy —
   // the actual routing is handled via x-relay-* headers below.
-  const isVercelRelay = isRelayType((effectiveProxyConfig as { type?: string })?.type);
   if (resolvedProxyUrl && !isVercelRelay) {
     const reachable = await isProxyReachable(resolvedProxyUrl);
     if (!reachable) {
@@ -573,6 +593,19 @@ async function patchedFetch(
       headers: mergedHeaders,
       duplex: "half",
     });
+  }
+
+  if (proxyUrl && process.env.ALLOW_LOCAL_PROXIES !== "true") {
+    try {
+      const u = new URL(proxyUrl);
+      if (u.hostname) {
+        await assertValidProxyHost(u.hostname);
+      }
+    } catch (hostErr) {
+      const message = hostErr instanceof Error ? hostErr.message : String(hostErr);
+      console.error(`[ProxyFetch] Proxy validation error (${source}): ${message}`);
+      throw hostErr;
+    }
   }
 
   try {

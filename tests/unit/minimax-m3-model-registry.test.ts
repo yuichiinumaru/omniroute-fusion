@@ -29,13 +29,13 @@ describe("MiniMax M3 model registration (#3110)", () => {
     assert.equal(m3.contextLength, 1_048_576);
   });
 
-  it("opencode provider has minimax-m3-free with 1M context", () => {
+  it("opencode provider has MiMo V2.5 Free in free pool (#6998 refresh)", () => {
     const entry = REGISTRY.opencode;
     assert.ok(entry, "opencode registry entry must exist");
-    const m3 = entry.models.find((m) => m.id === "minimax-m3-free");
-    assert.ok(m3, "minimax-m3-free must be in opencode models");
-    assert.equal(m3.name, "MiniMax M3 Free");
-    assert.equal(m3.contextLength, 1_048_576);
+    const model = entry.models.find((m) => m.id === "mimo-v2.5-free");
+    assert.ok(model, "mimo-v2.5-free must be in opencode models after #6998 refresh");
+    assert.equal(model.name, "MiMo V2.5 Free");
+    assert.equal(model.contextLength, 131000);
   });
 
   it("opencode-go provider has minimax-m3 with Claude targetFormat", () => {

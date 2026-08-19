@@ -246,3 +246,46 @@ describe("NoAuthAccountCard proxy pool dropdown (#5217 Gap 1)", () => {
     expect(firstShield.className).toContain("text-blue-400");
   });
 });
+
+describe("NoAuthAccountCard proxy requirement notices & rotation help text", () => {
+  it("displays proxy-requirement notice when 0 accounts exist (proxy count = 0)", async () => {
+    setupFetch([]);
+    const el = renderCard();
+    await waitForCondition(() => el.querySelector("[data-testid='noauth-proxy-notice']") !== null);
+    const notice = el.querySelector<HTMLElement>("[data-testid='noauth-proxy-notice']")!;
+    expect(notice.textContent).toContain("Proxy Configuration Required");
+    expect(notice.textContent).toContain("share your server's direct IP");
+    expect(notice.textContent).toContain("synthetic local-only rotation slots");
+  });
+
+  it("displays proxy-requirement notice when accounts exist but proxy count = 0", async () => {
+    setupFetch(makeFingerprints(3));
+    const el = renderCard();
+    await waitForCondition(() => el.querySelector("[data-testid='noauth-proxy-notice']") !== null);
+    const notice = el.querySelector<HTMLElement>("[data-testid='noauth-proxy-notice']")!;
+    expect(notice.textContent).toContain("Proxy Configuration Required");
+    expect(notice.textContent).toContain("0 of 3 accounts routed through a proxy");
+    expect(notice.textContent).toContain("effective only when distinct proxies are assigned");
+  });
+
+  it("hides proxy-requirement notice when at least one account has a proxy configured", async () => {
+    const fps = makeFingerprints(2);
+    setupFetchWithProxies(fps, [{ fingerprint: fps[0], proxyId: "pool-1" }]);
+    const el = renderCard();
+    await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 2);
+    expect(el.querySelector("[data-testid='noauth-proxy-notice']")).toBeNull();
+  });
+
+  it("provides informative tooltips on Add Account and shield buttons", async () => {
+    setupFetch(makeFingerprints(1));
+    const el = renderCard();
+    await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 1);
+    const addBtn = Array.from(el.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Add Account")
+    );
+    expect(addBtn?.getAttribute("title")).toContain("synthetic local rotation slot");
+
+    const shieldBtn = grid(el)!.querySelector("button[title]");
+    expect(shieldBtn?.getAttribute("title")).toContain("effective rate-limit rotation");
+  });
+});

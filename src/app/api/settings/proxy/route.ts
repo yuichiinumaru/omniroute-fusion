@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/errorResponse";
 import type { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 
 const BASE_SUPPORTED_PROXY_TYPES = new Set(["http", "https"]);
 type UpdateProxyConfigInput = z.infer<typeof updateProxyConfigSchema>;
@@ -68,9 +69,7 @@ function getRegistryScopeForLevel(
     return undefined;
   }
 
-  return PROXY_LEVEL_TO_REGISTRY_SCOPE[
-    level as keyof typeof PROXY_LEVEL_TO_REGISTRY_SCOPE
-  ];
+  return PROXY_LEVEL_TO_REGISTRY_SCOPE[level as keyof typeof PROXY_LEVEL_TO_REGISTRY_SCOPE];
 }
 
 async function getRegistryProxyForLevel(level: string, id: string | null) {
@@ -251,6 +250,37 @@ export async function PUT(request: Request) {
     }
     const body = validation.data;
     const normalizedBody = normalizeProxyPayload(body);
+
+    const hostsToValidate: string[] = [];
+    if (normalizedBody.proxy?.host) hostsToValidate.push(normalizedBody.proxy.host);
+    if (normalizedBody.global?.host) hostsToValidate.push(normalizedBody.global.host);
+    if (normalizedBody.providers) {
+      for (const p of Object.values(normalizedBody.providers)) {
+        if (p?.host) hostsToValidate.push(p.host);
+      }
+    }
+    if (normalizedBody.combos) {
+      for (const c of Object.values(normalizedBody.combos)) {
+        if (c?.host) hostsToValidate.push(c.host);
+      }
+    }
+    if (normalizedBody.keys) {
+      for (const k of Object.values(normalizedBody.keys)) {
+        if (k?.host) hostsToValidate.push(k.host);
+      }
+    }
+    for (const host of hostsToValidate) {
+      try {
+        await assertValidProxyHost(host);
+      } catch (hostError) {
+        return createErrorResponse({
+          status: 400,
+          message: hostError instanceof Error ? hostError.message : "Invalid proxy host",
+          type: "invalid_request",
+        });
+      }
+    }
+
     const updated = await setProxyConfig(normalizedBody);
     clearDispatcherCache();
     return Response.json(updated);

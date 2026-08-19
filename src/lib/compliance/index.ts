@@ -385,6 +385,71 @@ export function logAuditEvent(entry: {
 }
 
 /**
+ * Log a mandatory administrative audit event.
+ * Unlike logAuditEvent, this function throws if the database is unavailable,
+ * schema migration fails, or the insert produces 0 changes.
+ * Used for security-sensitive operations (e.g., unredacted proxy bypass).
+ */
+export function recordMandatoryAuditLog(entry: {
+  action: string;
+  actor?: string;
+  target?: string;
+  details?: unknown;
+  metadata?: unknown;
+  ipAddress?: string;
+  resourceType?: string;
+  status?: string;
+  requestId?: string;
+  createdAt?: string;
+}): void {
+  const db = getDbInstance();
+  if (!db) {
+    throw new Error("Database instance unavailable for mandatory audit log");
+  }
+
+  ensureAuditLogSchema(db);
+  const createdAt = entry.createdAt || new Date().toISOString();
+  const serializedDetails = serializeAuditValue(entry.details ?? entry.metadata);
+  const metadataSource =
+    entry.metadata !== undefined
+      ? entry.metadata
+      : entry.details && typeof entry.details === "object"
+        ? entry.details
+        : null;
+  const stmt = db.prepare(`
+    INSERT INTO audit_log (
+      timestamp,
+      action,
+      actor,
+      target,
+      details,
+      ip_address,
+      resource_type,
+      status,
+      request_id,
+      metadata
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const result = stmt.run(
+    createdAt,
+    entry.action,
+    entry.actor || "system",
+    entry.target || null,
+    serializedDetails,
+    entry.ipAddress || null,
+    entry.resourceType || null,
+    entry.status || null,
+    entry.requestId || null,
+    serializeAuditValue(metadataSource)
+  );
+
+  if (!result || typeof result.changes !== "number" || result.changes <= 0) {
+    throw new Error("Mandatory audit log insertion produced no database changes");
+  }
+}
+
+/**
  * Query audit log entries.
  *
  * @param {Object} [filter={}]

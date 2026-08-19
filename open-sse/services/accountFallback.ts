@@ -176,21 +176,38 @@ export const OAUTH_INVALID_TOKEN_SIGNALS = [
   "invalid credentials",
 ];
 
-// Context overflow patterns — the prompt exceeds the model's maximum context length.
-// Different providers phrase this differently. Used to decide whether a 400 error
-// should trigger combo fallback (a different model may have a larger context window).
-const CONTEXT_OVERFLOW_PATTERNS = [
-  /\binput is too long\b/i,
-  /\binput too long\b/i,
-  /\bcontext.*(too long|exceeded|overflow|limit)/i,
-  /\btoo many tokens\b/i,
-  /\bprompt is too long\b/i,
-  /\bcontext window/i,
-  /\bmaximum context/i,
-  /\bmax.*token/i,
-  /\btoken limit/i,
-  /\brequest too large\b/i,
-];
+// Context overflow patterns — the prompt exceeds the model's maximum context length
+// or combined input/output token capacity. Different providers phrase this differently.
+// Used to decide whether a 400 error should trigger combo fallback (a different model
+// may have a larger context window or higher token limit).
+export function isContextOverflow400(errorText: unknown): boolean {
+  if (!errorText || typeof errorText !== "string") return false;
+  const lower = errorText.toLowerCase();
+  return (
+    lower.includes("input is too long") ||
+    lower.includes("input too long") ||
+    lower.includes("prompt is too long") ||
+    lower.includes("prompt too large") ||
+    lower.includes("too many tokens") ||
+    lower.includes("token limit") ||
+    lower.includes("context window") ||
+    lower.includes("maximum context") ||
+    lower.includes("context length") ||
+    lower.includes("context overflow") ||
+    lower.includes("exceeds context") ||
+    lower.includes("your input exceeds") ||
+    lower.includes("request too large") ||
+    lower.includes("messages exceed") ||
+    lower.includes("combined input and output tokens") ||
+    lower.includes("accepts at most") ||
+    lower.includes("reduce the input length") ||
+    /\bcontext.*(?:length_exceeded|too long|overflow|exceeded|window|limit)\b/i.test(errorText) ||
+    /exceeds?.*context/i.test(errorText) ||
+    /\bmax.*token/i.test(errorText)
+  );
+}
+
+export const isContextOverflow = isContextOverflow400;
 
 // Structured error codes that reliably indicate model access denied
 // (more reliable than regex on human-readable messages).
@@ -281,6 +298,39 @@ const PARAM_VALIDATION_PATTERNS = [
   /parameter is illegal/i,
   /is illegal.*range/i,
 ];
+
+export function isParamValidation400(errorText: unknown): boolean {
+  if (!errorText || typeof errorText !== "string") return false;
+  return (
+    PARAM_VALIDATION_PATTERNS.some((p) => p.test(errorText)) ||
+    /\bmax_tokens\b.*(?:illegal|must|range|invalid)/i.test(errorText) ||
+    /\bparameter is illegal\b/i.test(errorText) ||
+    /\bis illegal.*range\b/i.test(errorText)
+  );
+}
+
+export function isModelAccess400(
+  errorText: string,
+  structuredError: { code?: string | null; type?: string | null } | null = null
+): boolean {
+  const structuredCode =
+    typeof structuredError?.code === "string" ? structuredError.code.toLowerCase() : "";
+  const structuredType =
+    typeof structuredError?.type === "string" ? structuredError.type.toLowerCase() : "";
+  const looksLikeAuthCredentialError = AUTH_CREDENTIAL_ERROR_PATTERNS.some((p) =>
+    p.test(errorText)
+  );
+  const matchesModelAccessPattern =
+    !looksLikeAuthCredentialError && MODEL_ACCESS_DENIED_PATTERNS.some((p) => p.test(errorText));
+
+  return (
+    (!!structuredError &&
+      (MODEL_ACCESS_DENIED_CODES.has(structuredCode) ||
+        MODEL_ACCESS_DENIED_TYPES.has(structuredType) ||
+        (MODEL_ACCESS_AMBIGUOUS_TYPES.has(structuredType) && matchesModelAccessPattern))) ||
+    matchesModelAccessPattern
+  );
+}
 
 /**
  * T06: Returns true if response body indicates the account is permanently deactivated.
@@ -1184,7 +1234,7 @@ export function classifyError(
       context.provider,
       status,
       context.headers ?? null,
-      context.body
+      context.body ?? errorText
     );
     if (match) return match.reason;
   }
@@ -1302,6 +1352,8 @@ export function checkFallbackError(
    * provider itself). Callers should apply connection cooldown only — do NOT record a provider
    * circuit-breaker failure when this flag is set. */
   skipProviderBreaker?: boolean;
+  /** Target scope of the fallback rule (provider, connection, or model). */
+  scope?: "provider" | "connection" | "model";
 } {
   // G-02: detect embedded service supervisor failures (X-Omni-Fallback-Hint: connection_cooldown).
   // These are NOT upstream AI provider failures — they are local supervisor state changes.
@@ -1399,7 +1451,11 @@ export function checkFallbackError(
     };
   }
 
-  function buildRetryableFallback(reason: RateLimitReasonValue) {
+  function buildRetryableFallback(
+    reason: RateLimitReasonValue,
+    explicitCooldownMs?: number,
+    explicitScope?: "provider" | "connection" | "model"
+  ) {
     const upstreamRetryHintMs = getUpstreamRetryHintMs();
     if (typeof upstreamRetryHintMs === "number" && upstreamRetryHintMs > 0) {
       return {
@@ -1409,6 +1465,19 @@ export function checkFallbackError(
         newBackoffLevel: 0,
         usedUpstreamRetryHint: true,
         reason,
+        ...(explicitScope ? { scope: explicitScope } : {}),
+      };
+    }
+
+    if (typeof explicitCooldownMs === "number" && explicitCooldownMs > 0) {
+      return {
+        shouldFallback: true,
+        cooldownMs: explicitCooldownMs,
+        baseCooldownMs: explicitCooldownMs,
+        newBackoffLevel: Math.min((backoffLevel ?? 0) + 1, maxBackoffSteps),
+        usedUpstreamRetryHint: false,
+        reason,
+        ...(explicitScope ? { scope: explicitScope } : {}),
       };
     }
 
@@ -1420,6 +1489,7 @@ export function checkFallbackError(
       newBackoffLevel: scaled.newBackoffLevel,
       usedUpstreamRetryHint: false,
       reason,
+      ...(explicitScope ? { scope: explicitScope } : {}),
     };
   }
 
@@ -1552,13 +1622,16 @@ export function checkFallbackError(
       // here because its global status fallback would otherwise override
       // specific configured reasons (e.g. 503 → SERVER_ERROR would be
       // shadowed by 503 → MODEL_CAPACITY).
+      const bodyContext = structuredError
+        ? { ...structuredError, message: errorStr }
+        : errorStr || null;
       const providerMatch = provider
-        ? getProviderErrorRuleMatch(provider, status, headers, structuredError ?? null)
+        ? getProviderErrorRuleMatch(provider, status, headers, bodyContext)
         : null;
       const reason = providerMatch
         ? providerMatch.reason
         : (configuredRule.reason ?? RateLimitReason.UNKNOWN);
-      return buildRetryableFallback(reason);
+      return buildRetryableFallback(reason, providerMatch?.cooldownMs, providerMatch?.scope);
     }
     const cooldownMs = configuredRule.cooldownMs ?? 0;
     return {
@@ -1599,7 +1672,7 @@ export function checkFallbackError(
         // access denial when the message text confirms it is about the model.
         (MODEL_ACCESS_AMBIGUOUS_TYPES.has(structuredType) && matchesModelAccessPattern));
 
-    const isOverflow = CONTEXT_OVERFLOW_PATTERNS.some((p) => p.test(errorStr));
+    const isOverflow = isContextOverflow400(errorStr);
     const isMalformed = MALFORMED_REQUEST_PATTERNS.some((p) => p.test(errorStr));
     const isParamValidation = PARAM_VALIDATION_PATTERNS.some((p) => p.test(errorStr));
     const isModelAccessDenied = isModelAccessDeniedStructured || matchesModelAccessPattern;

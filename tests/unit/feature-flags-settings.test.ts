@@ -28,19 +28,20 @@ const {
   isModelCatalogNamesEnabled,
   isArenaEloSyncEnabled,
   isControlPlaneProxyDirectFallbackEnabled,
+  isQoderOAuthFeatureFlagEnabled,
 } = await import("../../src/shared/utils/featureFlags.ts");
 
 // ──────────────────────────────────────────────────────
 // Test group 1 — Flag definitions registry
 // ──────────────────────────────────────────────────────
 describe("featureFlagDefinitions", () => {
-  it("has exactly 38 flag definitions", () => {
-    assert.strictEqual(FEATURE_FLAG_DEFINITIONS.length, 38);
+  it("has exactly 39 flag definitions", () => {
+    assert.strictEqual(FEATURE_FLAG_DEFINITIONS.length, 39);
   });
 
   it("has unique keys for all flags", () => {
     const keys = FEATURE_FLAG_DEFINITIONS.map((d) => d.key);
-    assert.strictEqual(new Set(keys).size, 38);
+    assert.strictEqual(new Set(keys).size, 39);
   });
 
   it("has valid categories for all flags", () => {
@@ -157,6 +158,16 @@ describe("featureFlagDefinitions", () => {
     assert.strictEqual(def.defaultValue, "false");
     assert.strictEqual(def.requiresRestart, false);
     assert.strictEqual(def.warningLevel, "danger");
+  });
+
+  it("defines Qoder OAuth as a security boolean flag disabled by default", () => {
+    const def = FEATURE_FLAG_DEFINITIONS.find((d) => d.key === "QODER_OAUTH_ENABLED");
+    assert.ok(def, "QODER_OAUTH_ENABLED should exist");
+    assert.strictEqual(def.category, "security");
+    assert.strictEqual(def.type, "boolean");
+    assert.strictEqual(def.defaultValue, "false");
+    assert.strictEqual(def.requiresRestart, false);
+    assert.strictEqual(def.warningLevel, "info");
   });
 });
 
@@ -295,9 +306,9 @@ describe("resolveFeatureFlag", () => {
   });
 
   describe("resolveAllFeatureFlags", () => {
-    it("returns all 38 flags", () => {
+    it("returns all 39 flags", () => {
       const all = resolveAllFeatureFlags();
-      assert.strictEqual(all.length, 38);
+      assert.strictEqual(all.length, 39);
     });
 
     it("marks DB-overridden flags with source 'db'", () => {
@@ -378,6 +389,16 @@ describe("resolveFeatureFlag", () => {
         assert.strictEqual(isControlPlaneProxyDirectFallbackEnabled(), true);
       } finally {
         removeFeatureFlagOverride("OMNIROUTE_CONTROL_PLANE_PROXY_DIRECT_FALLBACK");
+      }
+    });
+
+    it("isQoderOAuthFeatureFlagEnabled defaults off and follows DB overrides", () => {
+      assert.strictEqual(isQoderOAuthFeatureFlagEnabled(), false);
+      try {
+        setFeatureFlagOverride("QODER_OAUTH_ENABLED", "true");
+        assert.strictEqual(isQoderOAuthFeatureFlagEnabled(), true);
+      } finally {
+        removeFeatureFlagOverride("QODER_OAUTH_ENABLED");
       }
     });
   });

@@ -12,8 +12,8 @@
 
 import { PROVIDERS } from "../../config/constants.ts";
 import {
+  ANTIGRAVITY_RUNTIME_BASE_URLS,
   getAntigravityFetchAvailableModelsUrls,
-  ANTIGRAVITY_BASE_URLS,
 } from "../../config/antigravityUpstream.ts";
 import {
   isUserCallableAntigravityModelId,
@@ -465,8 +465,8 @@ async function probeAntigravityCreditBalanceUncached(
   try {
     if (!projectId) return null;
 
-    // Try all base URLs (some accounts only work with specific endpoints)
-    for (const baseUrl of ANTIGRAVITY_BASE_URLS) {
+    // Try runtime base URLs (excludes discovery-only sandbox endpoints)
+    for (const baseUrl of ANTIGRAVITY_RUNTIME_BASE_URLS) {
       const url = `${baseUrl}/v1internal:streamGenerateContent?alt=sse`;
 
       const sessionId = getAntigravitySessionId({ connectionId: accountId, projectId });
@@ -779,7 +779,7 @@ async function getAntigravitySubscriptionInfo(
     const response = await fetch(ANTIGRAVITY_CONFIG.loadProjectApiUrl, {
       method: "POST",
       headers:
-        profile === "harness"
+        profile === "cli"
           ? getAntigravityBootstrapHeaders(profile, accessToken)
           : getAntigravityHeaders("loadCodeAssist", accessToken),
       body: JSON.stringify({ metadata: getAntigravityLoadCodeAssistMetadata() }),

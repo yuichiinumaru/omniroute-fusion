@@ -60,6 +60,16 @@ export default function DocumentationTab() {
           <code className="bg-surface-alt px-1 rounded">x-relay-auth</code>). {t("proxyDocumentationVercelRelayDescAfter")}
         </p>
       </section>
+
+      <section>
+        <h3 className="font-semibold mb-2">Trust Model &amp; Security</h3>
+        <p className="text-sm text-text-muted">
+          OmniRoute does not ship with or enable any default free-proxy list. Bring-Your-Own (BYO) proxies
+          or dedicated edge relays are the supported production path. Free-pool scrapers are staging-only,
+          and all proxy host configurations strictly reject private/loopback/link-local addresses (SSRF protection).
+          See <code className="bg-surface-alt px-1 rounded">docs/security/PROXY_TRUST.md</code> for the full security architecture.
+        </p>
+      </section>
     </Card>
   );
 }

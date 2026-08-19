@@ -14,7 +14,12 @@ import { assertNoStale } from "./lib/allowlist.mjs";
 
 // Entradas registry-only conhecidas (meia-registro pré-existente). Cada uma com
 // justificativa. Remover daqui ao registrar o provider em providers.ts.
-export const KNOWN_REGISTRY_ONLY: Record<string, string> = {};
+export const KNOWN_REGISTRY_ONLY: Record<string, string> = {
+  // fb is the official shorthand alias for freebuff (free tier provider)
+  // https://github.com/yuichiinumaru/omniroute-fusion/blob/main/open-sse/config/providers/registry/freebuff/index.ts
+  // This is a pre-existing alias relationship, not an orphan.
+  fb: "freebuff alias (see freebuff registry entry)"
+};
 
 /** Ids do REGISTRY que não são providers canônicos e não estão na allowlist. */
 export function findOrphanRegistryIds(

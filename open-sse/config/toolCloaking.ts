@@ -1,49 +1,5 @@
 type JsonRecord = Record<string, unknown>;
 
-export const AG_TOOL_SUFFIX = "_ide";
-
-const AG_DEFAULT_TOOL_NAMES = [
-  "browser_subagent",
-  "command_status",
-  "find_by_name",
-  "generate_image",
-  "grep_search",
-  "list_dir",
-  "list_resources",
-  "multi_replace_file_content",
-  "notify_user",
-  "read_resource",
-  "read_terminal",
-  "read_url_content",
-  "replace_file_content",
-  "run_command",
-  "search_web",
-  "send_command_input",
-  "task_boundary",
-  "view_content_chunk",
-  "view_file",
-  "write_to_file",
-] as const;
-
-const AG_DECOY_TOOL_NAMES = [
-  ...AG_DEFAULT_TOOL_NAMES,
-  "mcp_sequential_thinking_sequentialthinking",
-] as const;
-
-export const AG_DEFAULT_TOOLS = new Set<string>(AG_DEFAULT_TOOL_NAMES);
-
-export const AG_DECOY_TOOLS = AG_DECOY_TOOL_NAMES.map((name) =>
-  Object.freeze({
-    name,
-    description: "This tool is currently unavailable.",
-    parameters: {
-      type: "OBJECT",
-      properties: {},
-      required: [],
-    },
-  })
-);
-
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : null;
 }
@@ -158,15 +114,9 @@ export function cloakAntigravityToolPayload<T extends JsonRecord>(
     }
 
     if (cloakedDeclarations.length > 0) {
-      const declaredNames = new Set(
-        cloakedDeclarations
-          .map((declaration) => toToolName(declaration.name))
-          .filter((name) => name.length > 0)
-      );
-      const decoys = AG_DECOY_TOOLS.filter((declaration) => !declaredNames.has(declaration.name));
       nextRequest.tools = [
         ...preservedTools,
-        { functionDeclarations: [...cloakedDeclarations, ...decoys] },
+        { functionDeclarations: cloakedDeclarations },
       ];
       changed = true;
     }

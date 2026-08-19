@@ -10,6 +10,7 @@ import { getProxyRegistryGeneration, resolveProxyForScopeFromRegistry } from "./
 import { getComboModelProvider as getComboEntryProvider } from "@/lib/combos/steps";
 import { requestBodyLimitMbFromEnv } from "@/shared/constants/bodySize";
 import { DEFAULT_RESPONSES_PREVIOUS_RESPONSE_ID_MODE } from "@/shared/constants/responsesPreviousResponseId";
+import { assertProxyRedactionOrBypass, isEnablingProxyConfig } from "@/lib/proxyRedactionGate";
 
 type JsonRecord = Record<string, unknown>;
 type PricingModels = Record<string, JsonRecord>;
@@ -167,6 +168,13 @@ export async function getSettings() {
     oauthAutoOpen: true,
     // Provider Model Auto-Sync (Task 0129): default to ON (true) for fresh installs
     providerModelAutoSyncEnabled: true,
+    // Qoder Browser OAuth (Task 0170)
+    qoderOAuthEnabled: false,
+    qoderOAuthAuthorizeUrl: "",
+    qoderOAuthTokenUrl: "",
+    qoderOAuthUserInfoUrl: "",
+    qoderOAuthClientId: "",
+    qoderOAuthClientSecret: "",
   };
   for (const row of rows) {
     const record = toRecord(row);
@@ -192,13 +200,45 @@ export async function getSettings() {
   return settings;
 }
 
-export async function updateSettings(updates: Record<string, unknown>) {
+export interface UpdateSettingsOptions {
+  bypassToken?: string;
+  actor?: string;
+  /**
+   * @internal Internal flag used ONLY when an outer API layer has already
+   * validated the proxy redaction gate (e.g., in `src/app/api/settings/route.ts`).
+   * This option is strictly internal, never exposed to external/client input schemas,
+   * and cannot be supplied via HTTP request bodies.
+   */
+  skipRedactionGate?: boolean;
+}
+
+export async function updateSettings(
+  updates: Record<string, unknown>,
+  options?: UpdateSettingsOptions
+) {
+  const {
+    bypassToken: updateBypassToken,
+    skipRedactionGate: _ignoredPayloadSkip,
+    ...cleanedUpdates
+  } = updates;
+  const effectiveBypassToken = (updateBypassToken as string) || options?.bypassToken;
+
+  if (
+    !options?.skipRedactionGate &&
+    (cleanedUpdates.proxyEnabled === true || cleanedUpdates.perKeyProxyEnabled === true)
+  ) {
+    assertProxyRedactionOrBypass({
+      bypassToken: effectiveBypassToken,
+      actor: options?.actor,
+    });
+  }
+
   const db = getDbInstance();
   const insert = db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', ?, ?)"
   );
   const tx = db.transaction(() => {
-    for (const [key, value] of Object.entries(updates)) {
+    for (const [key, value] of Object.entries(cleanedUpdates)) {
       insert.run(key, JSON.stringify(value));
     }
   });
@@ -208,7 +248,7 @@ export async function updateSettings(updates: Record<string, unknown>) {
 
   // Bust proxy resolution cache when proxy toggle settings change
   const PROXY_TOGGLE_KEYS = ["proxyEnabled", "perKeyProxyEnabled"];
-  if (Object.keys(updates).some((k) => PROXY_TOGGLE_KEYS.includes(k))) {
+  if (Object.keys(cleanedUpdates).some((k) => PROXY_TOGGLE_KEYS.includes(k))) {
     bumpProxyConfigGeneration();
   }
 
@@ -618,7 +658,19 @@ export async function getProxyForLevel(level: string, id?: string | null) {
   return (id ? map[id] : null) || null;
 }
 
-export async function setProxyForLevel(level: string, id: string | null, proxy: ProxyValue) {
+export async function setProxyForLevel(
+  level: string,
+  id: string | null,
+  proxy: ProxyValue,
+  options?: { bypassToken?: string; actor?: string }
+) {
+  if (proxy !== null && proxy !== undefined) {
+    assertProxyRedactionOrBypass({
+      bypassToken: options?.bypassToken,
+      actor: options?.actor,
+    });
+  }
+
   const db = getDbInstance();
   const config = await getProxyConfig();
 
@@ -738,8 +790,7 @@ export async function resolveProxyForConnection(connectionId: string, apiKeyId?:
     if (perKeyEnabled) {
       try {
         const apiKeyRow = db.prepare("SELECT proxy_id FROM api_keys WHERE id = ?").get(apiKeyId) as
-          | { proxy_id?: string | null }
-          | undefined;
+          { proxy_id?: string | null } | undefined;
         if (apiKeyRow?.proxy_id) {
           const proxyRow = db
             .prepare(
@@ -896,12 +947,21 @@ export async function resolveProxyForConnection(connectionId: string, apiKeyId?:
   return { proxy: null, level: "direct", levelId: null };
 }
 
-export async function setProxyConfig(config: Record<string, unknown>) {
+export async function setProxyConfig(
+  config: Record<string, unknown>,
+  options?: { bypassToken?: string; actor?: string }
+) {
+  const bypassToken = (config.bypassToken as string) || options?.bypassToken;
+
   if (config.level !== undefined) {
     const level = typeof config.level === "string" ? config.level : "global";
     const id = typeof config.id === "string" ? config.id : null;
     const proxy = (config.proxy as ProxyValue) || null;
-    return setProxyForLevel(level, id, proxy);
+    return setProxyForLevel(level, id, proxy, { bypassToken, actor: options?.actor });
+  }
+
+  if (isEnablingProxyConfig(config)) {
+    assertProxyRedactionOrBypass({ bypassToken, actor: options?.actor });
   }
 
   const db = getDbInstance();

@@ -95,8 +95,8 @@ describe("OpencodeExecutor", () => {
     });
 
     it("routes opencode zen default models to chat completions", async () => {
-      const minimaxResult = await zenExecutor.execute(createInput("minimax-m2.5-free"));
-      assert.equal(minimaxResult.url, "https://opencode.ai/zen/v1/chat/completions");
+      const deepseekResult = await zenExecutor.execute(createInput("deepseek-v4-flash-free"));
+      assert.equal(deepseekResult.url, "https://opencode.ai/zen/v1/chat/completions");
       assert.equal(fetchCalls[0].url, "https://opencode.ai/zen/v1/chat/completions");
 
       const pickleResult = await zenExecutor.execute(createInput("big-pickle"));
@@ -215,7 +215,7 @@ describe("OpencodeExecutor", () => {
     });
 
     it("omits authorization when credentials are missing", async () => {
-      const result = await zenExecutor.execute(createInput("minimax-m2.5-free", true, null));
+      const result = await zenExecutor.execute(createInput("deepseek-v4-flash-free", true, null));
 
       assert.deepEqual(result.headers, {
         "Content-Type": "application/json",

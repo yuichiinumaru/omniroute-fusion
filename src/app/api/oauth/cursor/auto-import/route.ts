@@ -5,6 +5,7 @@ import { join } from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
+import { redactCursorSecrets } from "@/lib/oauth/cursorCliLocalCapture";
 
 const execFileAsync = promisify(execFile);
 
@@ -166,18 +167,35 @@ export function cursorDbCandidatePaths(
   return [];
 }
 
+export interface CursorAutoImportDeps {
+  home?: string;
+  appdata?: string;
+  platform?: NodeJS.Platform;
+  readAgentAuth?: () => Promise<{ found: boolean; accessToken?: string; source?: string; error?: string }>;
+  readIdeAuth?: () => Promise<{ found: boolean; accessToken?: string; machineId?: string; source?: string; error?: string }>;
+  persistence?: {
+    getProviderConnections?: (query: { provider: string }) => Promise<unknown[]>;
+    createProviderConnection?: (payload: Record<string, unknown>) => Promise<{ id: string }>;
+    updateProviderConnection?: (id: string, payload: Record<string, unknown>) => Promise<unknown>;
+  };
+  verifyLinuxInstalled?: (probe?: CursorInstallProbe) => Promise<boolean>;
+}
+
 /**
  * Try to read credentials from cursor-agent's auth.json
  * (written by `cursor-agent` CLI after login).
  */
-async function tryAgentAuth(): Promise<{
+export async function tryAgentAuth(deps?: CursorAutoImportDeps): Promise<{
   found: boolean;
   accessToken?: string;
   source?: string;
   error?: string;
 }> {
+  if (deps?.readAgentAuth) {
+    return deps.readAgentAuth();
+  }
   try {
-    const authPath = join(homedir(), ".config", "cursor", "auth.json");
+    const authPath = join(deps?.home ?? homedir(), ".config", "cursor", "auth.json");
     const raw = await readFile(authPath, "utf-8");
     const auth = JSON.parse(raw);
     if (auth.accessToken && typeof auth.accessToken === "string") {
@@ -201,17 +219,20 @@ async function tryAgentAuth(): Promise<{
  *
  * Linux and Windows code paths are unchanged.
  */
-async function tryIdeAuth(): Promise<{
+export async function tryIdeAuth(deps?: CursorAutoImportDeps): Promise<{
   found: boolean;
   accessToken?: string;
   machineId?: string;
   source?: string;
   error?: string;
 }> {
-  const platform = process.platform;
+  if (deps?.readIdeAuth) {
+    return deps.readIdeAuth();
+  }
+  const platform = deps?.platform ?? process.platform;
   const candidates = cursorDbCandidatePaths(platform, {
-    home: homedir(),
-    appdata: process.env.APPDATA,
+    home: deps?.home ?? homedir(),
+    appdata: deps?.appdata ?? process.env.APPDATA,
   });
 
   if (candidates.length === 0) {
@@ -244,7 +265,8 @@ async function tryIdeAuth(): Promise<{
     // On Linux, verify Cursor is actually installed before trusting leftover
     // config files — a removed install can leave ~/.config/Cursor behind and
     // would otherwise create a phantom Cursor connection (port: 9router#313).
-    if (platform === "linux" && !(await verifyLinuxCursorInstalled())) {
+    const checkInstalled = deps?.verifyLinuxInstalled ?? verifyLinuxCursorInstalled;
+    if (platform === "linux" && !(await checkInstalled({ home: deps?.home }))) {
       return {
         found: false,
         error:
@@ -316,7 +338,8 @@ async function tryIdeAuth(): Promise<{
     };
   } catch (error) {
     db?.close();
-    console.error("Failed to read Cursor IDE database:", error);
+    const rawError = error instanceof Error ? error.message : String(error);
+    console.error("Failed to read Cursor IDE database:", redactCursorSecrets(rawError));
     return { found: false, error: "Failed to read database" };
   }
 }
@@ -328,8 +351,13 @@ async function tryIdeAuth(): Promise<{
  *   2. cursor-agent CLI's auth.json — fallback, no machineId
  *
  * 🔒 Auth-guarded: requires JWT cookie or Bearer API key (finding #258-4).
+ * 🔒 Task 0172 path-to-100: raw access tokens are NEVER returned in the
+ *    response. Tokens are persisted server-side immediately via the encrypted
+ *    provider connection path. The response returns only opaque metadata
+ *    (found, source, hasMachineId) — no JWT or credential material crosses
+ *    the API boundary.
  */
-export async function GET(request: Request) {
+export async function GET(request: Request, deps?: CursorAutoImportDeps) {
   if (await isAuthRequired(request)) {
     if (!(await isAuthenticated(request))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -338,32 +366,146 @@ export async function GET(request: Request) {
 
   try {
     // Try Cursor IDE first (has both accessToken and machineId)
-    const ideResult = await tryIdeAuth();
-    if (ideResult.found) {
+    const ideResult = await tryIdeAuth(deps);
+    if (ideResult.found && ideResult.accessToken) {
+      // Persist server-side — NEVER return raw token to the client
+      const connection = await persistAutoImportToken(
+        ideResult.accessToken,
+        ideResult.machineId,
+        ideResult.source || "cursor-ide",
+        deps
+      );
       return NextResponse.json({
+        success: true,
         found: true,
-        accessToken: ideResult.accessToken,
-        machineId: ideResult.machineId,
+        connectionId: connection.id,
+        name: connection.displayName || connection.email || "Cursor IDE (auto-imported)",
+        email: connection.email || null,
+        hasMachineId: !!ideResult.machineId,
         source: ideResult.source,
       });
     }
 
     // Fall back to cursor-agent CLI auth (accessToken only, no machineId)
-    const agentResult = await tryAgentAuth();
-    if (agentResult.found) {
+    const agentResult = await tryAgentAuth(deps);
+    if (agentResult.found && agentResult.accessToken) {
+      // Persist server-side — NEVER return raw token to the client
+      const connection = await persistAutoImportToken(
+        agentResult.accessToken,
+        undefined,
+        agentResult.source || "cursor-agent",
+        deps
+      );
       return NextResponse.json({
+        success: true,
         found: true,
-        accessToken: agentResult.accessToken,
+        connectionId: connection.id,
+        name: connection.displayName || connection.email || "Cursor Agent (auto-imported)",
+        email: connection.email || null,
+        hasMachineId: false,
         source: agentResult.source,
       });
     }
 
     return NextResponse.json({
+      success: false,
       found: false,
       error: "No Cursor credentials found. Install Cursor IDE or login with cursor-agent.",
     });
   } catch (error) {
-    console.error("Cursor auto-import error:", error);
-    return NextResponse.json({ found: false, error: "Internal server error" }, { status: 500 });
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const safeMessage = redactCursorSecrets(rawMessage);
+    console.error("Cursor auto-import error:", safeMessage);
+    return NextResponse.json({ success: false, found: false, error: "Internal server error" }, { status: 500 });
   }
+}
+
+/**
+ * Persist auto-imported Cursor token server-side via the encrypted connection
+ * path. Upserts: if a cursor connection with the same email already exists,
+ * it is updated; otherwise a new one is created.
+ *
+ * Task 0172 path-to-100: this function replaces the old pattern that returned
+ * raw tokens in the API response and let the frontend persist them.
+ */
+async function persistAutoImportToken(
+  accessToken: string,
+  machineId: string | undefined,
+  source: string,
+  deps?: CursorAutoImportDeps
+): Promise<{ id: string; email: string | null; displayName: string | null }> {
+  const models = deps?.persistence ?? (await import("@/models"));
+  const getProviderConnections =
+    models.getProviderConnections ?? (await import("@/models")).getProviderConnections;
+  const createProviderConnection =
+    models.createProviderConnection ?? (await import("@/models")).createProviderConnection;
+  const updateProviderConnection =
+    models.updateProviderConnection ?? (await import("@/models")).updateProviderConnection;
+
+  // Best-effort JWT claim extraction for email/userId (same pattern as cursorCliLocalCapture)
+  let email: string | null = null;
+  let userId: string | null = null;
+  try {
+    const parts = accessToken.split(".");
+    if (parts.length === 3) {
+      let payload = parts[1];
+      while (payload.length % 4) payload += "=";
+      const decoded = JSON.parse(Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
+      if (typeof decoded.email === "string" && decoded.email.includes("@")) email = decoded.email;
+      if (typeof decoded.sub === "string") userId = decoded.sub;
+      else if (typeof decoded.user_id === "string") userId = decoded.user_id;
+    }
+  } catch { /* ignore JWT parse errors */ }
+
+  const expiresAt = new Date(Date.now() + 86400 * 1000).toISOString();
+  const displayName = email || (source === "cursor-ide" ? "Cursor IDE (auto-imported)" : "Cursor Agent (auto-imported)");
+
+  // Upsert by email
+  if (email) {
+    const existing = (await getProviderConnections({ provider: "cursor" })) as Array<{
+      id: string;
+      authType?: string;
+      email?: string | null;
+      providerSpecificData?: Record<string, unknown>;
+    }>;
+    const match = existing.find(
+      (c) => c.authType === "oauth" && c.email && c.email.toLowerCase() === email!.toLowerCase()
+    );
+    if (match?.id) {
+      await updateProviderConnection(match.id, {
+        accessToken,
+        refreshToken: null,
+        expiresAt,
+        email,
+        providerSpecificData: {
+          ...match.providerSpecificData,
+          machineId: machineId || match.providerSpecificData?.machineId || null,
+          authMethod: source,
+          source,
+          userId: userId || match.providerSpecificData?.userId || null,
+        },
+        testStatus: "active",
+        isActive: true,
+      });
+      return { id: match.id, email, displayName };
+    }
+  }
+
+  const created = (await createProviderConnection({
+    provider: "cursor",
+    authType: "oauth",
+    accessToken,
+    refreshToken: null,
+    expiresAt,
+    email: email || null,
+    providerSpecificData: {
+      machineId: machineId || null,
+      authMethod: source,
+      source,
+      userId: userId || null,
+    },
+    testStatus: "active",
+  })) as { id: string };
+
+  return { id: created.id, email: email || null, displayName };
 }

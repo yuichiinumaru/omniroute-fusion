@@ -89,7 +89,7 @@ export default function NoAuthAccountCard({
   providerName,
   generateAccountId,
   dataKey = "fingerprints",
-  description = "Ready to use — no signup needed. Add accounts for rate-limit rotation.",
+  description = "Ready to use — no signup needed. Synthetic local rotation slots require dedicated proxies per account for effective rate-limit rotation.",
   addLabel = "Add Account",
   enabled = true,
   savingEnabled = false,
@@ -160,6 +160,9 @@ export default function NoAuthAccountCard({
 
   const conn = connections[0];
   const accountProxies = getAccountProxies(conn);
+  const configuredProxyCount = allAccountIds.filter(
+    (id) => getDisplayProxy(getEntryForFingerprint(accountProxies, id), savedProxies) !== null
+  ).length;
 
   const handleAddAccount = async () => {
     setAdding(true);
@@ -352,15 +355,42 @@ export default function NoAuthAccountCard({
                 size="sm"
               />
             )}
-            <Button size="sm" icon="add" onClick={handleAddAccount} disabled={adding || !enabled}>
+            <Button
+              size="sm"
+              icon="add"
+              onClick={handleAddAccount}
+              disabled={adding || !enabled}
+              title="Create a synthetic local rotation slot. Assign dedicated proxies for effective IP rate-limit rotation."
+            >
               {adding ? "Adding..." : addLabel}
             </Button>
           </div>
         </div>
 
+        {!loading && configuredProxyCount === 0 && (
+          <div
+            data-testid="noauth-proxy-notice"
+            className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-text-muted dark:border-amber-500/20 dark:bg-amber-500/10"
+          >
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined mt-0.5 text-base text-amber-500 shrink-0">
+                info
+              </span>
+              <div className="space-y-1">
+                <p className="font-medium text-text-main">
+                  Proxy Configuration Required for Rate-Limit Rotation
+                </p>
+                <p className="text-text-muted">
+                  Without dedicated proxies assigned per account ({configuredProxyCount} of {allAccountIds.length || 1} accounts routed through a proxy), all accounts share your server&apos;s direct IP and rate-limit window. &quot;{addLabel}&quot; creates synthetic local-only rotation slots; rotation is effective only when distinct proxies are assigned.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!loading && allAccountIds.length === 0 && (
           <p className="text-xs text-text-muted py-2">
-            Using auto-generated account. Click &quot;{addLabel}&quot; for rate-limit rotation.
+            Using auto-generated account. Click &quot;{addLabel}&quot; to create synthetic local rotation slots (effective when paired with dedicated proxies).
           </p>
         )}
 
@@ -390,7 +420,7 @@ export default function NoAuthAccountCard({
                     title={
                       proxy
                         ? `Proxy: ${proxy.type}://${proxy.host}:${proxy.port}`
-                        : "Configure proxy"
+                        : "Configure proxy (assign dedicated proxy for effective rate-limit rotation)"
                     }
                     aria-label={proxy ? `Proxy configured: ${proxy.host}` : "Configure proxy"}
                   >

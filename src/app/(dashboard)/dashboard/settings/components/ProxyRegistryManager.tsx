@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Card, Modal } from "@/shared/components";
+import ProxyRedactionModal from "./ProxyRedactionModal";
 import { parseBulkImportText } from "./parseBulkProxyImport.ts";
 import type { ParsedProxyEntry, ParseError } from "./parseBulkProxyImport.ts";
 
@@ -96,6 +97,7 @@ export default function ProxyRegistryManager() {
   const [bulkScope, setBulkScope] = useState("provider");
   const [bulkScopeIds, setBulkScopeIds] = useState("");
   const [bulkProxyId, setBulkProxyId] = useState("");
+  const [redactionModalOpen, setRedactionModalOpen] = useState(false);
 
   // Bulk Import state
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
@@ -386,7 +388,7 @@ export default function ProxyRegistryManager() {
     }
   };
 
-  const handleBulkAssign = async () => {
+  const handleBulkAssign = async (bypassToken?: string) => {
     setBulkSaving(true);
     setError(null);
     try {
@@ -398,15 +400,26 @@ export default function ProxyRegistryManager() {
               .map((part) => part.trim())
               .filter(Boolean);
 
+      const bodyPayload: Record<string, unknown> = {
+        scope: bulkScope,
+        scopeIds,
+        proxyId: bulkProxyId || null,
+      };
+      if (bypassToken) {
+        bodyPayload.bypassToken = bypassToken;
+      }
+
       const res = await fetch("/api/settings/proxies/bulk-assign", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scope: bulkScope,
-          scopeIds,
-          proxyId: bulkProxyId || null,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
+
+      if (res.status === 409) {
+        setRedactionModalOpen(true);
+        return;
+      }
+
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(payload?.error?.message || t("errorBulkFailed"));
@@ -1010,6 +1023,19 @@ export default function ProxyRegistryManager() {
           </div>
         </div>
       </Modal>
+
+      <ProxyRedactionModal
+        isOpen={redactionModalOpen}
+        onClose={() => setRedactionModalOpen(false)}
+        onEnablePiiAndContinue={async () => {
+          setRedactionModalOpen(false);
+          await handleBulkAssign();
+        }}
+        onBypassAndContinue={async (token) => {
+          setRedactionModalOpen(false);
+          await handleBulkAssign(token);
+        }}
+      />
     </>
   );
 }

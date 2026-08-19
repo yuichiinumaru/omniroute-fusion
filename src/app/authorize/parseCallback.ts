@@ -1,3 +1,5 @@
+import { resolvePublicCred } from "@omniroute/open-sse/utils/publicCreds.ts";
+
 /**
  * Pure parser for the Trae SOLO /authorize callback query string. Extracted
  * from route.ts so it can be unit-tested without touching the DB layer.
@@ -87,7 +89,7 @@ export function parseTraeCallbackQuery(q: URLSearchParams): ParsedTraeCallback |
         aiRegion: (info.AIRegion as string) || region,
         host: q.get("host") || "https://api-us-east.trae.ai",
         screenName: (info.ScreenName as string) || null,
-        clientId: (userJwt.ClientID as string) || "en1oxy7wnw8j9n",
+        clientId: (userJwt.ClientID as string) || resolvePublicCred("trae_id"),
         refreshExpireAt: refreshExpiresAtMs || null,
         authMethod: "oauth_callback",
       },

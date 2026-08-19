@@ -3,6 +3,7 @@ import {
   getComboForModel,
   normalizeProviderScopedModelId,
 } from "../services/model";
+import { isModelDenylisted, isNestedProviderPrefix } from "@/shared/utils/providerModelId";
 import { clearAccountError, markAccountUnavailable } from "../services/auth";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import { createBuiltinAutoCombo } from "@omniroute/open-sse/services/autoCombo/builtinCatalog.ts";
@@ -121,6 +122,16 @@ export async function resolveModelOrError(
   const sourceFormat = detectFormatFromEndpoint(body, endpointPath);
 
   if (
+    modelInfo.provider &&
+    typeof modelInfo.model === "string" &&
+    isNestedProviderPrefix(modelInfo.provider, modelStr)
+  ) {
+    const message = `Invalid nested provider prefix in model '${modelStr}'.`;
+    log.warn("CHAT", message, { provider: modelInfo.provider, model: modelStr });
+    return { error: errorResponse(HTTP_STATUS.BAD_REQUEST, message) };
+  }
+
+  if (
     modelInfo.provider === "openai" &&
     typeof modelInfo.model === "string" &&
     CODEX_NATIVE_RESPONSES_MODELS.has(modelInfo.model) &&
@@ -232,6 +243,21 @@ export async function resolveModelOrError(
 
     const message = `Model '${modelStr}' is not a valid combo or provider. Unknown built-in auto combo.`;
     log.warn("CHAT", message, { model: modelStr });
+    return { error: errorResponse(HTTP_STATUS.BAD_REQUEST, message) };
+  }
+
+  // Task 0160 re-evaluation (2026-08-16) + Task 0176: "passthrough pleno +
+  // denylist explícita". grok-cli declares passthroughModels: true, so model
+  // ids NOT on the sourced denylist are left for the UPSTREAM to classify —
+  // the static registry list is catalog info, not a dispatch prerequisite.
+  // Only the legacy grok-build shorthand (sourced denylist) is rejected here.
+  if (
+    modelInfo.provider === "grok-cli" &&
+    typeof modelInfo.model === "string" &&
+    isModelDenylisted("grok-cli", modelInfo.model)
+  ) {
+    const message = `Unknown model '${modelInfo.model}' for provider 'grok-cli' (denylisted).`;
+    log.warn("CHAT", message, { provider: "grok-cli", model: modelInfo.model });
     return { error: errorResponse(HTTP_STATUS.BAD_REQUEST, message) };
   }
 

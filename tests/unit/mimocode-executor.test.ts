@@ -352,7 +352,7 @@ describe("mimocode per-account proxy", () => {
     assert.strictEqual(map.get(fp2), "socks5://b.com:1080");
   });
 
-  it("getProxyDispatcher returns a dispatcher for known fingerprint", () => {
+  it("getProxyDispatcher returns a dispatcher for known fingerprint", async () => {
     const testExec = new MimocodeExecutor();
     const fp = "fp-dispatcher-test";
     (testExec as any).accounts = [
@@ -361,18 +361,18 @@ describe("mimocode per-account proxy", () => {
     (testExec as any).syncAccountsFromCredentials({
       providerSpecificData: {
         accountProxies: [
-          { fingerprint: fp, proxy: { type: "socks5", host: "s5.test", port: 1080 } },
+          { fingerprint: fp, proxy: { type: "socks5", host: "198.51.100.1", port: 1080 } },
         ],
       },
     });
 
-    const dispatcher = (testExec as any).getProxyDispatcher(fp);
+    const dispatcher = await (testExec as any).getProxyDispatcher(fp);
     assert.ok(dispatcher, "dispatcher should exist for registered fingerprint");
   });
 
-  it("getProxyDispatcher returns undefined for unknown fingerprint", () => {
+  it("getProxyDispatcher returns undefined for unknown fingerprint", async () => {
     const testExec = new MimocodeExecutor();
-    const dispatcher = (testExec as any).getProxyDispatcher("unknown-fp");
+    const dispatcher = await (testExec as any).getProxyDispatcher("unknown-fp");
     assert.strictEqual(dispatcher, undefined);
   });
 

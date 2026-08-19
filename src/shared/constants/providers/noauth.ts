@@ -14,11 +14,12 @@ export const NOAUTH_PROVIDERS = {
     noAuth: true,
     hasFree: true,
     serviceKinds: ["llm"],
-    authHint: "No API key required — uses OpenCode's public free endpoint.",
+    authHint:
+      "No API key required — uses OpenCode's public free endpoint. Rotation requires dedicated proxies per account.",
     freeNote:
-      "No API key required — public OpenCode endpoint with Kimi, GLM, Qwen, MiMo, MiniMax models.",
+      "No API key required — public OpenCode endpoint with Kimi, GLM, Qwen, MiMo, MiniMax models. Rotation is effective when distinct proxies are assigned.",
     notice: {
-      text: "OpenCode Free uses the public OpenCode endpoint (https://opencode.ai/zen/v1). No signup or API key needed. Rate limits apply.",
+      text: "OpenCode Free uses the public OpenCode endpoint (https://opencode.ai/zen/v1). No signup needed. Accounts are synthetic local rotation slots sharing the same IP rate-limit window unless dedicated proxies are assigned.",
     },
   },
   "duckduckgo-web": {
@@ -93,11 +94,11 @@ export const NOAUTH_PROVIDERS = {
     hasFree: true,
     serviceKinds: ["llm"],
     freeNote:
-      "Free — Xiaomi MiMo models via bootstrap JWT auth. No API key required. Supports streaming.",
+      "Free — Xiaomi MiMo models via bootstrap JWT auth. No API key required. Rotation is effective when distinct proxies are assigned.",
     authHint:
-      "No API key required. The executor auto-generates JWT tokens via device fingerprint bootstrap.",
+      "No API key required. The executor auto-generates JWT tokens via device fingerprint bootstrap. Rotation requires dedicated proxies per account.",
     notice: {
-      text: "MiMoCode uses Xiaomi's public free AI endpoint with bootstrap-based JWT authentication. No signup needed. Rate limits apply.",
+      text: "MiMoCode uses Xiaomi's public free AI endpoint with bootstrap-based JWT authentication. No signup needed. Accounts are synthetic local rotation slots sharing the same IP rate-limit window unless dedicated proxies are assigned.",
     },
   },
 };

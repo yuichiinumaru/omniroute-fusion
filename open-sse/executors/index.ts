@@ -54,6 +54,7 @@ import { MimocodeExecutor } from "./mimocode.ts";
 import { GrokCliExecutor } from "./grok-cli.ts";
 import { CodeBuddyCnExecutor } from "./codebuddy-cn.ts";
 import { ZenmuxFreeExecutor } from "./zenmux-free.ts";
+import { FreebuffExecutor } from "./freebuff.ts";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -154,6 +155,8 @@ const executors = {
   cbcn: new CodeBuddyCnExecutor(), // Alias for codebuddy-cn
   "zenmux-free": new ZenmuxFreeExecutor(),
   zmf: new ZenmuxFreeExecutor(), // Alias for zenmux-free
+  freebuff: new FreebuffExecutor(),
+  fb: new FreebuffExecutor(), // Alias for freebuff
 };
 
 const defaultCache = new Map();
@@ -217,3 +220,14 @@ export { MimocodeExecutor } from "./mimocode.ts";
 export { GrokCliExecutor } from "./grok-cli.ts";
 export { CodeBuddyCnExecutor } from "./codebuddy-cn.ts";
 export { ZenmuxFreeExecutor } from "./zenmux-free.ts";
+export {
+  FreebuffExecutor,
+  FREEBUFF_SIGNATURE_TOOL_NAMES,
+  GENERIC_TOOL_NAMES,
+  FREEBUFF_CUSTOM_TOOL_NAMES,
+  COMPOSIO_META_TOOL_NAMES,
+  FREEBUFF_DOWNGRADE_MODEL_ID,
+  FREEBUFF_DEFAULT_SIGNATURE_TOOL,
+  hasSignatureTool,
+  readToolNames,
+} from "./freebuff.ts";

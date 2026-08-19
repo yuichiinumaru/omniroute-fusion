@@ -6,6 +6,14 @@
 
 ## Project
 
+| Campo | Valor |
+|---|---|
+| **Owner (GitHub)** | `yuichiinumaru` |
+| **Repo name** | `omniroute-fusion` |
+| **URL** | `https://github.com/yuichiinumaru/omniroute-fusion.git` |
+| **Git user** | yuichi inumaru lange (`yuichiinumaru@gmail.com`) |
+| **Upstream** | Nenhum remote `upstream` configurado (o fork original `diegosouzapw/OmniRoute` está acessível via symlink em `references/diegosouzapw-omniroute`) |
+
 Unified AI proxy/router — route any LLM through one endpoint. Multi-provider support
 with **236 provider entries** (OpenAI, Anthropic, Gemini, DeepSeek, Groq, xAI, Mistral, Fireworks,
 Cohere, NVIDIA, Cerebras, Pollinations, Puter, Cloudflare AI, HuggingFace, DeepInfra,
@@ -41,6 +49,10 @@ Every claim in a `.md` file under `docs/` should be verifiable against the sourc
 4. **Prefer citing real source (`file.ts:line`) over paraphrasing behavior** — verifiable and self-correcting.
 5. **A shorter doc that is 100% accurate beats a comprehensive one with fabrications.**
    Wrong docs cost more than missing docs, because people trust and act on them.
+6. **Model/catalog claims MUST never come from an agent's memory, training data, or guesswork.** Every claim about a model name, availability, deprecation, delisting, alias, or current catalog MUST be backed by an updated source-of-truth check (for example, `opencode models --refresh` for OpenCode) and must state the exact source, timestamp, and scope used. A model ID without current evidence is not valid review evidence.
+7. **One prefix per provider.** A provider has exactly one OmniRoute prefix (its registry `id` or `alias`). A model request is `prefix/model` — never `prefixA/prefixB/model`. Example: `opencode-zen/oc/big-pickle` is **invalid**; valid forms are `oc/big-pickle` (→ provider `opencode`) or `opencode-zen/big-pickle` (→ provider `opencode-zen`).
+8. **Similar connection ≠ same provider.** Providers that share an upstream endpoint or backend infrastructure are still organizationally separate when they have distinct registry entries. Do not merge, cross-assign prefixes, or remap one to the other. Canonical example: OpenCode Free (`opencode`, prefix `oc`) and OpenCode Zen (`opencode-zen`, prefix `opencode-zen`) share `https://opencode.ai/zen/v1` but have different auth modes, pool keys, and free-tier rules. See [`docs/sourceoftruth.md`](docs/sourceoftruth.md) for the full identity table, current model evidence, and refresh procedure.
+9. **Catalog is not runtime availability.** Static catalogs, aliases, pricing tables, and capability registries describe known or discoverable models; they do not by themselves authorize or deny a manually supplied model ID. When investigating a model failure, distinguish local rejection before dispatch, request transformation or identity/version mismatch, and upstream rejection after dispatch. Never use “the model is absent from the catalog” as the root cause without evidence that the local pipeline rejected the request for that reason.
 
 The script `scripts/check/check-fabricated-docs.mjs` extracts every route path, env var, hook
 name, function name, and file reference from `docs/**/*.md` and verifies each one against the
@@ -196,6 +208,7 @@ Always run `prettier --write` on changed files.
 ### Security
 
 - **NEVER** commit API keys, secrets, or credentials
+- Temporary, expiring, operator-provided, or test-only credentials are still secrets. Never write them to tasks, reports, notes, memories, logs, fixtures, prompts, or tool output. Use them only through an approved secret input path and retain only sanitized evidence such as status, timing, endpoint class, response shape, and redacted error details.
 - Validate all user inputs with Zod schemas
 - Auth middleware required on all API routes
 - Never log SQLite encryption keys
@@ -575,8 +588,11 @@ Cloudflare Quick/Named, ngrok, Tailscale Funnel. See [`docs/ops/TUNNELS_GUIDE.md
 2. Add executor in `open-sse/executors/` if custom logic needed (extend `BaseExecutor`)
 3. Add translator in `open-sse/translator/` if non-OpenAI format
 4. Add OAuth config in `src/lib/oauth/constants/oauth.ts` if OAuth-based — public client_id/secret via `resolvePublicCred()` (`docs/security/PUBLIC_CREDS.md`), **never** as a literal
-5. Register models in `open-sse/config/providerRegistry.ts`
-6. Write tests in `tests/unit/` (include publicCreds shape assertion if you added an embedded default)
+5. Treat static model registration, aliases, pricing, and capability metadata as catalog/UX enrichment, not as a runtime allowlist. A user-supplied model ID must remain testable even when it is absent from the static catalog, unless the upstream protocol explicitly requires local validation before dispatch.
+6. For minimum connector viability, prove one authenticated end-to-end inference with one confirmed model. Complete catalog coverage, billing, free tier, rate limits, and exhaustive capability metadata are secondary follow-ups and must not block the first successful connection unless required for safe dispatch.
+7. Write tests in `tests/unit/` (include publicCreds shape assertion if you added an embedded default)
+
+**Manual model passthrough invariant**: absence from `ANTIGRAVITY_PUBLIC_MODELS`, provider registry, aliases, pricing, or capability metadata does not prove that a model is unavailable upstream. A failed manual-model test must be traced through the local pipeline before being attributed to catalog absence.
 
 ### Adding a New API Route
 
@@ -657,8 +673,9 @@ Skip while `rateLimitedUntil > now`. Terminal states (`banned`, `expired`, `cred
 
 ### Model Lockout
 
-**Scope**: provider + connection + model.  
-**Purpose**: one model 429/404 must not disable the whole connection.  
+**Scope**: provider + connection + model/upstream identity.
+**Purpose**: one model 429/404 must not disable the whole connection.
+**Important**: an upstream `404` is evidence that the specific request was rejected; it is not, by itself, proof that the model is absent from the static catalog or universally unavailable. Preserve enough sanitized request identity and upstream error context to distinguish local rejection, model-ID mismatch, client identity/version mismatch, project/account eligibility, and genuine upstream model-not-found responses.
 **Impl**: `open-sse/services/accountFallback.ts`.
 
 ### Debugging guidance
@@ -707,6 +724,7 @@ For any non-trivial change, read the matching deep-dive first:
 | Cluster opt-in profiles (memory, bifrost)  | [`docs/architecture/cluster-decisions.md`](docs/architecture/cluster-decisions.md)                              |
 | Public upstream credentials                | [`docs/security/PUBLIC_CREDS.md`](docs/security/PUBLIC_CREDS.md)                                                |
 | Error sanitization                         | [`docs/security/ERROR_SANITIZATION.md`](docs/security/ERROR_SANITIZATION.md)                                    |
+| Proxy Trust & Security                     | [`docs/security/PROXY_TRUST.md`](docs/security/PROXY_TRUST.md)                                                  |
 | Embedded services                          | [`docs/frameworks/EMBEDDED-SERVICES.md`](docs/frameworks/EMBEDDED-SERVICES.md)                                  |
 | Fusion (panels / judge / conditional)      | [`docs/architecture/FUSION.md`](docs/architecture/FUSION.md)                                                    |
 
@@ -726,6 +744,16 @@ For any non-trivial change, read the matching deep-dive first:
 
 **PR rule**: production code in `src/`, `open-sse/`, `electron/`, or `bin/` must include or update tests in the same PR.
 
+**Provider model-boundary tests**:
+
+- Changes involving provider registration, model routing, aliases, discovery, model normalization, or provider executors must cover the real Test Connection boundary, not only a helper or static catalog function.
+- Include at least one manually supplied model ID that is absent from the static catalog.
+- Assert the model ID and provider identity at the executor/upstream boundary.
+- If a provider depends on a client identity or version, make that identity/version explicit in fixtures and test the relevant version matrix.
+- A helper-only test does not prove that the UI Test Connection path reaches the executor correctly.
+
+**Test Connection semantics**: the provider smoke test must use a minimal, deterministic, low-token request. Its primary purpose is to prove authentication, transport, request translation, and response parsing. Do not treat the model's semantic correctness on an intentionally trivial task as a substitute for transport evidence. When the test uses a structured response criterion, document whether it is checking reachability, protocol shape, or model quality.
+
 **Both runners**: `test:unit` and `test:vitest` are **non-overlapping** and both CI-blocking.
 
 **Bug fix protocol (Hard Rule #18)** — no exceptions:
@@ -741,6 +769,20 @@ For any non-trivial change, read the matching deep-dive first:
 ## Planning & research artifacts
 
 This fork follows the **Ganthritor constitution** for planning artifacts: planning/reports under `docs/`, and product tasks under `docs/tasks/` when in the flow. There is **no `_tasks/` repository and no superpowers** in this fork — those came from the upstream OmniRoute harness and are not used.
+
+### Research task completion
+
+A research task is terminal only when it proves one of its declared outcomes: `PROVED YES` or `PROVED NO`.
+
+A partial collection, bounded-complete result, inaccessible website, DNS failure, Cloudflare block, missing operator trace, or unavailable credential is not a terminal finding. It must remain open or produce explicit follow-up hypotheses.
+
+Every follow-up research hypothesis must define before dispatch:
+1. the claim being tested;
+2. the primary evidence that would prove it;
+3. evidence that is merely complementary;
+4. the exact conditions for `PROVED YES`;
+5. the exact conditions for `PROVED NO`;
+6. the stop boundary and safe fallback if the evidence source remains unavailable.
 
 ---
 

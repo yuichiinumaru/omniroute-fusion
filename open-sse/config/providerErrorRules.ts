@@ -102,6 +102,83 @@ function buildMinimaxRules(): ProviderErrorRule[] {
   ];
 }
 
+// ─── Freebuff ───────────────────────────────────────────────────────────────
+// Freebuff exposes session admission & completions quota signals:
+//   - 429 free_mode_capacity_deferred / ip_capped -> provider scope cooldown
+//   - 429 rate_limited -> connection scope cooldown
+//   - 409 model_locked -> model scope lockout
+function buildFreebuffRules(): ProviderErrorRule[] {
+  return [
+    {
+      id: "freebuff-429-capacity-deferred",
+      match: ({ status, body }) => {
+        if (status !== 429) return null;
+        const text = (typeof body === "string" ? body : JSON.stringify(body ?? "")).toLowerCase();
+        if (
+          text.includes("free_mode_capacity_deferred") ||
+          text.includes("capacity deferred") ||
+          text.includes("capacity_deferred") ||
+          text.includes("capacity busy") ||
+          text.includes("capacity")
+        ) {
+          return { reason: "rate_limit_exceeded", scope: "provider", cooldownMs: 5000 };
+        }
+        return null;
+      },
+    },
+    {
+      id: "freebuff-429-ip-capped",
+      match: ({ status, body }) => {
+        if (status !== 429) return null;
+        const text = (typeof body === "string" ? body : JSON.stringify(body ?? "")).toLowerCase();
+        if (
+          text.includes("ip_capped") ||
+          text.includes("ip admission cap") ||
+          text.includes("ip cap") ||
+          text.includes("ip quota") ||
+          text.includes("hourly ip quota")
+        ) {
+          return { reason: "rate_limit_exceeded", scope: "provider", cooldownMs: 30000 };
+        }
+        return null;
+      },
+    },
+    {
+      id: "freebuff-429-rate-limited",
+      match: ({ status, body }) => {
+        if (status !== 429) return null;
+        const text = (typeof body === "string" ? body : JSON.stringify(body ?? "")).toLowerCase();
+        if (
+          text.includes("rate_limited") ||
+          text.includes("rate limit") ||
+          text.includes("admission rate limit")
+        ) {
+          return { reason: "rate_limit_exceeded", scope: "connection", cooldownMs: 15000 };
+        }
+        return null;
+      },
+    },
+    {
+      id: "freebuff-429-default",
+      match: ({ status }) => {
+        if (status !== 429) return null;
+        return { reason: "rate_limit_exceeded", scope: "provider", cooldownMs: 5000 };
+      },
+    },
+    {
+      id: "freebuff-409-model-locked",
+      match: ({ status, body }) => {
+        if (status !== 409) return null;
+        const text = (typeof body === "string" ? body : JSON.stringify(body ?? "")).toLowerCase();
+        if (text.includes("model_locked")) {
+          return { reason: "model_capacity", scope: "model", cooldownMs: 5000 };
+        }
+        return null;
+      },
+    },
+  ];
+}
+
 /**
  * Global registry. Provider name → ordered list of rules (first match wins).
  * Add new providers here; the matcher in classifyError will pick them up
@@ -113,6 +190,8 @@ export const providerRuleRegistry = new Map<string, ProviderErrorRule[]>([
   ["opencode-cli", buildOpencodeRules()],
   ["minimax", buildMinimaxRules()],
   ["minimax-passthrough", buildMinimaxRules()],
+  ["freebuff", buildFreebuffRules()],
+  ["fb", buildFreebuffRules()],
 ]);
 
 /**

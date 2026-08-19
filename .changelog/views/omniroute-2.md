@@ -2,7 +2,703 @@
 
 > **Note**: Auto-generated view for project `omniroute-2` from `.changelog/` entries.
 > **Do NOT edit manually** - use the changelog skill/subcommands.
-> **Last rebuilt**: 2026-08-10 22:12:55 UTC
+> **Last rebuilt**: 2026-08-19 04:56:40 UTC
+
+---
+
+# Task 0186: Grok CLI default reasoning effort high for every model
+
+## Summary
+
+Generalized `normalizeGrokBuildReasoning` in `open-sse/executors/grok-cli.ts` so that every non-composer grok-cli model (including `grok-4.6`) defaults to `reasoning: { effort: "high" }` when no explicit effort is passed. Preserved unsupported-effort deletion, composer exclusion (`grok-composer-2.5-fast`), and explicit effort preservation.
+
+## Changes
+
+- `open-sse/executors/grok-cli.ts`: Updated `normalizeGrokBuildReasoning` to apply high default to all non-composer models when `!hasExplicitEffort`; passed `effectiveModel` to ensure default model fallback (`grok-composer-2.5-fast`) removes reasoning properly.
+- `tests/unit/grok-cli-reasoning-effort-default.test.ts`: Added focused TDD matrix asserting upstream-observable body for grok-4.6 default, grok-4.5 regression, explicit effort preservation, explicit unsupported effort dropping, composer exclusion, and snake `reasoning_effort` stripping.
+
+## Verification
+
+- [x] Focused TDD matrix (`tests/unit/grok-cli-reasoning-effort-default.test.ts`): 6/6 PASS
+- [x] Grok regression suite (`grok-cli-provider-compatibility.test.ts`, `grok-cli-strip-params.test.ts`, `provider-alias-normalization.boundary.test.ts`): 40/40 PASS
+- [x] `npm run typecheck:core`: 0 errors
+- [x] `npx eslint open-sse/executors/grok-cli.ts tests/unit/grok-cli-reasoning-effort-default.test.ts`: 0 errors
+
+---
+
+# Task 0177: Test discovery and runner ownership integrity
+
+## Summary
+
+Restored test discovery exit 0 by mapping OAuthModal React/jsdom suites to vitest.mcp.config.ts include and documenting ProxyRedactionModal wrapper exclusion; recorded unit-glob vs filesystem inventory relationship.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] npm run check:test-discovery: PASS (exit 0, 2799 files, 21 collectors, 60 frozen orphans)
+- [x] npm run check:test-runner-api: PASS (exit 0)
+- [x] npx vitest run --config vitest.mcp.config.ts tests/unit/shared/components/OAuthModal: PASS (3 files, 17 tests)
+- [x] npx vitest run tests/unit/shared/components/ProxyRedactionModal.test.tsx: PASS (1 file, 8 tests)
+- [x] npx vitest run --config vitest.mcp.config.ts tests/unit/autoCombo/suffixComposition-4517.test.ts tests/unit/autoCombo/tieredRotation.test.ts: PASS (2 files, 17 tests)
+- [x] node --import tsx/esm --test tests/unit/check-test-discovery.test.ts: PASS (10/10 tests)
+- [x] npm run typecheck:core: PASS
+- [x] npx eslint vitest.mcp.config.ts scripts/check/check-test-discovery.mjs: PASS
+
+---
+
+# Task 0186: create-grok-cli-reasoning-high-default-task
+
+## Summary
+
+P1 hardening; extends grok-4.5-only guard in normalizeGrokBuildReasoning to all supportsReasoning grok-cli models; explicit efforts preserved; max/xhigh dropped; serialized with 0160 grok-cli.ts ownership.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator passed OK; 214-line task file created under docs/tasks/01-open/
+
+---
+
+# Task 0185: create-model-discovery-fallback-task
+
+## Summary
+
+P2 housekeeping; provider branches and terminal 400/503/504 semantics intact; CSV groups 0906/1239 only.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator passed OK; 158-line task file created under docs/tasks/01-open/
+
+---
+
+# Task 0184: create-media-example-card-hook-task
+
+## Summary
+
+P2 housekeeping; STT multipart and Music/TTS binary lifecycles excluded; reuses PlaygroundCard, useApiKey, useProviderModels, buildCurl.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator passed OK; 195-line task file created under docs/tasks/01-open/
+
+---
+
+# Task 0183: create-cli-settings-route-helpers-task
+
+## Summary
+
+P2 housekeeping; auth passthrough, JSON parsing with compatible envelopes, sanitized errors, preflight; persistence/TOML/secrets stay per-route; coordinates with Task 0073.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator passed OK; 191-line task file created under docs/tasks/01-open/
+
+---
+
+# Task 0182: create-cli-setup-context-task
+
+## Summary
+
+P2 remediation; apiBase/baseUrl exports kept stable via adapters; root-URL clients out of scope.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator passed OK; 169-line task file created under docs/tasks/01-open/
+
+---
+
+# Task 0181: create-mitm-forwarding-helper-task
+
+## Summary
+
+P2 housekeeping; ~210 duplicated lines; Antigravity conversion stays provider-local.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator passed OK; 302-line task file created under docs/tasks/01-open/
+
+---
+
+# Task 0180: create-shared-tls-client-core-task
+
+## Summary
+
+P1 remediation; ~3.6k duplicated lines; provider-specific profiles and fail-closed proxy behavior preserved; coordinates with Task 0146.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator passed OK; 269-line task file created under docs/tasks/01-open/
+
+---
+
+# Task 0179: Make model context-capacity 400s fail soft in combos
+
+## Summary
+
+Unified model context-capacity 400 detection across `accountFallback.ts`, `combo.ts`, `errorClassifier.ts`, and `runtimeUnits.ts`. Added recognition for combined input/output token capacity error shapes ("accepts at most", "combined input and output tokens", "reduce the input length") as zero-cooldown MODEL_CAPACITY fallback errors. Ensured priority, round-robin, and runtime-unit combo strategies fall through to the next candidate when encountering context-capacity 400s, while preserving Task 0157's terminal behavior for generic malformed 400s ("invalid client payload") across both model units and nested combo-ref units.
+
+## Changes
+
+- `open-sse/services/accountFallback.ts`: Canonicalized `isContextOverflow400`, `isParamValidation400`, and `isModelAccess400` predicates.
+- `open-sse/services/combo.ts`: Re-exported canonical predicates from `accountFallback.ts`.
+- `open-sse/services/errorClassifier.ts`: Delegated `isContextOverflow` to canonical `isContextOverflow400`.
+- `open-sse/services/combo/runtimeUnits.ts`: Added the terminal 400 guard for generic malformed 400s across model and combo-ref units.
+- `tests/unit/combo-context-capacity-fallback.test.ts`: Added 11 deterministic unit tests covering priority, round-robin, runtime-unit, terminal-400 preservation (flat & runtime-unit execute mode), aggregate sanitization, circuit-breaker isolation, lockout isolation, same-provider fallback, and sanitized failure logging.
+
+## Verification
+
+- `node --import tsx/esm --test tests/unit/combo-context-capacity-fallback.test.ts`: 11/11 PASS
+- `node --import tsx/esm --test tests/unit/combo-fail-soft-candidate-errors.test.ts tests/unit/combo-context-length.test.ts tests/unit/combo-body-specific-400-stop-4279.test.ts tests/unit/combo-param-validation-fallback-4519.test.ts tests/unit/combo-strategy-fallbacks.test.ts tests/unit/error-classifier.test.ts`: 96/96 PASS
+- `npm run test:vitest -- open-sse/services/combo/__tests__/targetExhaustion.test.ts`: 13/13 PASS
+- `npm run typecheck:core`: 0 errors
+- `npx eslint open-sse/services/accountFallback.ts open-sse/services/combo.ts open-sse/services/errorClassifier.ts open-sse/services/combo/runtimeUnits.ts tests/unit/combo-context-capacity-fallback.test.ts`: 0 errors, 0 warnings
+
+---
+
+# Task 0179: create-combo-context-capacity-follow-up
+
+## Summary
+
+The task extends the existing context-overflow fail-soft contract narrowly across priority, round-robin, and applicable runtime-unit paths while preserving terminal generic 400 behavior.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Source review confirmed existing context-overflow predicates and Task 0157 regressions; task artifact validator passed with OK.
+
+---
+
+# Task 0178: create-fetch-isolation-follow-up
+
+## Summary
+
+The task explicitly avoids a corpus-wide rewrite and preserves observable payload/response assertions.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator: python .agents/skills/project-development/scripts/validate_task_artifacts.py . -> OK
+
+---
+
+# Task 0177: create-test-discovery-follow-up
+
+## Summary
+
+The task requires truthful runner dispositions, no silent suppression, and a passing check:test-discovery gate.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task artifact validator: python .agents/skills/project-development/scripts/validate_task_artifacts.py . -> OK
+
+---
+
+# Task RD-omniroute-test-suite-mega-audit: test-suite-mega-audit-rdexperience
+
+## Summary
+
+Created RD test suite mega-audit: inventory + classify useless/redundant + improvements + template specs (design only).
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/01-open/RD-omniroute-test-suite-mega-audit.md created (201 lines); registered in dependency-tree (standalone research) + EPIC-25 (row + ordering item 21); sub-skills eval + testing-anti-patterns + tdd + RF8-07 loaded and cited.
+
+---
+
+# Task 0176: canonical-alias-normalization-remediation-rev2-contextual-helper
+
+## Summary
+
+Task 0176 revision 2: contextual helper (discriminated union), table-driven boundary contract, scope-bound CI grep guard, anti-TDD rules.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/01-open/0176-omniroute-canonical-alias-normalization.md rewritten (218 lines) with contextual helper signature + boundary matrix (9 rows) + scoped CI grep + anti-TDD rules; policy 'passthrough pleno + denylist explícita' propagated.
+
+---
+
+# Task 0160: grok-cli-provider-compat-re-evaluation-policy-correction-2026-08-16
+
+## Summary
+
+Task 0160 re-evaluation: status and lane corrected; reviewer-owned lane transition; policy = passthrough pleno + denylist explícita.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/03-review/0160-omniroute-grok-cli-provider-compatibility.md re-evaluated with Status [/]; Re-evaluation Entry appended; 3 new Exit Conditions reference Task 0176 boundary contract test; policy 'passthrough pleno + denylist explícita' documented.
+
+---
+
+# Task 0176: canonical-alias-normalization-remediation
+
+## Summary
+
+Created Task 0176 (remediation, P1) to publish canonicalizeModelForProvider helper, migrate modelTestRunner + Trae regex, and add CI grep guard.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/01-open/0176-omniroute-canonical-alias-normalization.md created (199 lines); references docs/tasks/01-open/0160 as Depends on; serialized with 0160 per Wave V (dependency-tree.md).
+
+---
+
+# Task 0160: grok-cli-provider-compat-task-reopened-2026-08-16
+
+## Summary
+
+Task 0160 reopened: gate contradicts passthroughModels: true; awaits 0176 helper before re-builder wave.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/01-open/0160-omniroute-grok-cli-provider-compatibility.md reopened with Status [ ] and 3 new Exit Conditions; Re-open Ledger appended; file moved from 03-review to 01-open.
+
+---
+
+# Task RD-omniroute-opencode-reasoning-summary-combo-audit: opencode-reasoning-summary-combo-audit-rdexperience
+
+## Summary
+
+Created RD to reproduce and classify OpenCode warning per combo; read-only; gates speculative reasoning changes.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/01-open/RD-omniroute-opencode-reasoning-summary-combo-audit.md created (173 lines); referenced in dependency-tree (standalone research) and EPIC-25 (rows + ordering).
+
+---
+
+# Task RD-omniroute-enter-maas-evidence: enter-maas-evidence-rdexperience
+
+## Summary
+
+Created RD-omniroute-enter-maas-evidence as evidence gate blocking Task 0175.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/01-open/RD-omniroute-enter-maas-evidence.md created (162 lines); referenced as gate in dependency-tree Wave U and EPIC-25; 0175 Depends on it.
+
+---
+
+# Task 0175: enter-maas-provider-connector-task-revised-evidence-gated
+
+## Summary
+
+Task 0175 revised: evidence-gated by new RD task; empty seed catalog; no unverified facts; provider id enter-maas.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] docs/tasks/01-open/0175 rewritten (224 lines); RD-omniroute-enter-maas-evidence created (162 lines); dependency-tree Wave U + EPIC-25 updated.
+
+---
+
+# Task 0175: enter-maas-provider-connector-task
+
+## Summary
+
+Created Task 0175 for Enter MaaS provider connector (API Key aggregator + shared AI Credits + dynamic catalog).
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task file created in docs/tasks/01-open/0175-omniroute-enter-maas-provider-connector.md per 000-template (222 lines), dependency tree updated (Wave U), and EPIC-25 mapped.
+
+---
+
+# Task 0174: add-aihubmix-provider-connector
+
+## Summary
+
+Integrated AIHubMix aggregator gateway with DefaultExecutor, dynamic /v1/models discovery via NAMED_OPENAI_STYLE_PROVIDERS, and 4 initial free models.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0173: add-freebuff-provider-connector
+
+## Summary
+
+Implemented Freebuff provider with CLI device code OAuth flow, 1-hour active session admission with 428/409/410 recovery, FreebuffExecutor with streaming SSE, and registered catalog for 6 free models.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0169: byo-proxy-validation-and-free-pool-nongoal-docs
+
+## Summary
+
+Authored docs/security/PROXY_TRUST.md establishing BYO proxies as the supported path with staging-only scrapers, and added strict private/loopback/link-local SSRF rejection across all proxy schemas and scrapers.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0167: clarify-opencode-free-account-identity-ux
+
+## Summary
+
+Added proxy-requirement notices and tooltips on NoAuthAccountCard to clarify that synthetic local rotation slots require dedicated proxies per account for effective rate-limit rotation.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] `npx vitest run tests/unit/ui/noauth-account-card.test.tsx` — 12/12 passed.
+- [x] `node --import tsx/esm --test tests/unit/opencode-proxy-rotation-4954.test.ts` — 4/4 passed.
+- [x] `npm run typecheck:core` — passed.
+- [ ] `npm run build` — independently rerun; blocked by webpack inability to resolve `ioredis` Node built-ins (`dns`, `net`, `tls`) after an initial timeout/OOM attempt.
+- [x] Targeted ESLint — 0 errors / 0 warnings.
+- [x] Canonical changelog entry exists and is linked from `.changelog/index.md`.
+
+---
+
+# Task 0166: diagnose-opencode-zen-429-root-cause
+
+## Summary
+
+Identified Cloudflare WAF bot-heuristics, single-IP pool rate limit aggregation, and error classification gaps as root causes; documented remediation playbook and impact of CLI header synthesis.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0172: cursor-experimental-auto-cli-login-flow
+
+## Summary
+
+Added Experimental Auto button and backend flow for Cursor auth capture via cursor-agent login in Docker-gated environments with local path isolation and encrypted credential persistence.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0171: trae-provider-connector-fixes
+
+## Summary
+
+Trae executor now strips tr/ provider prefix from model names before upstream dispatch and resolves client ID via resolvePublicCred without inline literals.
+
+## Changes
+
+- Strip `tr/` and `trae/` provider prefixes in `TraeExecutor.resolveMode` to prevent upstream 502/4001 empty config errors.
+- Resolve Trae OAuth client ID via `resolvePublicCred("trae_id")` across `open-sse/executors/trae.ts`, `src/app/authorize/parseCallback.ts`, and `src/shared/components/TraeAuthModal.tsx` for Hard Rule #11 compliance.
+- Add regression test suite in `tests/unit/trae-publiccred.test.ts` asserting no raw Trae client ID literals exist in production sources.
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0170: enable-qoder-oauth-via-db-setting
+
+## Summary
+
+Qoder OAuth eligibility is now dynamically configurable via DB settings and feature flags with environment variable fallback and strict client secret redaction.
+
+## Changes
+
+- Redacted `qoderOAuthClientSecret` in `PATCH /api/settings` and `PUT /api/settings` responses to ensure secrets are never leaked to the browser, exposing only `hasQoderOAuthClientSecret`.
+- Wired `QoderOAuthSettingsModal` in `ProviderModalsPanel.tsx` for `providerId === 'qoder'`.
+- Updated `open-sse/services/tokenRefresh.ts` to use dynamic resolvers (`resolveQoderOAuthTokenUrl`, `resolveQoderOAuthClientId`, `resolveQoderOAuthClientSecret`) from `@/lib/oauth/constants/oauth`.
+- Expanded unit test suite in `tests/unit/qoder-oauth-db-setting.test.ts` to verify secret redaction in PATCH/PUT, dynamic token refresh resolution, skipped refresh when unconfigured, and modal wiring.
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0168: require-pii-redaction-before-proxy-enable
+
+## Summary
+
+Proxy enablement now requires active PII redaction or an explicit high-friction confirmation modal with typed acknowledgment and one-time bypass token. Hard Rule #20 preserved with PII defaults remaining strictly opt-in.
+
+## Changes
+
+- Gated proxy enablement behind effective PII redaction status at both API and UI layers.
+- When PII redaction is disabled, proxy enable requests are rejected with `409 Conflict` (`PII_REDACTION_REQUIRED`) unless an authorized, time-bound bypass token is provided.
+- Gated management assignment routes (`/api/v1/management/proxies/assignments` and `/api/v1/management/proxies/bulk-assign`) with the redaction gate and bypass token verification.
+- Added high-friction confirmation modal in the dashboard UI offering a primary "Enable PII Redaction & Continue" path and an explicit bypass path requiring typed confirmation phrase (`"I understand the risks of unredacted proxy routing"`) and risk checkbox.
+- Created `POST /api/settings/proxy/bypass-token` and `GET /api/settings/proxy/redaction-status` endpoints.
+- Fixed env-vs-DB drift in `src/lib/guardrails/piiMasker.ts` to resolve `PII_REDACTION_ENABLED` via `isFeatureFlagEnabled()`.
+- Added durable, fail-closed audit log recording (`recordMandatoryAuditLog`) ensuring every bypass token generation and consumption event (`proxy.bypass_token_created`, `proxy.unredacted_bypass`) persists to SQLite or blocks unredacted bypass.
+- Enforced strict token creation ordering so in-memory bypass tokens are never committed if audit persistence fails.
+- Preserved Hard Rule #20 (PII redaction default remains opt-in `false`).
+
+## Verification
+
+- [x] Relevant tests/build/lint commands executed and captured in task evidence.
+  - `node --import tsx/esm --test tests/unit/proxy-redaction-gate.test.ts tests/unit/pii-opt-in-default.test.ts` (63/63 pass)
+  - `npx vitest run src/app/(dashboard)/dashboard/settings/components/__tests__/ProxyRedactionModal.test.tsx` (8/8 pass)
+  - `npx vitest run tests/unit/shared/components/ProxyRedactionModal.test.tsx` (8/8 pass)
+  - `npm run typecheck:core` (0 errors)
+  - `npx eslint` on modified files (0 errors, 0 warnings)
+
+---
+
+# Task 0165: sync-opencode-executor-upstream-improvements
+
+## Summary
+
+OpenCode executor now strips client_metadata before dispatch, parses effort levels for 10 model families, synthesizes CLI headers with env opt-in, and includes ~30 effort aliases in the Go registry while maintaining full ALS requestFormat concurrency safety.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [ ] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0174: aihubmix-provider-connector-task
+
+## Summary
+
+Created Task 0174 for AIHubMix provider connector (API Key aggregator + DefaultExecutor + free tier catalog).
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task file strictly documented in docs/tasks/01-open/0174-omniroute-aihubmix-provider-connector.md per 000-template, dependency tree updated (Wave T), and EPIC-25 mapped.
+
+---
+
+# Task 0173: freebuff-provider-connector-task
+
+## Summary
+
+Created Task 0173 for Freebuff provider connector (Device OAuth + 1h session management + OpenAI-compatible executor).
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Task file strictly documented in docs/tasks/01-open/0173-omniroute-freebuff-provider-connector.md per 000-template, dependency tree updated, and EPIC-25 mapped.
+
+---
+
+# Task 0162: restore-antigravity-provider-compatibility
+
+## Summary
+
+Antigravity now uses runtime-only URLs, civic-integrity safety settings, separate IDE and CLI release sources/caches/fallbacks, exact profile-specific User-Agents, and profile-aware executor version resolution. Focused Antigravity tests, core typecheck, and scoped lint pass; tool-cloaking contingency infrastructure remains untouched and identity-preserving.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [ ] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0164: refresh-opencode-free-model-catalog-from-live-cli
+
+## Summary
+
+Parent OpenCode Free catalog now contains the seven current provider IDs returned by live refresh (big-pickle, deepseek-v4-flash-free, hy3-free, laguna-s-2.1-free, mimo-v2.5-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free). Focused contract test covers exact current set, registry/catalog parity, six historical stale negatives, and opencode-zen isolation. Minimal shared-registry alias repair restores the already-referenced ANTIGRAVITY_RUNTIME_BASE_URLS export.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [ ] Relevant tests/build/lint commands executed and captured in task evidence.
+
+---
+
+# Task 0170,0171,0172: qoder-trae-cursor-ux-fixes
+
+## Summary
+
+Created execution tasks for Qoder OAuth DB Flag, Trae connector prefixing, and Cursor CLI automated auth capture.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Tasks strictly documented per template expectations and dependencies sequenced appropriately.
+
+---
+
+Added an explicit, Docker-only "Add Grok CLI account" flow that automates capturing the local `grok` CLI auth store without exposing secrets to the frontend.
+- Subprocesses use bounded array isolation, AbortSignal timeout/cleanup, and lock-based concurrency resistance.
+- Mount paths are validated, ensuring the capture reads only from the configured host `.grok` volume.
+- The pre-login snapshot never leaves the server boundary; API and UI state use opaque single-use session identifiers and SHA-256 digests.
+- Auth validation enforces strict boundaries on issuers, JSON shape, and file sizes, converting locally parsed keys directly to encrypted provider connections and returning safe identity.
+
+---
+
+# Task 0162,0164,0165,0166,0167,0168,0169: provider-compatibility-proxy-security-tasks
+
+## Summary
+
+Created provider compatibility and proxy security tasks from parallel investigations.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Antigravity investigation found 6 divergences from upstream with 0% task coverage; no existing task addresses signature/model/UA/safety/URL/version regression.
+- [x] OpenCode investigation found stale Free catalog (6 models delisted 2026-07-14), 4 executor gaps, and architectural limitation in Free account identity.
+- [x] Proxy investigation found curated free-proxy ingestion exists but is decoupled from PII redaction; no cross-flag gate or high-friction confirm; existing SSRF tasks cover URL guards but not proxy-PII intersection.
+
+---
+
+# Task 0160,0161: refine-grok-compatibility-and-auth-plan
+
+## Summary
+
+Separated Grok connector failure, model availability, and local CLI auth capture into non-overlapping planning scopes.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Abort-cascade session ses_008f1cf1cffeq73zcpv5MCxHas completed read-only evidence and wrote docs/reports/builders/0157-abort-cascade-investigation.md; no code changes were made in the continuation.
+- [x] Task 0151 provenance check found reference-based OAuth evidence but no grok logout/login or external auth.json capture coverage.
+- [x] Grok comparison found protocol/auth/tool-call work in 0149 but no current live connector proof; current model identity remains secondary until connector boundary is functional.
+
+---
+
+# Task 0160: grok-build-model-identity-incident
+
+## Summary
+
+Created a separate P0 model-identity task for Grok Build 400 model-not-found failures.
+
+## Changes
+
+- Documented task completion details.
+
+## Verification
+
+- [x] Fork and reference grok-cli registries contain grok-4.5 and grok-composer-2.5-fast; neither contains grok-build.
+- [x] Reference xai registry contains grok-build-0.1, establishing a provider/auth distinction that must not be collapsed.
+- [x] Task 0149 covers Responses/tool-call protocol and Task 0151 covers OAuth/login; neither covers model registration or alias resolution.
 
 ---
 

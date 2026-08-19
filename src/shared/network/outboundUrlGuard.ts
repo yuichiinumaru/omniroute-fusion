@@ -1,5 +1,20 @@
-import { isIP } from "node:net";
 import { resolveFeatureFlag } from "@/shared/utils/featureFlags";
+import { isPrivateHost, isCloudMetadataHost } from "./isPrivateHost";
+import {
+  assertValidProxyHost,
+  validateProxyHost,
+  normalizeProxyHostname,
+  setGlobalProxyLookupForTests,
+} from "./proxyHostGuard";
+
+export {
+  isPrivateHost,
+  isCloudMetadataHost,
+  assertValidProxyHost,
+  validateProxyHost,
+  normalizeProxyHostname,
+  setGlobalProxyLookupForTests,
+};
 
 const TRUE_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
 
@@ -36,79 +51,6 @@ export class OutboundUrlGuardError extends Error {
     this.url = init.url;
     this.hostname = init.hostname ?? null;
   }
-}
-
-function normalizeHost(hostname: string) {
-  const normalized = hostname.trim().toLowerCase();
-  if (normalized.startsWith("[") && normalized.endsWith("]")) {
-    return normalized.slice(1, -1);
-  }
-  return normalized;
-}
-
-export function isPrivateHost(hostname: string) {
-  const normalized = normalizeHost(hostname);
-  if (!normalized) return true;
-
-  if (
-    normalized === "localhost" ||
-    normalized === "0.0.0.0" ||
-    normalized === "127.0.0.1" ||
-    normalized === "::1" ||
-    normalized.endsWith(".localhost") ||
-    normalized.endsWith(".local") ||
-    // `.internal` is reserved for private use (ICANN-style) and is the
-    // hostname suffix used by GCP/Azure metadata probes
-    // (e.g. `metadata.google.internal`).
-    normalized.endsWith(".internal") ||
-    normalized.startsWith("::ffff:")
-  ) {
-    return true;
-  }
-
-  if (isIP(normalized) === 4) {
-    const octets = normalized.split(".").map((segment) => parseInt(segment, 10));
-    const [a, b] = octets;
-
-    if (a === 0 || a === 10 || a === 127) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true;
-    return false;
-  }
-
-  if (isIP(normalized) === 6) {
-    return (
-      normalized === "::1" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      normalized.startsWith("fe80:")
-    );
-  }
-
-  return false;
-}
-
-const CLOUD_METADATA_HOSTNAMES = new Set([
-  "169.254.169.254", // AWS / GCP / Azure / Oracle IMDS
-  "metadata.google.internal", // GCP
-  "metadata.goog", // GCP
-  "100.100.100.200", // Alibaba Cloud
-  "fd00:ec2::254", // AWS IPv6 IMDS
-]);
-
-/**
- * Cloud-metadata and IPv4 link-local (169.254.0.0/16) endpoints are the classic
- * SSRF→IAM-credential pivot and have no legitimate webhook/automation use case. They are
- * blocked UNCONDITIONALLY — even when private targets are explicitly opted in. (#3269)
- */
-export function isCloudMetadataHost(hostname: string): boolean {
-  const host = normalizeHost(hostname);
-  if (!host) return false;
-  if (CLOUD_METADATA_HOSTNAMES.has(host)) return true;
-  if (host.startsWith("169.254.")) return true; // IPv4 link-local /16
-  return false;
 }
 
 export function parseOutboundUrl(input: string | URL) {

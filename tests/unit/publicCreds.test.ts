@@ -51,6 +51,12 @@ test("resolvePublicCred('windsurf_fb') returns an AIza-style Google API key", ()
   assert.match(v, /^A[I]za[A-Za-z0-9_-]{20,}$/);
 });
 
+test("resolvePublicCred('trae_id') returns Trae OAuth client ID format", () => {
+  const v = resolvePublicCred("trae_id");
+  assert.ok(v.length > 0);
+  assert.match(v, /^[a-z0-9]+$/);
+});
+
 test("encode/decode roundtrip is stable across arbitrary plaintexts", () => {
   for (const sample of [
     "hello world",

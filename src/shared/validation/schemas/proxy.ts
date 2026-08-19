@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isPrivateHost } from "@/shared/network/isPrivateHost";
 import {
   ACCOUNT_FALLBACK_STRATEGY_VALUES,
   ROUTING_STRATEGY_VALUES,
@@ -14,7 +15,6 @@ import {
 } from "@/shared/constants/upstreamHeaders";
 import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
 
-
 export const proxyConfigSchema = z
   .object({
     type: z
@@ -23,7 +23,14 @@ export const proxyConfigSchema = z
         z.enum(["http", "https", "socks5"])
       )
       .optional(),
-    host: z.string().trim().min(1).optional(),
+    host: z
+      .string()
+      .trim()
+      .min(1)
+      .refine((val) => !isPrivateHost(val), {
+        message: "Proxy host cannot be a private, loopback, or local address",
+      })
+      .optional(),
     port: z.coerce.number().int().min(1).max(65535).optional(),
     username: z.string().optional(),
     password: z.string().optional(),
@@ -39,6 +46,7 @@ export const updateProxyConfigSchema = z
     keys: z.record(z.string().trim().min(1), proxyConfigSchema.nullable()).optional(),
     level: z.enum(["global", "provider", "combo", "key"]).optional(),
     id: z.string().optional(),
+    bypassToken: z.string().trim().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -78,7 +86,13 @@ export const updateProxyConfigSchema = z
 export const testProxySchema = z.object({
   proxy: z.object({
     type: z.string().optional(),
-    host: z.string().trim().min(1, "proxy.host is required"),
+    host: z
+      .string()
+      .trim()
+      .min(1, "proxy.host is required")
+      .refine((val) => !isPrivateHost(val), {
+        message: "Proxy host cannot be a private, loopback, or local address",
+      }),
     port: z.union([z.string(), z.number()]),
     username: z.string().optional(),
     password: z.string().optional(),
@@ -111,7 +125,14 @@ export const proxyRegistryFieldsSchema = z
       )
       .optional()
       .default("http"),
-    host: z.string().trim().min(1, "host is required").max(255),
+    host: z
+      .string()
+      .trim()
+      .min(1, "host is required")
+      .max(255)
+      .refine((val) => !isPrivateHost(val), {
+        message: "Proxy host cannot be a private, loopback, or local address",
+      }),
     port: z.coerce.number().int().min(1).max(65535),
     username: z.string().optional(),
     password: z.string().optional(),
@@ -137,6 +158,7 @@ export const proxyRegistryFieldsSchema = z
 export const createProxyRegistrySchema = proxyRegistryFieldsSchema
   .extend({
     assignment: inlineProxyAssignmentSchema.optional(),
+    bypassToken: z.string().trim().optional(),
   })
   .strict();
 
@@ -145,6 +167,7 @@ export const updateProxyRegistrySchema = proxyRegistryFieldsSchema
   .extend({
     id: z.string().trim().min(1, "id is required"),
     assignment: inlineProxyAssignmentSchema.optional(),
+    bypassToken: z.string().trim().optional(),
   })
   .strict();
 
@@ -162,6 +185,7 @@ export const proxyAssignmentSchema = z
     scope: z.enum(["global", "provider", "account", "combo", "key"]),
     scopeId: z.string().trim().nullable().optional(),
     proxyId: z.string().trim().nullable().optional(),
+    bypassToken: z.string().trim().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -179,6 +203,7 @@ export const bulkProxyAssignmentSchema = z
     scope: z.enum(["global", "provider", "account", "combo", "key"]),
     scopeIds: z.array(z.string().trim().min(1)).optional().default([]),
     proxyId: z.string().trim().nullable().optional(),
+    bypassToken: z.string().trim().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -193,3 +218,11 @@ export const bulkProxyAssignmentSchema = z
       });
     }
   });
+
+export const createProxyBypassTokenSchema = z
+  .object({
+    confirmationPhrase: z.string().trim().min(1, "confirmationPhrase is required"),
+    confirmed: z.boolean(),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .strict();

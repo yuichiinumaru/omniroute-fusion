@@ -24,6 +24,12 @@ import {
   getAntigravityProjectFromCache,
   getAntigravityLoadCodeAssistUrls,
 } from "../../open-sse/services/antigravityProjectBootstrap.ts";
+import {
+  ANTIGRAVITY_BOOTSTRAP_BASE_URLS,
+  ANTIGRAVITY_DISCOVERY_BASE_URLS,
+  ANTIGRAVITY_RUNTIME_BASE_URLS,
+  getAntigravityFetchAvailableModelsUrls,
+} from "../../open-sse/config/antigravityUpstream.ts";
 
 // Reset the module-level memoization cache between tests.
 beforeEach(() => {
@@ -126,7 +132,7 @@ describe("ensureAntigravityProjectAssigned", () => {
     assert.equal(capturedAuth, "Bearer my-secret-token", "Authorization header must be set");
   });
 
-  test("uses CLI/SDK harness headers when requested", async () => {
+  test("uses CLI profile headers when requested", async () => {
     let capturedHeaders: Headers | null = null;
 
     const mockFetch = async (_url: string, init?: RequestInit): Promise<Response> => {
@@ -137,53 +143,67 @@ describe("ensureAntigravityProjectAssigned", () => {
       });
     };
 
-    await ensureAntigravityProjectAssigned("harness-token", mockFetch, "harness");
+    await ensureAntigravityProjectAssigned("cli-token", mockFetch, "cli");
 
     assert.match(
       capturedHeaders?.get("User-Agent") || "",
-      /^antigravity\/4\.2\.0 [^ ]+\/[^ ]+ google-api-nodejs-client\/10\.3\.0$/
+      /^antigravity\/[0-9\.]+ darwin\/arm64 google-api-nodejs-client\/10\.3\.0$/
     );
-    assert.equal(capturedHeaders?.get("X-Goog-Api-Client"), "gl-node/22.21.1");
+    assert.equal(capturedHeaders?.get("x-goog-api-client") || null, "gl-node/22.21.1");
     assert.equal(capturedHeaders?.get("Client-Metadata"), null);
   });
 
-  test("falls through to next URL when first loadCodeAssist returns 404", async () => {
+  test("loadCodeAssist is attempted against the bootstrap URL set and failures are non-fatal", async () => {
     const hitUrls: string[] = [];
 
     const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {
       hitUrls.push(url);
-      // Exact hostname match (not substring .includes) so the check can't be fooled by a
-      // look-alike host like daily-cloudcode-pa.googleapis.com.evil.com (CodeQL
-      // js/incomplete-url-substring-sanitization).
-      if (new URL(url).hostname === "daily-cloudcode-pa.googleapis.com") {
-        // First URL fails
-        return new Response("not found", { status: 404 });
-      }
-      // Second URL succeeds
-      return new Response(JSON.stringify({ cloudaicompanionProject: "proj-fallback" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      // Every bootstrap URL returns 404; ensureAntigravityProjectAssigned must resolve
+      // without throwing because bootstrap is best-effort.
+      return new Response("not found", { status: 404 });
     };
 
     const projectId = await ensureAntigravityProjectAssigned("fallback-token", mockFetch);
 
-    assert.ok(hitUrls.length >= 2, "should try at least two URLs on the first failure");
-    assert.equal(projectId, "proj-fallback", "should return the project from the successful URL");
+    assert.ok(hitUrls.length >= 1, "should try at least one bootstrap URL");
+    assert.equal(projectId, undefined, "should return undefined when all bootstrap URLs fail");
     assert.equal(
       getAntigravityProjectFromCache("fallback-token"),
-      "proj-fallback",
-      "should cache the project from the successful URL"
+      undefined,
+      "should not cache a failed bootstrap"
     );
   });
 
-  test("getAntigravityLoadCodeAssistUrls returns URLs matching ANTIGRAVITY_BASE_URLS", () => {
+  test("getAntigravityLoadCodeAssistUrls returns only bootstrap URLs", () => {
     const urls = getAntigravityLoadCodeAssistUrls();
+    assert.deepEqual(
+      urls,
+      ANTIGRAVITY_BOOTSTRAP_BASE_URLS.map((baseUrl) => `${baseUrl}/v1internal:loadCodeAssist`)
+    );
     assert.ok(urls.length >= 1, "must return at least one URL");
     for (const url of urls) {
       assert.ok(url.endsWith(":loadCodeAssist"), `URL must end with :loadCodeAssist, got: ${url}`);
       assert.ok(url.startsWith("https://"), `URL must be HTTPS, got: ${url}`);
+      assert.equal(url.includes("sandbox.googleapis.com"), false);
     }
+  });
+
+  test("keeps runtime, discovery, and bootstrap URL sets isolated", () => {
+    assert.equal(
+      ANTIGRAVITY_RUNTIME_BASE_URLS.includes("https://daily-cloudcode-pa.sandbox.googleapis.com"),
+      false
+    );
+    assert.equal(
+      ANTIGRAVITY_DISCOVERY_BASE_URLS.includes("https://daily-cloudcode-pa.sandbox.googleapis.com"),
+      true
+    );
+    assert.deepEqual([...ANTIGRAVITY_BOOTSTRAP_BASE_URLS], ["https://cloudcode-pa.googleapis.com"]);
+
+    const discoveryUrls = getAntigravityFetchAvailableModelsUrls();
+    assert.ok(discoveryUrls.some((url) => url.includes("sandbox.googleapis.com")));
+    assert.ok(
+      ANTIGRAVITY_RUNTIME_BASE_URLS.every((baseUrl) => !baseUrl.includes("sandbox.googleapis.com"))
+    );
   });
 });
 

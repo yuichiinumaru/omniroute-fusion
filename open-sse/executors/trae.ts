@@ -19,6 +19,8 @@
 import { BaseExecutor, mergeUpstreamExtraHeaders } from "./base.ts";
 import { PROVIDERS } from "../config/constants.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import { resolvePublicCred } from "../utils/publicCreds.ts";
+import { normalizeModelForSelectedProvider } from "../../src/shared/utils/providerModelId.ts";
 
 type JsonRecord = Record<string, unknown>;
 type ChatMessage = { role?: string; content?: unknown };
@@ -87,12 +89,22 @@ export class TraeExecutor extends BaseExecutor {
     strategy: "auto" | "manual";
     modelName: string;
   } {
-    const m = (model || "").trim().toLowerCase();
+    const raw = (model || "").trim();
+    // Task 0176: contextual normalization — replaces the per-provider regex
+    // strip `replace(/^(?:trae|tr)\//, "")`. Trae's upstream expects bare ids
+    // WITHOUT slashes, so opaque-slash passthrough is NOT accepted here:
+    // `allowOpaqueSlashModelId: false` surfaces any cross-provider prefix as
+    // foreign-provider-prefix so resolveMode can keep treating it conservatively.
+    const normalized = normalizeModelForSelectedProvider("trae", raw, {
+      allowOpaqueSlashModelId: false,
+    });
+    const clean = normalized.kind === "same-provider" ? normalized.bareModel : raw;
+    const m = clean.toLowerCase();
     if (m === "work" || m === "auto-work" || m === "solo-work") {
       return { mode: "work", strategy: "auto", modelName: "" };
     }
     const auto = !m || m === "auto";
-    return { mode: "code", strategy: auto ? "auto" : "manual", modelName: auto ? "" : model };
+    return { mode: "code", strategy: auto ? "auto" : "manual", modelName: auto ? "" : clean };
   }
 
   private commonParams(psd: JsonRecord, mode: "code" | "work", sessionId?: string): string {
@@ -438,7 +450,8 @@ export class TraeExecutor extends BaseExecutor {
     const refreshToken = credentials?.refreshToken as string | undefined;
     if (!refreshToken) return null;
     const host = ((psd.host as string) || "https://api-us-east.trae.ai").replace(/\/$/, "");
-    const clientId = (psd.clientId as string) || "en1oxy7wnw8j9n";
+    const clientId =
+      (psd.clientId as string) || resolvePublicCred("trae_id", "TRAE_OAUTH_CLIENT_ID");
     const url = `${host}/cloudide/api/v3/trae/oauth/ExchangeToken`;
     const body = { ClientID: clientId, RefreshToken: refreshToken, ClientSecret: "-", UserID: "" };
 

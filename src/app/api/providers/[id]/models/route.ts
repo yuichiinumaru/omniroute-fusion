@@ -187,6 +187,8 @@ const NAMED_OPENAI_STYLE_PROVIDERS = new Set([
   // DGrid is an OpenAI-compatible gateway whose default seed is the free auto-router;
   // the full model catalog is discovered live from https://api.dgrid.ai/v1/models.
   "dgrid",
+  // AIHubMix: OpenAI-compatible aggregator gateway with dynamic /models discovery
+  "aihubmix",
 ]);
 
 function isNamedOpenAIStyleProvider(provider: string): boolean {

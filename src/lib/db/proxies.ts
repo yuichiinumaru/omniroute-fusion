@@ -7,6 +7,10 @@ import { randomUUID } from "crypto";
 import { getDbInstance } from "./core";
 import { backupDbFile } from "./backup";
 import { decrypt } from "./encryption";
+import {
+  assertValidProxyHost,
+  type ValidateProxyHostOptions,
+} from "@/shared/network/proxyHostGuard";
 
 type JsonRecord = Record<string, unknown>;
 type ProxyScope = "global" | "provider" | "account" | "combo";
@@ -471,7 +475,12 @@ function getProxyRowByIdOrThrow(
   return proxy;
 }
 
-export async function createProxy(payload: ProxyPayload) {
+export async function createProxy(payload: ProxyPayload, options?: ValidateProxyHostOptions) {
+  if (!payload?.host) {
+    throw new Error("Proxy host is required");
+  }
+  await assertValidProxyHost(payload.host, options);
+
   const db = getDbInstance();
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -488,7 +497,10 @@ export async function createProxy(payload: ProxyPayload) {
  * If a proxy with the same host and port already exists, update it.
  * Otherwise, create a new one. Used by the bulk import feature.
  */
-export async function upsertProxy(payload: ProxyPayload): Promise<{
+export async function upsertProxy(
+  payload: ProxyPayload,
+  options?: ValidateProxyHostOptions
+): Promise<{
   proxy: ProxyRegistryRecord | null;
   action: "created" | "updated";
 }> {
@@ -501,15 +513,26 @@ export async function upsertProxy(payload: ProxyPayload): Promise<{
     .get(host, port) as { id?: string } | undefined;
 
   if (existing?.id) {
-    const updated = await updateProxy(existing.id, payload);
+    const updated = await updateProxy(existing.id, payload, options);
     return { proxy: updated, action: "updated" };
   }
 
-  const created = await createProxy(payload);
+  const created = await createProxy(payload, options);
   return { proxy: created, action: "created" };
 }
 
-export async function updateProxy(id: string, payload: Partial<ProxyPayload>) {
+export async function updateProxy(
+  id: string,
+  payload: Partial<ProxyPayload>,
+  options?: ValidateProxyHostOptions
+) {
+  if (payload.host !== undefined) {
+    if (!payload.host) {
+      throw new Error("Proxy host cannot be empty");
+    }
+    await assertValidProxyHost(payload.host, options);
+  }
+
   const db = getDbInstance();
   const existing = await getProxyById(id, { includeSecrets: true });
   if (!existing) return null;
@@ -523,8 +546,14 @@ export async function updateProxy(id: string, payload: Partial<ProxyPayload>) {
 
 export async function createProxyAndAssign(
   payload: ProxyPayload,
-  assignment: ProxyAssignmentPayload
+  assignment: ProxyAssignmentPayload,
+  options?: ValidateProxyHostOptions
 ): Promise<ProxyMutationResult> {
+  if (!payload?.host) {
+    throw new Error("Proxy host is required");
+  }
+  await assertValidProxyHost(payload.host, options);
+
   const db = getDbInstance();
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -558,8 +587,16 @@ export async function createProxyAndAssign(
 export async function updateProxyAndAssign(
   id: string,
   payload: Partial<ProxyPayload>,
-  assignment: ProxyAssignmentPayload
+  assignment: ProxyAssignmentPayload,
+  options?: ValidateProxyHostOptions
 ): Promise<ProxyMutationResult | null> {
+  if (payload.host !== undefined) {
+    if (!payload.host) {
+      throw new Error("Proxy host cannot be empty");
+    }
+    await assertValidProxyHost(payload.host, options);
+  }
+
   const db = getDbInstance();
   const now = new Date().toISOString();
 
@@ -874,10 +911,14 @@ export async function migrateLegacyProxyConfigToRegistry(options?: { force?: boo
   if (raw.global) {
     const payload = coerceProxyPayload(raw.global, "Legacy Global Proxy");
     if (payload) {
-      const created = await createProxy(payload);
-      if (created?.id) {
-        await assignProxyToScope("global", null, created.id);
-        migrated++;
+      try {
+        const created = await createProxy(payload);
+        if (created?.id) {
+          await assignProxyToScope("global", null, created.id);
+          migrated++;
+        }
+      } catch {
+        // Skip invalid/private legacy proxy
       }
     }
   }
@@ -885,30 +926,42 @@ export async function migrateLegacyProxyConfigToRegistry(options?: { force?: boo
   for (const [providerId, proxyValue] of Object.entries(raw.providers || {})) {
     const payload = coerceProxyPayload(proxyValue, `Legacy Provider Proxy (${providerId})`);
     if (!payload) continue;
-    const created = await createProxy(payload);
-    if (created?.id) {
-      await assignProxyToScope("provider", providerId, created.id);
-      migrated++;
+    try {
+      const created = await createProxy(payload);
+      if (created?.id) {
+        await assignProxyToScope("provider", providerId, created.id);
+        migrated++;
+      }
+    } catch {
+      // Skip invalid/private legacy proxy
     }
   }
 
   for (const [comboId, proxyValue] of Object.entries(raw.combos || {})) {
     const payload = coerceProxyPayload(proxyValue, `Legacy Combo Proxy (${comboId})`);
     if (!payload) continue;
-    const created = await createProxy(payload);
-    if (created?.id) {
-      await assignProxyToScope("combo", comboId, created.id);
-      migrated++;
+    try {
+      const created = await createProxy(payload);
+      if (created?.id) {
+        await assignProxyToScope("combo", comboId, created.id);
+        migrated++;
+      }
+    } catch {
+      // Skip invalid/private legacy proxy
     }
   }
 
   for (const [connectionId, proxyValue] of Object.entries(raw.keys || {})) {
     const payload = coerceProxyPayload(proxyValue, `Legacy Account Proxy (${connectionId})`);
     if (!payload) continue;
-    const created = await createProxy(payload);
-    if (created?.id) {
-      await assignProxyToScope("account", connectionId, created.id);
-      migrated++;
+    try {
+      const created = await createProxy(payload);
+      if (created?.id) {
+        await assignProxyToScope("account", connectionId, created.id);
+        migrated++;
+      }
+    } catch {
+      // Skip invalid/private legacy proxy
     }
   }
 

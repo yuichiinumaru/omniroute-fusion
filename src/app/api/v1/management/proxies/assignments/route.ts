@@ -4,6 +4,7 @@ import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
+import { assertProxyRedactionOrBypass } from "@/lib/proxyRedactionGate";
 
 function toPagination(searchParams: URLSearchParams) {
   const limit = Math.max(1, Math.min(200, Number(searchParams.get("limit") || 100)));
@@ -71,7 +72,10 @@ export async function PUT(request: Request) {
       });
     }
 
-    const { scope, scopeId, proxyId } = validation.data;
+    const { scope, scopeId, proxyId, bypassToken } = validation.data;
+    if (proxyId) {
+      assertProxyRedactionOrBypass({ bypassToken });
+    }
     const assignment = await assignProxyToScope(scope, scopeId || null, proxyId || null);
     clearDispatcherCache();
 

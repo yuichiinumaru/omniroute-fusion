@@ -24,7 +24,14 @@ import {
 } from "@/lib/providers/claudeExtraUsage";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { isApiKeyRevealEnabled, maskStoredApiKey } from "@/lib/apiKeyExposure";
-import { refreshConnectionRateLimits, enableRateLimitProtection } from "@/../open-sse/services/rateLimitManager";
+import {
+  refreshConnectionRateLimits,
+  enableRateLimitProtection,
+} from "@/../open-sse/services/rateLimitManager";
+import {
+  assertProxyRedactionOrBypass,
+  ProxyRedactionRequiredError,
+} from "@/lib/proxyRedactionGate";
 
 function normalizeCodexLimitPolicy(
   incoming: unknown,
@@ -189,6 +196,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
     if (projectId !== undefined) updateData.projectId = projectId;
     if (rateLimitOverrides !== undefined) updateData.rateLimitOverrides = rateLimitOverrides;
+    if (proxyEnabled === true || perKeyProxyEnabled === true) {
+      try {
+        assertProxyRedactionOrBypass({ bypassToken: body.bypassToken, actor: "provider-update" });
+      } catch (gateErr) {
+        if (gateErr instanceof ProxyRedactionRequiredError) {
+          return NextResponse.json(
+            {
+              error: {
+                code: gateErr.code,
+                message: gateErr.message,
+                type: gateErr.type,
+              },
+            },
+            { status: 409 }
+          );
+        }
+        throw gateErr;
+      }
+    }
     if (proxyEnabled !== undefined) updateData.proxyEnabled = proxyEnabled;
     if (perKeyProxyEnabled !== undefined) updateData.perKeyProxyEnabled = perKeyProxyEnabled;
 

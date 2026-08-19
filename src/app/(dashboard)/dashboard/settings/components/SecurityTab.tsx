@@ -21,6 +21,7 @@ export default function SecurityTab() {
   const [requireLoginError, setRequireLoginError] = useState("");
   const [requireLoginLoading, setRequireLoginLoading] = useState(false);
   const [newBannedKeyword, setNewBannedKeyword] = useState("");
+  const [qoderSecretInput, setQoderSecretInput] = useState("");
 
   const t = useTranslations("settings");
   const tc = useTranslations("common");
@@ -341,9 +342,7 @@ export default function SecurityTab() {
             </div>
             <Toggle
               checked={settings.oauthAutoOpen !== false}
-              onChange={() =>
-                updateSetting("oauthAutoOpen", !(settings.oauthAutoOpen !== false))
-              }
+              onChange={() => updateSetting("oauthAutoOpen", !(settings.oauthAutoOpen !== false))}
               disabled={loading}
             />
           </div>
@@ -411,6 +410,113 @@ export default function SecurityTab() {
             )}
           </div>
         </div>
+      </Card>
+
+      {/* Qoder Browser OAuth Configuration (Task 0170) */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                key
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">
+                {getSettingsLabel("qoderOAuthTitle", "Qoder Browser OAuth")}
+              </h3>
+              <p className="text-sm text-text-muted">
+                {getSettingsLabel(
+                  "qoderOAuthDesc",
+                  "Enable experimental Qoder browser OAuth and configure custom OAuth endpoints dynamically without editing .env files or restarting."
+                )}
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={settings.qoderOAuthEnabled === true}
+            onChange={() => updateSetting("qoderOAuthEnabled", !settings.qoderOAuthEnabled)}
+            disabled={loading}
+          />
+        </div>
+
+        {settings.qoderOAuthEnabled === true && (
+          <div className="flex flex-col gap-4 pt-4 border-t border-border/50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Authorize URL"
+                placeholder="https://api.qoder.com/oauth/authorize"
+                value={
+                  typeof settings.qoderOAuthAuthorizeUrl === "string"
+                    ? settings.qoderOAuthAuthorizeUrl
+                    : ""
+                }
+                onChange={(e) =>
+                  setSettings((prev: any) => ({ ...prev, qoderOAuthAuthorizeUrl: e.target.value }))
+                }
+                onBlur={(e) => updateSetting("qoderOAuthAuthorizeUrl", e.target.value.trim())}
+              />
+              <Input
+                label="Token URL"
+                placeholder="https://api.qoder.com/oauth/token"
+                value={
+                  typeof settings.qoderOAuthTokenUrl === "string" ? settings.qoderOAuthTokenUrl : ""
+                }
+                onChange={(e) =>
+                  setSettings((prev: any) => ({ ...prev, qoderOAuthTokenUrl: e.target.value }))
+                }
+                onBlur={(e) => updateSetting("qoderOAuthTokenUrl", e.target.value.trim())}
+              />
+              <Input
+                label="User Info URL"
+                placeholder="https://api.qoder.com/api/v1/user/info"
+                value={
+                  typeof settings.qoderOAuthUserInfoUrl === "string"
+                    ? settings.qoderOAuthUserInfoUrl
+                    : ""
+                }
+                onChange={(e) =>
+                  setSettings((prev: any) => ({ ...prev, qoderOAuthUserInfoUrl: e.target.value }))
+                }
+                onBlur={(e) => updateSetting("qoderOAuthUserInfoUrl", e.target.value.trim())}
+              />
+              <Input
+                label="Client ID"
+                placeholder="qoder-client"
+                value={
+                  typeof settings.qoderOAuthClientId === "string" ? settings.qoderOAuthClientId : ""
+                }
+                onChange={(e) =>
+                  setSettings((prev: any) => ({ ...prev, qoderOAuthClientId: e.target.value }))
+                }
+                onBlur={(e) => updateSetting("qoderOAuthClientId", e.target.value.trim())}
+              />
+            </div>
+            <div>
+              <Input
+                label="Client Secret"
+                type="password"
+                placeholder={
+                  settings.hasQoderOAuthClientSecret
+                    ? "•••••••• (secret configured)"
+                    : "Enter client secret (optional)"
+                }
+                value={typeof qoderSecretInput === "string" ? qoderSecretInput : ""}
+                onChange={(e) => setQoderSecretInput(e.target.value)}
+                onBlur={(e) => {
+                  if (e.target.value.trim()) {
+                    updateSetting("qoderOAuthClientSecret", e.target.value.trim());
+                    setQoderSecretInput("");
+                    setSettings((prev: any) => ({ ...prev, hasQoderOAuthClientSecret: true }));
+                  }
+                }}
+              />
+              <p className="text-xs text-text-muted mt-1">
+                Client secret is stored securely and never transmitted back to the browser.
+              </p>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Custom Banned Keywords */}

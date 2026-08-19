@@ -2,12 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  AG_DECOY_TOOLS,
   cloakAntigravityToolPayload,
   stripEnumDescriptions,
 } from "../../open-sse/config/toolCloaking.ts";
 
-test("cloakAntigravityToolPayload passes tool names through unchanged, preserves native tools and injects decoys", () => {
+test("cloakAntigravityToolPayload preserves client-declared tools without injecting synthetic decoys", () => {
   const payload = {
     request: {
       tools: [
@@ -41,15 +40,28 @@ test("cloakAntigravityToolPayload passes tool names through unchanged, preserves
 
   const result = cloakAntigravityToolPayload(payload);
   const declarations = (result.body.request.tools?.[0] as any)?.functionDeclarations || [];
-  const names = declarations.map((tool: { name: string }) => tool.name);
+  const names: string[] = declarations.map((tool: { name: string }) => tool.name);
 
-  assert.ok(names.includes("workspace_read"));
-  assert.ok(names.includes("run_command"));
-  assert.ok(names.includes("browser_subagent"));
-  assert.ok(names.includes("mcp_sequential_thinking_sequentialthinking"));
+  // Client-declared tools must be preserved with original names
+  assert.ok(names.includes("workspace_read"), "workspace_read must be preserved");
+  assert.ok(names.includes("run_command"), "run_command must be preserved");
+
+  // No synthetic decoy tools must be injected — only the two client-declared tools
+  assert.equal(declarations.length, 2, "only client-declared tools, no decoys");
+  assert.ok(
+    !names.includes("browser_subagent"),
+    "browser_subagent decoy must NOT be injected"
+  );
+  assert.ok(
+    !names.includes("mcp_sequential_thinking_sequentialthinking"),
+    "mcp_sequential_thinking decoy must NOT be injected"
+  );
+
   for (const name of names) {
     assert.match(name, /^[a-zA-Z0-9_]+$/);
   }
+
+  // Tool calls and responses in contents must be preserved verbatim
   assert.equal(
     result.body.request.contents[0].parts[0].functionCall.name,
     "workspace_read"
@@ -59,11 +71,6 @@ test("cloakAntigravityToolPayload passes tool names through unchanged, preserves
     "workspace_read"
   );
   assert.equal(result.toolNameMap, null);
-  assert.equal(
-    declarations.filter((tool: { name: string }) => tool.name === "browser_subagent").length,
-    1
-  );
-  assert.ok(AG_DECOY_TOOLS.length > 20);
 });
 
 test("cloakAntigravityToolPayload preserves pre-existing toolNameMap without adding cloaking entries", () => {
@@ -189,4 +196,73 @@ test("cloakAntigravityToolPayload strips enumDescriptions from declaration param
   const native = declarations.find((d: { name: string }) => d.name === "run_command");
   assert.ok(native, "native tool preserved");
   assert.equal("enumDescriptions" in native.parameters.properties.shell, false);
+});
+
+test("cloakAntigravityToolPayload preserves OpenCode/native tool call arguments and names (fork contract)", () => {
+  // This test proves the fork's deliberate tool-call preservation for OpenCode compatibility:
+  // functionCall names and arguments in contents must pass through verbatim.
+  const payload = {
+    request: {
+      tools: [
+        {
+          functionDeclarations: [
+            {
+              name: "mcp__filesystem__read_file",
+              description: "Read file contents",
+              parameters: {
+                type: "OBJECT",
+                properties: { path: { type: "STRING" } },
+                required: ["path"],
+              },
+            },
+          ],
+        },
+      ],
+      contents: [
+        {
+          role: "model",
+          parts: [
+            {
+              functionCall: {
+                name: "mcp__filesystem__read_file",
+                args: { path: "/home/user/app/src/index.ts" },
+              },
+            },
+          ],
+        },
+        {
+          role: "user",
+          parts: [
+            {
+              functionResponse: {
+                name: "mcp__filesystem__read_file",
+                response: { content: "export const main = () => {};" },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  const result = cloakAntigravityToolPayload(payload);
+  const declarations = (result.body.request.tools?.[0] as any)?.functionDeclarations || [];
+  const names: string[] = declarations.map((d: { name: string }) => d.name);
+
+  // Only the client-declared tool must be present — no decoys
+  assert.deepEqual(names, ["mcp__filesystem__read_file"]);
+
+  // functionCall name and args must be preserved verbatim
+  const fcPart = result.body.request.contents[0].parts[0];
+  assert.equal(fcPart.functionCall.name, "mcp__filesystem__read_file");
+  assert.deepEqual(fcPart.functionCall.args, { path: "/home/user/app/src/index.ts" });
+
+  // functionResponse name and response must be preserved verbatim
+  const frPart = result.body.request.contents[1].parts[0];
+  assert.equal(frPart.functionResponse.name, "mcp__filesystem__read_file");
+  assert.deepEqual(frPart.functionResponse.response, {
+    content: "export const main = () => {};",
+  });
+
+  assert.equal(result.toolNameMap, null);
 });

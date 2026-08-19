@@ -15,6 +15,7 @@
 import { request as undiciRequest } from "undici";
 import { createProxyDispatcher, proxyConfigToUrl } from "@omniroute/open-sse/utils/proxyDispatcher.ts";
 import { rotationGroupFor } from "@omniroute/open-sse/services/refreshSerializer.ts";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 
 const EGRESS_ECHO_URL = "https://api64.ipify.org?format=json";
 const EGRESS_PROBE_TIMEOUT_MS = 6000;
@@ -35,6 +36,10 @@ async function defaultEgressProbe(proxyUrl: string | null): Promise<EgressProbeR
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), EGRESS_PROBE_TIMEOUT_MS);
   try {
+    if (proxyUrl) {
+      const parsed = new URL(proxyUrl);
+      await assertValidProxyHost(parsed.hostname);
+    }
     const dispatcher = proxyUrl ? createProxyDispatcher(proxyUrl) : undefined;
     const res = await undiciRequest(EGRESS_ECHO_URL, {
       method: "GET",
@@ -223,8 +228,19 @@ export async function diagnoseAllEgressIps(deps?: {
       host?: string;
       port?: number | string;
     } | null;
-    const proxyUrl = proxyObj ? proxyConfigToUrl(proxyObj) : null;
-    const egress = await resolveEgressIp(proxyUrl);
+    let proxyUrl: string | null = null;
+    let egressError: string | undefined;
+    if (proxyObj?.host) {
+      try {
+        await assertValidProxyHost(proxyObj.host);
+        proxyUrl = proxyConfigToUrl(proxyObj);
+      } catch (err) {
+        egressError = err instanceof Error ? err.message : String(err);
+      }
+    }
+    const egress = proxyUrl
+      ? await resolveEgressIp(proxyUrl)
+      : { ip: null, latencyMs: 0, error: egressError };
     results.push({
       connectionId: c.id,
       provider: c.provider,
@@ -291,27 +307,42 @@ export async function validateProxyPool(deps?: {
   const report: ProxyValidationResult[] = [];
 
   for (const p of proxies) {
-    const url = proxyConfigToUrl({
-      type: p.type,
-      host: p.host,
-      port: p.port,
-      username: p.username ?? undefined,
-      password: p.password ?? undefined,
-    });
-    const probe = await resolveEgressIp(url, { force: true });
-    const alive = !!probe.ip && !probe.error;
-    const newStatus: "active" | "error" = alive ? "active" : "error";
-    await markStatus(p.id, newStatus, { latencyMs: probe.latencyMs, egressIp: probe.ip });
-    report.push({
-      proxyId: p.id,
-      host: p.host,
-      port: p.port,
-      alive,
-      egressIp: probe.ip,
-      latencyMs: probe.latencyMs,
-      previousStatus: p.status ?? null,
-      newStatus,
-    });
+    try {
+      await assertValidProxyHost(p.host);
+      const url = proxyConfigToUrl({
+        type: p.type,
+        host: p.host,
+        port: p.port,
+        username: p.username ?? undefined,
+        password: p.password ?? undefined,
+      });
+      const probe = await resolveEgressIp(url, { force: true });
+      const alive = !!probe.ip && !probe.error;
+      const newStatus: "active" | "error" = alive ? "active" : "error";
+      await markStatus(p.id, newStatus, { latencyMs: probe.latencyMs, egressIp: probe.ip });
+      report.push({
+        proxyId: p.id,
+        host: p.host,
+        port: p.port,
+        alive,
+        egressIp: probe.ip,
+        latencyMs: probe.latencyMs,
+        previousStatus: p.status ?? null,
+        newStatus,
+      });
+    } catch {
+      await markStatus(p.id, "error", { latencyMs: 0, egressIp: null });
+      report.push({
+        proxyId: p.id,
+        host: p.host,
+        port: p.port,
+        alive: false,
+        egressIp: null,
+        latencyMs: 0,
+        previousStatus: p.status ?? null,
+        newStatus: "error",
+      });
+    }
   }
 
   return report;

@@ -63,9 +63,9 @@ export function isAntigravityEnterpriseAccount(
 }
 
 export function getAntigravityEnvelopeUserAgent(
-  credentials?: AntigravityCredentialsLike | null
-): "antigravity" | "jetski" {
-  return isAntigravityEnterpriseAccount(credentials) ? "jetski" : "antigravity";
+  _credentials?: AntigravityCredentialsLike | null
+): "antigravity" {
+  return "antigravity";
 }
 
 export function generateAntigravityRequestId(): string {

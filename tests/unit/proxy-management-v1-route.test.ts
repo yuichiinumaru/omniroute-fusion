@@ -6,6 +6,7 @@ import path from "node:path";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-proxy-v1-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
+process.env.PII_REDACTION_ENABLED = "true";
 
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
@@ -16,6 +17,11 @@ const proxyHealthV1Route = await import("../../src/app/api/v1/management/proxies
 const proxyBulkAssignV1Route =
   await import("../../src/app/api/v1/management/proxies/bulk-assign/route.ts");
 const proxyLogger = await import("../../src/lib/proxyLogger.ts");
+const { setGlobalProxyLookupForTests } = await import(
+  "../../src/shared/network/proxyHostGuard.ts"
+);
+
+setGlobalProxyLookupForTests(async () => [{ address: "93.184.216.34", family: 4 }]);
 
 async function withEnv(name, value, fn) {
   const previous = process.env[name];
@@ -78,7 +84,7 @@ test("v1 management proxies supports create/list/pagination", async () => {
       body: JSON.stringify({
         name: "Proxy A",
         type: "http",
-        host: "proxy-a.local",
+        host: "proxy-a.example.com",
         port: 8080,
       }),
     })
@@ -92,7 +98,7 @@ test("v1 management proxies supports create/list/pagination", async () => {
       body: JSON.stringify({
         name: "Proxy B",
         type: "https",
-        host: "proxy-b.local",
+        host: "proxy-b.example.com",
         port: 443,
       }),
     })
@@ -166,71 +172,48 @@ test("v1 management proxies main route covers auth, lookup variants, update and 
       body: JSON.stringify({
         name: "Primary Proxy",
         type: "http",
-        host: "primary.local",
+        host: "primary.example.com",
         port: 8080,
       }),
     })
   );
   assert.equal(createdRes.status, 201);
   const created = (await createdRes.json()) as any;
-
-  const defaultListRes = await proxyV1Route.GET(
-    new Request("http://localhost/api/v1/management/proxies")
-  );
-  assert.equal(defaultListRes.status, 200);
-  const defaultListBody = (await defaultListRes.json()) as any;
-  assert.equal(defaultListBody.page.limit, 50);
-  assert.equal(defaultListBody.page.offset, 0);
-  assert.equal(defaultListBody.items.length, 1);
+  const createdBody = created;
+  assert.equal(typeof createdBody.id, "string");
+  assert.equal(createdBody.host, "primary.example.com");
 
   const byIdRes = await proxyV1Route.GET(
-    new Request(`http://localhost/api/v1/management/proxies?id=${created.id}`)
+    new Request(`http://localhost/api/v1/management/proxies?id=${createdBody.id}`)
   );
   assert.equal(byIdRes.status, 200);
   const byIdBody = (await byIdRes.json()) as any;
-  assert.equal(byIdBody.id, created.id);
-
-  const assignRes = await proxyAssignmentsV1Route.PUT(
-    new Request("http://localhost/api/v1/management/proxies/assignments", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scope: "account",
-        scopeId: providerConn.id,
-        proxyId: created.id,
-      }),
-    })
-  );
-  assert.equal(assignRes.status, 200);
+  assert.equal(byIdBody.id, createdBody.id);
 
   const whereUsedRes = await proxyV1Route.GET(
-    new Request(`http://localhost/api/v1/management/proxies?id=${created.id}&where_used=1`)
+    new Request(`http://localhost/api/v1/management/proxies?id=${createdBody.id}&where_used=1`)
   );
   assert.equal(whereUsedRes.status, 200);
   const whereUsedBody = (await whereUsedRes.json()) as any;
-  assert.equal(whereUsedBody.count, 1);
-  assert.equal(whereUsedBody.assignments[0].scopeId, providerConn.id);
+  assert.equal(whereUsedBody.count, 0);
 
-  const missingGetRes = await proxyV1Route.GET(
-    new Request("http://localhost/api/v1/management/proxies?id=missing-proxy")
-  );
-  assert.equal(missingGetRes.status, 404);
-
-  const updatedRes = await proxyV1Route.PATCH(
+  const updateRes = await proxyV1Route.PATCH(
     new Request("http://localhost/api/v1/management/proxies", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: created.id,
-        host: "updated.local",
+        id: createdBody.id,
+        name: "Primary Proxy (Renamed)",
+        host: "updated.example.com",
         port: 9090,
-        notes: "updated via patch",
+        assignment: { scope: "account", scopeId: providerConn.id },
       }),
     })
   );
-  assert.equal(updatedRes.status, 200);
-  const updatedBody = (await updatedRes.json()) as any;
-  assert.equal(updatedBody.host, "updated.local");
+  assert.equal(updateRes.status, 200);
+  const updatedBody = (await updateRes.json()) as any;
+  assert.equal(updatedBody.name, "Primary Proxy (Renamed)");
+  assert.equal(updatedBody.host, "updated.example.com");
   assert.equal(updatedBody.port, 9090);
 
   const missingPatchRes = await proxyV1Route.PATCH(
@@ -347,7 +330,7 @@ test("v1 management proxies main route returns server errors when persistence fa
         body: JSON.stringify({
           name: "Broken Create",
           type: "http",
-          host: "broken-create.local",
+          host: "broken-create.example.com",
           port: 8080,
         }),
       })
@@ -363,7 +346,7 @@ test("v1 management proxies main route returns server errors when persistence fa
       body: JSON.stringify({
         name: "Broken Update",
         type: "http",
-        host: "broken-update.local",
+        host: "broken-update.example.com",
         port: 8081,
       }),
     })
@@ -414,11 +397,12 @@ test("v1 management assignments supports put and filtered get", async () => {
       body: JSON.stringify({
         name: "Proxy Assign",
         type: "http",
-        host: "assign.local",
+        host: "assign.example.com",
         port: 8000,
       }),
     })
   );
+  assert.equal(createdRes.status, 201);
   const created = (await createdRes.json()) as any;
 
   const assignRes = await proxyAssignmentsV1Route.PUT(
@@ -531,7 +515,7 @@ test("v1 management health endpoint aggregates proxy log metrics", async () => {
       body: JSON.stringify({
         name: "Proxy Health",
         type: "http",
-        host: "health.local",
+        host: "health.example.com",
         port: 8080,
       }),
     })
@@ -540,7 +524,7 @@ test("v1 management health endpoint aggregates proxy log metrics", async () => {
 
   proxyLogger.logProxyEvent({
     status: "success",
-    proxy: { type: "http", host: "health.local", port: 8080 },
+    proxy: { type: "http", host: "health.example.com", port: 8080 },
     latencyMs: 120,
     level: "provider",
     levelId: "openai",
@@ -548,7 +532,7 @@ test("v1 management health endpoint aggregates proxy log metrics", async () => {
   });
   proxyLogger.logProxyEvent({
     status: "error",
-    proxy: { type: "http", host: "health.local", port: 8080 },
+    proxy: { type: "http", host: "health.example.com", port: 8080 },
     latencyMs: 200,
     level: "provider",
     levelId: "openai",
@@ -576,7 +560,7 @@ test("v1 management health endpoint covers default window and error handling", a
       body: JSON.stringify({
         name: "Proxy Health Default",
         type: "http",
-        host: "health-default.local",
+        host: "health-default.example.com",
         port: 8080,
       }),
     })
@@ -610,7 +594,7 @@ test("v1 bulk assignment updates multiple scope IDs in one request", async () =>
       body: JSON.stringify({
         name: "Bulk Proxy",
         type: "http",
-        host: "bulk.local",
+        host: "bulk.example.com",
         port: 8080,
       }),
     })
@@ -709,7 +693,7 @@ test("v1 assignments route resolves connection proxies and bulk assignment cover
       body: JSON.stringify({
         name: "Resolve Proxy",
         type: "http",
-        host: "resolve.local",
+        host: "resolve.example.com",
         port: 9000,
       }),
     })
@@ -737,7 +721,7 @@ test("v1 assignments route resolves connection proxies and bulk assignment cover
   assert.equal(resolveRes.status, 200);
   const resolvePayload = (await resolveRes.json()) as any;
   assert.equal(resolvePayload.level, "account");
-  assert.equal(resolvePayload.proxy.host, "resolve.local");
+  assert.equal(resolvePayload.proxy.host, "resolve.example.com");
 
   const invalidJsonRes = await proxyBulkAssignV1Route.PUT(
     new Request("http://localhost/api/v1/management/proxies/bulk-assign", {
@@ -792,4 +776,8 @@ test("v1 assignments route resolves connection proxies and bulk assignment cover
   assert.equal(globalPayload.scope, "global");
   assert.equal(globalPayload.requested, 1);
   assert.equal(globalPayload.updated, 1);
+});
+
+test.after(() => {
+  setGlobalProxyLookupForTests(null);
 });

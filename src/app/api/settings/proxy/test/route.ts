@@ -13,6 +13,7 @@ import { getProxyById } from "@/lib/localDb";
 import { extractRelayAuth } from "@/lib/db/proxies";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 
 const BASE_SUPPORTED_PROXY_TYPES = new Set(["http", "https"]);
 
@@ -82,6 +83,16 @@ export async function POST(request: Request) {
         };
         dbProxyNotes = dbProxy.notes ?? null;
       }
+    }
+
+    try {
+      await assertValidProxyHost(proxy.host);
+    } catch (hostError) {
+      return createErrorResponse({
+        status: 400,
+        message: hostError instanceof Error ? hostError.message : "Invalid proxy host",
+        type: "invalid_request",
+      });
     }
 
     const proxyType = String(proxy.type || "http").toLowerCase();

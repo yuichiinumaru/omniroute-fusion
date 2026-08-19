@@ -15,8 +15,15 @@ import {
   GROK_BUILD_TOKEN_URL,
 } from "../config/grokBuild.ts";
 import { sanitizeErrorMessage } from "../utils/errorSanitizer.ts";
+import { sanitizeErrorMessageForResponse, createErrorResult } from "../utils/error.ts";
+import { isModelDenylisted } from "../../src/shared/utils/providerModelId.ts";
 import { resolvePublicCred } from "../utils/publicCreds.ts";
-import { BaseExecutor, type ExecutorLog, type ProviderCredentials } from "./base.ts";
+import {
+  BaseExecutor,
+  type ExecuteInput,
+  type ExecutorLog,
+  type ProviderCredentials,
+} from "./base.ts";
 
 const GROK_BUILD_MAX_TOOLS = 200;
 const GROK_BUILD_SUPPORTED_REASONING_EFFORTS = new Set(["low", "medium", "high"]);
@@ -209,7 +216,7 @@ function normalizeGrokBuildReasoning(
   }
   if (model === "grok-composer-2.5-fast") {
     delete reasoning.effort;
-  } else if (model === "grok-4.5" && !hasExplicitEffort) {
+  } else if (!hasExplicitEffort) {
     reasoning.effort = GROK_BUILD_DEFAULT_REASONING_EFFORT;
   }
   return Object.keys(reasoning).length > 0 ? reasoning : null;
@@ -280,6 +287,62 @@ async function refreshGrokBuildCredentialsOnce(
 export class GrokCliExecutor extends BaseExecutor {
   constructor() {
     super("grok-cli", PROVIDERS["grok-cli"]);
+  }
+
+  async execute(input: ExecuteInput) {
+    const requestedModel = input.model || "grok-composer-2.5-fast";
+    // Task 0160 re-evaluation + Task 0176: "passthrough pleno + denylist
+    // explícita". The static registry list is catalog info (passthroughModels:
+    // true), so unknown ids are left for the UPSTREAM to classify. Only the
+    // sourced denylist (legacy grok-build shorthand) is rejected here.
+    if (isModelDenylisted("grok-cli", requestedModel)) {
+      return createErrorResult(
+        400,
+        `Unknown model '${requestedModel}' for provider 'grok-cli' (denylisted).`,
+        null,
+        "unknown_model",
+        "invalid_request_error"
+      );
+    }
+
+    const result = await super.execute({ ...input, model: requestedModel });
+    if (result.response.ok) return result;
+
+    const rawBody = await result.response.clone().text().catch(() => "");
+    let parsed: Record<string, unknown> = {};
+    try {
+      const value = JSON.parse(rawBody);
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        parsed = value as Record<string, unknown>;
+      }
+    } catch {
+      // Preserve only a bounded, sanitized status message below.
+    }
+
+    const upstreamError =
+      parsed.error && typeof parsed.error === "object" && !Array.isArray(parsed.error)
+        ? (parsed.error as Record<string, unknown>)
+        : {};
+    const upstreamMessage =
+      typeof upstreamError.message === "string"
+        ? upstreamError.message
+        : typeof parsed.error === "string"
+          ? parsed.error
+          : rawBody || `HTTP ${result.response.status}`;
+    const safeMessage = sanitizeErrorMessageForResponse(upstreamMessage);
+    const contextualMessage = `grok-cli/${requestedModel}: ${safeMessage}`;
+    const errorCode =
+      typeof upstreamError.code === "string" ? upstreamError.code : "upstream_error";
+    const errorType =
+      typeof upstreamError.type === "string" ? upstreamError.type : "upstream_error";
+
+    return createErrorResult(
+      result.response.status,
+      contextualMessage,
+      null,
+      errorCode,
+      errorType
+    );
   }
 
   buildUrl(
@@ -364,9 +427,8 @@ export class GrokCliExecutor extends BaseExecutor {
   ) {
     const base = super.transformRequest(model, body, stream, _credentials);
     const transformed = asRequestRecord(base);
-    if (!transformed.model) {
-      transformed.model = model || "grok-composer-2.5-fast";
-    }
+    const effectiveModel = (transformed.model as string) || model || "grok-composer-2.5-fast";
+    transformed.model = effectiveModel;
     transformed.stream = !!stream;
 
     // Grok Build applies these Responses defaults before every request.
@@ -376,7 +438,7 @@ export class GrokCliExecutor extends BaseExecutor {
     // OpenAI-compatible clients may carry fields the Grok Responses endpoint rejects.
     stripUnsupportedGrokBuildParams(transformed);
 
-    const reasoning = normalizeGrokBuildReasoning(transformed.reasoning, model);
+    const reasoning = normalizeGrokBuildReasoning(transformed.reasoning, effectiveModel);
     if (reasoning) {
       transformed.reasoning = reasoning;
     } else {

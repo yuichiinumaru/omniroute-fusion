@@ -111,6 +111,13 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins:ro
       - ${AUTO_UPDATE_HOST_REPO_DIR:-.}:/workspace/omniroute:rw
+      # Task 0161: optional host Grok auth store. The image does not bundle the
+      # proprietary/host-managed `grok` binary; inject it separately or the API
+      # returns a sanitized missing-binary outcome. Never mount raw credentials
+      # outside this explicit path.
+      - ${GROK_AUTH_HOST_DIR:-~/.grok}:/host-home/.grok:rw
+    environment:
+      - GROK_AUTH_PATH=${GROK_AUTH_PATH:-/host-home/.grok/auth.json}
     profiles:
       - cli
 

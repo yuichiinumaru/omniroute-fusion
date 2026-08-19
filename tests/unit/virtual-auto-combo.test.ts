@@ -233,3 +233,87 @@ test("createVirtualAutoCombo keeps credential-required providers out when discon
     "OpenAI should still require a real active connection"
   );
 });
+
+// ── OpenCode Free vs OpenCode Zen virtual auto-combo candidate isolation ──
+
+test("resolveVirtualCandidate handles bare and prefixed models without double prefix", () => {
+  const { resolveVirtualCandidate } = virtualFactory;
+
+  // Matching provider prefix: stripped to bare model
+  const matching = resolveVirtualCandidate("opencode-zen", "opencode-zen/gpt-5-nano");
+  assert.deepEqual(matching, {
+    provider: "opencode-zen",
+    model: "gpt-5-nano",
+    modelStr: "opencode-zen/gpt-5-nano",
+  });
+
+  // Bare model: kept bare
+  const bare = resolveVirtualCandidate("opencode-zen", "gpt-5-nano");
+  assert.deepEqual(bare, {
+    provider: "opencode-zen",
+    model: "gpt-5-nano",
+    modelStr: "opencode-zen/gpt-5-nano",
+  });
+
+  // Mismatched prefix (OpenCode Free oc/ alias on Zen connection): fail-closed / skipped
+  const mismatchedOc = resolveVirtualCandidate("opencode-zen", "oc/hy3-free");
+  assert.equal(
+    mismatchedOc,
+    null,
+    "resolveVirtualCandidate must return null for oc/ Free model on opencode-zen connection"
+  );
+
+  // Mismatched prefix (OpenCode Free opencode/ prefix on Zen connection): fail-closed / skipped
+  const mismatchedOpencode = resolveVirtualCandidate("opencode-zen", "opencode/hy3-free");
+  assert.equal(
+    mismatchedOpencode,
+    null,
+    "resolveVirtualCandidate must return null for opencode/ Free model on opencode-zen connection"
+  );
+
+  // OpenCode Free connection with oc/ alias: canonicalized to Free
+  const freeWithAlias = resolveVirtualCandidate("opencode", "oc/hy3-free");
+  assert.deepEqual(freeWithAlias, {
+    provider: "opencode",
+    model: "hy3-free",
+    modelStr: "opencode/hy3-free",
+  });
+});
+
+test("createVirtualAutoCombo skips mismatched Zen connection with oc/ model, preventing double prefix", async () => {
+  // Create an opencode-zen connection whose defaultModel was mistakenly set to an oc/ Free model
+  await providersDb.createProviderConnection({
+    provider: "opencode-zen",
+    authType: "apikey",
+    name: "OpenCode Zen Misconfigured",
+    apiKey: "sk-zen-test",
+    defaultModel: "oc/hy3-free",
+  });
+
+  const combo: VirtualComboResult = await virtualFactory.createVirtualAutoCombo("fast");
+
+  // Assert no candidate has the malformed double-prefixed modelStr
+  const badModel = combo.models.find(
+    (m) =>
+      m.model === "opencode-zen/oc/hy3-free" ||
+      m.model === "opencode-zen/opencode/hy3-free"
+  );
+  assert.equal(
+    badModel,
+    undefined,
+    "virtual auto combo must NEVER emit opencode-zen/oc/hy3-free"
+  );
+
+  // Safe fail-closed behavior: no Zen candidate is emitted for this mismatched connection
+  const zenCandidates = combo.models.filter((m) => m.providerId === "opencode-zen");
+  assert.equal(
+    zenCandidates.length,
+    0,
+    "Mismatched Zen connection with oc/ model must be skipped from Zen candidate pool"
+  );
+
+  // OpenCode Free noauth candidate remains independently present and well-formed
+  const freeCandidate = combo.models.find((m) => m.providerId === "opencode");
+  assert.ok(freeCandidate, "OpenCode Free candidate remains available via noauth");
+  assert.equal(freeCandidate.model.includes("opencode-zen"), false);
+});

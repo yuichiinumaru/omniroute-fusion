@@ -317,13 +317,17 @@ export function createErrorResult(
 // The downstream sanitizeErrorMessage() handles stack-trace/absolute-path tokens;
 // this is purely the secret-shaped layer the task review demanded.
 const TOKEN_SHAPE_REDACT_PATTERNS: readonly RegExp[] = [
-  /\bAKIA[0-9A-Z]{4,}\b/gi, // AWS access key id + AWS-style demo secrets like "AKIA-DEMO-SECRET"
-  /\bsk-[A-Za-z0-9_-]{8,}\b/g, // OpenAI / Anthropic-style secret key prefix (relaxed to catch sk-XYZ123)
+  /\bAKIA[0-9A-Z_.-]{4,}\b/gi, // AWS access key id + AWS-style demo secrets like "AKIA-DEMO-SECRET" / "akia_secret_1234"
+  /\bakia[0-9a-z_.-]{4,}\b/gi,
+  /\bauth_[A-Za-z0-9_.-]{4,}\b/gi, // auth_... tokens
+  /\bcf_[A-Za-z0-9_.-]{4,}\b/gi, // cf_... tokens
+  /\beyJ[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]{4,})*\b/g, // JWT tokens (eyJ...)
+  /\bsk-[A-Za-z0-9_-]{4,}\b/g, // OpenAI / Anthropic-style secret key prefix (relaxed to catch sk-XYZ123)
   /\bghp_[A-Za-z0-9]{8,}\b/gi, // GitHub personal access token
   /\bxox[baprs]-[A-Za-z0-9-]{8,}\b/gi, // Slack tokens
-  // Demo-style SECRET / TOKEN / PASSWORD / API_KEY trailing 4+ chars (relaxed
-  // from 8+ to also catch short demo tokens like "AKIA-DEMO-SECRET").
-  /\b(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY)[_:\-\s=]+[A-Za-z0-9_.\-]{4,}\b/gi,
+  /\b(?:cb-auth-token|cb_auth_token)[A-Za-z0-9_.-]*\b/gi,
+  // Demo-style SECRET / TOKEN / PASSWORD / API_KEY trailing 4+ chars
+  /\b(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|AUTH[_-]?TOKEN)[_:\-\s=]+[A-Za-z0-9_.\-]{4,}\b/gi,
   // Uppercase-with-hyphen phrases (≥3 segments of ≥3 chars each) — catches
   // "AKIA-DEMO-SECRET" / "DEMO-LEAK-CODE" / "VENDOR-PRODUCT-KEY" patterns that
   // downstream providers and demo environments commonly emit.
@@ -331,8 +335,8 @@ const TOKEN_SHAPE_REDACT_PATTERNS: readonly RegExp[] = [
   /\b[A-Fa-f0-9]{32,}\b/g, // long hex strings (≥32 chars) — captures raw sha/sha256 hashes
   // Authorization-header fragment emitted by hostile / leaked upstream error
   // bodies (e.g. "Bearer eyJ…", "Basic dXNlcjpwYXNz", "Token abc123def456").
-  // Match the scheme + ≥8 char value; redacts the value, leaves the literal.
-  /\b(?:Bearer|Basic|Token)\s+[A-Za-z0-9._\-+/=]{8,}\b/g,
+  // Match the scheme + ≥4 char value; redacts the value, leaves the literal.
+  /\b(?:Bearer|Basic|Token)\s+[A-Za-z0-9._\-+/=]{4,}\b/gi,
   // Session cookie fragments carried in upstream error bodies
   // ("session=abcd1234", "sid=…; Path=/"). Stop at ; or end of string.
   /\b(?:session|sid|cookie|auth)=[A-Za-z0-9._\-]{4,}/gi,

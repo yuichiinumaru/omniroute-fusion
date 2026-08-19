@@ -1,6 +1,7 @@
 import { BaseGuardrail, type GuardrailContext, type GuardrailResult } from "./base";
 import { processPII } from "@/shared/utils/inputSanitizer";
 import { sanitizePII, sanitizePIIResponse } from "@/lib/piiSanitizer";
+import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 
 type PiiDetection = {
   count: number;
@@ -10,9 +11,7 @@ type PiiDetection = {
 type JsonRecord = Record<string, unknown>;
 
 function isRequestPiiMaskingEnabled() {
-  return (
-    process.env.PII_REDACTION_ENABLED === "true" && process.env.INPUT_SANITIZER_MODE === "redact"
-  );
+  return isFeatureFlagEnabled("PII_REDACTION_ENABLED");
 }
 
 function sanitizeStringValue(text: string) {

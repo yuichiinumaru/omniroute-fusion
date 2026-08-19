@@ -84,6 +84,7 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "poe",
   "chutes",
   "hackclub",
+  "aihubmix",
 ]);
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([

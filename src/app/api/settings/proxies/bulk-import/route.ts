@@ -3,6 +3,7 @@ import { bulkImportProxiesSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 
 export async function POST(request: Request) {
   const authError = await requireManagementAuth(request);
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
 
     for (const item of items) {
       try {
+        await assertValidProxyHost(item.host);
         const result = await upsertProxy(item);
         if (result.proxy) {
           if (result.action === "created") created++;

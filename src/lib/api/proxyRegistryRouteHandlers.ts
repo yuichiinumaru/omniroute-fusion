@@ -11,6 +11,8 @@ import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/e
 import { createProxyRegistrySchema, updateProxyRegistrySchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { clearDispatcherCache } from "@omniroute/open-sse/utils/proxyDispatcher";
+import { assertProxyRedactionOrBypass } from "@/lib/proxyRedactionGate";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 
 async function readJsonBody(request: Request) {
   try {
@@ -65,8 +67,19 @@ export async function handleProxyCreate(request: Request) {
       });
     }
 
-    const { assignment, ...proxyFields } = validation.data;
+    const { assignment, bypassToken, ...proxyFields } = validation.data;
+    try {
+      await assertValidProxyHost(proxyFields.host);
+    } catch (hostError) {
+      return createErrorResponse({
+        status: 400,
+        message: hostError instanceof Error ? hostError.message : "Invalid proxy host",
+        type: "invalid_request",
+      });
+    }
+
     if (assignment) {
+      assertProxyRedactionOrBypass({ bypassToken });
       const result = await createProxyAndAssign(proxyFields, assignment);
       clearDispatcherCache();
       return Response.json({ ...result.proxy, assignment: result.assignment }, { status: 201 });
@@ -94,8 +107,21 @@ export async function handleProxyUpdate(request: Request) {
       });
     }
 
-    const { id, assignment, ...changes } = validation.data;
+    const { id, assignment, bypassToken, ...changes } = validation.data;
+    if (changes.host) {
+      try {
+        await assertValidProxyHost(changes.host);
+      } catch (hostError) {
+        return createErrorResponse({
+          status: 400,
+          message: hostError instanceof Error ? hostError.message : "Invalid proxy host",
+          type: "invalid_request",
+        });
+      }
+    }
+
     if (assignment) {
+      assertProxyRedactionOrBypass({ bypassToken });
       const result = await updateProxyAndAssign(id, changes, assignment);
       if (!result?.proxy) {
         return createErrorResponse({ status: 404, message: "Proxy not found", type: "not_found" });

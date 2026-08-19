@@ -4,6 +4,8 @@ import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/e
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { freeProxyBulkAddSchema } from "@/shared/validation/freeProxySchemas";
 import { getFreeProxyById, promoteFreeProxyToPool } from "@/lib/localDb";
+import { isPrivateHost } from "@/shared/network/isPrivateHost";
+import { validateProxyHost } from "@/shared/network/proxyHostGuard";
 import {
   createProxyDispatcher,
   proxyConfigToUrl,
@@ -94,6 +96,16 @@ export async function POST(request: Request) {
           id,
           success: true,
           poolProxyId: freeProxy.poolProxyId ?? undefined,
+        });
+        continue;
+      }
+
+      const hostValidation = await validateProxyHost(freeProxy.host);
+      if (!hostValidation.ok) {
+        results.push({
+          id,
+          success: false,
+          error: "Private or loopback proxy host cannot be added to pool",
         });
         continue;
       }

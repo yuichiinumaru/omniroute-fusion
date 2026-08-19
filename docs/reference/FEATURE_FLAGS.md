@@ -46,20 +46,21 @@ A boolean flag is considered **enabled** when its effective value is `"true"`,
 
 ## Flag Catalog
 
-38 flags across 6 categories. **Default** is the definition default — the value
+39 flags across 6 categories. **Default** is the definition default — the value
 used when neither a DB override nor an environment variable is present.
 
-### Security (7)
+### Security (8)
 
-| Key                              | Type    | Default  | Description                                                                   |
-| -------------------------------- | ------- | -------- | ----------------------------------------------------------------------------- |
-| `REQUIRE_API_KEY`                | boolean | `false`  | Require an API key for all incoming requests.                                 |
-| `INPUT_SANITIZER_ENABLED`        | boolean | `true`   | Enable input sanitization for all requests.                                   |
-| `INJECTION_GUARD_MODE`           | enum    | `off`    | Prompt injection guard mode. Values: `off`, `warn`, `block`, `redact`.        |
-| `PII_REDACTION_ENABLED`          | boolean | `false`  | Redact personally identifiable information from requests.                     |
-| `PII_RESPONSE_SANITIZATION`      | boolean | `false`  | Sanitize PII from provider responses.                                         |
-| `PII_RESPONSE_SANITIZATION_MODE` | enum    | `redact` | Mode for PII response sanitization. Values: `redact`, `warn`, `block`, `off`. |
-| `OUTBOUND_SSRF_GUARD_ENABLED`    | boolean | `true`   | Block outbound requests to private/internal IP ranges.                        |
+| Key                              | Type    | Default  | Description                                                                     |
+| -------------------------------- | ------- | -------- | ------------------------------------------------------------------------------- |
+| `QODER_OAUTH_ENABLED`            | boolean | `false`  | Enable experimental Qoder browser OAuth dynamically without editing .env files. |
+| `REQUIRE_API_KEY`                | boolean | `false`  | Require an API key for all incoming requests.                                   |
+| `INPUT_SANITIZER_ENABLED`        | boolean | `true`   | Enable input sanitization for all requests.                                     |
+| `INJECTION_GUARD_MODE`           | enum    | `off`    | Prompt injection guard mode. Values: `off`, `warn`, `block`, `redact`.          |
+| `PII_REDACTION_ENABLED`          | boolean | `false`  | Redact personally identifiable information from requests.                       |
+| `PII_RESPONSE_SANITIZATION`      | boolean | `false`  | Sanitize PII from provider responses.                                           |
+| `PII_RESPONSE_SANITIZATION_MODE` | enum    | `redact` | Mode for PII response sanitization. Values: `redact`, `warn`, `block`, `off`.   |
+| `OUTBOUND_SSRF_GUARD_ENABLED`    | boolean | `true`   | Block outbound requests to private/internal IP ranges.                          |
 
 ### Network (8)
 

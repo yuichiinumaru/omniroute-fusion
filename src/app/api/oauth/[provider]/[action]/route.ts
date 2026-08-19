@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
+import { z } from "zod";
 import {
   getProvider,
   generateAuthData,
@@ -55,6 +56,7 @@ const NO_PKCE_DEVICE_CODE_PROVIDERS = new Set([
   "kilocode",
   "codebuddy-cn",
   "grok-cli",
+  "freebuff",
 ]);
 
 /**
@@ -76,6 +78,12 @@ const RETIRED_PKCE_PROVIDERS = new Set(["windsurf", "devin-cli"]);
 
 /** Providers that allow direct import of a raw API token (no OAuth exchange). */
 const IMPORT_TOKEN_PROVIDERS = new Set(["windsurf", "devin-cli", "grok-cli"]);
+
+const startCliLoginSchema = z.object({}).strict();
+const captureCliAuthSchema = z.object({
+  captureSessionId: z.string().regex(/^[a-f0-9]{64}$/, "Invalid capture session").max(64),
+}).strict();
+const cancelCliAuthSchema = captureCliAuthSchema;
 
 /**
  * Constant-time string comparison to prevent timing-oracle attacks (CWE-208).
@@ -442,6 +450,94 @@ export async function POST(
         return NextResponse.json({ error: validation.error }, { status: 400 });
       }
       body = validation.data;
+    } else if (action === "start-cli-login") {
+      const validation = validateBody(startCliLoginSchema, rawBody || {});
+      if (isValidationFailure(validation)) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
+      body = validation.data;
+    } else if (action === "capture-cli-auth" || action === "cancel-cli-auth") {
+      const validation = validateBody(action === "capture-cli-auth" ? captureCliAuthSchema : cancelCliAuthSchema, rawBody);
+      if (isValidationFailure(validation)) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
+      body = validation.data;
+    }
+
+    if (action === "start-cli-login") {
+      if (provider === "grok-cli") {
+        const { startLocalGrokLogin } = await import("@/lib/oauth/grokCliLocalCapture");
+        const result = await startLocalGrokLogin({ signal: request.signal });
+        return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+      }
+      if (provider === "cursor") {
+        const { startLocalCursorLogin } = await import("@/lib/oauth/cursorCliLocalCapture");
+        const result = await startLocalCursorLogin({ signal: request.signal });
+        return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+      }
+      return NextResponse.json({ error: `Not supported for provider: ${provider}` }, { status: 400 });
+    }
+
+    if (action === "capture-cli-auth") {
+      if (provider === "grok-cli") {
+        const { confirmAndCaptureGrokLogin } = await import("@/lib/oauth/grokCliLocalCapture");
+        const result = await confirmAndCaptureGrokLogin({ captureSessionId: body.captureSessionId });
+        if (!result.ok) {
+           return NextResponse.json({ error: result.safeMessage, status: result.status }, { status: 400 });
+        }
+
+        await syncToCloudIfEnabled();
+
+        return NextResponse.json({
+          success: true,
+          connectionId: result.connectionId,
+          name: result.identity?.email || "Grok CLI (captured)",
+          email: result.identity?.email || null,
+          connection: {
+            id: result.connectionId,
+            provider: "grok-cli",
+            email: result.identity?.email || null,
+            displayName: result.identity?.email || "Grok CLI (captured)",
+          },
+        });
+      }
+      if (provider === "cursor") {
+        const { confirmAndCaptureCursorLogin } = await import("@/lib/oauth/cursorCliLocalCapture");
+        const result = await confirmAndCaptureCursorLogin({ captureSessionId: body.captureSessionId });
+        if (!result.ok) {
+           return NextResponse.json({ error: result.safeMessage, status: result.status }, { status: 400 });
+        }
+
+        await syncToCloudIfEnabled();
+
+        return NextResponse.json({
+          success: true,
+          connectionId: result.connectionId,
+          name: result.identity?.email || "Cursor (CLI captured)",
+          email: result.identity?.email || null,
+          connection: {
+            id: result.connectionId,
+            provider: "cursor",
+            email: result.identity?.email || null,
+            displayName: result.identity?.email || "Cursor (CLI captured)",
+          },
+        });
+      }
+      return NextResponse.json({ error: `Not supported for provider: ${provider}` }, { status: 400 });
+    }
+
+    if (action === "cancel-cli-auth") {
+      if (provider === "grok-cli") {
+        const { cancelCapture } = await import("@/lib/oauth/grokCliLocalCapture");
+        const result = cancelCapture(body.captureSessionId);
+        return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+      }
+      if (provider === "cursor") {
+        const { cancelCursorCapture } = await import("@/lib/oauth/cursorCliLocalCapture");
+        const result = cancelCursorCapture(body.captureSessionId);
+        return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+      }
+      return NextResponse.json({ error: `Not supported for provider: ${provider}` }, { status: 400 });
     }
 
     if (action === "exchange") {

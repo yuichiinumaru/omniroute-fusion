@@ -7,6 +7,7 @@ import path from "node:path";
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-proxy-registry-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = "test-secret";
+process.env.PII_REDACTION_ENABLED = "true";
 
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
@@ -35,7 +36,7 @@ test("proxy registry blocks delete when proxy is still assigned", async () => {
   const created = await proxiesDb.createProxy({
     name: "Delete Safety Proxy",
     type: "http",
-    host: "127.0.0.1",
+    host: "198.51.100.1",
     port: 8080,
   });
 
@@ -61,7 +62,7 @@ test("createProxyAndAssign rolls back the registry row when assignment fails", a
         {
           name: "Rollback Proxy",
           type: "http",
-          host: "rollback.local",
+          host: "198.51.100.2",
           port: 8080,
         },
         { scope: "provider", scopeId: null }
@@ -81,7 +82,7 @@ test("createProxyAndAssign assigns and clears matching legacy proxy atomically",
 
   await settingsDb.setProxyForLevel("provider", "openai", {
     type: "http",
-    host: "legacy-openai.local",
+    host: "198.51.100.3",
     port: 8080,
   });
 
@@ -89,7 +90,7 @@ test("createProxyAndAssign assigns and clears matching legacy proxy atomically",
     {
       name: "Atomic Provider Proxy",
       type: "https",
-      host: "atomic-openai.local",
+      host: "198.51.100.4",
       port: 443,
       source: "dashboard-custom",
     },
@@ -109,7 +110,7 @@ test("updateProxyAndAssign clears stored credentials when blanks are explicitly 
   const created = await proxiesDb.createProxy({
     name: "Atomic Credential Proxy",
     type: "http",
-    host: "atomic-credentials.local",
+    host: "198.51.100.5",
     port: 8080,
     username: "user-a",
     password: "pass-a",
@@ -144,20 +145,20 @@ test("specific registry account assignment takes precedence over legacy key prox
 
   await settingsDb.setProxyForLevel("key", (conn as any).id, {
     type: "http",
-    host: "legacy-key.local",
+    host: "198.51.100.6",
     port: 8080,
   });
 
   const providerProxy = await proxiesDb.createProxy({
     name: "Provider Proxy",
     type: "https",
-    host: "provider.local",
+    host: "198.51.100.7",
     port: 443,
   });
   const accountProxy = await proxiesDb.createProxy({
     name: "Account Proxy",
     type: "http",
-    host: "account.local",
+    host: "198.51.100.8",
     port: 8081,
   });
 
@@ -167,7 +168,7 @@ test("specific registry account assignment takes precedence over legacy key prox
   const resolved = await settingsDb.resolveProxyForConnection((conn as any).id);
   assert.equal((resolved as any).level, "account");
   assert.equal((resolved as any).source, "registry");
-  assert.equal((resolved as any).proxy.host, "account.local");
+  assert.equal((resolved as any).proxy.host, "198.51.100.8");
 });
 
 test("legacy proxy config migration imports global/provider/key assignments", async () => {
@@ -182,17 +183,17 @@ test("legacy proxy config migration imports global/provider/key assignments", as
 
   await settingsDb.setProxyForLevel("global", null, {
     type: "http",
-    host: "global.local",
+    host: "198.51.100.9",
     port: 8080,
   });
   await settingsDb.setProxyForLevel("provider", "openai", {
     type: "https",
-    host: "provider-legacy.local",
+    host: "198.51.100.10",
     port: 443,
   });
   await settingsDb.setProxyForLevel("key", (conn as any).id, {
     type: "http",
-    host: "account-legacy.local",
+    host: "198.51.100.11",
     port: 8082,
   });
 
@@ -203,7 +204,7 @@ test("legacy proxy config migration imports global/provider/key assignments", as
   const resolved = await settingsDb.resolveProxyForConnection((conn as any).id);
   assert.equal((resolved as any).level, "account");
   assert.equal((resolved as any).source, "registry");
-  assert.equal((resolved as any).proxy.host, "account-legacy.local");
+  assert.equal((resolved as any).proxy.host, "198.51.100.11");
 });
 
 // #2456: resolveProxyForProvider (used by the OAuth token exchange + token refresh,
@@ -216,14 +217,14 @@ test("resolveProxyForProvider falls back to the legacy provider proxy config (#2
 
   await settingsDb.setProxyForLevel("provider", "claude", {
     type: "http",
-    host: "legacy-claude-proxy.local",
+    host: "198.51.100.12",
     port: 3128,
   });
 
   // No proxy_registry assignment exists for "claude" — only the legacy config.
   const resolved = await proxiesDb.resolveProxyForProvider("claude");
   assert.ok(resolved, "expected the legacy provider proxy to be resolved");
-  assert.equal((resolved as any).host, "legacy-claude-proxy.local");
+  assert.equal((resolved as any).host, "198.51.100.12");
   assert.equal((resolved as any).type, "http");
 });
 
@@ -232,13 +233,13 @@ test("resolveProxyForProvider falls back to the legacy global proxy when no prov
 
   await settingsDb.setProxyForLevel("global", null, {
     type: "socks5",
-    host: "legacy-global.local",
+    host: "198.51.100.13",
     port: 1080,
   });
 
   const resolved = await proxiesDb.resolveProxyForProvider("anthropic");
   assert.ok(resolved, "expected the legacy global proxy to be resolved");
-  assert.equal((resolved as any).host, "legacy-global.local");
+  assert.equal((resolved as any).host, "198.51.100.13");
 });
 
 test("resolveProxyForProvider still prefers a registry assignment over legacy config (#2456)", async () => {
@@ -246,21 +247,21 @@ test("resolveProxyForProvider still prefers a registry assignment over legacy co
 
   await settingsDb.setProxyForLevel("provider", "openai", {
     type: "http",
-    host: "legacy-openai.local",
+    host: "198.51.100.14",
     port: 8080,
   });
 
   const registryProxy = await proxiesDb.createProxy({
     name: "Registry OpenAI",
     type: "https",
-    host: "registry-openai.local",
+    host: "198.51.100.15",
     port: 443,
   });
   await proxiesDb.assignProxyToScope("provider", "openai", registryProxy.id);
 
   const resolved = await proxiesDb.resolveProxyForProvider("openai");
   assert.ok(resolved);
-  assert.equal((resolved as any).host, "registry-openai.local", "registry assignment must win");
+  assert.equal((resolved as any).host, "198.51.100.15", "registry assignment must win");
 });
 
 test("resolveProxyForProvider prefers legacy provider proxy over registry global fallback (#2601)", async () => {
@@ -268,14 +269,14 @@ test("resolveProxyForProvider prefers legacy provider proxy over registry global
 
   await settingsDb.setProxyForLevel("provider", "claude", {
     type: "http",
-    host: "legacy-claude-provider.local",
+    host: "198.51.100.16",
     port: 3128,
   });
 
   const globalProxy = await proxiesDb.createProxy({
     name: "Registry Global",
     type: "https",
-    host: "registry-global.local",
+    host: "198.51.100.17",
     port: 443,
   });
   await proxiesDb.assignProxyToScope("global", null, globalProxy.id);
@@ -284,7 +285,7 @@ test("resolveProxyForProvider prefers legacy provider proxy over registry global
   assert.ok(resolved);
   assert.equal(
     (resolved as any).host,
-    "legacy-claude-provider.local",
+    "198.51.100.16",
     "provider-specific custom proxy must beat global registry fallback"
   );
 });
@@ -308,7 +309,7 @@ test("resolveProxyForConnection uses apiKey proxy before account-level proxy", a
   const accountProxy = await proxiesDb.createProxy({
     name: "Account Proxy",
     type: "http",
-    host: "account.local",
+    host: "198.51.100.18",
     port: 8081,
   });
   await proxiesDb.assignProxyToScope("account", (conn as any).id, accountProxy.id);
@@ -326,7 +327,7 @@ test("resolveProxyForConnection uses apiKey proxy before account-level proxy", a
   const apiKeyProxy = await proxiesDb.createProxy({
     name: "API Key Proxy",
     type: "https",
-    host: "apikey.local",
+    host: "198.51.100.19",
     port: 8443,
   });
   await apiKeysDb.updateApiKeyPermissions(key.id, { proxyId: apiKeyProxy.id });
@@ -334,7 +335,7 @@ test("resolveProxyForConnection uses apiKey proxy before account-level proxy", a
   const resolved = await settingsDb.resolveProxyForConnection((conn as any).id, key.id);
   assert.ok(resolved);
   assert.equal((resolved as any).level, "apiKey");
-  assert.equal((resolved as any).proxy.host, "apikey.local");
+  assert.equal((resolved as any).proxy.host, "198.51.100.19");
   assert.equal((resolved as any).proxy.port, 8443);
 });
 
@@ -351,7 +352,7 @@ test("resolveProxyForConnection falls through when apiKey has no proxy_id", asyn
   const accountProxy = await proxiesDb.createProxy({
     name: "Account Proxy",
     type: "http",
-    host: "account-fallthrough.local",
+    host: "198.51.100.20",
     port: 8081,
   });
   await proxiesDb.assignProxyToScope("account", (conn as any).id, accountProxy.id);
@@ -361,7 +362,7 @@ test("resolveProxyForConnection falls through when apiKey has no proxy_id", asyn
   const resolved = await settingsDb.resolveProxyForConnection((conn as any).id, key.id);
   assert.ok(resolved);
   assert.equal((resolved as any).level, "account");
-  assert.equal((resolved as any).proxy.host, "account-fallthrough.local");
+  assert.equal((resolved as any).proxy.host, "198.51.100.20");
 });
 
 test("connection proxy toggle gates account assignments and invalidates cached resolutions", async () => {
@@ -383,7 +384,7 @@ test("connection proxy toggle gates account assignments and invalidates cached r
   const poolProxy = await proxiesDb.createProxy({
     name: "Pool Proxy",
     type: "http",
-    host: "pool-proxy.local",
+    host: "198.51.100.21",
     port: 8080,
   });
   await proxiesDb.assignProxyToScope("account", (proxiedConnection as any).id, poolProxy.id);
@@ -394,7 +395,7 @@ test("connection proxy toggle gates account assignments and invalidates cached r
 
   const proxiedResolved = await settingsDb.resolveProxyForConnection((proxiedConnection as any).id);
   assert.equal(proxiedResolved.level, "account");
-  assert.equal((proxiedResolved.proxy as any).host, "pool-proxy.local");
+  assert.equal((proxiedResolved.proxy as any).host, "198.51.100.21");
 
   const disabled = await providersDb.updateProviderConnection((proxiedConnection as any).id, {
     proxyEnabled: false,
@@ -414,7 +415,7 @@ test("connection proxy toggle gates account assignments and invalidates cached r
 
   const enabledResolved = await settingsDb.resolveProxyForConnection((proxiedConnection as any).id);
   assert.equal(enabledResolved.level, "account");
-  assert.equal((enabledResolved.proxy as any).host, "pool-proxy.local");
+  assert.equal((enabledResolved.proxy as any).host, "198.51.100.21");
 });
 
 // #2996: Per-connection proxy 'direct' bypass. A connection with proxyEnabled:false
@@ -429,7 +430,7 @@ test("per-connection proxy 'direct' bypass overrides a configured GLOBAL proxy (
   const globalProxy = await proxiesDb.createProxy({
     name: "Global Bypass Proxy",
     type: "http",
-    host: "global-bypass.local",
+    host: "198.51.100.22",
     port: 8080,
   });
   await proxiesDb.assignProxyToScope("global", null, globalProxy.id);
@@ -449,7 +450,7 @@ test("per-connection proxy 'direct' bypass overrides a configured GLOBAL proxy (
   const globalResolved = await settingsDb.resolveProxyForConnection((connection as any).id);
   assert.equal(globalResolved.level, "global");
   assert.ok(globalResolved.proxy, "expected the global proxy to be resolved before bypass");
-  assert.equal((globalResolved.proxy as any).host, "global-bypass.local");
+  assert.equal((globalResolved.proxy as any).host, "198.51.100.22");
 
   // Per-connection Proxy Off must override the configured GLOBAL proxy → direct.
   const disabled = await providersDb.updateProviderConnection((connection as any).id, {
@@ -469,7 +470,7 @@ test("per-connection proxy 'direct' bypass overrides a configured GLOBAL proxy (
 
   const enabledResolved = await settingsDb.resolveProxyForConnection((connection as any).id);
   assert.equal(enabledResolved.level, "global");
-  assert.equal((enabledResolved.proxy as any).host, "global-bypass.local");
+  assert.equal((enabledResolved.proxy as any).host, "198.51.100.22");
 });
 
 test("provider connection proxy toggle fields round-trip as booleans", async () => {
@@ -525,7 +526,7 @@ test("createProxy persists type:vercel and source:vercel-relay to DB (schema gap
   const created = await proxiesDb.createProxy({
     name: "Vercel Relay DB Test",
     type: "vercel",
-    host: "omniroute-relay-xyz.vercel.app",
+    host: "203.0.113.1",
     port: 443,
     source: "vercel-relay",
     notes: JSON.stringify({ relayAuth: "my-token" }),
@@ -573,7 +574,7 @@ test("createProxy persists the IP family and reads it back (#3777)", async () =>
   const created = await proxiesDb.createProxy({
     name: "Family RoundTrip",
     type: "socks5",
-    host: "v6.example.com",
+    host: "2001:db8::1",
     port: 1080,
     family: "ipv6",
   });
@@ -586,7 +587,7 @@ test("createProxy persists the IP family and reads it back (#3777)", async () =>
   const legacy = await proxiesDb.createProxy({
     name: "Family Default",
     type: "http",
-    host: "dual.example.com",
+    host: "198.51.100.23",
     port: 8080,
   });
   assert.equal(legacy?.family, "auto");

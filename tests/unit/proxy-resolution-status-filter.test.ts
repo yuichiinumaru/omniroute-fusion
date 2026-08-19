@@ -38,7 +38,7 @@ test("resolution SKIPS an account proxy marked inactive", async () => {
   const proxy = await proxiesDb.createProxy({
     name: "Dead Account Proxy",
     type: "http",
-    host: "127.0.0.1",
+    host: "198.51.100.1",
     port: 9991,
   });
   await proxiesDb.updateProxy(proxy!.id, { status: "inactive" });
@@ -53,14 +53,14 @@ test("resolution STILL returns an active account proxy", async () => {
   const proxy = await proxiesDb.createProxy({
     name: "Live Account Proxy",
     type: "http",
-    host: "127.0.0.1",
+    host: "198.51.100.2",
     port: 8081,
   });
   await proxiesDb.assignProxyToScope("account", "conn-live", proxy!.id);
 
   const resolved = await proxiesDb.resolveProxyForConnectionFromRegistry("conn-live");
   assert.ok(resolved, "active proxy must resolve");
-  assert.equal((resolved as any).proxy.host, "127.0.0.1");
+  assert.equal((resolved as any).proxy.host, "198.51.100.2");
   assert.equal((resolved as any).level, "account");
 });
 
@@ -69,7 +69,7 @@ test("scope resolver skips a dead provider proxy (status=error)", async () => {
   const provProxy = await proxiesDb.createProxy({
     name: "Dead Provider Proxy",
     type: "http",
-    host: "10.0.0.1",
+    host: "198.51.100.3",
     port: 9992,
   });
   await proxiesDb.updateProxy(provProxy!.id, { status: "error" });
@@ -84,12 +84,12 @@ test("scope resolver still returns a live global proxy", async () => {
   const globalProxy = await proxiesDb.createProxy({
     name: "Live Global Proxy",
     type: "http",
-    host: "10.0.0.2",
+    host: "198.51.100.4",
     port: 8082,
   });
   await proxiesDb.assignProxyToScope("global", null, globalProxy!.id);
 
   const resolved = await proxiesDb.resolveProxyForScopeFromRegistry("global");
   assert.ok(resolved, "live global proxy must resolve");
-  assert.equal((resolved as any).proxy.host, "10.0.0.2");
+  assert.equal((resolved as any).proxy.host, "198.51.100.4");
 });

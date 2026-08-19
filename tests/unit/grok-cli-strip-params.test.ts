@@ -20,7 +20,7 @@ const UNSUPPORTED = [
 test("#5273 grok-cli transformRequest strips unsupported camelCase and snake_case sampling params", () => {
   const executor = new GrokCliExecutor();
   const body = {
-    model: "grok-build",
+    model: "grok-4.5",
     messages: [{ role: "user", content: "hi" }],
     tools: [
       {
@@ -40,7 +40,7 @@ test("#5273 grok-cli transformRequest strips unsupported camelCase and snake_cas
     reasoning_effort: "high",
   };
 
-  const out = executor.transformRequest("grok-build", body, false, {} as never) as Record<
+  const out = executor.transformRequest("grok-4.5", body, false, {} as never) as Record<
     string,
     unknown
   >;
@@ -59,7 +59,7 @@ test("#5273 grok-cli transformRequest strips unsupported camelCase and snake_cas
       function: { name: "get_weather", description: "Get weather" },
     },
   ]);
-  assert.equal(out.model, "grok-build");
+  assert.equal(out.model, "grok-4.5");
   assert.equal(out.stream, false);
 });
 
@@ -75,4 +75,43 @@ test("#5273 grok-cli transformRequest leaves a clean body unchanged (no false st
   assert.equal(out.temperature, 1);
   assert.equal(out.model, "grok-composer-2.5-fast");
   assert.equal(out.stream, true);
+});
+
+// The obsolete `grok-build` shorthand is not registered in the grok-cli provider.
+// This negative test documents the local boundary: the executor does not invent
+// a model ID, and an unregistered Grok Build model must be flagged before it
+// reaches the mocked upstream.
+test("#5273 grok-cli transformRequest with unregistered grok-build model ID is an explicit negative case", async () => {
+  const executor = new GrokCliExecutor();
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("unregistered grok-build must not reach fetch");
+  };
+
+  try {
+    const result = await executor.execute({
+      model: "grok-build",
+      body: {
+        model: "grok-build",
+        messages: [{ role: "user", content: "hi" }],
+        temperature: 0.7,
+        presencePenalty: 0.5,
+      },
+      stream: false,
+      credentials: { accessToken: "sk-probe-access-token" } as never,
+      log: { debug() {}, info() {}, warn() {}, error() {} } as never,
+    });
+
+    assert.equal(fetchCalls, 0, "local unknown grok-cli model must not dispatch");
+    assert.equal(result.response.status, 400);
+    const json = (await result.response.json()) as { error?: { message?: string; code?: string } };
+    assert.equal(json.error?.code, "unknown_model");
+    assert.match(String(json.error?.message || ""), /grok-cli/);
+    assert.match(String(json.error?.message || ""), /grok-build/);
+    assert.equal(/oauth/i.test(String(json.error?.message || "")), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

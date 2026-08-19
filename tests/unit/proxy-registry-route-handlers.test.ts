@@ -44,7 +44,7 @@ test("resolveProxyLookupResponse returns the proxy when id matches", async () =>
   const created = await proxiesDb.createProxy({
     name: "Lookup Proxy",
     type: "http",
-    host: "127.0.0.1",
+    host: "198.51.100.1",
     port: 8080,
   });
   assert.ok(created?.id);
@@ -75,7 +75,7 @@ test("resolveProxyLookupResponse honors the caller's whereUsed param name (where
   const created = await proxiesDb.createProxy({
     name: "Usage Proxy",
     type: "http",
-    host: "127.0.0.1",
+    host: "198.51.100.2",
     port: 9090,
   });
   assert.ok(created?.id);

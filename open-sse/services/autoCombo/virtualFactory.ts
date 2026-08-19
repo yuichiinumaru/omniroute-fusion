@@ -10,6 +10,8 @@ import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
 import { hasUsableWebSessionCredential } from "@/shared/providers/webSessionCredentials";
 import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
 import { getTokenLimit } from "../contextManager";
+import { resolveProviderAlias } from "../model.ts";
+import { normalizeModelForSelectedProvider } from "@/shared/utils/providerModelId";
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import {
   buildAutoCandidateFilter,
@@ -223,6 +225,41 @@ export function computeAdvertisedLimits(candidates: Array<{ provider: string; mo
   return { contextLength, maxOutputTokens };
 }
 
+/**
+ * Resolves a connection's provider and configured model into a canonical candidate.
+ * Prevents blind string concatenation (e.g. `${conn.provider}/${conn.defaultModel}`)
+ * from generating double prefixes or cross-namespace strings like "opencode-zen/oc/north-mini-code-free".
+ *
+ * If the configured model has an explicit provider prefix that differs from the
+ * connection's canonical provider (e.g. an opencode-zen connection with an `oc/` or `opencode/`
+ * Free model), this function returns null (fail-closed/skip), ensuring invalid cross-namespace
+ * candidates are not introduced into the candidate pool.
+ */
+export function resolveVirtualCandidate(
+  connProvider: string,
+  rawModelId: string
+): { provider: string; model: string; modelStr: string } | null {
+  const canonicalConnProvider = resolveProviderAlias(connProvider) || connProvider;
+  const normalized = normalizeModelForSelectedProvider(canonicalConnProvider, rawModelId, {
+    allowOpaqueSlashModelId: false,
+  });
+
+  if (normalized.kind === "foreign-provider-prefix") {
+    log.warn(
+      "AUTO",
+      `Skipping candidate for connection '${connProvider}' with mismatched model '${rawModelId}' (canonical provider '${normalized.provider}' != connection provider '${canonicalConnProvider}')`
+    );
+    return null;
+  }
+
+  const model = normalized.kind === "same-provider" ? normalized.bareModel : normalized.modelId;
+  return {
+    provider: canonicalConnProvider,
+    model,
+    modelStr: `${canonicalConnProvider}/${model}`,
+  };
+}
+
 export async function createVirtualAutoCombo(
   variant: AutoVariant | undefined,
   spec?: AutoComboSpec
@@ -243,22 +280,25 @@ export async function createVirtualAutoCombo(
     const providerInfo = getProviderRegistry()[conn.provider];
     if (!providerInfo) continue; // Skip unknown providers
 
-    let modelId: string | undefined = conn.defaultModel;
-    if (!modelId) {
+    let rawModelId: string | undefined = conn.defaultModel;
+    if (!rawModelId) {
       const firstModel = providerInfo.models[0];
-      modelId = firstModel?.id;
+      rawModelId = firstModel?.id;
     }
-    if (!modelId) continue; // Skip providers without a model
+    if (!rawModelId) continue; // Skip providers without a model
+
+    const resolved = resolveVirtualCandidate(conn.provider, rawModelId);
+    if (!resolved) continue;
 
     // Skip models that the user has hidden in the dashboard
     const hiddenModels = hiddenModelsMap.get(conn.provider);
-    if (hiddenModels?.has(modelId)) continue;
+    if (hiddenModels?.has(resolved.model) || hiddenModels?.has(rawModelId)) continue;
 
     candidatePool.push({
-      provider: conn.provider,
+      provider: resolved.provider,
       connectionId: conn.id,
-      model: modelId,
-      modelStr: `${conn.provider}/${modelId}`,
+      model: resolved.model,
+      modelStr: resolved.modelStr,
       costPer1MTokens: 0, // Not used in virtual auto-combo (LKGP uses session stickiness)
     });
   }

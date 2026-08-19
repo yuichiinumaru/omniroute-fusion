@@ -67,7 +67,7 @@ test("add-to-pool returns 404 for non-existent free proxy", async () => {
 test("add-to-pool returns alreadyInPool:true when proxy is already in pool", async () => {
   const { id } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
-    host: "10.0.0.1",
+    host: "198.51.100.1",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -87,10 +87,36 @@ test("add-to-pool returns alreadyInPool:true when proxy is already in pool", asy
   assert.equal(body.poolProxyId, "existing-pool-id");
 });
 
-test("add-to-pool returns success:false when connectivity test fails (unreachable proxy)", async () => {
+test("add-to-pool returns 400 when free proxy host is private/loopback", async () => {
   const { id } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
     host: "127.0.0.1",
+    port: 8080,
+    type: "http",
+    countryCode: null,
+    qualityScore: null,
+    latencyMs: null,
+    anonymity: null,
+    lastValidated: null,
+  });
+
+  const res = await addToPoolRoute.POST(makeReq(), {
+    params: Promise.resolve({ id }),
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.type, "invalid_request");
+});
+
+test("add-to-pool returns success:false when connectivity test fails (unreachable proxy)", async () => {
+  addToPoolRoute._setConnectivityTesterForTests(async () => ({
+    success: false,
+    latencyMs: 10,
+  }));
+
+  const { id } = await freeProxiesDb.upsertFreeProxy({
+    source: "1proxy",
+    host: "198.51.100.99",
     port: 1,
     type: "http",
     countryCode: null,
@@ -141,7 +167,7 @@ test("bulk-add-to-pool returns 400 for invalid JSON body", async () => {
 test("bulk-add-to-pool: alreadyInPool proxies counted as succeeded", async () => {
   const { id: id1 } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
-    host: "10.0.0.1",
+    host: "198.51.100.1",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -152,7 +178,7 @@ test("bulk-add-to-pool: alreadyInPool proxies counted as succeeded", async () =>
   });
   const { id: id2 } = await freeProxiesDb.upsertFreeProxy({
     source: "proxifly",
-    host: "10.0.0.2",
+    host: "198.51.100.2",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -183,11 +209,33 @@ test("bulk-add-to-pool: not-found ids counted as failed", async () => {
   );
 });
 
+test("bulk-add-to-pool: rejects private/loopback free proxies", async () => {
+  const { id } = await freeProxiesDb.upsertFreeProxy({
+    source: "1proxy",
+    host: "10.0.0.1",
+    port: 8080,
+    type: "http",
+    countryCode: null,
+    qualityScore: null,
+    latencyMs: null,
+    anonymity: null,
+    lastValidated: null,
+  });
+
+  const res = await bulkAddRoute.POST(makeBulkReq([id]));
+  const body = await res.json();
+  assert.equal(body.succeeded, 0);
+  assert.equal(body.failed, 1);
+  assert.equal(body.results[0].error, "Private or loopback proxy host cannot be added to pool");
+});
+
 test("bulk-add-to-pool: response shape with mix of already-in-pool and connectivity failures", async () => {
+  bulkAddRoute._setQuickTesterForTests(async () => ({ ok: false, latencyMs: 5 }));
+
   // 2 already in pool (succeed)
   const { id: p1 } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
-    host: "10.1.0.1",
+    host: "198.51.100.11",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -198,7 +246,7 @@ test("bulk-add-to-pool: response shape with mix of already-in-pool and connectiv
   });
   const { id: p2 } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
-    host: "10.1.0.2",
+    host: "198.51.100.12",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -215,7 +263,7 @@ test("bulk-add-to-pool: response shape with mix of already-in-pool and connectiv
     [1, 2, 3].map((port) =>
       freeProxiesDb.upsertFreeProxy({
         source: "1proxy",
-        host: "127.0.0.1",
+        host: "198.51.100.99",
         port,
         type: "http",
         countryCode: null,
@@ -253,7 +301,7 @@ test("bulk-add-to-pool respects 100-item limit (Zod validation)", async () => {
 test("add-to-pool happy path: connectivity succeeds → proxy created → marked in pool", async () => {
   const { id } = await freeProxiesDb.upsertFreeProxy({
     source: "1proxy",
-    host: "10.5.0.1",
+    host: "198.51.100.51",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -266,7 +314,7 @@ test("add-to-pool happy path: connectivity succeeds → proxy created → marked
   addToPoolRoute._setConnectivityTesterForTests(async () => ({
     success: true,
     latencyMs: 5,
-    publicIp: "1.2.3.4",
+    publicIp: "198.51.100.51",
   }));
 
   const res = await addToPoolRoute.POST(makeReq(), { params: Promise.resolve({ id }) });
@@ -284,7 +332,7 @@ test("add-to-pool happy path: connectivity succeeds → proxy created → marked
 test("bulk-add-to-pool happy path: connectivity succeeds → proxies created and marked in pool", async () => {
   const p1 = await freeProxiesDb.upsertFreeProxy({
     source: "proxifly",
-    host: "10.6.0.1",
+    host: "198.51.100.61",
     port: 8080,
     type: "http",
     countryCode: null,
@@ -295,7 +343,7 @@ test("bulk-add-to-pool happy path: connectivity succeeds → proxies created and
   });
   const p2 = await freeProxiesDb.upsertFreeProxy({
     source: "iplocate",
-    host: "10.6.0.2",
+    host: "198.51.100.62",
     port: 8080,
     type: "http",
     countryCode: null,

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { withFetchCapture } from "../helpers/fetchCapture.ts";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-chat-pipeline-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -46,13 +47,6 @@ type SeedConnectionOverrides = {
   priority?: number;
   rateLimitedUntil?: string | number | null;
   providerSpecificData?: Record<string, unknown>;
-};
-
-type FetchCall = {
-  url: string;
-  method?: string;
-  headers: Record<string, string>;
-  body: Record<string, any> | null;
 };
 
 type SeedApiKeyOptions = {
@@ -526,36 +520,37 @@ test.after(async () => {
 test("chat pipeline handles OpenAI passthrough with valid API key auth", async () => {
   await seedConnection("openai", { apiKey: "sk-openai-primary" });
   const apiKey = await seedApiKey();
-  const fetchCalls: FetchCall[] = [];
 
-  globalThis.fetch = async (url, init: RequestInit = {}) => {
-    fetchCalls.push({
-      url: String(url),
-      method: init.method || "GET",
-      headers: toPlainHeaders(init.headers),
-      body: init.body ? JSON.parse(String(init.body)) : null,
-    });
-    return buildOpenAIResponse("OpenAI passthrough");
-  };
+  // Exception-safe fetch capture (Task 0178): installs the mock inside
+  // withFetchCapture and restores globalThis.fetch in finally — a throw here
+  // cannot leak the mock into later tests. All observable assertions below
+  // (URL, auth header, request payload, response content) are preserved.
+  await withFetchCapture(
+    async () => buildOpenAIResponse("OpenAI passthrough"),
+    async (capture) => {
+      const response = await handleChat(
+        buildRequest({
+          authKey: apiKey.key,
+          body: {
+            model: "openai/gpt-4o-mini",
+            stream: false,
+            messages: [{ role: "user", content: "Hello OpenAI" }],
+          },
+        })
+      );
 
-  const response = await handleChat(
-    buildRequest({
-      authKey: apiKey.key,
-      body: {
-        model: "openai/gpt-4o-mini",
-        stream: false,
-        messages: [{ role: "user", content: "Hello OpenAI" }],
-      },
-    })
+      const json = (await response.json()) as any;
+      assert.equal(response.status, 200);
+      assert.equal(capture.calls.length, 1);
+      assert.match(capture.calls[0].url, /\/chat\/completions$/);
+      assert.equal(capture.calls[0].headers.Authorization, "Bearer sk-openai-primary");
+      assert.equal(
+        capture.calls[0].bodyAs<{ messages: Array<{ content: string }> }>().messages[0].content,
+        "Hello OpenAI"
+      );
+      assert.equal(json.choices[0].message.content, "OpenAI passthrough");
+    }
   );
-
-  const json = (await response.json()) as any;
-  assert.equal(response.status, 200);
-  assert.equal(fetchCalls.length, 1);
-  assert.match(fetchCalls[0].url, /\/chat\/completions$/);
-  assert.equal(fetchCalls[0].headers.Authorization, "Bearer sk-openai-primary");
-  assert.equal(fetchCalls[0].body.messages[0].content, "Hello OpenAI");
-  assert.equal(json.choices[0].message.content, "OpenAI passthrough");
 });
 
 test("chat pipeline persists Codex responses cache and reasoning tokens to call logs", async () => {

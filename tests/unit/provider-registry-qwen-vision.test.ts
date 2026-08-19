@@ -66,13 +66,13 @@ test("#2822 opencode-go/qwen3.6-plus deve ter supportsVision !== true", () => {
 // #3328 — o oposto do #2822: MiniMax M3 (opencode) É multimodal (verificado
 // empiricamente: descreve imagens base64 via o upstream opencode). Deve ter
 // supportsVision: true para não ser barrado/strippado em requests com imagem.
-test("#3328 opencode/minimax-m3-free deve ter supportsVision: true", () => {
-  const model = getModel("opencode", "minimax-m3-free");
-  assert.ok(model, "minimax-m3-free deve estar registrado em opencode");
+test("#3328 opencode/mimo-v2.5-free deve existir no registro free atualizado (#6998)", () => {
+  const model = getModel("opencode", "mimo-v2.5-free");
+  assert.ok(model, "mimo-v2.5-free deve estar registrado em opencode após refresh");
   assert.strictEqual(
-    model.supportsVision,
-    true,
-    "opencode/minimax-m3-free é multimodal — supportsVision deve ser true"
+    typeof model.supportsVision === "boolean" ? model.supportsVision : false,
+    false,
+    "mimo-v2.5-free não é mais o modelo multimodal do catálogo free; supportsVision não deve ser true"
   );
 });
 

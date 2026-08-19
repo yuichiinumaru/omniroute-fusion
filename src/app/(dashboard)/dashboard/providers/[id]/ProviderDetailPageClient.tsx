@@ -255,7 +255,7 @@ export default function ProviderDetailPageClient() {
       if (m.id && !deduped.has(m.id)) deduped.set(m.id, m);
     }
     return Array.from(deduped.values());
-  }, [providerId, registryModels, syncedAvailableModels, modelMeta.customModels]);
+  }, [registryModels, syncedAvailableModels, modelMeta.customModels]);
   const isManagedAvailableModelsProvider = isCompatible || providerId === "openrouter";
   // isSearchProvider declared earlier (before hooks)
   const isUpstreamProxyProvider = providerInfo?.category === "upstream-proxy";
@@ -313,13 +313,23 @@ export default function ProviderDetailPageClient() {
     setShowAddApiKeyModal(true);
   }, [providerId]);
 
+  const [cursorAuthInitialMode, setCursorAuthInitialMode] = useState<"auto" | "paste">("auto");
+
   const openPrimaryAddFlow = useCallback(() => {
     if (isOAuth) {
+      if (providerId === "cursor") {
+        setCursorAuthInitialMode("paste");
+      }
       setShowOAuthModal(true);
       return;
     }
     openApiKeyAddFlow();
-  }, [isOAuth, openApiKeyAddFlow]);
+  }, [isOAuth, openApiKeyAddFlow, providerId]);
+
+  const onOpenCursorAutoFlow = useCallback(() => {
+    setCursorAuthInitialMode("auto");
+    setShowOAuthModal(true);
+  }, []);
 
   // ── Phase 1h: commandCode auth flow ─────────────────────────────────────
   const {
@@ -529,6 +539,7 @@ export default function ProviderDetailPageClient() {
             onOpenImportClaude={() => setImportClaudeModalOpen(true)}
             onOpenImportGemini={() => setImportGeminiModalOpen(true)}
             onOpenImportGrokCli={() => setImportGrokCliModalOpen(true)}
+            onOpenCursorAutoFlow={onOpenCursorAutoFlow}
             t={t}
           />
 
@@ -549,6 +560,7 @@ export default function ProviderDetailPageClient() {
               onOpenImportClaude={() => setImportClaudeModalOpen(true)}
               onOpenImportGemini={() => setImportGeminiModalOpen(true)}
               onOpenImportGrokCli={() => setImportGrokCliModalOpen(true)}
+              onOpenCursorAutoFlow={onOpenCursorAutoFlow}
               t={t}
             />
           ) : (
@@ -764,6 +776,7 @@ export default function ProviderDetailPageClient() {
         setImportClaudeModalOpen={setImportClaudeModalOpen}
         importGrokCliModalOpen={importGrokCliModalOpen}
         setImportGrokCliModalOpen={setImportGrokCliModalOpen}
+        cursorAuthInitialMode={cursorAuthInitialMode}
         batchTestResults={batchTestResults}
         setBatchTestResults={setBatchTestResults}
         emailsVisible={emailsVisible}

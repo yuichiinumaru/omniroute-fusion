@@ -2,6 +2,8 @@ import { request as undiciRequest } from "undici";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { createErrorResponse, createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import { getFreeProxyById, promoteFreeProxyToPool } from "@/lib/localDb";
+import { isPrivateHost } from "@/shared/network/isPrivateHost";
+import { assertValidProxyHost } from "@/shared/network/proxyHostGuard";
 import {
   createProxyDispatcher,
   proxyConfigToUrl,
@@ -73,6 +75,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       success: true,
       alreadyInPool: true,
       poolProxyId: freeProxy.poolProxyId,
+    });
+  }
+
+  try {
+    await assertValidProxyHost(freeProxy.host);
+  } catch (hostError) {
+    return createErrorResponse({
+      status: 400,
+      message: hostError instanceof Error ? hostError.message : "Private or loopback proxy host cannot be added to pool",
+      type: "invalid_request",
     });
   }
 

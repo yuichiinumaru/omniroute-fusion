@@ -302,6 +302,7 @@ export const updateProviderConnectionSchema = z
       .optional(),
     proxyEnabled: z.boolean().optional(),
     perKeyProxyEnabled: z.boolean().optional(),
+    bypassToken: z.string().trim().optional(),
     // Partial patch of per-connection provider-specific settings (e.g. quota toggles)
     providerSpecificData: z
       .record(z.string(), z.unknown())

@@ -5,7 +5,13 @@ import { getGitHubCopilotRefreshHeaders } from "../config/providerHeaderProfiles
 import { pbkdf2Sync } from "node:crypto";
 import { runWithProxyContext } from "../utils/proxyFetch.ts";
 import { serializeRefresh, wasRefreshTokenRotated } from "./refreshSerializer.ts";
-import { WINDSURF_CONFIG } from "@/lib/oauth/constants/oauth";
+import {
+  WINDSURF_CONFIG,
+  resolveQoderOAuthEnabled,
+  resolveQoderOAuthTokenUrl,
+  resolveQoderOAuthClientId,
+  resolveQoderOAuthClientSecret,
+} from "@/lib/oauth/constants/oauth";
 import { buildGitLabOAuthEndpoints, resolveGitLabOAuthBaseUrl } from "@/lib/oauth/gitlab";
 
 // Default token expiry buffer (refresh if expires within 5 minutes).
@@ -1429,7 +1435,7 @@ export async function refreshKiroToken(
  * Specialized refresh for Qoder OAuth tokens
  */
 export async function refreshQoderToken(refreshToken, log, proxyConfig: unknown = null) {
-  if (!OAUTH_ENDPOINTS.qoder.token || !PROVIDERS.qoder.clientId || !PROVIDERS.qoder.clientSecret) {
+  if (!resolveQoderOAuthEnabled()) {
     log?.warn?.(
       "TOKEN_REFRESH",
       "Qoder OAuth refresh skipped: browser OAuth is not configured in this environment"
@@ -1437,10 +1443,22 @@ export async function refreshQoderToken(refreshToken, log, proxyConfig: unknown 
     return null;
   }
 
-  const basicAuth = btoa(`${PROVIDERS.qoder.clientId}:${PROVIDERS.qoder.clientSecret}`);
+  const tokenUrl = resolveQoderOAuthTokenUrl() || OAUTH_ENDPOINTS.qoder?.token;
+  const clientId = resolveQoderOAuthClientId() || PROVIDERS.qoder?.clientId;
+  const clientSecret = resolveQoderOAuthClientSecret() || PROVIDERS.qoder?.clientSecret;
+
+  if (!tokenUrl || !clientId || !clientSecret) {
+    log?.warn?.(
+      "TOKEN_REFRESH",
+      "Qoder OAuth refresh skipped: browser OAuth is not configured in this environment"
+    );
+    return null;
+  }
+
+  const basicAuth = btoa(`${clientId}:${clientSecret}`);
 
   const response = await runWithProxyContext(proxyConfig, () =>
-    fetch(OAUTH_ENDPOINTS.qoder.token, {
+    fetch(tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -1450,8 +1468,8 @@ export async function refreshQoderToken(refreshToken, log, proxyConfig: unknown 
       body: buildFormParams({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
-        client_id: PROVIDERS.qoder.clientId,
-        client_secret: PROVIDERS.qoder.clientSecret,
+        client_id: clientId,
+        client_secret: clientSecret,
       }),
     })
   );
